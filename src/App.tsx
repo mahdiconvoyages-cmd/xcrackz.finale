@@ -1,5 +1,5 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { AuthProvider, useAuth } from './contexts/AuthContext';
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
 import Layout from './components/Layout';
@@ -10,23 +10,26 @@ import Home from './pages/Home';
 import Legal from './pages/Legal';
 import About from './pages/About';
 import Privacy from './pages/Privacy';
+import Terms from './pages/Terms';
 import Login from './pages/Login';
 import CookieConsent from './components/CookieConsent';
-import ChatAssistant from './components/ChatAssistant';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import Missions from './pages/Missions';
 import MissionCreate from './pages/MissionCreate';
 import MissionView from './pages/MissionView';
-import Contacts from './pages/Contacts';
+import Contacts from './pages/Contacts_PREMIUM';
+import Clients from './pages/Clients';
 import Billing from './pages/Billing';
-import Reports from './pages/Reports';
 import Covoiturage from './pages/Covoiturage';
+import QuoteGenerator from './pages/QuoteGenerator';
+import CRM from './pages/CRM';
 import Settings from './pages/Settings';
 import Profile from './pages/Profile';
 import MissionTracking from './pages/MissionTracking';
 import Shop from './pages/Shop';
+import Support from './pages/Support';
 import Admin from './pages/Admin';
 import AdminSupport from './pages/AdminSupport';
 import AccountSecurity from './pages/AccountSecurity';
@@ -35,10 +38,14 @@ import TrackingList from './pages/TrackingList';
 import TeamMissions from './pages/TeamMissions';
 import InspectionDeparture from './pages/InspectionDeparture';
 import InspectionArrival from './pages/InspectionArrival';
+import InspectionWizard from './pages/InspectionWizard';
+import RapportsInspection from './pages/RapportsInspection';
+import PrivacyPolicy from './pages/legal/PrivacyPolicy';
+import TermsOfService from './pages/legal/TermsOfService';
+import CookiePolicy from './pages/legal/CookiePolicy';
+import VoiceSettings from './pages/VoiceSettings';
 
 function AppContent() {
-  const { user } = useAuth();
-
   return (
     <>
       <Routes>
@@ -46,6 +53,10 @@ function AppContent() {
         <Route path="/legal" element={<Legal />} />
         <Route path="/about" element={<About />} />
         <Route path="/privacy" element={<Privacy />} />
+        <Route path="/terms" element={<Terms />} />
+        <Route path="/legal/privacy-policy" element={<PrivacyPolicy />} />
+        <Route path="/legal/terms-of-service" element={<TermsOfService />} />
+        <Route path="/legal/cookie-policy" element={<CookiePolicy />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
@@ -127,6 +138,28 @@ function AppContent() {
           />
 
           <Route
+            path="/clients"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Clients />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/crm"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <CRM />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/team-missions"
             element={
               <ProtectedRoute>
@@ -156,6 +189,26 @@ function AppContent() {
           />
 
           <Route
+            path="/inspection/wizard/:missionId"
+            element={
+              <ProtectedRoute>
+                <InspectionWizard />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/rapports-inspection"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <RapportsInspection />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/billing"
             element={
               <ProtectedRoute>
@@ -167,11 +220,11 @@ function AppContent() {
           />
 
           <Route
-            path="/reports"
+            path="/devis"
             element={
               <ProtectedRoute>
                 <Layout>
-                  <Reports />
+                  <QuoteGenerator />
                 </Layout>
               </ProtectedRoute>
             }
@@ -200,6 +253,17 @@ function AppContent() {
           />
 
           <Route
+            path="/voice-settings"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <VoiceSettings />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/profile"
             element={
               <ProtectedRoute>
@@ -216,6 +280,17 @@ function AppContent() {
               <ProtectedRoute>
                 <Layout>
                   <Shop />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/support"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <Support />
                 </Layout>
               </ProtectedRoute>
             }
@@ -257,7 +332,6 @@ function AppContent() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
       <CookieConsent />
-      {user && <ChatAssistant />}
       <ToastContainer />
     </>
   );

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, MapPin, Truck, FileText, Download, Eye, X, ChevronRight, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, Save, Truck, Download, Eye, X, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -96,7 +96,7 @@ export default function MissionCreate() {
     setLoading(true);
 
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('missions')
         .insert([
           {
@@ -655,17 +655,7 @@ export default function MissionCreate() {
               </button>
             )}
 
-            {currentStep < totalSteps ? (
-              <button
-                type="button"
-                onClick={handleNext}
-                disabled={!canProceedToNextStep()}
-                className="flex-1 px-6 py-4 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl hover:from-teal-600 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                Suivant
-                <ChevronRight className="w-5 h-5" />
-              </button>
-            ) : (
+            {currentStep === totalSteps ? (
               <button
                 type="submit"
                 disabled={loading}
@@ -682,6 +672,16 @@ export default function MissionCreate() {
                     Créer la mission
                   </>
                 )}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleNext}
+                disabled={!canProceedToNextStep()}
+                className="flex-1 px-6 py-4 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl hover:from-teal-600 hover:to-cyan-600 transition-all shadow-lg hover:shadow-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+              >
+                Suivant
+                <ChevronRight className="w-5 h-5" />
               </button>
             )}
           </div>

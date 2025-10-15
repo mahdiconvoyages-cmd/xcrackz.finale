@@ -239,17 +239,17 @@ export default function Admin() {
         .from('missions')
         .select(`
           id,
-          title,
+          reference,
           status,
-          departure_address,
-          arrival_address,
-          scheduled_date,
+          pickup_address,
+          delivery_address,
+          pickup_date,
           driver_id,
           user_id,
           profiles!missions_user_id_fkey(email, full_name)
         `)
         .in('status', ['pending', 'in_progress'])
-        .order('scheduled_date', { ascending: true });
+        .order('pickup_date', { ascending: true });
 
       if (error) throw error;
 

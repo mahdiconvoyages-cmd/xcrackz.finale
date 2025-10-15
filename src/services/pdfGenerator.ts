@@ -29,6 +29,9 @@ interface InvoiceData {
   total: number;
   notes?: string;
   paymentTerms?: string;
+  vatLiable?: boolean;
+  vatRegime?: 'normal' | 'franchise' | 'micro';
+  legalMentions?: string;
 }
 
 export function generateInvoiceHTML(data: InvoiceData): string {
@@ -457,7 +460,7 @@ export function generateInvoiceHTML(data: InvoiceData): string {
   `;
 }
 
-export async function downloadPDF(html: string, filename: string): Promise<void> {
+export async function downloadPDF(html: string, _filename?: string): Promise<void> {
   const printWindow = window.open('', '_blank');
   if (!printWindow) {
     throw new Error('Impossible d\'ouvrir la fenêtre d\'impression. Veuillez autoriser les pop-ups.');

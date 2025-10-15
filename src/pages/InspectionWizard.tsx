@@ -6,6 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import ProgressBar from '../components/inspection/ProgressBar';
 import SignatureCanvas from '../components/inspection/SignatureCanvas';
 import PhotoUpload from '../components/inspection/PhotoUpload';
+import AIChoiceModal from '../components/inspection/AIChoiceModal';
 
 interface InspectionData {
   id?: string;
@@ -30,6 +31,7 @@ interface InspectionData {
   arrivalNotes: string;
   signatureArrival: string;
   signatureArrivalName: string;
+  useAI?: boolean; // Nouveau : choix d'utiliser l'IA ou non
 }
 
 const STEPS = [
@@ -70,6 +72,10 @@ export default function InspectionWizard() {
   const [currentStep, setCurrentStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [savingDraft, setSavingDraft] = useState(false);
+  
+  // Modal de choix IA
+  const [showAIChoice, setShowAIChoice] = useState(true);
+  const [aiChoiceMade, setAiChoiceMade] = useState(false);
 
   const [data, setData] = useState<InspectionData>({
     vehicleBrand: '',
@@ -745,6 +751,20 @@ export default function InspectionWizard() {
 
   return (
     <div className="min-h-screen py-8 relative">
+      {/* Modal de choix IA */}
+      <AIChoiceModal
+        isOpen={showAIChoice && !aiChoiceMade}
+        onChoice={(useAI) => {
+          setData({ ...data, useAI });
+          setAiChoiceMade(true);
+          setShowAIChoice(false);
+        }}
+        onClose={() => {
+          setShowAIChoice(false);
+          setAiChoiceMade(true);
+        }}
+      />
+
       <div className="max-w-4xl mx-auto px-4">
         <div className="mb-8">
           <button

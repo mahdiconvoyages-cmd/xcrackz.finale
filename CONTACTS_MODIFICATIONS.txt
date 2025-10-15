@@ -1,0 +1,164 @@
+// ========================================
+// MODIFICATIONS POUR src/pages/Contacts.tsx
+// ========================================
+
+// 1. AJOUTER CES IMPORTS (ligne ~5)
+import AvailabilityCalendar from '../components/AvailabilityCalendar';
+import { toggleAvailabilityAccess } from '../services/availabilityService';
+
+// 2. AJOUTER CES ÉTATS (ligne ~50, après les autres useState)
+const [showAvailabilityCalendar, setShowAvailabilityCalendar] = useState(false);
+const [availabilityUserId, setAvailabilityUserId] = useState<string | null>(null);
+const [availabilityUserName, setAvailabilityUserName] = useState<string>('');
+const [isOwnAvailabilityCalendar, setIsOwnAvailabilityCalendar] = useState(false);
+
+// 3. AJOUTER CES FONCTIONS (après handleDelete, ligne ~220)
+
+// Voir mes propres disponibilités
+const handleViewMyAvailabilities = () => {
+  if (!user) return;
+  setAvailabilityUserId(user.id);
+  setAvailabilityUserName('Mes disponibilités');
+  setIsOwnAvailabilityCalendar(true);
+  setShowAvailabilityCalendar(true);
+};
+
+// Voir les disponibilités d'un contact
+const handleViewContactAvailabilities = async (contact: Contact) => {
+  if (!contact.has_calendar_access) {
+    alert('Ce contact ne partage pas ses disponibilités avec vous');
+    return;
+  }
+
+  // Récupérer l'ID utilisateur du contact via son email
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('email', contact.email)
+    .single();
+
+  if (profile) {
+    setAvailabilityUserId(profile.id);
+    setAvailabilityUserName(contact.name);
+    setIsOwnAvailabilityCalendar(false);
+    setShowAvailabilityCalendar(true);
+  } else {
+    alert('Impossible de charger les disponibilités de ce contact');
+  }
+};
+
+// Basculer l'accès aux disponibilités (donner/révoquer)
+const handleToggleAvailabilityAccess = async (contactId: string, currentAccess: boolean) => {
+  const newAccess = !currentAccess;
+  const success = await toggleAvailabilityAccess(contactId, newAccess);
+  
+  if (success) {
+    alert(newAccess 
+      ? '✅ Accès aux disponibilités accordé' 
+      : '❌ Accès aux disponibilités révoqué'
+    );
+    loadContacts();
+  } else {
+    alert('Erreur lors de la mise à jour de l\'accès');
+  }
+};
+
+// 4. AJOUTER CE BOUTON dans le header (ligne ~300, AVANT "Nouveau contact")
+<button
+  onClick={handleViewMyAvailabilities}
+  className="px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 hover:from-teal-600 hover:to-cyan-600 text-white rounded-lg transition font-semibold flex items-center gap-2 shadow-lg"
+>
+  <Calendar className="w-5 h-5" />
+  Mes disponibilités
+</button>
+
+// 5. REMPLACER LES BOUTONS D'ACTION dans la carte contact (ligne ~400)
+// ANCIENS BOUTONS (À SUPPRIMER) :
+/*
+<button
+  onClick={() => handleViewCalendar(contact)}
+  className="p-2 hover:bg-teal-500/20 text-teal-600 rounded-lg transition"
+  title="Voir le planning"
+>
+  <Calendar className="w-4 h-4" />
+</button>
+<button
+  onClick={() => handleShareMyCalendar(contact)}
+  className="p-2 hover:bg-blue-500/20 text-blue-600 rounded-lg transition"
+  title="Partager mon planning"
+>
+  <Share2 className="w-4 h-4" />
+</button>
+*/
+
+// NOUVEAUX BOUTONS (À AJOUTER) :
+<button
+  onClick={() => handleViewContactAvailabilities(contact)}
+  className={`p-2 rounded-lg transition ${
+    contact.has_calendar_access
+      ? 'hover:bg-teal-500/20 text-teal-600'
+      : 'opacity-50 cursor-not-allowed text-slate-400'
+  }`}
+  title={contact.has_calendar_access ? 'Voir les disponibilités' : 'Accès non autorisé'}
+  disabled={!contact.has_calendar_access}
+>
+  <Calendar className="w-4 h-4" />
+</button>
+<button
+  onClick={() => handleToggleAvailabilityAccess(contact.id, contact.has_calendar_access)}
+  className={`p-2 rounded-lg transition ${
+    contact.has_calendar_access
+      ? 'bg-green-100 text-green-600 hover:bg-green-200'
+      : 'hover:bg-blue-500/20 text-blue-600'
+  }`}
+  title={contact.has_calendar_access 
+    ? '✓ Accès accordé - Cliquer pour révoquer' 
+    : 'Donner accès aux disponibilités'
+  }
+>
+  <Share2 className={`w-4 h-4 ${contact.has_calendar_access ? 'fill-current' : ''}`} />
+</button>
+
+// 6. SUPPRIMER LE MODAL DE PARTAGE DE PLANNING (lignes ~680-720)
+// Supprimer tout le bloc :
+/*
+{showShareModal && selectedContact && (
+  <div className="fixed inset-0 bg-black/50...">
+    ... tout le contenu du modal ...
+  </div>
+)}
+*/
+
+// 7. SUPPRIMER LES FONCTIONS ET ÉTATS NON UTILISÉS
+// - handleShareMyCalendar
+// - handleConfirmShare
+// - showShareModal
+// - selectedContact (si uniquement utilisé pour le modal de planning)
+
+// 8. AJOUTER LE COMPOSANT AVAILABILITY CALENDAR (ligne ~735, AVANT la fermeture finale)
+{showAvailabilityCalendar && availabilityUserId && (
+  <AvailabilityCalendar
+    userId={availabilityUserId}
+    userName={availabilityUserName}
+    isOwnCalendar={isOwnAvailabilityCalendar}
+    onClose={() => {
+      setShowAvailabilityCalendar(false);
+      setAvailabilityUserId(null);
+      setAvailabilityUserName('');
+      setIsOwnAvailabilityCalendar(false);
+    }}
+  />
+)}
+
+// ========================================
+// RÉSUMÉ DES CHANGEMENTS
+// ========================================
+// ✅ 2 nouveaux imports
+// ✅ 4 nouveaux états
+// ✅ 3 nouvelles fonctions
+// ✅ 1 nouveau bouton dans le header
+// ✅ 2 boutons modifiés dans les cartes contact
+// ✅ 1 nouveau composant en fin de page
+// ❌ Supprimer le modal de partage de planning
+// ❌ Supprimer les fonctions handleShareMyCalendar et handleConfirmShare
+// ❌ Supprimer les états showShareModal et selectedContact (si non utilisés ailleurs)

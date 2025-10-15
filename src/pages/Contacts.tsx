@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Plus, Search, Users, Phone, Mail, Building, Trash2, Calendar, Share2 } from 'lucide-react';
+import { Plus, Search, Users, Phone, Mail, Building, Trash2, Calendar, Share2, UserCheck, Star, Activity } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { getContactCalendarAccess, shareCalendarWithContact, type CalendarAccess } from '../services/calendarService';
@@ -246,39 +246,90 @@ export default function Contacts() {
 
   return (
     <div className="space-y-6">
+      {/* HEADER */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 bg-clip-text text-transparent drop-shadow-sm animate-gradient text-shadow mb-2">Contacts</h1>
-          <p className="text-slate-600 text-lg">Ajoutez vos contacts par email ou numéro de téléphone</p>
+          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-3">
+            <Users className="w-8 h-8 text-teal-500 animate-pulse" />
+            Contacts
+          </h1>
+          <p className="text-slate-600 text-lg">
+            Gérez votre réseau professionnel
+          </p>
         </div>
         <button
           onClick={() => {
             resetModal();
             setShowModal(true);
           }}
-          className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 px-6 py-3 rounded-lg font-semibold hover:shadow-2xl hover:shadow-slate-400/40 hover:shadow-depth-xl hover:shadow-teal-500/60 transition"
+          className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-xl transition-all"
         >
           <Plus className="w-5 h-5" />
           Ajouter un contact
         </button>
       </div>
 
-      <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/10 via-cyan-500/10 to-teal-500/10 border border-blue-400/30 shadow-xl shadow-blue-500/20 shadow-depth-lg rounded-2xl hover:shadow-depth-xl transition-all duration-300 p-6">
+      {/* STATS */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/10 via-cyan-500/10 to-teal-500/10 border border-blue-400/30 shadow-xl rounded-2xl p-6 hover:shadow-2xl transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-3 bg-blue-500/20 backdrop-blur rounded-xl">
+              <Users className="w-6 h-6 text-blue-700" />
+            </div>
+            <span className="text-3xl font-black text-blue-800">{contacts.length}</span>
+          </div>
+          <p className="text-sm font-bold text-blue-800">Total contacts</p>
+        </div>
+
+        <div className="backdrop-blur-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-white/40 shadow-xl rounded-2xl p-6 hover:shadow-2xl transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-3 bg-green-500/20 backdrop-blur rounded-xl">
+              <UserCheck className="w-6 h-6 text-green-700" />
+            </div>
+            <span className="text-3xl font-black text-green-700">{contacts.filter(c => c.type === 'customer').length}</span>
+          </div>
+          <p className="text-sm font-bold text-green-800">Clients</p>
+        </div>
+
+        <div className="backdrop-blur-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-white/40 shadow-xl rounded-2xl p-6 hover:shadow-2xl transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-3 bg-purple-500/20 backdrop-blur rounded-xl">
+              <Activity className="w-6 h-6 text-purple-700" />
+            </div>
+            <span className="text-3xl font-black text-purple-700">{contacts.filter(c => c.is_driver).length}</span>
+          </div>
+          <p className="text-sm font-bold text-purple-800">Chauffeurs</p>
+        </div>
+
+        <div className="backdrop-blur-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-white/40 shadow-xl rounded-2xl p-6 hover:shadow-2xl transition-all">
+          <div className="flex items-center justify-between mb-3">
+            <div className="p-3 bg-amber-500/20 backdrop-blur rounded-xl">
+              <Star className="w-6 h-6 text-amber-700" />
+            </div>
+            <span className="text-3xl font-black text-amber-700">{contacts.filter(c => c.rating_average >= 4).length}</span>
+          </div>
+          <p className="text-sm font-bold text-amber-800">Bien notés</p>
+        </div>
+      </div>
+
+      <div className="backdrop-blur-xl bg-white/70 border border-slate-200 rounded-2xl shadow-xl p-6">
+        <h3 className="text-lg font-bold text-slate-900 mb-4">Liste des contacts</h3>
+        
         <div className="flex flex-col md:flex-row gap-4 mb-6">
           <div className="flex-1 relative">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               type="text"
-              placeholder="Rechercher un contact..."
+              placeholder="Rechercher par nom, email, téléphone..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-slate-50 border border-slate-200 border border-slate-200 rounded-lg pl-10 pr-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
             />
           </div>
           <select
             value={typeFilter}
             onChange={(e) => setTypeFilter(e.target.value)}
-            className="bg-slate-50 border border-slate-200 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+            className="px-4 py-3 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500"
           >
             <option value="all">Tous les types</option>
             <option value="customer">Clients</option>
@@ -289,12 +340,13 @@ export default function Contacts() {
 
         {filteredContacts.length === 0 ? (
           <div className="text-center py-12">
-            <Users className="w-16 h-16 text-slate-600 mx-auto mb-4" />
-            <p className="text-slate-600 mb-4">
+            <Users className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+            <p className="text-slate-600 text-lg mb-2">
               {searchQuery || typeFilter !== 'all'
                 ? 'Aucun contact trouvé'
                 : 'Aucun contact pour le moment'}
             </p>
+            <p className="text-slate-500 text-sm">Cliquez sur "Ajouter un contact" pour commencer</p>
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">

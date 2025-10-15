@@ -1,8 +1,9 @@
 import { useState, useEffect } from 'react';
-import { User, Building, Save, Shield, Download, Trash2 } from 'lucide-react';
+import { User, Building, Save, Shield, Download, Trash2, Mic } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { gdprService } from '../services/gdprService';
+import { useNavigate } from 'react-router-dom';
 
 interface Profile {
   first_name: string;
@@ -16,6 +17,7 @@ interface Profile {
 
 export default function Settings() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [profile, setProfile] = useState<Profile>({
@@ -137,6 +139,34 @@ export default function Settings() {
       )}
 
       <form onSubmit={handleSubmit} className="space-y-6">
+        {/* Lien vers paramètres vocaux Clara */}
+        <div className="backdrop-blur-xl bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-purple-500/10 border border-purple-400/30 shadow-xl shadow-purple-500/20 rounded-2xl p-6 hover:shadow-depth-xl transition-all duration-300">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <h2 className="text-xl font-bold mb-2 flex items-center gap-2">
+                <Mic className="w-5 h-5 text-purple-600" />
+                Voix de Clara (Assistant IA)
+              </h2>
+              <p className="text-slate-600 mb-4">
+                Personnalisez la voix de votre assistante virtuelle Clara : choix de la voix, tonalité, vitesse et volume.
+              </p>
+              <button
+                type="button"
+                onClick={() => navigate('/voice-settings')}
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/50 transition-all"
+              >
+                <Mic className="w-5 h-5" />
+                Configurer la voix de Clara
+              </button>
+            </div>
+            <div className="hidden md:block">
+              <div className="w-20 h-20 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center">
+                <Mic className="w-10 h-10 text-white" />
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/10 via-cyan-500/10 to-teal-500/10 border border-blue-400/30 shadow-xl shadow-blue-500/20 shadow-depth-lg rounded-2xl hover:shadow-depth-xl transition-all duration-300 p-6">
           <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
             <User className="w-5 h-5" />

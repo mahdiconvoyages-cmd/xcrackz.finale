@@ -1,9 +1,9 @@
 // Service AI avec DeepSeek V3 (100x moins cher que GPT-4!)
-const DEEPSEEK_API_KEY = 'sk-f091258152ee4d5983ff2431b2398e43';
+const DEEPSEEK_API_KEY = import.meta.env.VITE_DEEPSEEK_API_KEY || '';
 const DEEPSEEK_API_URL = 'https://api.deepseek.com/v1/chat/completions';
 
 // Fallback OpenRouter (si besoin)
-const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY;
+const OPENROUTER_API_KEY = import.meta.env.VITE_OPENROUTER_API_KEY || '';
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 
 export interface AIMessage {

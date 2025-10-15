@@ -1,7 +1,8 @@
 import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import FloatingParticles from './FloatingParticles';
-import { LayoutDashboard, Users, FileText, Car, Settings, BarChart3, LogOut, Menu, X, CircleUser as UserCircle, MapPin, ShoppingBag, Shield } from 'lucide-react';
+import ChatAssistant from './ChatAssistant';
+import { LayoutDashboard, Users, Car, Settings, LogOut, Menu, X, CircleUser as UserCircle, MapPin, ShoppingBag, Shield, Building2, ClipboardCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdmin } from '../hooks/useAdmin';
 import { useState, useEffect } from 'react';
@@ -55,8 +56,8 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/team-missions', icon: Users, label: 'Équipe & Missions', color: 'text-teal-400', hoverColor: 'group-hover:text-teal-300' },
     { path: '/tracking', icon: MapPin, label: 'Tracking', color: 'text-green-400', hoverColor: 'group-hover:text-green-300' },
     { path: '/contacts', icon: Users, label: 'Contacts', color: 'text-violet-400', hoverColor: 'group-hover:text-violet-300' },
-    { path: '/billing', icon: FileText, label: 'Facturation', color: 'text-yellow-400', hoverColor: 'group-hover:text-yellow-300' },
-    { path: '/reports', icon: BarChart3, label: 'Rapports', color: 'text-pink-400', hoverColor: 'group-hover:text-pink-300' },
+    { path: '/crm', icon: Building2, label: 'CRM & Commercial', color: 'text-indigo-400', hoverColor: 'group-hover:text-indigo-300' },
+    { path: '/rapports-inspection', icon: ClipboardCheck, label: 'Rapports Inspection', color: 'text-purple-400', hoverColor: 'group-hover:text-purple-300' },
     { path: '/covoiturage', icon: Car, label: 'Covoiturage', color: 'text-cyan-400', hoverColor: 'group-hover:text-cyan-300' },
     { path: '/shop', icon: ShoppingBag, label: 'Boutique', color: 'text-emerald-400', hoverColor: 'group-hover:text-emerald-300' },
   ];
@@ -153,20 +154,22 @@ export default function Layout({ children }: LayoutProps) {
 
         <div className="p-4 space-y-2 border-t border-teal-400/20 bg-gradient-to-r from-teal-500/5 to-cyan-500/5 flex-shrink-0">
           {isAdmin && (
-            <Link
-              to="/admin"
-              onClick={() => setSidebarOpen(false)}
-              className={`
-                group flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300
-                ${location.pathname === '/admin'
-                  ? 'bg-gradient-to-r from-white/20 to-white/10 backdrop-blur-md text-white shadow-lg shadow-black/20 border border-white/30'
-                  : 'text-slate-300 hover:bg-white/10 hover:backdrop-blur-sm hover:text-white hover:shadow-md hover:border hover:border-white/20'
-                }
-              `}
-            >
-              <Shield className={`w-5 h-5 transition-all duration-300 flex-shrink-0 ${location.pathname === '/admin' ? 'scale-110 text-red-400 drop-shadow-lg' : 'text-red-400 group-hover:text-red-300 group-hover:scale-110 group-hover:rotate-6 group-hover:drop-shadow-lg'}`} />
-              <span className={`font-semibold text-sm tracking-wide transition-all duration-300 ${location.pathname === '/admin' ? 'text-white' : 'text-white/70 group-hover:text-white'}`}>Administration</span>
-            </Link>
+            <>
+              <Link
+                to="/admin"
+                onClick={() => setSidebarOpen(false)}
+                className={`
+                  group flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300
+                  ${location.pathname === '/admin'
+                    ? 'bg-gradient-to-r from-white/20 to-white/10 backdrop-blur-md text-white shadow-lg shadow-black/20 border border-white/30'
+                    : 'text-slate-300 hover:bg-white/10 hover:backdrop-blur-sm hover:text-white hover:shadow-md hover:border hover:border-white/20'
+                  }
+                `}
+              >
+                <Shield className={`w-5 h-5 transition-all duration-300 flex-shrink-0 ${location.pathname === '/admin' ? 'scale-110 text-red-400 drop-shadow-lg' : 'text-red-400 group-hover:text-red-300 group-hover:scale-110 group-hover:rotate-6 group-hover:drop-shadow-lg'}`} />
+                <span className={`font-semibold text-sm tracking-wide transition-all duration-300 ${location.pathname === '/admin' ? 'text-white' : 'text-white/70 group-hover:text-white'}`}>Administration</span>
+              </Link>
+            </>
           )}
 
           <Link
@@ -261,6 +264,9 @@ export default function Layout({ children }: LayoutProps) {
           {children}
         </main>
       </div>
+
+      {/* Clara - Assistant IA flottant */}
+      <ChatAssistant />
     </div>
   );
 }
