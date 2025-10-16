@@ -305,7 +305,7 @@ export default function InspectionDeparture() {
             inspection_id: inspection.id,
             photo_type: photo.type,
             photo_url: urlData.publicUrl,
-            uploaded_by: user!.id,
+            // uploaded_by: user!.id,  // ❌ COLONNE N'EXISTE PAS - commentée
           });
         }
       }
@@ -349,25 +349,27 @@ export default function InspectionDeparture() {
   if (showDetailsForm) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 text-white">
-        <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-6 shadow-xl">
-          <div className="max-w-4xl mx-auto flex items-center justify-between">
-            <button
-              onClick={() => setShowDetailsForm(false)}
-              className="flex items-center gap-2 px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition"
-            >
-              <ArrowLeft className="w-5 h-5" />
-              Retour aux photos
-            </button>
-            <h1 className="text-2xl font-bold">Détails du véhicule</h1>
-            <div className="w-32"></div>
+        <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-4 sm:p-6 shadow-xl">
+          <div className="max-w-full sm:max-w-3xl md:max-w-4xl mx-auto px-4">
+            <div className="flex items-center justify-between mb-2 sm:mb-0">
+              <button
+                onClick={() => setShowDetailsForm(false)}
+                className="flex items-center gap-1 sm:gap-2 px-3 py-2 sm:px-4 bg-white/10 rounded-lg hover:bg-white/20 active:scale-95 transition min-h-[44px]"
+              >
+                <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
+                <span className="text-sm sm:text-base">Retour</span>
+              </button>
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold">Détails du véhicule</h1>
+              <div className="w-16 sm:w-32"></div>
+            </div>
           </div>
         </div>
 
-        <div className="max-w-4xl mx-auto p-6 space-y-6">
-          <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-6">
-            <h2 className="text-xl font-bold mb-6">Informations complémentaires</h2>
+        <div className="max-w-full sm:max-w-3xl md:max-w-4xl mx-auto p-4 sm:p-6 space-y-4 sm:space-y-6">
+          <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl sm:rounded-2xl p-4 sm:p-6">
+            <h2 className="text-lg sm:text-xl font-bold mb-4 sm:mb-6">Informations complémentaires</h2>
 
-            <div className="space-y-6">
+            <div className="space-y-4 sm:space-y-6">
               <div>
                 <label className="block text-sm font-semibold mb-2">
                   Niveau de carburant (%)
@@ -380,7 +382,7 @@ export default function InspectionDeparture() {
                   onChange={(e) => setFuelLevel(e.target.value)}
                   className="w-full h-2 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-teal-500"
                 />
-                <div className="text-center mt-2 text-2xl font-bold text-teal-400">{fuelLevel}%</div>
+                <div className="text-center mt-2 text-xl sm:text-2xl font-bold text-teal-400">{fuelLevel}%</div>
               </div>
 
               <div>
@@ -391,7 +393,7 @@ export default function InspectionDeparture() {
                   type="number"
                   value={mileage}
                   onChange={(e) => setMileage(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-white"
+                  className="w-full px-3 py-2 sm:px-4 sm:py-3 bg-slate-800/50 border border-slate-600 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-white text-base min-h-[44px]"
                   placeholder="0"
                 />
               </div>
@@ -400,7 +402,7 @@ export default function InspectionDeparture() {
                 <label className="block text-sm font-semibold mb-3">
                   État général du véhicule
                 </label>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-2 gap-2 sm:gap-3">
                   {[
                     { value: 'excellent', label: 'Excellent', color: 'green' },
                     { value: 'good', label: 'Bon', color: 'teal' },
@@ -410,7 +412,7 @@ export default function InspectionDeparture() {
                     <button
                       key={item.value}
                       onClick={() => setCondition(item.value)}
-                      className={`px-4 py-3 rounded-xl border-2 font-semibold transition-all ${
+                      className={`px-3 py-2.5 sm:px-4 sm:py-3 rounded-lg sm:rounded-xl border-2 font-semibold transition-all text-sm sm:text-base min-h-[48px] active:scale-95 ${
                         condition === item.value
                           ? 'bg-teal-500 border-teal-400 text-white scale-105'
                           : 'bg-slate-800/50 border-slate-600 text-slate-300 hover:border-slate-500'
@@ -429,7 +431,7 @@ export default function InspectionDeparture() {
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
-                  className="w-full px-4 py-3 bg-slate-800/50 border border-slate-600 rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-white"
+                  className="w-full px-3 py-2 sm:px-4 sm:py-3 bg-slate-800/50 border border-slate-600 rounded-lg sm:rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-500 text-white text-base"
                   rows={4}
                   placeholder="Observations particulières, dommages visibles, etc..."
                 />
@@ -570,63 +572,64 @@ export default function InspectionDeparture() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800 text-white flex flex-col">
-      <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-4 shadow-xl">
-        <div className="max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
+      <div className="bg-gradient-to-r from-teal-600 to-cyan-600 p-3 sm:p-4 shadow-xl">
+        <div className="max-w-full sm:max-w-3xl md:max-w-4xl mx-auto px-2 sm:px-4">
+          <div className="flex items-center justify-between mb-3 sm:mb-4">
             <button
               onClick={() => navigate('/team-missions')}
-              className="flex items-center gap-2 px-3 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition text-sm"
+              className="flex items-center gap-1 sm:gap-2 px-2 py-2 sm:px-3 bg-white/10 rounded-lg hover:bg-white/20 active:scale-95 transition text-xs sm:text-sm min-h-[44px]"
             >
               <ArrowLeft className="w-4 h-4" />
-              Annuler
+              <span className="hidden xs:inline">Annuler</span>
             </button>
-            <div className="text-center">
-              <p className="text-sm opacity-90">Mission {mission.reference}</p>
-              <p className="font-bold">{mission.vehicle_brand} {mission.vehicle_model}</p>
+            <div className="text-center flex-1 px-2">
+              <p className="text-xs sm:text-sm opacity-90">Mission {mission.reference}</p>
+              <p className="font-bold text-sm sm:text-base truncate">{mission.vehicle_brand} {mission.vehicle_model}</p>
             </div>
-            <div className="w-20"></div>
+            <div className="w-12 sm:w-20"></div>
           </div>
 
-          <div className="flex items-center justify-between text-sm">
-            <span>Photo {currentStep + 1} sur {photoSteps.length}</span>
-            <span className="font-bold">{getCompletedPhotosCount()}/{photoSteps.length} terminées</span>
+          <div className="flex items-center justify-between text-xs sm:text-sm mb-2">
+            <span>Photo {currentStep + 1}/{photoSteps.length}</span>
+            <span className="font-bold">{getCompletedPhotosCount()}/{photoSteps.length}</span>
           </div>
 
-          <div className="w-full bg-slate-700/50 rounded-full h-2 mt-2">
+          <div className="w-full bg-slate-700/50 rounded-full h-1.5 sm:h-2">
             <div
-              className="bg-gradient-to-r from-teal-400 to-cyan-400 h-2 rounded-full transition-all duration-300"
+              className="bg-gradient-to-r from-teal-400 to-cyan-400 h-1.5 sm:h-2 rounded-full transition-all duration-300"
               style={{ width: `${(getCompletedPhotosCount() / photoSteps.length) * 100}%` }}
             />
           </div>
         </div>
       </div>
 
-      <div className="flex-1 flex flex-col items-center justify-center p-4">
-        <div className="max-w-4xl w-full space-y-6">
-          <div className="text-center space-y-2">
-            <h1 className="text-3xl font-bold">{currentPhoto.label}</h1>
-            <p className="text-slate-300 text-lg">{currentPhoto.instruction}</p>
+      <div className="flex-1 flex flex-col items-center justify-center p-3 sm:p-4 overflow-y-auto">
+        <div className="max-w-full sm:max-w-3xl md:max-w-4xl w-full space-y-4 sm:space-y-6">
+          <div className="text-center space-y-1 sm:space-y-2 px-2">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold">{currentPhoto.label}</h1>
+            <p className="text-sm sm:text-base md:text-lg text-slate-300">{currentPhoto.instruction}</p>
           </div>
 
           <div className="relative">
             {!currentPhoto.validated ? (
-              <div className="aspect-[4/3] bg-slate-800/50 border-4 border-dashed border-teal-500/50 rounded-2xl flex flex-col items-center justify-center gap-6 backdrop-blur">
+              <div className="aspect-[4/3] bg-slate-800/50 border-2 sm:border-4 border-dashed border-teal-500/50 rounded-xl sm:rounded-2xl flex flex-col items-center justify-center gap-4 sm:gap-6 backdrop-blur p-4">
                 <div className="relative">
-                  <div className="absolute inset-0 bg-teal-500/20 rounded-full blur-3xl"></div>
-                  <Camera className="w-24 h-24 text-teal-400 relative z-10" />
+                  <div className="absolute inset-0 bg-teal-500/20 rounded-full blur-2xl sm:blur-3xl"></div>
+                  <Camera className="w-16 h-16 sm:w-20 sm:h-20 md:w-24 md:h-24 text-teal-400 relative z-10" />
                 </div>
 
-                <div className="text-center space-y-4">
-                  <p className="text-xl font-semibold">Positionnez le véhicule dans le cadre</p>
-                  <p className="text-slate-400">Assurez-vous que l'éclairage est suffisant</p>
+                <div className="text-center space-y-2 sm:space-y-4">
+                  <p className="text-base sm:text-lg md:text-xl font-semibold px-2">Positionnez le véhicule dans le cadre</p>
+                  <p className="text-sm sm:text-base text-slate-400">Assurez-vous que l'éclairage est suffisant</p>
                 </div>
 
                 <button
                   onClick={() => fileInputRef.current?.click()}
-                  className="px-8 py-4 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-xl font-bold text-lg hover:from-teal-600 hover:to-cyan-600 transition shadow-xl flex items-center gap-3"
+                  className="px-6 py-3 sm:px-8 sm:py-4 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-lg sm:rounded-xl font-bold text-base sm:text-lg hover:from-teal-600 hover:to-cyan-600 active:scale-95 transition-all shadow-xl flex items-center gap-2 sm:gap-3 min-h-[52px]"
                 >
-                  <Camera className="w-6 h-6" />
-                  Prendre la photo
+                  <Camera className="w-5 h-5 sm:w-6 sm:h-6" />
+                  <span className="hidden xs:inline">Prendre la photo</span>
+                  <span className="xs:hidden">📷</span>
                 </button>
 
                 <input
@@ -639,31 +642,31 @@ export default function InspectionDeparture() {
                 />
               </div>
             ) : (
-              <div className="space-y-4">
-                <div className="relative rounded-2xl overflow-hidden">
+              <div className="space-y-3 sm:space-y-4">
+                <div className="relative rounded-xl sm:rounded-2xl overflow-hidden">
                   <img
                     src={currentPhoto.url!}
                     alt={currentPhoto.label}
-                    className="w-full aspect-[4/3] object-cover"
+                    className="w-full aspect-[4/3] object-cover max-h-[60vh]"
                   />
-                  <div className="absolute top-4 right-4 bg-green-500 rounded-full p-2">
-                    <Check className="w-6 h-6 text-white" />
+                  <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-green-500 rounded-full p-1.5 sm:p-2">
+                    <Check className="w-4 h-4 sm:w-6 sm:h-6 text-white" />
                   </div>
                 </div>
 
-                <div className="flex gap-3">
+                <div className="flex gap-2 sm:gap-3">
                   <button
                     onClick={handleRetakePhoto}
-                    className="flex-1 px-6 py-3 bg-slate-700 border border-slate-600 rounded-xl font-semibold hover:bg-slate-600 transition"
+                    className="flex-1 px-4 py-2.5 sm:px-6 sm:py-3 bg-slate-700 border border-slate-600 rounded-lg sm:rounded-xl font-semibold hover:bg-slate-600 active:scale-95 transition-all text-sm sm:text-base min-h-[48px]"
                   >
                     Reprendre
                   </button>
                   <button
                     onClick={handleNextStep}
-                    className="flex-1 px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-xl font-semibold hover:from-teal-600 hover:to-cyan-600 transition flex items-center justify-center gap-2"
+                    className="flex-1 px-4 py-2.5 sm:px-6 sm:py-3 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-lg sm:rounded-xl font-semibold hover:from-teal-600 hover:to-cyan-600 active:scale-95 transition-all flex items-center justify-center gap-1 sm:gap-2 text-sm sm:text-base min-h-[48px]"
                   >
-                    {currentStep === photoSteps.length - 1 ? 'Continuer' : 'Photo suivante'}
-                    <ArrowRight className="w-5 h-5" />
+                    <span>{currentStep === photoSteps.length - 1 ? 'Continuer' : 'Suivant'}</span>
+                    <ArrowRight className="w-4 h-4 sm:w-5 sm:h-5" />
                   </button>
                 </div>
               </div>
@@ -673,19 +676,19 @@ export default function InspectionDeparture() {
           {currentStep > 0 && !currentPhoto.validated && (
             <button
               onClick={handlePreviousStep}
-              className="w-full px-6 py-3 bg-slate-800/50 border border-slate-700 rounded-xl font-semibold hover:bg-slate-800 transition flex items-center justify-center gap-2"
+              className="w-full px-4 py-2.5 sm:px-6 sm:py-3 bg-slate-800/50 border border-slate-700 rounded-lg sm:rounded-xl font-semibold hover:bg-slate-800 active:scale-95 transition-all flex items-center justify-center gap-2 text-sm sm:text-base min-h-[48px]"
             >
-              <ArrowLeft className="w-5 h-5" />
+              <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
               Photo précédente
             </button>
           )}
 
-          <div className="grid grid-cols-6 gap-2">
+          <div className="grid grid-cols-6 gap-1.5 sm:gap-2">
             {photoSteps.map((step, index) => (
               <button
                 key={step.type}
                 onClick={() => setCurrentStep(index)}
-                className={`aspect-square rounded-lg border-2 flex items-center justify-center transition-all ${
+                className={`aspect-square rounded-md sm:rounded-lg border-2 flex items-center justify-center transition-all min-h-[44px] active:scale-90 ${
                   index === currentStep
                     ? 'border-teal-500 bg-teal-500/20'
                     : step.validated
@@ -694,9 +697,9 @@ export default function InspectionDeparture() {
                 }`}
               >
                 {step.validated ? (
-                  <Check className="w-4 h-4 text-green-400" />
+                  <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
                 ) : (
-                  <span className="text-xs font-bold">{index + 1}</span>
+                  <span className="text-xs sm:text-sm font-bold">{index + 1}</span>
                 )}
               </button>
             ))}

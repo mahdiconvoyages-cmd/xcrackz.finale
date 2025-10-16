@@ -35,6 +35,7 @@ export default function InspectionArrival() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [mission, setMission] = useState<Mission | null>(null);
+  const [inspection, setInspection] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [currentStep, setCurrentStep] = useState(0);
@@ -277,33 +278,90 @@ export default function InspectionArrival() {
         .single();
 
       if (inspectionError) throw inspectionError;
+      
+      // 🛡️ Guard: Vérifier que l'insertion a retourné un ID valide
+      if (!arrivalInspection?.id) {
+        throw new Error('❌ Aucun ID d\'inspection retourné - insertion échouée');
+      }
+      
+      console.log('✅ Inspection créée avec ID:', arrivalInspection.id);
 
+      // 🔄 Upload des photos avec retry et validation
+      let uploadedPhotosCount = 0;
+      const uploadErrors: string[] = [];
+      
       for (const photo of photoSteps) {
         if (photo.file) {
           const fileExt = photo.file.name.split('.').pop();
           const fileName = `${arrivalInspection.id}-${photo.type}-${Date.now()}.${fileExt}`;
           const filePath = `inspections/${fileName}`;
 
-          const { error: uploadError } = await supabase.storage
-            .from('inspection-photos')
-            .upload(filePath, photo.file);
+          // 🔄 Retry upload jusqu'à 2 fois
+          let uploadSuccess = false;
+          let uploadError: any = null;
+          
+          for (let attempt = 1; attempt <= 2; attempt++) {
+            const { error } = await supabase.storage
+              .from('inspection-photos')
+              .upload(filePath, photo.file);
+              
+            if (!error) {
+              uploadSuccess = true;
+              break;
+            }
+            
+            uploadError = error;
+            console.warn(`⚠️ Upload ${photo.type} - Tentative ${attempt}/2 échouée:`, error);
+            
+            if (attempt < 2) {
+              // Attendre 1s avant retry
+              await new Promise(resolve => setTimeout(resolve, 1000));
+            }
+          }
 
-          if (uploadError) {
-            console.error('Upload error:', uploadError);
+          if (!uploadSuccess) {
+            const errorMsg = `❌ Échec upload ${photo.type}: ${uploadError?.message || 'Erreur inconnue'}`;
+            console.error(errorMsg);
+            uploadErrors.push(errorMsg);
             continue;
           }
 
+          // 🛡️ Vérifier l'URL publique
           const { data: urlData } = supabase.storage
             .from('inspection-photos')
             .getPublicUrl(filePath);
+            
+          if (!urlData?.publicUrl) {
+            const errorMsg = `❌ URL publique manquante pour ${photo.type}`;
+            console.error(errorMsg);
+            uploadErrors.push(errorMsg);
+            continue;
+          }
 
-          await supabase.from('inspection_photos').insert({
+          // 🛡️ Insert en base avec vérification
+          const { error: insertError } = await supabase.from('inspection_photos').insert({
             inspection_id: arrivalInspection.id,
             photo_type: photo.type,
             photo_url: urlData.publicUrl,
-            uploaded_by: user!.id,
+            // uploaded_by: user!.id,  // ❌ COLONNE N'EXISTE PAS - commentée
           });
+          
+          if (insertError) {
+            const errorMsg = `❌ Échec insert DB ${photo.type}: ${insertError.message}`;
+            console.error(errorMsg);
+            uploadErrors.push(errorMsg);
+          } else {
+            uploadedPhotosCount++;
+            console.log(`✅ Photo ${photo.type} uploadée et enregistrée`);
+          }
         }
+      }
+      
+      // 📊 Rapport final des uploads
+      console.log(`📊 Résultat uploads: ${uploadedPhotosCount}/${photoSteps.length} réussies`);
+      if (uploadErrors.length > 0) {
+        console.warn('⚠️ Erreurs d\'upload:', uploadErrors);
+        showToast(`⚠️ ${uploadErrors.length} photo(s) n'ont pas pu être uploadées`, 'warning');
       }
 
       // Document scanning feature - to be implemented
@@ -328,13 +386,23 @@ export default function InspectionArrival() {
       //   }
       // }
 
-      await supabase
+      // 🏁 Finaliser la mission
+      const { error: missionError } = await supabase
         .from('missions')
         .update({ status: 'completed' })
         .eq('id', missionId);
+        
+      if (missionError) {
+        console.error('❌ Erreur mise à jour mission:', missionError);
+        showToast('⚠️ Mission créée mais statut non mis à jour', 'warning');
+      }
 
       clearState();
-      alert('Inspection d\'arrivée terminée avec succès ! Mission finalisée.');
+      
+      // 🎉 Message de succès détaillé
+      const successMsg = `✅ Inspection d'arrivée terminée !\n• Photos: ${uploadedPhotosCount}/${photoSteps.length} uploadées\n• Mission finalisée`;
+      showToast(successMsg, 'success');
+      alert(successMsg);
       navigate('/team-missions');
     } catch (error: any) {
       console.error('Error completing inspection:', error);

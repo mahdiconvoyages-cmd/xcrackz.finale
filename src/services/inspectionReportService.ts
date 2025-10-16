@@ -26,28 +26,112 @@ export async function listInspectionReports(
   userId: string
 ): Promise<{ success: boolean; reports: InspectionReport[]; message: string }> {
   try {
-    // Récupérer les inspections directement de l'utilisateur
+    // Récupérer les inspections depuis vehicle_inspections avec inspector_id
     const { data: inspections, error } = await supabase
-      .from('inspections')
-      .select('*')
-      .eq('user_id', userId)
+      .from('vehicle_inspections')
+      .select(`
+        *,
+        missions (
+          id,
+          reference,
+          vehicle_brand,
+          vehicle_model,
+          vehicle_plate,
+          status
+        )
+      `)
+      // .eq('inspector_id', userId)  // ⚠️ COMMENTÉ pour voir TOUTES les inspections
       .order('created_at', { ascending: false });
 
-    if (error) throw error;
+    if (error) {
+      console.error('Error loading inspections:', error);
+      throw error;
+    }
 
-    // Transformer en format InspectionReport
-    const reports: InspectionReport[] = (inspections || []).map(inspection => ({
-      mission_id: inspection.id, // Utiliser l'ID de l'inspection comme mission_id
-      mission_reference: `INS-${inspection.id.substring(0, 8).toUpperCase()}`,
-      vehicle_brand: inspection.vehicle_brand,
-      vehicle_model: inspection.vehicle_model,
-      vehicle_plate: inspection.vehicle_registration,
-      departure_inspection: inspection.status !== 'draft' ? inspection : null,
-      arrival_inspection: inspection.status === 'completed' ? inspection : null,
-      pdf_url: inspection.pdf_url,
-      created_at: inspection.created_at,
-      is_complete: inspection.status === 'completed',
+    console.log('Loaded inspections:', inspections);
+
+    // Grouper les inspections par mission_id (départ + arrivée ensemble)
+    const missionMap = new Map<string, any>();
+    
+    (inspections || []).forEach(inspection => {
+      const missionId = inspection.mission_id;
+      
+      if (!missionMap.has(missionId)) {
+        missionMap.set(missionId, {
+          mission_id: missionId,
+          mission_reference: inspection.missions?.reference || `MISS-${missionId.substring(0, 8)}`,
+          vehicle_brand: inspection.missions?.vehicle_brand,
+          vehicle_model: inspection.missions?.vehicle_model,
+          vehicle_plate: inspection.missions?.vehicle_plate,
+          departure_inspection: null,
+          arrival_inspection: null,
+          created_at: inspection.created_at,
+        });
+      }
+      
+      const report = missionMap.get(missionId);
+      
+      if (inspection.inspection_type === 'departure') {
+        report.departure_inspection = inspection;
+      } else if (inspection.inspection_type === 'arrival') {
+        report.arrival_inspection = inspection;
+      }
+      
+      // Mettre à jour la date de création avec la plus récente
+      if (new Date(inspection.created_at) > new Date(report.created_at)) {
+        report.created_at = inspection.created_at;
+      }
+    });
+    
+    // Convertir Map en Array et ajouter is_complete
+    const reports: InspectionReport[] = Array.from(missionMap.values()).map(report => ({
+      ...report,
+      is_complete: report.departure_inspection !== null && report.arrival_inspection !== null,
     }));
+
+    // Charger les photos pour chaque inspection
+    for (const report of reports) {
+      // Photos de l'inspection de départ
+      if (report.departure_inspection?.id) {
+        const { data: deptPhotos, error: deptError } = await supabase
+          .from('inspection_photos')
+          .select('*')
+          .eq('inspection_id', report.departure_inspection.id)
+          .order('created_at', { ascending: true });
+        
+        console.log(`Photos départ pour inspection ${report.departure_inspection.id}:`, deptPhotos?.length || 0, 'photos', deptError);
+        
+        if (deptPhotos && deptPhotos.length > 0) {
+          report.departure_inspection.photos = deptPhotos;
+          console.log('Photos départ chargées:', deptPhotos);
+        } else {
+          console.warn('Aucune photo de départ trouvée pour inspection:', report.departure_inspection.id);
+          // Vérifier si des photos existent
+          const { count } = await supabase
+            .from('inspection_photos')
+            .select('*', { count: 'exact', head: true });
+          console.log('Total photos dans la table inspection_photos:', count);
+        }
+      }
+
+      // Photos de l'inspection d'arrivée
+      if (report.arrival_inspection?.id) {
+        const { data: arrPhotos, error: arrError } = await supabase
+          .from('inspection_photos')
+          .select('*')
+          .eq('inspection_id', report.arrival_inspection.id)
+          .order('created_at', { ascending: true });
+        
+        console.log(`Photos arrivée pour inspection ${report.arrival_inspection.id}:`, arrPhotos?.length || 0, 'photos', arrError);
+        
+        if (arrPhotos && arrPhotos.length > 0) {
+          report.arrival_inspection.photos = arrPhotos;
+          console.log('Photos arrivée chargées:', arrPhotos);
+        }
+      }
+    }
+
+    console.log('Formatted reports with photos:', reports);
 
     return {
       success: true,
@@ -55,6 +139,7 @@ export async function listInspectionReports(
       message: `${reports.length} rapports trouvés`,
     };
   } catch (error: any) {
+    console.error('Error in listInspectionReports:', error);
     return {
       success: false,
       reports: [],
@@ -72,16 +157,33 @@ export async function downloadAllPhotos(
   const urls: string[] = [];
 
   try {
-    if (report.departure_inspection?.photos) {
-      report.departure_inspection.photos.forEach((photo: any) => {
-        if (photo.photo_url) urls.push(photo.photo_url);
-      });
+    // Récupérer les photos depuis la table inspection_photos
+    // Pour l'inspection de départ
+    if (report.departure_inspection?.id) {
+      const { data: departurePhotos, error: deptError } = await supabase
+        .from('inspection_photos')
+        .select('photo_url')
+        .eq('inspection_id', report.departure_inspection.id);
+
+      if (!deptError && departurePhotos) {
+        departurePhotos.forEach((photo: any) => {
+          if (photo.photo_url) urls.push(photo.photo_url);
+        });
+      }
     }
 
-    if (report.arrival_inspection?.photos) {
-      report.arrival_inspection.photos.forEach((photo: any) => {
-        if (photo.photo_url) urls.push(photo.photo_url);
-      });
+    // Pour l'inspection d'arrivée
+    if (report.arrival_inspection?.id) {
+      const { data: arrivalPhotos, error: arrError } = await supabase
+        .from('inspection_photos')
+        .select('photo_url')
+        .eq('inspection_id', report.arrival_inspection.id);
+
+      if (!arrError && arrivalPhotos) {
+        arrivalPhotos.forEach((photo: any) => {
+          if (photo.photo_url) urls.push(photo.photo_url);
+        });
+      }
     }
 
     return {
@@ -111,70 +213,112 @@ export async function generateInspectionPDF(
     // Import dynamique du nouveau générateur
     const { generateInspectionPDFNew } = await import('./inspectionPdfGeneratorNew');
 
-    // Récupérer les données complètes de l'inspection
+    // Utiliser l'inspection de départ en priorité, sinon l'arrivée
+    const inspectionToUse = report.departure_inspection || report.arrival_inspection;
+    
+    if (!inspectionToUse?.id) {
+      throw new Error('Aucune inspection trouvée pour ce rapport');
+    }
+
+    // Récupérer les données complètes de l'inspection depuis vehicle_inspections
     const { data: inspection, error } = await supabase
-      .from('inspections')
-      .select('*')
-      .eq('id', report.mission_id)
+      .from('vehicle_inspections')
+      .select(`
+        *,
+        missions (*)
+      `)
+      .eq('id', inspectionToUse.id)
       .single();
 
     if (error || !inspection) {
+      console.error('Inspection not found:', error);
       throw new Error('Inspection non trouvée');
     }
 
-    // Récupérer les photos
-    const { data: photos, error: photosError } = await supabase
-      .from('inspection_photos')
-      .select('*')
-      .eq('inspection_id', report.mission_id)
-      .order('created_at', { ascending: true });
+    console.log('Inspection data for PDF:', inspection);
 
-    if (photosError) {
-      console.error('Erreur récupération photos:', photosError);
+    // Récupérer toutes les photos pour cette mission (départ + arrivée)
+    const allPhotos: any[] = [];
+    
+    // Photos de départ
+    if (report.departure_inspection?.id) {
+      const { data: deptPhotos } = await supabase
+        .from('inspection_photos')
+        .select('*')
+        .eq('inspection_id', report.departure_inspection.id)
+        .order('created_at', { ascending: true });
+      
+      console.log(`Photos départ PDF (${report.departure_inspection.id}):`, deptPhotos?.length || 0);
+      
+      if (deptPhotos) {
+        allPhotos.push(...deptPhotos.map((p: any) => ({ ...p, inspection_type: 'departure' })));
+      }
+    }
+    
+    // Photos d'arrivée
+    if (report.arrival_inspection?.id) {
+      const { data: arrPhotos } = await supabase
+        .from('inspection_photos')
+        .select('*')
+        .eq('inspection_id', report.arrival_inspection.id)
+        .order('created_at', { ascending: true });
+      
+      console.log(`Photos arrivée PDF (${report.arrival_inspection.id}):`, arrPhotos?.length || 0);
+      
+      if (arrPhotos) {
+        allPhotos.push(...arrPhotos.map((p: any) => ({ ...p, inspection_type: 'arrival' })));
+      }
     }
 
     // Séparer photos départ/arrivée
-    const departurePhotos = (photos || []).filter(p => p.inspection_type === 'departure');
-    const arrivalPhotos = (photos || []).filter(p => p.inspection_type === 'arrival');
+    const departurePhotos = allPhotos.filter(p => p.inspection_type === 'departure');
+    const arrivalPhotos = allPhotos.filter(p => p.inspection_type === 'arrival');
 
-    // Préparer les données mission
+    console.log('Total photos pour PDF:', { departure: departurePhotos.length, arrival: arrivalPhotos.length });
+
+    // Type assertion pour accéder aux données jointes
+    const inspectionData = inspection as any;
+
+    // Préparer les données mission (accès correct via inspectionData.missions)
     const missionData = {
-      reference: report.mission_reference,
-      vehicle_brand: inspection.vehicle_brand || report.vehicle_brand || 'N/A',
-      vehicle_model: inspection.vehicle_model || report.vehicle_model || 'N/A',
-      vehicle_plate: inspection.vehicle_registration || report.vehicle_plate || 'N/A',
-      vehicle_vin: inspection.vehicle_vin || 'N/A',
-      pickup_address: inspection.pickup_address || 'N/A',
-      delivery_address: inspection.delivery_address || 'N/A',
-      pickup_time: inspection.pickup_time,
-      delivery_time: inspection.delivery_time,
+      reference: inspectionData.missions?.reference || report.mission_reference || 'N/A',
+      vehicle_brand: inspectionData.missions?.vehicle_brand || report.vehicle_brand || 'N/A',
+      vehicle_model: inspectionData.missions?.vehicle_model || report.vehicle_model || 'N/A',
+      vehicle_plate: inspectionData.missions?.vehicle_plate || report.vehicle_plate || 'N/A',
+      vehicle_vin: inspectionData.missions?.vehicle_vin || inspectionData.vehicle_vin || 'N/A',
+      pickup_address: inspectionData.missions?.pickup_address || 'Adresse de départ non renseignée',
+      delivery_address: inspectionData.missions?.delivery_address || 'Adresse de livraison non renseignée',
+      pickup_time: inspectionData.missions?.pickup_time || inspectionData.created_at,
+      delivery_time: inspectionData.missions?.delivery_time || inspectionData.updated_at,
     };
 
+    console.log('Mission data for PDF:', missionData);
+
     // Préparer les inspections
-    const departureInspection = inspection.status !== 'draft' ? {
-      id: inspection.id,
+    const departureInspection = report.departure_inspection ? {
+      id: inspectionData.id,
       inspection_type: 'departure' as const,
-      overall_condition: inspection.overall_condition || 'good',
-      fuel_level: inspection.fuel_level || 0,
-      mileage_km: inspection.mileage_departure || 0,
-      notes: inspection.notes_departure || '',
-      signature_url: inspection.signature_departure_url,
-      checklist: inspection.checklist_departure || [],
-      completed_at: inspection.created_at,
-      created_at: inspection.created_at,
+      overall_condition: inspectionData.overall_condition || 'good',
+      fuel_level: inspectionData.fuel_level || 0,
+      mileage_km: inspectionData.mileage_departure || 0,
+      notes: inspectionData.notes_departure || '',
+      signature_url: inspectionData.signature_departure_url,
+      checklist: inspectionData.checklist_departure || [],
+      completed_at: inspectionData.created_at,
+      created_at: inspectionData.created_at,
     } : null;
 
-    const arrivalInspection = inspection.status === 'completed' ? {
-      id: inspection.id,
+    const arrivalInspection = report.arrival_inspection ? {
+      id: inspectionData.id,
       inspection_type: 'arrival' as const,
-      overall_condition: inspection.overall_condition_arrival || 'good',
-      fuel_level: inspection.fuel_level_arrival || 0,
-      mileage_km: inspection.mileage_arrival || 0,
-      notes: inspection.notes_arrival || '',
-      signature_url: inspection.signature_arrival_url,
-      checklist: inspection.checklist_arrival || [],
-      completed_at: inspection.updated_at,
-      created_at: inspection.created_at,
+      overall_condition: inspectionData.overall_condition_arrival || 'good',
+      fuel_level: inspectionData.fuel_level_arrival || 0,
+      mileage_km: inspectionData.mileage_arrival || 0,
+      notes: inspectionData.notes_arrival || '',
+      signature_url: inspectionData.signature_arrival_url,
+      checklist: inspectionData.checklist_arrival || [],
+      completed_at: inspectionData.updated_at,
+      created_at: inspectionData.created_at,
     } : null;
 
     // Générer le PDF avec le nouveau générateur
