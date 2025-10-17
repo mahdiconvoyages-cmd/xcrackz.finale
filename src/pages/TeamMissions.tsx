@@ -130,7 +130,8 @@ export default function TeamMissions() {
     const { data, error } = await supabase
       .from('contacts')
       .select('*')
-      .eq('user_id', user!.id)
+      // ✅ CORRECTION: Charger TOUS les contacts (pas seulement les siens)
+      // Dans un système collaboratif, tout le monde peut assigner à tout le monde
       .eq('is_active', true)
       .order('name', { ascending: true });
 
