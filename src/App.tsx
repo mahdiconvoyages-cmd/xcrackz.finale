@@ -36,6 +36,7 @@ import AccountSecurity from './pages/AccountSecurity';
 import PublicTracking from './pages/PublicTracking';
 import TrackingList from './pages/TrackingList';
 import TeamMissions from './pages/TeamMissions';
+import MyMissions from './pages/MyMissions';
 import InspectionDepartureNew from './pages/InspectionDepartureNew';
 import InspectionArrivalNew from './pages/InspectionArrivalNew';
 import RapportsInspection from './pages/RapportsInspection';
@@ -81,6 +82,18 @@ function AppContent() {
               <ProtectedRoute>
                 <Layout>
                   <TeamMissions />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          {/* My Assigned Missions */}
+          <Route
+            path="/my-missions"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <MyMissions />
                 </Layout>
               </ProtectedRoute>
             }

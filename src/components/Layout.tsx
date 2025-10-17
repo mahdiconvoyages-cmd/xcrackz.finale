@@ -54,6 +54,7 @@ export default function Layout({ children }: LayoutProps) {
   const menuItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Tableau de bord', color: 'text-blue-400', hoverColor: 'group-hover:text-blue-300' },
     { path: '/team-missions', icon: Users, label: 'Équipe & Missions', color: 'text-teal-400', hoverColor: 'group-hover:text-teal-300' },
+    { path: '/my-missions', icon: ClipboardCheck, label: 'Mes Missions', color: 'text-orange-400', hoverColor: 'group-hover:text-orange-300' },
     { path: '/tracking', icon: MapPin, label: 'Tracking', color: 'text-green-400', hoverColor: 'group-hover:text-green-300' },
     { path: '/contacts', icon: Users, label: 'Contacts', color: 'text-violet-400', hoverColor: 'group-hover:text-violet-300' },
     { path: '/crm', icon: Building2, label: 'CRM & Commercial', color: 'text-indigo-400', hoverColor: 'group-hover:text-indigo-300' },
