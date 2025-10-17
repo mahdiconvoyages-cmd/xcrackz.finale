@@ -59,6 +59,8 @@ export default function InspectionArrivalNew() {
   const [optionalPhotos, setOptionalPhotos] = useState<any[]>([]);
 
   // Formulaire
+  const [mileage, setMileage] = useState('');
+  const [fuelLevel, setFuelLevel] = useState('50');
   const [notes, setNotes] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientSignature, setClientSignature] = useState('');
@@ -169,6 +171,11 @@ export default function InspectionArrivalNew() {
       return;
     }
 
+    if (currentStep === 2 && !mileage) {
+      showToast('error', 'Kilométrage requis', 'Veuillez renseigner le kilométrage actuel du véhicule');
+      return;
+    }
+
     if (currentStep === 3 && (!clientName || !clientSignature)) {
       showToast('error', 'Signature requise', 'Veuillez renseigner le nom et la signature du destinataire');
       return;
@@ -186,12 +193,14 @@ export default function InspectionArrivalNew() {
 
     try {
       // 1. Créer l'inspection d'arrivée
-      const { data: arrivalInspection, error: inspectionError } = await supabase
+      const { data: arrivalInspectionData, error: inspectionError } = await supabase
         .from('vehicle_inspections')
         .insert({
           mission_id: missionId!,
           inspector_id: user.id,
           inspection_type: 'arrival',
+          mileage_km: parseInt(mileage) || 0,
+          fuel_level: fuelLevel,
           notes: notes,
           client_name: clientName,
           client_signature: clientSignature,
@@ -202,6 +211,8 @@ export default function InspectionArrivalNew() {
         .single();
 
       if (inspectionError) throw inspectionError;
+      
+      const arrivalInspection = arrivalInspectionData as any;
       if (!arrivalInspection?.id) throw new Error('ID inspection non retourné');
 
       console.log('✅ Inspection arrivée créée:', arrivalInspection.id);
@@ -277,10 +288,12 @@ export default function InspectionArrivalNew() {
       console.log(`✅ ${uploadedCount} photos uploadées`);
 
       // 5. Mettre à jour le statut de la mission
-      await supabase
+      const { error: updateError } = await supabase
         .from('missions')
         .update({ status: 'completed' } as any)
         .eq('id', missionId!);
+
+      if (updateError) console.warn('Erreur update mission:', updateError);
 
       showToast('success', 'Inspection complétée', `Mission terminée avec ${uploadedCount} photos`);
       
@@ -401,6 +414,65 @@ export default function InspectionArrivalNew() {
                   instruction={photo.type === 'delivery_receipt' ? '📄 Photographiez le PV signé par le destinataire' : undefined}
                 />
               ))}
+            </div>
+
+            {/* Kilométrage et Carburant */}
+            <div className="bg-white rounded-xl p-6 space-y-4 shadow-sm border-2 border-[#CCFBF1]">
+              <h3 className="text-lg font-bold text-[#2D2A3E] mb-4">📊 État du véhicule à l'arrivée</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Kilométrage */}
+                <div>
+                  <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
+                    🔢 Kilométrage actuel (km) <span className="text-red-500">*</span>
+                  </label>
+                  <input
+                    type="number"
+                    value={mileage}
+                    onChange={(e) => setMileage(e.target.value)}
+                    placeholder="Ex: 45000"
+                    className="w-full px-4 py-3 rounded-lg border-2 border-[#CCFBF1] focus:border-[#14B8A6] focus:outline-none text-lg"
+                    required
+                  />
+                  {departureInspection?.mileage_km && (
+                    <p className="text-xs text-gray-500 mt-1">
+                      Départ: {departureInspection.mileage_km.toLocaleString()} km
+                      {mileage && ` | Distance parcourue: ${(parseInt(mileage) - departureInspection.mileage_km).toLocaleString()} km`}
+                    </p>
+                  )}
+                </div>
+
+                {/* Niveau de carburant */}
+                <div>
+                  <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
+                    ⛽ Niveau de carburant
+                  </label>
+                  <div className="space-y-2">
+                    <input
+                      type="range"
+                      min="0"
+                      max="100"
+                      step="5"
+                      value={fuelLevel}
+                      onChange={(e) => setFuelLevel(e.target.value)}
+                      className="w-full h-3 bg-gray-200 rounded-lg appearance-none cursor-pointer accent-[#14B8A6]"
+                    />
+                    <div className="flex justify-between items-center">
+                      <span className="text-2xl font-bold text-[#14B8A6]">{fuelLevel}%</span>
+                      {departureInspection?.fuel_level && (
+                        <span className="text-xs text-gray-500">
+                          Départ: {departureInspection.fuel_level}%
+                          {` | Variation: ${parseInt(fuelLevel) - parseInt(departureInspection.fuel_level) >= 0 ? '+' : ''}${parseInt(fuelLevel) - parseInt(departureInspection.fuel_level)}%`}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex justify-between text-xs text-gray-400">
+                      <span>Vide</span>
+                      <span>Plein</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
 
             {/* Info PV */}
