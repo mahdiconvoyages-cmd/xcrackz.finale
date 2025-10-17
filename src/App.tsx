@@ -5,6 +5,7 @@ import AdminRoute from './components/AdminRoute';
 import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import ToastContainer from './components/Toast';
+import AccessibilityZoom from './components/AccessibilityZoom';
 
 import Home from './pages/Home';
 import Legal from './pages/Legal';
@@ -351,6 +352,7 @@ function App() {
       <Router>
         <AuthProvider>
           <AppContent />
+          <AccessibilityZoom />
         </AuthProvider>
       </Router>
     </ErrorBoundary>

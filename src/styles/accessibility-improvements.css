@@ -1,0 +1,106 @@
+/* Améliorations de visibilité et accessibilité */
+
+/* Sur mobile, améliore la lisibilité */
+@media (max-width: 1023px) {
+  /* Augmente légèrement la taille de tous les textes sur mobile */
+  body {
+    font-size: 16px !important;
+    line-height: 1.6 !important;
+  }
+  
+  /* Textes plus gros pour meilleure lisibilité */
+  h1 { font-size: 2rem !important; }
+  h2 { font-size: 1.75rem !important; }
+  h3 { font-size: 1.5rem !important; }
+  h4 { font-size: 1.25rem !important; }
+  p { font-size: 1rem !important; }
+  
+  /* Boutons plus grands et plus visibles */
+  button {
+    min-height: 44px !important; /* Taille recommandée WCAG */
+    padding: 0.75rem 1.5rem !important;
+    font-size: 1rem !important;
+  }
+  
+  /* Inputs plus grands */
+  input, select, textarea {
+    min-height: 44px !important;
+    font-size: 16px !important; /* Empêche le zoom auto sur iOS */
+    padding: 0.75rem !important;
+  }
+  
+  /* Améliore le contraste des textes */
+  .text-gray-600 {
+    color: #4B5563 !important; /* Plus foncé */
+  }
+  
+  .text-gray-500 {
+    color: #6B7280 !important;
+  }
+  
+  /* Labels plus visibles */
+  label {
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    color: #1F2937 !important;
+  }
+  
+  /* Navigation plus accessible */
+  nav a, nav button {
+    padding: 0.75rem 1rem !important;
+    font-size: 0.95rem !important;
+  }
+  
+  /* Cards plus espacées */
+  .rounded-xl, .rounded-lg {
+    padding: 1.25rem !important;
+  }
+  
+  /* Améliore l'espacement général */
+  .space-y-4 > * + * {
+    margin-top: 1.25rem !important;
+  }
+  
+  .space-y-6 > * + * {
+    margin-top: 1.75rem !important;
+  }
+  
+  /* Focus plus visible pour accessibilité */
+  *:focus {
+    outline: 3px solid #14B8A6 !important;
+    outline-offset: 2px !important;
+  }
+  
+  /* Améliore la grille de photos sur petit écran */
+  @media (max-width: 640px) {
+    .grid.grid-cols-4 {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 1rem !important;
+    }
+  }
+  
+  /* Sur écran moyen, garde 3 colonnes */
+  @media (min-width: 641px) and (max-width: 900px) {
+    .grid.grid-cols-4 {
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+  }
+}
+
+/* Mode haute accessibilité pour très petit écran */
+@media (max-width: 480px) {
+  body {
+    font-size: 18px !important;
+  }
+  
+  button, input, select, textarea {
+    min-height: 48px !important;
+    font-size: 18px !important;
+  }
+  
+  /* Une seule colonne sur très petit écran */
+  .grid.grid-cols-4 {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    gap: 1.5rem !important;
+  }
+}
