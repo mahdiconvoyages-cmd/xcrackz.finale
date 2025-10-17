@@ -20,6 +20,7 @@ export default function MissionCreate() {
     reference: `MISSION-${Date.now()}`,
     vehicle_brand: '',
     vehicle_model: '',
+    vehicle_type: 'VL' as 'VL' | 'VU' | 'PL', // Véhicule Léger, Utilitaire, Poids Lourd
     vehicle_plate: '',
     vehicle_vin: '',
     vehicle_image_url: '',
@@ -104,6 +105,7 @@ export default function MissionCreate() {
             reference: formData.reference,
             vehicle_brand: formData.vehicle_brand,
             vehicle_model: formData.vehicle_model,
+            vehicle_type: formData.vehicle_type,
             vehicle_plate: formData.vehicle_plate || null,
             vehicle_vin: formData.vehicle_vin || null,
             vehicle_image_url: formData.vehicle_image_url || null,
@@ -378,6 +380,22 @@ export default function MissionCreate() {
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
                 required
               />
+            </div>
+            <div>
+              <label className="block text-sm font-semibold text-slate-700 mb-2">
+                Type de véhicule *
+              </label>
+              <select
+                name="vehicle_type"
+                value={formData.vehicle_type}
+                onChange={handleChange}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                required
+              >
+                <option value="VL">🚗 Véhicule Léger (VL) - Voiture classique</option>
+                <option value="VU">🚐 Véhicule Utilitaire (VU) - Camionnette/Van</option>
+                <option value="PL">🚛 Poids Lourd (PL) - Camion</option>
+              </select>
             </div>
             <div>
               <label className="block text-sm font-semibold text-slate-700 mb-2">

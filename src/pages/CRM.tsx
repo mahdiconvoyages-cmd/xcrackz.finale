@@ -40,7 +40,7 @@ export default function CRM() {
         {/* Image de fond responsive */}
         <div className="overflow-hidden flex items-center justify-center h-[300px] sm:h-[400px] md:h-[450px] lg:h-[500px]">
           <img 
-            src="/crm-illustration.png" 
+            src="/crm-illustration.png"
             alt="CRM - Facturation, Devis, Tarifs" 
             className="w-full h-full object-cover sm:object-contain"
             onError={(e) => {

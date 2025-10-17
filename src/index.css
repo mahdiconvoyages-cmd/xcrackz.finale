@@ -1,5 +1,11 @@
+/* Import unified theme */
+@import './styles/unified-theme.css';
 /* Import responsive utilities */
 @import './styles/responsive.css';
+/* Import mobile optimizations */
+@import './styles/mobile-optimizations.css';
+/* Import mobile fixes */
+@import './styles/mobile-fixes.css';
 
 @tailwind base;
 @tailwind components;

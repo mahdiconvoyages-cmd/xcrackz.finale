@@ -123,7 +123,7 @@ export default function InspectionArrival() {
     if (!missionId || !user) return;
 
     try {
-      const [missionResult, inspectionResult] = await Promise.all([
+      const [missionResult, inspectionResult, existingArrivalResult] = await Promise.all([
         supabase
           .from('missions')
           .select('*')
@@ -135,10 +135,24 @@ export default function InspectionArrival() {
           .select('*')
           .eq('mission_id', missionId)
           .eq('inspection_type', 'departure')
+          .maybeSingle(),
+        supabase
+          .from('vehicle_inspections')
+          .select('*')
+          .eq('mission_id', missionId)
+          .eq('inspection_type', 'arrival')
           .maybeSingle()
       ]);
 
       if (missionResult.error) throw missionResult.error;
+      
+      // 🔒 VÉRIFICATION: Bloquer si inspection d'arrivée déjà existe
+      if (existingArrivalResult.data) {
+        alert('⚠️ Une inspection d\'arrivée existe déjà pour cette mission. Impossible de créer un doublon.');
+        navigate('/team-missions');
+        return;
+      }
+      
       if (!inspectionResult.data) {
         alert('Aucune inspection de départ trouvée. Veuillez d\'abord effectuer l\'inspection de départ.');
         navigate('/team-missions');

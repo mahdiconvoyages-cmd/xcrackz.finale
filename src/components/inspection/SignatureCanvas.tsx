@@ -13,53 +13,77 @@ export default function SignatureCanvas({ value, onChange, onSave, onCancel }: S
   const [isDrawing, setIsDrawing] = useState(false);
   const [isEmpty, setIsEmpty] = useState(true);
   const [hasSignature, setHasSignature] = useState(false);
+  const [mounted, setMounted] = useState(false);
+
+  // Protection contre les erreurs de montage
+  useEffect(() => {
+    setMounted(true);
+    return () => setMounted(false);
+  }, []);
 
   useEffect(() => {
+    if (!mounted) return;
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    if (value && !hasSignature) {
-      const img = new Image();
-      img.onload = () => {
-        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        setIsEmpty(false);
-        setHasSignature(true);
-      };
-      img.src = value;
-    } else if (!value && !hasSignature) {
-      ctx.fillStyle = 'white';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-    }
+    // Protection contre les erreurs DOM
+    try {
+      if (value && !hasSignature) {
+        const img = new Image();
+        img.onload = () => {
+          if (!mounted || !canvas) return;
+          ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+          setIsEmpty(false);
+          setHasSignature(true);
+        };
+        img.onerror = () => {
+          console.error('Failed to load signature image');
+        };
+        img.src = value;
+      } else if (!value && !hasSignature) {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+      }
 
-    ctx.strokeStyle = '#0f172a';
-    ctx.lineWidth = 2;
-    ctx.lineCap = 'round';
-    ctx.lineJoin = 'round';
-  }, [value, hasSignature]);
+      ctx.strokeStyle = '#0f172a';
+      ctx.lineWidth = 2;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+    } catch (error) {
+      console.error('Canvas initialization error:', error);
+    }
+  }, [value, hasSignature, mounted]);
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!mounted) return;
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    setIsDrawing(true);
-    setIsEmpty(false);
+    try {
+      setIsDrawing(true);
+      setIsEmpty(false);
 
-    const rect = canvas.getBoundingClientRect();
-    const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
-    const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+      const rect = canvas.getBoundingClientRect();
+      const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
+      const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
 
-    ctx.beginPath();
-    ctx.moveTo(x, y);
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+    } catch (error) {
+      console.error('Drawing error:', error);
+    }
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+    if (!isDrawing || !mounted) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -67,12 +91,16 @@ export default function SignatureCanvas({ value, onChange, onSave, onCancel }: S
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const rect = canvas.getBoundingClientRect();
-    const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
-    const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
+    try {
+      const rect = canvas.getBoundingClientRect();
+      const x = 'touches' in e ? e.touches[0].clientX - rect.left : e.clientX - rect.left;
+      const y = 'touches' in e ? e.touches[0].clientY - rect.top : e.clientY - rect.top;
 
-    ctx.lineTo(x, y);
-    ctx.stroke();
+      ctx.lineTo(x, y);
+      ctx.stroke();
+    } catch (error) {
+      console.error('Drawing error:', error);
+    }
   };
 
   const stopDrawing = () => {
@@ -80,37 +108,60 @@ export default function SignatureCanvas({ value, onChange, onSave, onCancel }: S
   };
 
   const clearCanvas = () => {
+    if (!mounted) return;
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    ctx.fillStyle = 'white';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    setIsEmpty(true);
-    setHasSignature(false);
+    try {
+      ctx.fillStyle = 'white';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      setIsEmpty(true);
+      setHasSignature(false);
 
-    if (onChange) {
-      onChange('');
+      if (onChange) {
+        onChange('');
+      }
+    } catch (error) {
+      console.error('Clear canvas error:', error);
     }
   };
 
   const saveSignature = () => {
+    if (!mounted) return;
+    
     const canvas = canvasRef.current;
     if (!canvas || isEmpty) return;
 
-    const dataUrl = canvas.toDataURL('image/png');
+    try {
+      const dataUrl = canvas.toDataURL('image/png');
 
-    if (onChange) {
-      onChange(dataUrl);
-      setHasSignature(true);
-    }
+      if (onChange) {
+        onChange(dataUrl);
+        setHasSignature(true);
+      }
 
-    if (onSave) {
-      onSave(dataUrl);
+      if (onSave) {
+        onSave(dataUrl);
+      }
+    } catch (error) {
+      console.error('Save signature error:', error);
     }
   };
+
+  // Ne pas rendre le canvas si pas encore monté
+  if (!mounted) {
+    return (
+      <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-4">
+        <div className="border-2 border-dashed border-slate-600 rounded-lg overflow-hidden mb-4 bg-white h-[200px] flex items-center justify-center">
+          <p className="text-slate-400">Chargement...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-xl p-4">

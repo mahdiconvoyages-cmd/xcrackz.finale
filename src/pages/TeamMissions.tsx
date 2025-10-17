@@ -7,7 +7,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import InspectionViewer from '../components/InspectionViewer';
 
 // ===== INTERFACES =====
@@ -56,6 +56,7 @@ type ViewMode = 'grid' | 'list';
 
 export default function TeamMissions() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   
   // ===== STATES =====
   const [activeTab, setActiveTab] = useState<TabType>('missions');
@@ -152,8 +153,13 @@ export default function TeamMissions() {
 
   // ===== ACTIONS =====
   const handleStartInspection = (mission: Mission) => {
-    setInspectionMissionId(mission.id);
-    setShowInspectionViewer(true);
+    // Si la mission est en cours (in_progress), aller vers inspection arrivée
+    // Sinon (pending), aller vers inspection départ
+    if (mission.status === 'in_progress') {
+      navigate(`/inspection/arrival/${mission.id}`);
+    } else {
+      navigate(`/inspection/departure/${mission.id}`);
+    }
   };
 
   const handleAssignMission = async (e: React.FormEvent) => {
@@ -284,16 +290,16 @@ export default function TeamMissions() {
         return (
           <button
             onClick={() => handleStartInspection(mission)}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-amber-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
           >
-            <Eye className="w-4 h-4" />
-            Voir Inspection
+            <Play className="w-4 h-4" />
+            Continuer Inspection
           </button>
         );
       case 'completed':
         return (
           <button
-            onClick={() => window.open(`/api/missions/${mission.id}/report`, '_blank')}
+            onClick={() => navigate('/rapports-inspection')}
             className="inline-flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-green-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
           >
             <FileText className="w-4 h-4" />

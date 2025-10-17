@@ -3,8 +3,13 @@ import { Link } from 'react-router-dom';
 import { MapPin, Navigation, Eye, Share2, Clock, Truck, Activity, Search, Calendar, Route as RouteIcon, Maximize2, Package, AlertCircle, CheckCircle, XCircle, PlayCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import LeafletTracking from '../components/LeafletTracking';
+import { useIsMobile } from '../hooks/useIsMobile';
+import MobileErrorBoundary from '../components/MobileErrorBoundary';
 import type { RealtimeChannel } from '@supabase/supabase-js';
+
+// Lazy load de LeafletTracking pour éviter les erreurs DOM sur mobile
+import { lazy, Suspense } from 'react';
+const LeafletTracking = lazy(() => import('../components/LeafletTracking'));
 
 interface Mission {
   id: string;
@@ -36,12 +41,13 @@ interface GPSPosition {
 
 export default function TrackingList() {
   const { user } = useAuth();
+  const isMobile = useIsMobile();
   const [missions, setMissions] = useState<Mission[]>([]);
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [showMap, setShowMap] = useState(true);
+  const [showMap, setShowMap] = useState(!isMobile); // Carte masquée par défaut sur mobile
   const [currentPosition, setCurrentPosition] = useState<GPSPosition | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
@@ -414,21 +420,52 @@ export default function TrackingList() {
               <div className="w-full h-[600px] rounded-xl overflow-hidden">
                 {selectedMission?.pickup_lat && selectedMission?.pickup_lng && 
                  selectedMission?.delivery_lat && selectedMission?.delivery_lng ? (
-                  <LeafletTracking
-                    pickupLat={selectedMission.pickup_lat}
-                    pickupLng={selectedMission.pickup_lng}
-                    pickupAddress={selectedMission.pickup_address}
-                    deliveryLat={selectedMission.delivery_lat}
-                    deliveryLng={selectedMission.delivery_lng}
-                    deliveryAddress={selectedMission.delivery_address}
-                    driverLat={selectedMission.status === 'in_progress' ? currentPosition?.lat : undefined}
-                    driverLng={selectedMission.status === 'in_progress' ? currentPosition?.lng : undefined}
-                    driverName="Chauffeur"
-                    vehiclePlate={selectedMission.vehicle_plate}
-                    status={getStatusInfo(selectedMission.status).label}
-                    height="600px"
-                    showControls={true}
-                  />
+                  <MobileErrorBoundary
+                    fallback={
+                      <div className="w-full h-full bg-gradient-to-br from-red-50 to-orange-50 rounded-xl flex items-center justify-center">
+                        <div className="text-center p-6">
+                          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-3" />
+                          <p className="text-red-700 font-semibold">Erreur de chargement de la carte</p>
+                          <p className="text-red-600 text-sm mt-2">
+                            {isMobile ? 'Problème de compatibilité mobile détecté' : 'Veuillez rafraîchir la page'}
+                          </p>
+                          <button
+                            onClick={() => window.location.reload()}
+                            className="mt-4 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition"
+                          >
+                            Rafraîchir
+                          </button>
+                        </div>
+                      </div>
+                    }
+                  >
+                    <Suspense
+                      fallback={
+                        <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex items-center justify-center">
+                          <div className="text-center">
+                            <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-300 border-t-teal-500 mx-auto mb-3"></div>
+                            <p className="text-slate-600 font-semibold">Chargement de la carte...</p>
+                          </div>
+                        </div>
+                      }
+                    >
+                      <LeafletTracking
+                        pickupLat={selectedMission.pickup_lat}
+                        pickupLng={selectedMission.pickup_lng}
+                        pickupAddress={selectedMission.pickup_address}
+                        deliveryLat={selectedMission.delivery_lat}
+                        deliveryLng={selectedMission.delivery_lng}
+                        deliveryAddress={selectedMission.delivery_address}
+                        driverLat={selectedMission.status === 'in_progress' ? currentPosition?.lat : undefined}
+                        driverLng={selectedMission.status === 'in_progress' ? currentPosition?.lng : undefined}
+                        driverName="Chauffeur"
+                        vehiclePlate={selectedMission.vehicle_plate}
+                        status={getStatusInfo(selectedMission.status).label}
+                        height="600px"
+                        showControls={true}
+                      />
+                    </Suspense>
+                  </MobileErrorBoundary>
                 ) : (
                   <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex items-center justify-center relative overflow-hidden">
                     <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iIzAwMDAwMCIgc3Ryb2tlLXdpZHRoPSIwLjUiIG9wYWNpdHk9IjAuMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-50"></div>

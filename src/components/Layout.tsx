@@ -94,6 +94,22 @@ export default function Layout({ children }: LayoutProps) {
             </span>
           </Link>
           <div className="flex items-center gap-2">
+            {/* Bouton fermer pour MOBILE (toujours visible) */}
+            <button
+              onClick={() => {
+                setSidebarOpen(false);
+                setSidebarPinned(false);
+                setSidebarHovered(false);
+                setForceHide(true);
+                setTimeout(() => setForceHide(false), 500);
+              }}
+              className="lg:hidden text-slate-400 hover:text-white hover:bg-white/10 p-2 rounded-lg transition"
+              title="Fermer"
+            >
+              <X className="w-5 h-5" />
+            </button>
+            
+            {/* Bouton épingler pour DESKTOP */}
             <button
               onClick={() => {
                 if (sidebarPinned) {

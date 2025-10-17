@@ -21,12 +21,12 @@ import {
 import {
   listInspectionReports,
   generateInspectionPDF,
-  sendInspectionReportByEmail,
   downloadAllPhotos,
   type InspectionReport,
 } from '../services/inspectionReportService';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from '../utils/toast';
+import OptimizedImage from '../components/OptimizedImage';
 
 export default function RapportsInspection() {
   const { user } = useAuth();
@@ -145,20 +145,62 @@ export default function RapportsInspection() {
 
     try {
       setSendingEmail(true);
-      toast.loading('Envoi du rapport...', { id: 'email-send' });
 
-      const result = await sendInspectionReportByEmail(emailModalReport, emailAddress, user?.email || 'Utilisateur');
+      // Préparer le message email
+      const missionRef = emailModalReport.mission_reference || 'N/A';
+      const vehicle = `${emailModalReport.vehicle_brand || ''} ${emailModalReport.vehicle_model || ''}`.trim() || 'Véhicule';
+      const plate = emailModalReport.vehicle_plate || '';
+      
+      const subject = `État des lieux complet - ${missionRef} - ${vehicle}${plate ? ' (' + plate + ')' : ''}`;
+      
+      const body = `Bonjour,
 
-      if (result.success) {
-        toast.success('Rapport envoyé par email !', { id: 'email-send' });
+Vous trouverez ci-joint l'état des lieux complet du véhicule ${vehicle}${plate ? ' (immatriculation : ' + plate + ')' : ''}.
+
+📋 Mission : ${missionRef}
+🚗 Véhicule : ${vehicle}
+${plate ? '🔖 Immatriculation : ' + plate : ''}
+
+${emailModalReport.is_complete ? '✅ Rapport complet (départ + arrivée)' : '⚠️ Rapport partiel'}
+
+${emailModalReport.departure_inspection ? `
+📸 État des lieux DÉPART :
+   - Kilométrage : ${emailModalReport.departure_inspection.km_start || 'N/A'} km
+   - Carburant : ${emailModalReport.departure_inspection.fuel_level_start || 'N/A'}
+` : ''}
+
+${emailModalReport.arrival_inspection ? `
+📸 État des lieux ARRIVÉE :
+   - Kilométrage : ${emailModalReport.arrival_inspection.km_end || 'N/A'} km
+   - Carburant : ${emailModalReport.arrival_inspection.fuel_level_end || 'N/A'}
+` : ''}
+
+📄 Documents joints :
+   • Rapport PDF complet avec photos
+   • Photos d'inspection (départ + arrivée)
+
+ℹ️ Note : Les photos et le PDF sont disponibles en téléchargement. Veuillez les joindre manuellement à cet email depuis l'interface.
+
+Cordialement,
+${user?.email || 'Finality Transport'}`;
+
+      // Construire le mailto avec sujet et corps
+      const mailtoLink = `mailto:${emailAddress}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+
+      // Ouvrir le client email par défaut
+      window.location.href = mailtoLink;
+
+      toast.success('Client email ouvert ! N\'oubliez pas de joindre les photos et le PDF.', { duration: 5000 });
+      
+      // Fermer le modal après un court délai
+      setTimeout(() => {
         setEmailModalReport(null);
         setEmailAddress('');
-      } else {
-        toast.error(result.message || 'Erreur lors de l\'envoi', { id: 'email-send' });
-      }
+      }, 1000);
+
     } catch (error) {
-      console.error('Error sending email:', error);
-      toast.error('Erreur lors de l\'envoi de l\'email', { id: 'email-send' });
+      console.error('Error opening email client:', error);
+      toast.error('Erreur lors de l\'ouverture du client email');
     } finally {
       setSendingEmail(false);
     }
@@ -204,18 +246,14 @@ export default function RapportsInspection() {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-cyan-50">
       {/* Hero Header avec Image d'Inspection */}
       <div className="relative w-full shadow-2xl mb-8 overflow-hidden">
-        {/* Image de fond */}
+        {/* Image de fond optimisée pour mobile */}
         <div className="w-full">
-          <img 
-            src="/inspection-banner.png" 
-            alt="Rapport d'inspection véhicule" 
+          <OptimizedImage
+            src="/inspection-banner.png"
+            alt="Rapport d'inspection véhicule"
             className="w-full h-auto object-cover"
-            onError={(e) => {
-              // Fallback si l'image n'est pas disponible
-              e.currentTarget.style.display = 'none';
-              e.currentTarget.parentElement!.style.background = 'linear-gradient(to right, #0891b2, #06b6d4, #14b8a6)';
-              e.currentTarget.parentElement!.style.minHeight = '200px';
-            }}
+            fallbackSrc="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='1200' height='300'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0%25' y1='0%25' x2='100%25' y2='0%25'%3E%3Cstop offset='0%25' style='stop-color:%230891b2'/%3E%3Cstop offset='50%25' style='stop-color:%2306b6d4'/%3E%3Cstop offset='100%25' style='stop-color:%2314b8a6'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='1200' height='300' fill='url(%23g)'/%3E%3C/svg%3E"
+            eager={false} // Lazy load sur mobile
           />
         </div>
       </div>
@@ -432,6 +470,27 @@ export default function RapportsInspection() {
                                   <p><strong>Notes:</strong> {report.departure_inspection.notes}</p>
                                 )}
                               </div>
+                              
+                              {/* Photos d'enlèvement */}
+                              {report.departure_inspection.photos && report.departure_inspection.photos.length > 0 && (
+                                <div className="mt-3">
+                                  <p className="text-sm font-semibold text-green-800 mb-2">
+                                    Photos ({report.departure_inspection.photos.length})
+                                  </p>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                    {report.departure_inspection.photos.map((photo: any, idx: number) => (
+                                      <OptimizedImage
+                                        key={idx}
+                                        src={photo.photo_url}
+                                        alt={`Photo ${photo.photo_type || idx + 1}`}
+                                        className="w-full h-24 object-cover rounded-lg border border-green-300"
+                                        onClick={() => window.open(photo.photo_url, '_blank')}
+                                        style={{ cursor: 'pointer' }}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
 
@@ -452,6 +511,27 @@ export default function RapportsInspection() {
                                   <p><strong>Notes:</strong> {report.arrival_inspection.notes}</p>
                                 )}
                               </div>
+                              
+                              {/* Photos de livraison */}
+                              {report.arrival_inspection.photos && report.arrival_inspection.photos.length > 0 && (
+                                <div className="mt-3">
+                                  <p className="text-sm font-semibold text-blue-800 mb-2">
+                                    Photos ({report.arrival_inspection.photos.length})
+                                  </p>
+                                  <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                    {report.arrival_inspection.photos.map((photo: any, idx: number) => (
+                                      <OptimizedImage
+                                        key={idx}
+                                        src={photo.photo_url}
+                                        alt={`Photo ${photo.photo_type || idx + 1}`}
+                                        className="w-full h-24 object-cover rounded-lg border border-blue-300"
+                                        onClick={() => window.open(photo.photo_url, '_blank')}
+                                        style={{ cursor: 'pointer' }}
+                                      />
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
                             </div>
                           )}
                         </div>
@@ -532,9 +612,12 @@ export default function RapportsInspection() {
       {/* Modal Email */}
       {emailModalReport && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-bold text-slate-900">Envoyer par email</h3>
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2">
+                <Mail className="w-6 h-6 text-teal-600" />
+                Envoyer par email
+              </h3>
               <button
                 onClick={() => setEmailModalReport(null)}
                 className="text-slate-400 hover:text-slate-600"
@@ -543,9 +626,37 @@ export default function RapportsInspection() {
               </button>
             </div>
 
-            <p className="text-slate-600 mb-4">
-              Mission: <strong>{emailModalReport.mission_reference}</strong>
-            </p>
+            {/* Infos rapport */}
+            <div className="bg-slate-50 rounded-xl p-4 mb-4 space-y-2">
+              <p className="text-sm text-slate-600">
+                <strong>Mission:</strong> {emailModalReport.mission_reference}
+              </p>
+              <p className="text-sm text-slate-600">
+                <strong>Véhicule:</strong> {emailModalReport.vehicle_brand} {emailModalReport.vehicle_model}
+                {emailModalReport.vehicle_plate && ` (${emailModalReport.vehicle_plate})`}
+              </p>
+              <p className="text-sm text-slate-600">
+                <strong>Type:</strong> {emailModalReport.is_complete ? 'Complet (départ + arrivée)' : 'Partiel'}
+              </p>
+            </div>
+
+            {/* Alerte informative */}
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4">
+              <div className="flex gap-3">
+                <div className="text-blue-600 mt-0.5">ℹ️</div>
+                <div className="flex-1 text-sm text-blue-900">
+                  <p className="font-semibold mb-2">Votre client email va s'ouvrir</p>
+                  <p className="text-blue-700">
+                    Un brouillon sera créé avec le message pré-rempli. 
+                    <strong className="block mt-1">N'oubliez pas de joindre :</strong>
+                  </p>
+                  <ul className="list-disc list-inside mt-2 text-blue-700 space-y-1">
+                    <li>Le PDF du rapport (bouton <Download className="w-3 h-3 inline" />)</li>
+                    <li>Les photos (bouton <Image className="w-3 h-3 inline" />)</li>
+                  </ul>
+                </div>
+              </div>
+            </div>
 
             <input
               type="email"
@@ -553,6 +664,7 @@ export default function RapportsInspection() {
               value={emailAddress}
               onChange={(e) => setEmailAddress(e.target.value)}
               className="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-teal-500 focus:border-transparent mb-4"
+              autoFocus
             />
 
             <div className="flex gap-3">
@@ -564,10 +676,20 @@ export default function RapportsInspection() {
               </button>
               <button
                 onClick={handleSendEmail}
-                disabled={sendingEmail}
-                className="flex-1 px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold transition disabled:opacity-50"
+                disabled={sendingEmail || !emailAddress.trim()}
+                className="flex-1 px-4 py-3 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
-                {sendingEmail ? 'Envoi...' : 'Envoyer'}
+                {sendingEmail ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-2 border-white border-t-transparent"></div>
+                    Ouverture...
+                  </>
+                ) : (
+                  <>
+                    <Mail className="w-4 h-4" />
+                    Ouvrir mon email
+                  </>
+                )}
               </button>
             </div>
           </div>

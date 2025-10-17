@@ -50,10 +50,10 @@ export async function listInspectionReports(
 
     console.log('Loaded inspections:', inspections);
 
-    // Grouper les inspections par mission_id (départ + arrivée ensemble)
-    const missionMap = new Map<string, any>();
+    // ✅ GROUPER par mission pour créer des rapports complets
+    const missionMap = new Map<string, InspectionReport>();
     
-    (inspections || []).forEach(inspection => {
+    (inspections || []).forEach((inspection: any) => {
       const missionId = inspection.mission_id;
       
       if (!missionMap.has(missionId)) {
@@ -66,10 +66,11 @@ export async function listInspectionReports(
           departure_inspection: null,
           arrival_inspection: null,
           created_at: inspection.created_at,
+          is_complete: false,
         });
       }
       
-      const report = missionMap.get(missionId);
+      const report = missionMap.get(missionId)!;
       
       if (inspection.inspection_type === 'departure') {
         report.departure_inspection = inspection;
@@ -77,17 +78,11 @@ export async function listInspectionReports(
         report.arrival_inspection = inspection;
       }
       
-      // Mettre à jour la date de création avec la plus récente
-      if (new Date(inspection.created_at) > new Date(report.created_at)) {
-        report.created_at = inspection.created_at;
-      }
+      // Marquer comme complet si départ ET arrivée existent
+      report.is_complete = !!(report.departure_inspection && report.arrival_inspection);
     });
-    
-    // Convertir Map en Array et ajouter is_complete
-    const reports: InspectionReport[] = Array.from(missionMap.values()).map(report => ({
-      ...report,
-      is_complete: report.departure_inspection !== null && report.arrival_inspection !== null,
-    }));
+
+    const reports = Array.from(missionMap.values());
 
     // Charger les photos pour chaque inspection
     for (const report of reports) {
@@ -201,17 +196,18 @@ export async function downloadAllPhotos(
 }
 
 /**
- * Génère un PDF via le nouveau générateur amélioré
- * - Pas d'images intégrées (uniquement liens)
- * - Descriptions IA Gemini complètes
- * - Récapitulatif IA final
+ * Génère un PDF moderne avec design violet
+ * - Photos en grille 2x2
+ * - Header moderne avec fond violet
+ * - Comparaison départ/arrivée
+ * - Footer sur toutes les pages
  */
 export async function generateInspectionPDF(
   report: InspectionReport
 ): Promise<{ url: string; success: boolean; message: string }> {
   try {
-    // Import dynamique du nouveau générateur
-    const { generateInspectionPDFNew } = await import('./inspectionPdfGeneratorNew');
+    // Import du nouveau générateur MODERNE
+    const { generateInspectionPDFModern } = await import('./inspectionPdfGeneratorModern');
 
     // Utiliser l'inspection de départ en priorité, sinon l'arrivée
     const inspectionToUse = report.departure_inspection || report.arrival_inspection;
@@ -321,14 +317,18 @@ export async function generateInspectionPDF(
       created_at: inspectionData.created_at,
     } : null;
 
-    // Générer le PDF avec le nouveau générateur
-    const result = await generateInspectionPDFNew(
+    // Générer le PDF avec le NOUVEAU générateur MODERNE
+    const result = await generateInspectionPDFModern(
       missionData,
       departureInspection,
       arrivalInspection,
       departurePhotos,
       arrivalPhotos
     );
+
+    if (!result.success) {
+      throw new Error(result.message);
+    }
 
     // Créer un blob et une URL
     const pdfBlob = result.pdf.output('blob');
@@ -337,7 +337,7 @@ export async function generateInspectionPDF(
     return {
       success: true,
       url,
-      message: 'PDF généré avec succès (avec descriptions IA)',
+      message: 'PDF moderne généré avec succès',
     };
   } catch (error: any) {
     console.error('Erreur génération PDF:', error);

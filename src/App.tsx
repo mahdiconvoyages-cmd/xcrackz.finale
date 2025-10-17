@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import { AuthProvider } from './contexts/AuthContext';
 import ProtectedRoute from './components/ProtectedRoute';
 import AdminRoute from './components/AdminRoute';
@@ -16,7 +16,6 @@ import CookieConsent from './components/CookieConsent';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
-import Missions from './pages/Missions';
 import MissionCreate from './pages/MissionCreate';
 import MissionView from './pages/MissionView';
 import Contacts from './pages/Contacts_PREMIUM';
@@ -36,10 +35,10 @@ import AccountSecurity from './pages/AccountSecurity';
 import PublicTracking from './pages/PublicTracking';
 import TrackingList from './pages/TrackingList';
 import TeamMissions from './pages/TeamMissions';
-import InspectionDeparture from './pages/InspectionDeparture';
-import InspectionArrival from './pages/InspectionArrival';
-import InspectionWizard from './pages/InspectionWizard';
+import InspectionDepartureNew from './pages/InspectionDepartureNew';
+import InspectionArrivalNew from './pages/InspectionArrivalNew';
 import RapportsInspection from './pages/RapportsInspection';
+import MobileTabletWrapper from './components/MobileTabletWrapper';
 import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import TermsOfService from './pages/legal/TermsOfService';
 import CookiePolicy from './pages/legal/CookiePolicy';
@@ -73,12 +72,13 @@ function AppContent() {
             }
           />
 
+          {/* Redirect /missions to /team-missions */}
           <Route
             path="/missions"
             element={
               <ProtectedRoute>
                 <Layout>
-                  <Missions />
+                  <TeamMissions />
                 </Layout>
               </ProtectedRoute>
             }
@@ -174,7 +174,11 @@ function AppContent() {
             path="/inspection/departure/:missionId"
             element={
               <ProtectedRoute>
-                <InspectionDeparture />
+                <Layout>
+                  <MobileTabletWrapper>
+                    <InspectionDepartureNew />
+                  </MobileTabletWrapper>
+                </Layout>
               </ProtectedRoute>
             }
           />
@@ -183,16 +187,11 @@ function AppContent() {
             path="/inspection/arrival/:missionId"
             element={
               <ProtectedRoute>
-                <InspectionArrival />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/inspection/wizard/:missionId"
-            element={
-              <ProtectedRoute>
-                <InspectionWizard />
+                <Layout>
+                  <MobileTabletWrapper>
+                    <InspectionArrivalNew />
+                  </MobileTabletWrapper>
+                </Layout>
               </ProtectedRoute>
             }
           />
@@ -329,7 +328,21 @@ function AppContent() {
             }
           />
 
-        <Route path="*" element={<Navigate to="/" replace />} />
+        {/* Keep 404 route at the end - but show a proper 404 page instead of redirecting */}
+        <Route path="*" element={
+          <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-teal-50">
+            <div className="text-center">
+              <h1 className="text-6xl font-black text-slate-800 mb-4">404</h1>
+              <p className="text-xl text-slate-600 mb-8">Page non trouvée</p>
+              <Link 
+                to="/" 
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-xl transition-all"
+              >
+                Retour à l'accueil
+              </Link>
+            </div>
+          </div>
+        } />
       </Routes>
       <CookieConsent />
       <ToastContainer />

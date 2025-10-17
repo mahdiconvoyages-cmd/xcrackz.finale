@@ -67,19 +67,27 @@ export default function LeafletTracking({
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    // Créer la carte
-    mapRef.current = L.map(mapContainerRef.current, {
-      center: [pickupLat, pickupLng],
-      zoom: 13,
-      zoomControl: showControls,
-      scrollWheelZoom: true,
-    });
+    // Ensure the container is ready before initializing
+    if (!mapRef.current) {
+      try {
+        // Créer la carte
+        mapRef.current = L.map(mapContainerRef.current, {
+          center: [pickupLat, pickupLng],
+          zoom: 13,
+          zoomControl: showControls,
+          scrollWheelZoom: true,
+        });
 
-    // Ajouter les tuiles OpenStreetMap (GRATUIT)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(mapRef.current);
+        // Ajouter les tuiles OpenStreetMap (GRATUIT)
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+          maxZoom: 19,
+        }).addTo(mapRef.current);
+      } catch (error) {
+        console.error('Error initializing map:', error);
+        return;
+      }
+    }
 
     // Créer les icônes personnalisées
     const pickupIcon = L.divIcon({

@@ -245,12 +245,12 @@ export default function InspectionWizard() {
         .eq('id', data.id);
 
       alert('Inspection finalisée avec succès !');
-      navigate('/missions');
+      navigate('/rapports-inspection');
     } catch (error: any) {
       console.error('Error generating PDF:', error);
       const errorMessage = error?.message || 'Une erreur est survenue';
-      alert(`Erreur: ${errorMessage}\n\nVous allez être redirigé vers vos missions.`);
-      setTimeout(() => navigate('/missions'), 1000);
+      alert(`Erreur: ${errorMessage}\n\nVous allez être redirigé vers les rapports.`);
+      setTimeout(() => navigate('/rapports-inspection'), 1000);
     } finally {
       setLoading(false);
     }
