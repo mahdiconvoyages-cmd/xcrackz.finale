@@ -38,7 +38,6 @@ import TeamMissions from './pages/TeamMissions';
 import InspectionDepartureNew from './pages/InspectionDepartureNew';
 import InspectionArrivalNew from './pages/InspectionArrivalNew';
 import RapportsInspection from './pages/RapportsInspection';
-import MobileTabletWrapper from './components/MobileTabletWrapper';
 import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import TermsOfService from './pages/legal/TermsOfService';
 import CookiePolicy from './pages/legal/CookiePolicy';
@@ -175,9 +174,7 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <MobileTabletWrapper>
-                    <InspectionDepartureNew />
-                  </MobileTabletWrapper>
+                  <InspectionDepartureNew />
                 </Layout>
               </ProtectedRoute>
             }
@@ -188,9 +185,7 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <MobileTabletWrapper>
-                    <InspectionArrivalNew />
-                  </MobileTabletWrapper>
+                  <InspectionArrivalNew />
                 </Layout>
               </ProtectedRoute>
             }

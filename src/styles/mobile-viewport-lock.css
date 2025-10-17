@@ -1,0 +1,66 @@
+/* Force viewport dimensions on mobile and tablet - AGGRESSIVE */
+@media (max-width: 1023px) {
+  * {
+    box-sizing: border-box;
+  }
+  
+  html {
+    width: 772px !important;
+    min-height: 100vh !important;
+    overflow-x: auto !important;
+    -webkit-text-size-adjust: 100% !important;
+  }
+  
+  body {
+    width: 772px !important;
+    min-height: 100vh !important;
+    margin: 0 auto !important;
+    overflow-x: hidden !important;
+    position: relative !important;
+  }
+  
+  #root {
+    width: 772px !important;
+    min-height: 100vh !important;
+    margin: 0 auto !important;
+    position: relative !important;
+  }
+  
+  /* Force sidebar to stay collapsed on mobile */
+  aside {
+    transform: translateX(-100%) !important;
+    pointer-events: none !important;
+  }
+  
+  /* Force main content full width on mobile */
+  main {
+    margin-left: 0 !important;
+    width: 100% !important;
+    max-width: 772px !important;
+  }
+  
+  /* Force header full width */
+  header {
+    width: 100% !important;
+    max-width: 772px !important;
+    margin-left: 0 !important;
+  }
+  
+  /* Hide mobile menu button on inspection pages */
+  .inspection-page aside {
+    display: none !important;
+  }
+  
+  /* Force grids to 4 columns even on mobile */
+  .grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+}
+
+/* Desktop keeps normal behavior */
+@media (min-width: 1024px) {
+  html, body, #root {
+    width: 100% !important;
+    height: auto !important;
+  }
+}
