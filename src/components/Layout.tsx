@@ -93,25 +93,19 @@ export default function Layout({ children }: LayoutProps) {
               xCrackz
             </span>
           </Link>
-          <div className="flex items-center gap-2">
-            {/* Bouton fermer pour MOBILE (toujours visible) */}
-            <button
-              onClick={() => {
+          
+          {/* Bouton fermer/épingler unique */}
+          <button
+            onClick={() => {
+              if (window.innerWidth < 1024) {
+                // Mobile: ferme complètement
                 setSidebarOpen(false);
                 setSidebarPinned(false);
                 setSidebarHovered(false);
                 setForceHide(true);
                 setTimeout(() => setForceHide(false), 500);
-              }}
-              className="lg:hidden text-slate-400 hover:text-white hover:bg-white/10 p-2 rounded-lg transition"
-              title="Fermer"
-            >
-              <X className="w-5 h-5" />
-            </button>
-            
-            {/* Bouton épingler pour DESKTOP */}
-            <button
-              onClick={() => {
+              } else {
+                // Desktop: toggle pin
                 if (sidebarPinned) {
                   setSidebarPinned(false);
                   setSidebarHovered(false);
@@ -121,25 +115,13 @@ export default function Layout({ children }: LayoutProps) {
                   setSidebarPinned(true);
                   setForceHide(false);
                 }
-              }}
-              className="hidden lg:block text-slate-400 hover:text-white hover:bg-white/10 p-2 rounded-lg transition"
-              title={sidebarPinned ? "Désépingler et fermer" : "Épingler la sidebar"}
-            >
-              {sidebarPinned ? (
-                <X className="w-5 h-5" />
-              ) : (
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-              )}
-            </button>
-            <button
-              onClick={() => setSidebarOpen(false)}
-              className="lg:hidden text-slate-400 hover:text-white hover:bg-white/10 p-2 rounded-lg transition"
-            >
-              <X className="w-6 h-6" />
-            </button>
-          </div>
+              }
+            }}
+            className="text-slate-400 hover:text-white hover:bg-white/10 p-2 rounded-lg transition-all duration-200 group"
+            title={window.innerWidth < 1024 ? "Fermer" : (sidebarPinned ? "Désépingler et fermer" : "Épingler la sidebar")}
+          >
+            <X className="w-5 h-5 group-hover:rotate-90 transition-transform duration-200" />
+          </button>
         </div>
 
         <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
