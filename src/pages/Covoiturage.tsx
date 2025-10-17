@@ -270,7 +270,6 @@ function Covoiturage() {
       alert(`⚠️ Crédits insuffisants !\n\nVous avez ${userCredits} crédits xCrackz.\nVous avez besoin de 2 crédits pour publier un trajet.\n\nRendez-vous dans la boutique pour acheter des crédits.`);
       return;
     }
-    }
 
     const { error } = await supabase
       .from('carpooling_trips')
