@@ -1,0 +1,44 @@
+/* Force Desktop Mode on Mobile - Clean Approach */
+
+/* Sur mobile, affiche le site en version desktop avec zoom */
+@media (max-width: 1023px) {
+  html {
+    /* Force desktop width on mobile */
+    min-width: 1024px;
+  }
+  
+  body {
+    /* Force desktop width */
+    min-width: 1024px;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  #root {
+    /* Force desktop width */
+    min-width: 1024px;
+  }
+  
+  /* Force tous les textes à rester visibles */
+  .hidden {
+    display: block !important;
+  }
+  
+  .sm\:hidden,
+  .md\:hidden,
+  .lg\:hidden {
+    display: none !important;
+  }
+  
+  /* Force les grilles à garder 4 colonnes */
+  .grid {
+    display: grid !important;
+  }
+}
+
+/* Desktop reste normal */
+@media (min-width: 1024px) {
+  html, body, #root {
+    min-width: auto;
+  }
+}
