@@ -65,6 +65,17 @@ export default function InspectionDepartureNew() {
   const [hasRegistrationCard, setHasRegistrationCard] = useState(false);
   const [vehicleIsFull, setVehicleIsFull] = useState(false);
   const [windshieldCondition, setWindshieldCondition] = useState('bon');
+  
+  // Nouveaux champs
+  const [externalCleanliness, setExternalCleanliness] = useState('propre');
+  const [internalCleanliness, setInternalCleanliness] = useState('propre');
+  const [hasSpareWheel, setHasSpareWheel] = useState(false);
+  const [hasRepairKit, setHasRepairKit] = useState(false);
+  const [photoConditions, setPhotoConditions] = useState({
+    time: 'jour',
+    location: 'parking',
+    weather: 'beau-temps'
+  });
 
   // Formulaire étape 3
   const [notes, setNotes] = useState('');
@@ -201,6 +212,13 @@ export default function InspectionDepartureNew() {
           has_registration_card: hasRegistrationCard,
           vehicle_is_full: vehicleIsFull,
           windshield_condition: windshieldCondition,
+          external_cleanliness: externalCleanliness,
+          internal_cleanliness: internalCleanliness,
+          has_spare_wheel: hasSpareWheel,
+          has_repair_kit: hasRepairKit,
+          photo_time: photoConditions.time,
+          photo_location: photoConditions.location,
+          photo_weather: photoConditions.weather,
           client_name: clientName,
           client_signature: clientSignature,
           status: 'completed',
@@ -503,8 +521,117 @@ export default function InspectionDepartureNew() {
                     onChange={(e) => setVehicleIsFull(e.target.checked)}
                     className="w-5 h-5 text-[#14B8A6] rounded"
                   />
-                  <span className="text-sm text-[#2D2A3E]">Véhicule plein (carburant)</span>
+                  <span className="text-sm text-[#2D2A3E]">Véhicule chargé</span>
                 </label>
+
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={hasSpareWheel}
+                    onChange={(e) => setHasSpareWheel(e.target.checked)}
+                    className="w-5 h-5 text-[#14B8A6] rounded"
+                  />
+                  <span className="text-sm text-[#2D2A3E]">Roue de secours présente</span>
+                </label>
+
+                <label className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    checked={hasRepairKit}
+                    onChange={(e) => setHasRepairKit(e.target.checked)}
+                    className="w-5 h-5 text-[#14B8A6] rounded"
+                  />
+                  <span className="text-sm text-[#2D2A3E]">Kit de réparation présent</span>
+                </label>
+              </div>
+
+              {/* Propreté externe */}
+              <div>
+                <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
+                  Propreté externe
+                </label>
+                <select
+                  value={externalCleanliness}
+                  onChange={(e) => setExternalCleanliness(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg border-2 border-[#CCFBF1] focus:border-[#14B8A6] focus:outline-none"
+                >
+                  <option value="tres-propre">Très propre</option>
+                  <option value="propre">Propre</option>
+                  <option value="moyen">Moyen</option>
+                  <option value="sale">Sale</option>
+                  <option value="tres-sale">Très sale</option>
+                </select>
+              </div>
+
+              {/* Propreté interne */}
+              <div>
+                <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
+                  Propreté interne
+                </label>
+                <select
+                  value={internalCleanliness}
+                  onChange={(e) => setInternalCleanliness(e.target.value)}
+                  className="w-full px-4 py-3 rounded-lg border-2 border-[#CCFBF1] focus:border-[#14B8A6] focus:outline-none"
+                >
+                  <option value="tres-propre">Très propre</option>
+                  <option value="propre">Propre</option>
+                  <option value="moyen">Moyen</option>
+                  <option value="sale">Sale</option>
+                  <option value="tres-sale">Très sale</option>
+                </select>
+              </div>
+
+              {/* Conditions de prise de photo */}
+              <div className="bg-[#F0FDFA] rounded-lg p-4 border-2 border-[#CCFBF1]">
+                <h4 className="font-semibold text-[#2D2A3E] mb-3">📸 Conditions de prise de photos</h4>
+                
+                <div className="space-y-3">
+                  <div>
+                    <label className="block text-sm font-medium text-[#2D2A3E] mb-1">
+                      Moment
+                    </label>
+                    <select
+                      value={photoConditions.time}
+                      onChange={(e) => setPhotoConditions({...photoConditions, time: e.target.value})}
+                      className="w-full px-3 py-2 rounded-lg border-2 border-[#CCFBF1] focus:border-[#14B8A6] focus:outline-none text-sm"
+                    >
+                      <option value="jour">Jour</option>
+                      <option value="nuit">Nuit</option>
+                      <option value="aube-crepuscule">Aube/Crépuscule</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[#2D2A3E] mb-1">
+                      Lieu
+                    </label>
+                    <select
+                      value={photoConditions.location}
+                      onChange={(e) => setPhotoConditions({...photoConditions, location: e.target.value})}
+                      className="w-full px-3 py-2 rounded-lg border-2 border-[#CCFBF1] focus:border-[#14B8A6] focus:outline-none text-sm"
+                    >
+                      <option value="parking">Parking</option>
+                      <option value="interieur">Intérieur/Garage</option>
+                      <option value="exterieur">Extérieur/Rue</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[#2D2A3E] mb-1">
+                      Météo
+                    </label>
+                    <select
+                      value={photoConditions.weather}
+                      onChange={(e) => setPhotoConditions({...photoConditions, weather: e.target.value})}
+                      className="w-full px-3 py-2 rounded-lg border-2 border-[#CCFBF1] focus:border-[#14B8A6] focus:outline-none text-sm"
+                    >
+                      <option value="beau-temps">Beau temps</option>
+                      <option value="nuageux">Nuageux</option>
+                      <option value="pluie">Pluie</option>
+                      <option value="neige">Neige</option>
+                    </select>
+                  </div>
+                </div>
               </div>
 
               {/* État pare-brise */}

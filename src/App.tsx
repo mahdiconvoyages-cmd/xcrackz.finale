@@ -39,6 +39,7 @@ import TeamMissions from './pages/TeamMissions';
 import InspectionDepartureNew from './pages/InspectionDepartureNew';
 import InspectionArrivalNew from './pages/InspectionArrivalNew';
 import RapportsInspection from './pages/RapportsInspection';
+import PublicInspectionReport from './pages/PublicInspectionReport';
 import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import TermsOfService from './pages/legal/TermsOfService';
 import CookiePolicy from './pages/legal/CookiePolicy';
@@ -60,6 +61,7 @@ function AppContent() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/tracking/public/:token" element={<PublicTracking />} />
+        <Route path="/inspection/report/:inspectionId" element={<PublicInspectionReport />} />
 
           <Route
             path="/dashboard"
