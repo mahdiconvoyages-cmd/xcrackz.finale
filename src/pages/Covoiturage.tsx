@@ -240,34 +240,29 @@ function Covoiturage() {
       return;
     }
 
-    // Vérifier que l'utilisateur a au moins 2 crédits
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
+    // Vérifier que l'utilisateur a au moins 2 crédits (utilise user_credits comme les missions)
+    const { data: credits, error: creditsError } = await supabase
+      .from('user_credits')
+      .select('balance')
+      .eq('user_id', user.id)
       .maybeSingle();
 
-    console.log('🔍 Profil utilisateur complet:', profile);
-    console.log('💳 Crédits disponibles:', profile?.credits);
-    console.log('❌ Erreur profil:', profileError);
+    console.log('🔍 Vérification crédits user_credits:', credits);
+    console.log('💳 Balance disponible:', credits?.balance);
+    console.log('❌ Erreur crédits:', creditsError);
 
-    if (profileError) {
-      console.error('Erreur chargement profil:', profileError);
-      alert(`Erreur lors de la vérification des crédits: ${profileError.message}`);
+    if (creditsError) {
+      console.error('Erreur chargement crédits:', creditsError);
+      alert(`Erreur lors de la vérification des crédits: ${creditsError.message}`);
       return;
     }
 
-    if (!profile) {
-      alert('⚠️ Profil introuvable\n\nVotre profil utilisateur n\'existe pas dans la base de données.');
-      return;
-    }
+    const currentBalance = credits?.balance || 0;
 
-    const userCredits = profile?.credits ?? 0;
+    console.log('✅ Crédits validés:', currentBalance);
 
-    console.log('✅ Crédits validés:', userCredits);
-
-    if (userCredits < 2) {
-      alert(`⚠️ Crédits insuffisants !\n\nVous avez ${userCredits} crédits xCrackz.\nVous avez besoin de 2 crédits pour publier un trajet.\n\nRendez-vous dans la boutique pour acheter des crédits.`);
+    if (currentBalance < 2) {
+      alert(`⚠️ Crédits insuffisants !\n\nVous avez ${currentBalance} crédits xCrackz.\nVous avez besoin de 2 crédits pour publier un trajet.\n\nRendez-vous dans la boutique pour acheter des crédits.`);
       return;
     }
 
@@ -288,14 +283,20 @@ function Covoiturage() {
       return;
     }
 
-    // Déduire 2 crédits pour publication
-    const newCredits = userCredits - 2;
-    await supabase
-      .from('profiles')
-      .update({ credits: newCredits })
-      .eq('id', user.id);
+    // Déduire 2 crédits pour publication en utilisant la RPC deduct_credits
+    const { error: deductError } = await supabase.rpc('deduct_credits', {
+      p_user_id: user.id,
+      p_amount: 2,
+      p_description: `Publication trajet covoiturage ${formData.departure} → ${formData.destination}`,
+    });
 
-    alert(`✅ Trajet publié avec succès !\n\n💳 2 crédits xCrackz déduits (${newCredits} crédits restants)\n💶 Vous recevrez le paiement en espèces de vos passagers`);
+    if (deductError) {
+      console.error('❌ Erreur déduction crédits:', deductError);
+      alert('Trajet publié mais erreur lors de la déduction des crédits. Contactez le support.');
+    } else {
+      const newBalance = currentBalance - 2;
+      alert(`✅ Trajet publié avec succès !\n\n💳 2 crédits xCrackz déduits (${newBalance} crédits restants)\n💶 Vous recevrez le paiement en espèces de vos passagers`);
+    }
 
     setShowCreateModal(false);
     resetFormData();
@@ -331,33 +332,26 @@ function Covoiturage() {
       return;
     }
 
-    // Vérifier que l'utilisateur a au moins 2 crédits
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
+    // Vérifier que l'utilisateur a au moins 2 crédits (utilise user_credits comme les missions)
+    const { data: credits, error: creditsError } = await supabase
+      .from('user_credits')
+      .select('balance')
+      .eq('user_id', user.id)
       .maybeSingle();
 
-    console.log('🔍 Profil réservation complet:', profile);
-    console.log('💳 Crédits disponibles:', profile?.credits);
-    console.log('🔒 Crédits bloqués:', profile?.blocked_credits);
+    console.log('🔍 Vérification crédits réservation:', credits);
+    console.log('💳 Balance disponible:', credits?.balance);
 
-    if (profileError) {
-      console.error('Erreur chargement profil:', profileError);
-      alert(`Erreur lors de la vérification des crédits: ${profileError.message}`);
+    if (creditsError) {
+      console.error('Erreur chargement crédits:', creditsError);
+      alert(`Erreur lors de la vérification des crédits: ${creditsError.message}`);
       return;
     }
 
-    if (!profile) {
-      alert('⚠️ Profil introuvable');
-      return;
-    }
+    const currentBalance = credits?.balance || 0;
 
-    const userCredits = profile?.credits || 0;
-    const blockedCredits = profile?.blocked_credits || 0;
-
-    if (userCredits < 2) {
-      alert(`⚠️ Crédits insuffisants !\n\nVous avez ${userCredits} crédits xCrackz.\nVous avez besoin de 2 crédits pour réserver ce trajet.\n\nRendez-vous dans la boutique pour acheter des crédits.`);
+    if (currentBalance < 2) {
+      alert(`⚠️ Crédits insuffisants !\n\nVous avez ${currentBalance} crédits xCrackz.\nVous avez besoin de 2 crédits pour réserver ce trajet.\n\nRendez-vous dans la boutique pour acheter des crédits.`);
       return;
     }
 
@@ -383,20 +377,20 @@ function Covoiturage() {
       return;
     }
 
-    // Bloquer 2 crédits (ne pas déduire tant que le trajet n'est pas confirmé)
-    const newCredits = userCredits - 2;
-    const newBlockedCredits = blockedCredits + 2;
-    
-    await supabase
-      .from('profiles')
-      .update({ 
-        credits: newCredits,
-        blocked_credits: newBlockedCredits
-      })
-      .eq('id', user.id);
+    // Déduire 2 crédits pour réservation en utilisant la RPC deduct_credits
+    const { error: deductError } = await supabase.rpc('deduct_credits', {
+      p_user_id: user.id,
+      p_amount: 2,
+      p_description: `Réservation covoiturage ${selectedTrip.departure} → ${selectedTrip.destination}`,
+    });
 
-    alert(`✅ Réservation effectuée !\n\n💳 2 crédits xCrackz bloqués (${newCredits} crédits restants)\n💶 ${tripPrice.toFixed(2)}€ à payer en espèces au conducteur le jour du trajet\n\n${selectedTrip.instant_booking ? '⚡ Réservation instantanée confirmée !' : '⏳ En attente de validation du conducteur...'}`);
-    
+    if (deductError) {
+      console.error('❌ Erreur déduction crédits:', deductError);
+      alert('Réservation effectuée mais erreur lors de la déduction des crédits. Contactez le support.');
+    } else {
+      const newBalance = currentBalance - 2;
+      alert(`✅ Réservation effectuée !\n\n💳 2 crédits xCrackz déduits (${newBalance} crédits restants)\n💶 ${tripPrice.toFixed(2)}€ à payer en espèces au conducteur le jour du trajet\n\n${selectedTrip.instant_booking ? '⚡ Réservation instantanée confirmée !' : '⏳ En attente de validation du conducteur...'}`);
+    }
     setShowBookingModal(false);
     setSelectedTrip(null);
     setBookingData({ seats_booked: '1', message: '' });
