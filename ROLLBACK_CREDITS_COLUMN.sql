@@ -1,6 +1,23 @@
--- ROLLBACK: Suppression et recréation propre de la colonne credits
+-- ⚠️ OBSOLÈTE - NE PLUS UTILISER profiles.credits
 -- Date: 2025-10-17
--- Description: Nettoie les doublons et recrée la colonne credits correctement
+-- Description: Ce fichier est OBSOLÈTE car le système utilise user_credits.balance
+
+-- ❌ CE SCRIPT EST OBSOLÈTE
+-- Le système utilise maintenant user_credits.balance au lieu de profiles.credits
+-- Voir CREDITS_SYSTEM_AUDIT.md pour la documentation complète
+
+-- Pour vérifier vos crédits, utilisez plutôt :
+-- SELECT u.email, uc.balance as credits
+-- FROM auth.users u
+-- LEFT JOIN user_credits uc ON uc.user_id = u.id
+-- WHERE u.email = 'VOTRE_EMAIL';
+
+-- Pour ajouter des crédits, utilisez plutôt :
+-- SELECT add_credits('USER_ID'::UUID, MONTANT, 'Description');
+
+-- ========================================
+-- ANCIEN CODE (NE PLUS UTILISER)
+-- ========================================
 
 -- 1. Vérifier l'état actuel
 SELECT column_name, data_type, column_default, is_nullable
