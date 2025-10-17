@@ -51,7 +51,7 @@ interface Assignment {
   contact?: Contact;
 }
 
-type TabType = 'missions' | 'team' | 'assignments' | 'stats';
+type TabType = 'missions' | 'team' | 'assignments' | 'received' | 'stats';
 type ViewMode = 'grid' | 'list';
 
 export default function TeamMissions() {
@@ -64,6 +64,7 @@ export default function TeamMissions() {
   const [missions, setMissions] = useState<Mission[]>([]);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [receivedAssignments, setReceivedAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Modals
@@ -105,6 +106,7 @@ export default function TeamMissions() {
         loadMissions(),
         loadContacts(),
         loadAssignments(),
+        loadReceivedAssignments(),
       ]);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -149,6 +151,39 @@ export default function TeamMissions() {
 
     if (error) throw error;
     setAssignments(data || []);
+  };
+
+  const loadReceivedAssignments = async () => {
+    // 1. Trouver le contact lié à cet utilisateur
+    const { data: userContact } = await supabase
+      .from('contacts')
+      .select('id')
+      .eq('user_id', user!.id)
+      .maybeSingle();
+
+    if (!userContact) {
+      setReceivedAssignments([]);
+      return;
+    }
+
+    // 2. Charger les missions assignées à ce contact
+    const { data, error } = await supabase
+      .from('mission_assignments')
+      .select(`
+        *,
+        mission:missions(*),
+        contact:contacts(*),
+        assigned_by_user:profiles!mission_assignments_assigned_by_fkey(email, id)
+      `)
+      .eq('contact_id', userContact.id)
+      .order('assigned_at', { ascending: false });
+
+    if (error) {
+      console.error('Erreur chargement missions reçues:', error);
+      setReceivedAssignments([]);
+    } else {
+      setReceivedAssignments(data || []);
+    }
   };
 
   // ===== ACTIONS =====
@@ -463,6 +498,23 @@ export default function TeamMissions() {
               activeTab === 'assignments' ? 'bg-white/20' : 'bg-slate-200'
             }`}>
               {stats.activeAssignments}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('received')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all duration-300 whitespace-nowrap ${
+              activeTab === 'received'
+                ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <Package className="w-5 h-5" />
+            Mes Missions
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              activeTab === 'received' ? 'bg-white/20' : 'bg-slate-200'
+            }`}>
+              {receivedAssignments.length}
             </span>
           </button>
 
@@ -886,6 +938,112 @@ export default function TeamMissions() {
               </div>
               <p className="text-sm font-bold text-amber-800">Membres d'Équipe</p>
             </div>
+          </div>
+        )}
+
+        {/* RECEIVED MISSIONS TAB */}
+        {activeTab === 'received' && (
+          <div className="space-y-4">
+            {receivedAssignments.length === 0 ? (
+              <div className="backdrop-blur-xl bg-white/80 border border-slate-200 rounded-2xl p-12 text-center">
+                <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-xl font-bold text-slate-900 mb-2">
+                  Aucune mission reçue
+                </h3>
+                <p className="text-slate-600">
+                  Les missions qui vous sont assignées apparaîtront ici
+                </p>
+              </div>
+            ) : (
+              receivedAssignments.map((assignment) => (
+                <div
+                  key={assignment.id}
+                  className="backdrop-blur-xl bg-white/80 border border-slate-200 rounded-2xl p-6 hover:shadow-xl transition-all duration-300"
+                >
+                  {/* Header avec badge "Assignée par" */}
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="text-xl font-bold text-slate-900">
+                          {assignment.mission?.reference || 'N/A'}
+                        </h3>
+                        <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-bold">
+                          🎯 Assignée par {assignment.assigned_by_user?.email || 'Admin'}
+                        </span>
+                      </div>
+                      <p className="text-slate-600">
+                        {assignment.mission?.vehicle_brand} {assignment.mission?.vehicle_model}
+                      </p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-bold text-teal-600">
+                        {assignment.payment_ht?.toFixed(2)}€
+                      </p>
+                      <p className="text-sm text-slate-500">HT</p>
+                    </div>
+                  </div>
+
+                  {/* Itinéraire */}
+                  <div className="grid md:grid-cols-2 gap-4 mb-4">
+                    <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
+                      <MapPin className="w-5 h-5 text-green-600 mt-1 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-green-900">Départ</p>
+                        <p className="text-sm text-green-700 truncate">
+                          {assignment.mission?.pickup_address}
+                        </p>
+                        <p className="text-xs text-green-600 mt-1">
+                          {new Date(assignment.mission?.pickup_date).toLocaleDateString('fr-FR')}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg">
+                      <MapPin className="w-5 h-5 text-red-600 mt-1 flex-shrink-0" />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold text-red-900">Arrivée</p>
+                        <p className="text-sm text-red-700 truncate">
+                          {assignment.mission?.delivery_address}
+                        </p>
+                        <p className="text-xs text-red-600 mt-1">
+                          {new Date(assignment.mission?.delivery_date).toLocaleDateString('fr-FR')}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notes */}
+                  {assignment.notes && (
+                    <div className="mb-4 p-3 bg-blue-50 rounded-lg">
+                      <p className="text-sm font-bold text-blue-900 mb-1">📝 Instructions :</p>
+                      <p className="text-sm text-blue-700">{assignment.notes}</p>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+                    <div className="flex items-center gap-3 text-sm text-slate-600">
+                      {assignment.mission?.distance && (
+                        <span>📏 {assignment.mission.distance} km</span>
+                      )}
+                      {assignment.commission > 0 && (
+                        <span className="text-teal-600 font-bold">
+                          💰 Commission: {assignment.commission}€
+                        </span>
+                      )}
+                    </div>
+                    
+                    <button
+                      onClick={() => handleStartInspection(assignment.mission!)}
+                      className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                    >
+                      <Play className="w-5 h-5" />
+                      Commencer Inspection
+                    </button>
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         )}
       </div>
