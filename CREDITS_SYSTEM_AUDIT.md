@@ -70,12 +70,9 @@
 - **Lignes 495-585:** `handleGrantSubscription()`
 - **NOUVEAU:** Attribution automatique de crédits selon le plan
   ```typescript
-  const creditsPerPlan = {
-    'starter': 10,
-    'pro': 50,
-    'premium': 150,
-    'enterprise': 500,
-  };
+  // Lit les crédits depuis shop_items (valeurs réelles boutique)
+  const selectedPlan = shopPlans.find(p => p.name === grantPlan);
+  const creditsToAdd = selectedPlan?.credits_amount || 0;
   
   await supabase.rpc('add_credits', {
     p_user_id: selectedUser.id,
@@ -83,6 +80,7 @@
     p_description: `Abonnement ${grantPlan.toUpperCase()}`
   });
   ```
+- **Source des crédits:** `shop_items.credits_amount` (synchronisé avec la boutique)
 
 ### 9. **Webhook Mollie (Paiements)** ✅ CORRIGÉ
 - **Fichier:** `supabase/functions/mollie-webhook/index.ts`

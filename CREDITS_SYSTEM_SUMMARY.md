@@ -54,14 +54,13 @@ Le covoiturage cherchait les crédits dans `profiles.credits` au lieu de `user_c
 
 ## 🎁 CRÉDITS PAR ABONNEMENT (NOUVEAU)
 
-Quand vous attribuez un abonnement dans l'admin, les crédits sont ajoutés automatiquement :
+Quand vous attribuez un abonnement dans l'admin, **les crédits sont lus depuis la table `shop_items`** :
 
-| Plan | Crédits auto |
-|------|--------------|
-| 🟢 Starter | +10 crédits |
-| 🔵 Pro | +50 crédits |
-| 🟣 Premium | +150 crédits |
-| 🟡 Enterprise | +500 crédits |
+```
+Plan → shop_items.credits_amount → user_credits.balance
+```
+
+**Avantage :** Synchronisé automatiquement avec la boutique ! Si vous modifiez les crédits dans `shop_items`, l'attribution admin utilise la nouvelle valeur.
 
 ---
 

@@ -519,15 +519,9 @@ export default function Admin() {
         return;
       }
 
-      // Calculer les crédits selon le plan
-      const creditsPerPlan: Record<string, number> = {
-        'starter': 10,
-        'pro': 50,
-        'premium': 150,
-        'enterprise': 500,
-      };
-
-      const creditsToAdd = creditsPerPlan[grantPlan] || 0;
+      // Récupérer les crédits depuis shop_items (valeurs réelles de la boutique)
+      const selectedPlan = shopPlans.find(p => p.name === grantPlan);
+      const creditsToAdd = selectedPlan?.credits_amount || 0;
 
       const { data: existingSub } = await supabase
         .from('subscriptions')
@@ -571,7 +565,7 @@ export default function Admin() {
         }
       }
 
-      // Ajouter les crédits automatiquement via RPC
+      // Ajouter les crédits automatiquement via RPC (selon shop_items)
       if (creditsToAdd > 0) {
         const { error: creditsError } = await supabase.rpc('add_credits', {
           p_user_id: selectedUser.id,
@@ -586,7 +580,7 @@ export default function Admin() {
       }
 
       await loadAllUsers();
-      alert(`✅ Abonnement ${grantPlan.toUpperCase()} accordé !\n💳 ${creditsToAdd} crédits ajoutés automatiquement`);
+      alert(`✅ Abonnement ${grantPlan.toUpperCase()} accordé !\n💳 ${creditsToAdd} crédits ajoutés automatiquement (selon boutique : ${selectedPlan?.price}€/mois)`);
 
       setShowGrantModal(false);
       setSelectedUser(null);
