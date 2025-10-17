@@ -519,6 +519,16 @@ export default function Admin() {
         return;
       }
 
+      // Calculer les crédits selon le plan
+      const creditsPerPlan: Record<string, number> = {
+        'starter': 10,
+        'pro': 50,
+        'premium': 150,
+        'enterprise': 500,
+      };
+
+      const creditsToAdd = creditsPerPlan[grantPlan] || 0;
+
       const { data: existingSub } = await supabase
         .from('subscriptions')
         .select('*')
@@ -561,8 +571,22 @@ export default function Admin() {
         }
       }
 
+      // Ajouter les crédits automatiquement via RPC
+      if (creditsToAdd > 0) {
+        const { error: creditsError } = await supabase.rpc('add_credits', {
+          p_user_id: selectedUser.id,
+          p_amount: creditsToAdd,
+          p_description: `Abonnement ${grantPlan.toUpperCase()} - ${days} jours`,
+        });
+
+        if (creditsError) {
+          console.error('Erreur ajout crédits:', creditsError);
+          alert(`⚠️ Abonnement accordé mais erreur lors de l'ajout des ${creditsToAdd} crédits`);
+        }
+      }
+
       await loadAllUsers();
-      alert(`✅ Abonnement ${grantPlan.toUpperCase()} accordé !`);
+      alert(`✅ Abonnement ${grantPlan.toUpperCase()} accordé !\n💳 ${creditsToAdd} crédits ajoutés automatiquement`);
 
       setShowGrantModal(false);
       setSelectedUser(null);

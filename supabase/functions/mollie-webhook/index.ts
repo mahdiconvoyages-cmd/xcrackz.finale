@@ -85,27 +85,30 @@ Deno.serve(async (req: Request) => {
 
       const { data: userCredits, error: creditsError } = await supabase
         .from('user_credits')
-        .select('credits_balance')
+        .select('balance')
         .eq('user_id', user_id)
-        .single();
+        .maybeSingle();
 
-      if (creditsError && creditsError.code !== 'PGRST116') {
+      if (creditsError) {
+        console.error('Error fetching user credits:', creditsError);
         throw creditsError;
       }
 
       if (userCredits) {
+        // Mettre à jour le solde existant
         await supabase
           .from('user_credits')
           .update({
-            credits_balance: userCredits.credits_balance + parseInt(credits),
+            balance: userCredits.balance + parseInt(credits),
           })
           .eq('user_id', user_id);
       } else {
+        // Créer un nouveau compte crédits
         await supabase
           .from('user_credits')
           .insert([{
             user_id,
-            credits_balance: parseInt(credits),
+            balance: parseInt(credits),
           }]);
       }
 
