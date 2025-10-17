@@ -154,34 +154,47 @@ export default function TeamMissions() {
   };
 
   const loadReceivedAssignments = async () => {
-    // 1. Trouver le contact lié à cet utilisateur
-    const { data: userContact } = await supabase
+    console.log('🔍 DEBUG loadReceivedAssignments - Début');
+    console.log('📋 User ID:', user!.id);
+    
+    // 1. Trouver TOUS les contacts liés à cet utilisateur
+    const { data: userContacts, error: contactError } = await supabase
       .from('contacts')
       .select('id')
-      .eq('user_id', user!.id)
-      .maybeSingle();
+      .eq('user_id', user!.id);
 
-    if (!userContact) {
+    console.log('👤 Contacts trouvés:', userContacts);
+    console.log('❌ Erreur contact:', contactError);
+
+    if (!userContacts || userContacts.length === 0) {
+      console.log('⚠️ Aucun contact lié à cet utilisateur');
       setReceivedAssignments([]);
       return;
     }
 
-    // 2. Charger les missions assignées à ce contact
+    // Récupérer les IDs de tous les contacts
+    const contactIds = userContacts.map(c => c.id);
+    console.log('📋 Contact IDs:', contactIds);
+
+    // 2. Charger les missions assignées à CES contacts
     const { data, error } = await supabase
       .from('mission_assignments')
       .select(`
         *,
         mission:missions(*),
-        contact:contacts(*),
-        assigned_by_user:profiles!mission_assignments_assigned_by_fkey(email, id)
+        contact:contacts(*)
       `)
-      .eq('contact_id', userContact.id)
+      .in('contact_id', contactIds)
       .order('assigned_at', { ascending: false });
+
+    console.log('📦 Missions reçues:', data);
+    console.log('❌ Erreur missions:', error);
 
     if (error) {
       console.error('Erreur chargement missions reçues:', error);
       setReceivedAssignments([]);
     } else {
+      console.log('✅ Nombre missions reçues:', data?.length || 0);
       setReceivedAssignments(data || []);
     }
   };
@@ -968,7 +981,7 @@ export default function TeamMissions() {
                           {assignment.mission?.reference || 'N/A'}
                         </h3>
                         <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-bold">
-                          🎯 Assignée par {assignment.assigned_by_user?.email || 'Admin'}
+                          🎯 Mission assignée
                         </span>
                       </div>
                       <p className="text-slate-600">
