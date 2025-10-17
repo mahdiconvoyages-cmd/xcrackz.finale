@@ -71,6 +71,14 @@ export default function InspectionDepartureNew() {
   const [clientName, setClientName] = useState('');
   const [clientSignature, setClientSignature] = useState('');
 
+  // Ajouter classe inspection-page au body
+  useEffect(() => {
+    document.body.classList.add('inspection-page');
+    return () => {
+      document.body.classList.remove('inspection-page');
+    };
+  }, []);
+
   useEffect(() => {
     loadMission();
   }, [missionId]);
