@@ -164,39 +164,76 @@ export default function TeamMissions() {
 
   const handleAssignMission = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedMission || !assignmentForm.contact_id) return;
+    
+    console.log('🔍 DEBUG ASSIGNATION - Début');
+    console.log('📋 Mission sélectionnée:', selectedMission?.id, selectedMission?.reference);
+    console.log('👤 Contact sélectionné:', assignmentForm.contact_id);
+    console.log('💰 Paiement HT:', assignmentForm.payment_ht);
+    console.log('💵 Commission:', assignmentForm.commission);
+    console.log('👤 User ID:', user?.id);
+
+    if (!selectedMission || !assignmentForm.contact_id) {
+      console.error('❌ Validation échouée - mission ou contact manquant');
+      alert('⚠️ Veuillez sélectionner une mission et un chauffeur');
+      return;
+    }
 
     try {
-      const { error } = await supabase
-        .from('mission_assignments')
-        .insert([{
-          mission_id: selectedMission.id,
-          contact_id: assignmentForm.contact_id,
-          user_id: user!.id,
-          assigned_by: user!.id,
-          payment_ht: assignmentForm.payment_ht,
-          commission: assignmentForm.commission,
-          notes: assignmentForm.notes,
-          status: 'assigned',
-        }]);
+      const insertData = {
+        mission_id: selectedMission.id,
+        contact_id: assignmentForm.contact_id,
+        user_id: user!.id,
+        assigned_by: user!.id,
+        payment_ht: assignmentForm.payment_ht,
+        commission: assignmentForm.commission,
+        notes: assignmentForm.notes,
+        status: 'assigned',
+      };
 
-      if (error) throw error;
+      console.log('📤 Données à insérer:', insertData);
+
+      const { data, error } = await supabase
+        .from('mission_assignments')
+        .insert([insertData])
+        .select();
+
+      console.log('📥 Réponse Supabase:', { data, error });
+
+      if (error) {
+        console.error('❌ Erreur Supabase:', error);
+        throw error;
+      }
+
+      console.log('✅ Assignation créée:', data);
 
       // Update mission status
-      await supabase
+      console.log('🔄 Mise à jour statut mission...');
+      const { error: updateError } = await supabase
         .from('missions')
         .update({ status: 'assigned' })
         .eq('id', selectedMission.id);
 
+      if (updateError) {
+        console.error('⚠️ Erreur mise à jour mission:', updateError);
+      } else {
+        console.log('✅ Mission mise à jour');
+      }
+
       setShowAssignModal(false);
       setSelectedMission(null);
       setAssignmentForm({ contact_id: '', payment_ht: 0, commission: 0, notes: '' });
+      
+      console.log('🔄 Rechargement des données...');
       await loadData();
       
+      console.log('🎉 Assignation terminée avec succès !');
       alert('✅ Mission assignée avec succès!');
     } catch (error) {
-      console.error('Error assigning mission:', error);
-      alert('❌ Erreur lors de l\'assignation');
+      console.error('💥 ERREUR COMPLÈTE:', error);
+      console.error('Message:', (error as any)?.message);
+      console.error('Code:', (error as any)?.code);
+      console.error('Details:', (error as any)?.details);
+      alert('❌ Erreur lors de l\'assignation: ' + ((error as any)?.message || 'Erreur inconnue'));
     }
   };
 
