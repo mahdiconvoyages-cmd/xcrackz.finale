@@ -241,14 +241,25 @@ function Covoiturage() {
     }
 
     // Vérifier que l'utilisateur a au moins 2 crédits
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('credits')
       .eq('id', user.id)
       .single();
 
-    if (!profile || profile.credits < 2) {
-      alert('⚠️ Crédits insuffisants !\n\nVous avez besoin de 2 crédits xCrackz pour publier un trajet.\nRendez-vous dans la boutique pour acheter des crédits.');
+    console.log('🔍 Profil utilisateur:', profile);
+    console.log('💳 Crédits disponibles:', profile?.credits);
+
+    if (profileError) {
+      console.error('Erreur chargement profil:', profileError);
+      alert('Erreur lors de la vérification des crédits');
+      return;
+    }
+
+    const userCredits = profile?.credits || 0;
+
+    if (userCredits < 2) {
+      alert(`⚠️ Crédits insuffisants !\n\nVous avez ${userCredits} crédits xCrackz.\nVous avez besoin de 2 crédits pour publier un trajet.\n\nRendez-vous dans la boutique pour acheter des crédits.`);
       return;
     }
 
@@ -270,12 +281,13 @@ function Covoiturage() {
     }
 
     // Déduire 2 crédits pour publication
+    const newCredits = userCredits - 2;
     await supabase
       .from('profiles')
-      .update({ credits: profile.credits - 2 })
+      .update({ credits: newCredits })
       .eq('id', user.id);
 
-    alert('✅ Trajet publié avec succès !\n\n💳 2 crédits xCrackz déduits\n💶 Vous recevrez le paiement en espèces de vos passagers');
+    alert(`✅ Trajet publié avec succès !\n\n💳 2 crédits xCrackz déduits (${newCredits} crédits restants)\n💶 Vous recevrez le paiement en espèces de vos passagers`);
 
     setShowCreateModal(false);
     resetFormData();
@@ -312,14 +324,27 @@ function Covoiturage() {
     }
 
     // Vérifier que l'utilisateur a au moins 2 crédits
-    const { data: profile } = await supabase
+    const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .select('credits, blocked_credits')
       .eq('id', user.id)
       .single();
 
-    if (!profile || profile.credits < 2) {
-      alert('⚠️ Crédits insuffisants !\n\nVous avez besoin de 2 crédits xCrackz pour réserver ce trajet.\nRendez-vous dans la boutique pour acheter des crédits.');
+    console.log('🔍 Profil réservation:', profile);
+    console.log('💳 Crédits disponibles:', profile?.credits);
+    console.log('🔒 Crédits bloqués:', profile?.blocked_credits);
+
+    if (profileError) {
+      console.error('Erreur chargement profil:', profileError);
+      alert('Erreur lors de la vérification des crédits');
+      return;
+    }
+
+    const userCredits = profile?.credits || 0;
+    const blockedCredits = profile?.blocked_credits || 0;
+
+    if (userCredits < 2) {
+      alert(`⚠️ Crédits insuffisants !\n\nVous avez ${userCredits} crédits xCrackz.\nVous avez besoin de 2 crédits pour réserver ce trajet.\n\nRendez-vous dans la boutique pour acheter des crédits.`);
       return;
     }
 
@@ -346,26 +371,22 @@ function Covoiturage() {
     }
 
     // Bloquer 2 crédits (ne pas déduire tant que le trajet n'est pas confirmé)
+    const newCredits = userCredits - 2;
+    const newBlockedCredits = blockedCredits + 2;
+    
     await supabase
       .from('profiles')
       .update({ 
-        credits: profile.credits - 2,
-        blocked_credits: (profile.blocked_credits || 0) + 2
+        credits: newCredits,
+        blocked_credits: newBlockedCredits
       })
       .eq('id', user.id);
 
-    alert(`✅ Réservation effectuée !\n\n💳 2 crédits xCrackz bloqués\n💶 ${tripPrice.toFixed(2)}€ à payer en espèces au conducteur le jour du trajet\n\n${selectedTrip.instant_booking ? '⚡ Réservation instantanée confirmée !' : '⏳ En attente de validation du conducteur...'}`);
+    alert(`✅ Réservation effectuée !\n\n💳 2 crédits xCrackz bloqués (${newCredits} crédits restants)\n💶 ${tripPrice.toFixed(2)}€ à payer en espèces au conducteur le jour du trajet\n\n${selectedTrip.instant_booking ? '⚡ Réservation instantanée confirmée !' : '⏳ En attente de validation du conducteur...'}`);
     
     setShowBookingModal(false);
     setSelectedTrip(null);
     setBookingData({ seats_booked: '1', message: '' });
-    
-    if (selectedTrip.instant_booking) {
-      alert('✅ Réservation confirmée instantanément !');
-    } else {
-      alert('📩 Réservation envoyée ! Le conducteur a 24h pour répondre.');
-    }
-    
     loadData();
   };
 
