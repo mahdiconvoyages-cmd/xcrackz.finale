@@ -42,7 +42,7 @@ export default function InspectionArrivalNew() {
   const [saving, setSaving] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Photos obligatoires (6 extérieur + 2 intérieur + 1 PV)
+  // Photos obligatoires (UNIQUEMENT les 6 extérieures)
   const [photos, setPhotos] = useState<PhotoData[]>([
     { type: 'front', label: 'Face avant générale', url: null, file: null, captured: false },
     { type: 'back', label: 'Face arrière générale', url: null, file: null, captured: false },
@@ -50,12 +50,16 @@ export default function InspectionArrivalNew() {
     { type: 'left_back', label: 'Latéral gauche arrière', url: null, file: null, captured: false },
     { type: 'right_front', label: 'Latéral droit avant', url: null, file: null, captured: false },
     { type: 'right_back', label: 'Latéral droit arrière', url: null, file: null, captured: false },
+  ]);
+
+  // Photos optionnelles (intérieur, dashboard, PV - NON BLOQUANTES)
+  const [optionalInteriorPhotos, setOptionalInteriorPhotos] = useState<PhotoData[]>([
     { type: 'interior', label: 'Intérieur', url: null, file: null, captured: false },
     { type: 'dashboard', label: 'Tableau de bord', url: null, file: null, captured: false },
     { type: 'delivery_receipt', label: 'PV de livraison/restitution', url: null, file: null, captured: false },
   ]);
 
-  // Photos optionnelles
+  // Photos optionnelles (dommages supplémentaires)
   const [optionalPhotos, setOptionalPhotos] = useState<any[]>([]);
 
   // Formulaire
@@ -137,13 +141,27 @@ export default function InspectionArrivalNew() {
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      setPhotos(prev => prev.map(p => 
-        p.type === currentPhotoType 
-          ? { ...p, url: reader.result as string, file, captured: true }
-          : p
-      ));
-      const photoLabel = photos.find(p => p.type === currentPhotoType)?.label;
-      showToast('success', 'Photo capturée', `${photoLabel} enregistrée`);
+      // Vérifier si c'est une photo extérieure ou intérieure
+      const isExteriorPhoto = photos.some(p => p.type === currentPhotoType);
+      const isInteriorPhoto = optionalInteriorPhotos.some(p => p.type === currentPhotoType);
+
+      if (isExteriorPhoto) {
+        setPhotos(prev => prev.map(p => 
+          p.type === currentPhotoType 
+            ? { ...p, url: reader.result as string, file, captured: true }
+            : p
+        ));
+        const photoLabel = photos.find(p => p.type === currentPhotoType)?.label;
+        showToast('success', 'Photo capturée', `${photoLabel} enregistrée`);
+      } else if (isInteriorPhoto) {
+        setOptionalInteriorPhotos(prev => prev.map(p => 
+          p.type === currentPhotoType 
+            ? { ...p, url: reader.result as string, file, captured: true }
+            : p
+        ));
+        const photoLabel = optionalInteriorPhotos.find(p => p.type === currentPhotoType)?.label;
+        showToast('success', 'Photo capturée', `${photoLabel} enregistrée (optionnelle)`);
+      }
     };
     reader.readAsDataURL(file);
 
@@ -157,20 +175,13 @@ export default function InspectionArrivalNew() {
   const handleComplete = async () => {
     if (!mission || !user) return;
 
-    // Validation
-    const exteriorPhotos = photos.slice(0, 6);
-    const interiorPhotos = photos.slice(6, 9); // intérieur + dashboard + PV
-    
-    if (currentStep === 1 && !exteriorPhotos.every(p => p.captured)) {
-      showToast('error', 'Photos manquantes', 'Veuillez prendre toutes les photos extérieures');
+    // Validation - UNIQUEMENT les 6 photos extérieures obligatoires
+    if (currentStep === 1 && !photos.every(p => p.captured)) {
+      showToast('error', 'Photos manquantes', 'Veuillez prendre toutes les photos extérieures (6 obligatoires)');
       return;
     }
 
-    if (currentStep === 2 && !interiorPhotos.every(p => p.captured)) {
-      showToast('error', 'Photos manquantes', 'Veuillez prendre toutes les photos (intérieur + tableau de bord + PV)');
-      return;
-    }
-
+    // Étape 2 : Photos intérieur/dashboard/PV optionnelles, seul le kilométrage est requis
     if (currentStep === 2 && !mileage) {
       showToast('error', 'Kilométrage requis', 'Veuillez renseigner le kilométrage actuel du véhicule');
       return;
@@ -255,7 +266,39 @@ export default function InspectionArrivalNew() {
         }
       }
 
-      // 3. Upload des photos optionnelles
+      // 3. Upload des photos intérieures optionnelles (intérieur, dashboard, PV)
+      for (const photo of optionalInteriorPhotos) {
+        if (!photo.file || !photo.captured) continue;
+
+        try {
+          const fileExt = photo.file.name.split('.').pop();
+          const fileName = `${arrivalInspection.id}-${photo.type}-${Date.now()}.${fileExt}`;
+          const filePath = `inspections/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('inspection-photos')
+            .upload(filePath, photo.file);
+
+          if (uploadError) throw uploadError;
+
+          const { data: urlData } = supabase.storage
+            .from('inspection-photos')
+            .getPublicUrl(filePath);
+
+          const { error: insertError } = await supabase.from('inspection_photos').insert({
+            inspection_id: arrivalInspection.id,
+            photo_type: photo.type,
+            photo_url: urlData.publicUrl,
+          } as any);
+
+          if (insertError) throw insertError;
+          uploadedCount++;
+        } catch (error) {
+          console.error(`Erreur upload ${photo.type} (optionnel):`, error);
+        }
+      }
+
+      // 4. Upload des photos de dommages optionnelles
       for (const optPhoto of optionalPhotos) {
         try {
           const fileExt = optPhoto.file.name.split('.').pop();
@@ -311,14 +354,14 @@ export default function InspectionArrivalNew() {
   };
 
   const getStepPhotos = () => {
-    if (currentStep === 1) return photos.slice(0, 6); // Extérieur
-    if (currentStep === 2) return photos.slice(6, 9); // Intérieur + Dashboard + PV
+    if (currentStep === 1) return photos; // 6 extérieures obligatoires
+    if (currentStep === 2) return optionalInteriorPhotos; // Intérieur optionnelles
     return [];
   };
 
   const getPhotoCount = (step: number) => {
-    if (step === 1) return photos.slice(0, 6).filter(p => p.captured).length;
-    if (step === 2) return photos.slice(6, 9).filter(p => p.captured).length;
+    if (step === 1) return photos.filter(p => p.captured).length;
+    if (step === 2) return optionalInteriorPhotos.filter(p => p.captured).length;
     return 0;
   };
 
@@ -393,12 +436,19 @@ export default function InspectionArrivalNew() {
           </div>
         )}
 
-        {/* ÉTAPE 2: Intérieur + Dashboard + PV */}
+        {/* ÉTAPE 2: Intérieur + Documents + État du véhicule */}
         {currentStep === 2 && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">Intérieur & documents</h2>
-              <p className="text-sm text-gray-600">Photos intérieures et PV de livraison</p>
+              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">Intérieur & État du véhicule</h2>
+              <p className="text-sm text-gray-600">Photos optionnelles et relevés obligatoires</p>
+            </div>
+
+            {/* Info photos optionnelles */}
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
+              <p className="text-sm text-blue-800">
+                <strong>💡 Photos optionnelles :</strong> Les photos intérieur, tableau de bord et PV ne sont pas obligatoires. Seuls le kilométrage et le carburant sont requis.
+              </p>
             </div>
 
             <div className="grid grid-cols-4 gap-4">
@@ -406,12 +456,12 @@ export default function InspectionArrivalNew() {
                 <PhotoCard
                   key={photo.type}
                   type={photo.type}
-                  label={photo.label}
-                  isRequired={true}
+                  label={`${photo.label} (optionnel)`}
+                  isRequired={false}
                   isCaptured={photo.captured}
                   vehicleType={mission?.vehicle_type || 'VL'}
                   onClick={() => handlePhotoClick(photo.type)}
-                  instruction={photo.type === 'delivery_receipt' ? '📄 Photographiez le PV signé par le destinataire' : undefined}
+                  instruction={photo.type === 'delivery_receipt' ? '📄 Photo du PV signé (optionnelle)' : undefined}
                 />
               ))}
             </div>
@@ -473,13 +523,6 @@ export default function InspectionArrivalNew() {
                   </div>
                 </div>
               </div>
-            </div>
-
-            {/* Info PV */}
-            <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4">
-              <p className="text-sm text-blue-800">
-                <strong>💡 PV de livraison/restitution :</strong> Assurez-vous que le document est bien signé et lisible. Cette photo est obligatoire pour finaliser la livraison.
-              </p>
             </div>
           </div>
         )}

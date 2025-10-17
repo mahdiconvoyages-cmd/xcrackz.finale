@@ -41,7 +41,7 @@ export default function InspectionDepartureNew() {
   const [saving, setSaving] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Photos obligatoires (6 extérieur + 2 intérieur)
+  // Photos obligatoires (UNIQUEMENT les 6 extérieures)
   const [photos, setPhotos] = useState<PhotoData[]>([
     { type: 'front', label: 'Face avant générale', url: null, file: null, captured: false },
     { type: 'back', label: 'Face arrière générale', url: null, file: null, captured: false },
@@ -49,11 +49,15 @@ export default function InspectionDepartureNew() {
     { type: 'left_back', label: 'Latéral gauche arrière', url: null, file: null, captured: false },
     { type: 'right_front', label: 'Latéral droit avant', url: null, file: null, captured: false },
     { type: 'right_back', label: 'Latéral droit arrière', url: null, file: null, captured: false },
+  ]);
+
+  // Photos optionnelles (intérieur, dashboard - NON BLOQUANTES)
+  const [optionalInteriorPhotos, setOptionalInteriorPhotos] = useState<PhotoData[]>([
     { type: 'interior', label: 'Intérieur', url: null, file: null, captured: false },
     { type: 'dashboard', label: 'Tableau de bord', url: null, file: null, captured: false },
   ]);
 
-  // Photos optionnelles
+  // Photos optionnelles (dommages supplémentaires)
   const [optionalPhotos, setOptionalPhotos] = useState<any[]>([]);
 
   // Formulaire étape 2
@@ -141,13 +145,27 @@ export default function InspectionDepartureNew() {
 
     const reader = new FileReader();
     reader.onloadend = () => {
-      setPhotos(prev => prev.map(p => 
-        p.type === currentPhotoType 
-          ? { ...p, url: reader.result as string, file, captured: true }
-          : p
-      ));
-      const photoLabel = photos.find(p => p.type === currentPhotoType)?.label;
-      showToast('success', 'Photo capturée', `${photoLabel} enregistrée`);
+      // Vérifier si c'est une photo extérieure ou intérieure
+      const isExteriorPhoto = photos.some(p => p.type === currentPhotoType);
+      const isInteriorPhoto = optionalInteriorPhotos.some(p => p.type === currentPhotoType);
+
+      if (isExteriorPhoto) {
+        setPhotos(prev => prev.map(p => 
+          p.type === currentPhotoType 
+            ? { ...p, url: reader.result as string, file, captured: true }
+            : p
+        ));
+        const photoLabel = photos.find(p => p.type === currentPhotoType)?.label;
+        showToast('success', 'Photo capturée', `${photoLabel} enregistrée`);
+      } else if (isInteriorPhoto) {
+        setOptionalInteriorPhotos(prev => prev.map(p => 
+          p.type === currentPhotoType 
+            ? { ...p, url: reader.result as string, file, captured: true }
+            : p
+        ));
+        const photoLabel = optionalInteriorPhotos.find(p => p.type === currentPhotoType)?.label;
+        showToast('success', 'Photo capturée', `${photoLabel} enregistrée (optionnelle)`);
+      }
     };
     reader.readAsDataURL(file);
 
@@ -161,20 +179,13 @@ export default function InspectionDepartureNew() {
   const handleComplete = async () => {
     if (!mission || !user) return;
 
-    // Validation
-    const exteriorPhotos = photos.slice(0, 6);
-    const interiorPhotos = photos.slice(6, 8);
-    
-    if (currentStep === 1 && !exteriorPhotos.every(p => p.captured)) {
-      showToast('error', 'Photos manquantes', 'Veuillez prendre toutes les photos extérieures');
+    // Validation - UNIQUEMENT les 6 photos extérieures obligatoires
+    if (currentStep === 1 && !photos.every(p => p.captured)) {
+      showToast('error', 'Photos manquantes', 'Veuillez prendre toutes les photos extérieures (6 obligatoires)');
       return;
     }
 
-    if (currentStep === 2 && !interiorPhotos.every(p => p.captured)) {
-      showToast('error', 'Photos manquantes', 'Veuillez prendre les photos intérieures');
-      return;
-    }
-
+    // Étape 2 : Pas de validation photo (intérieur/dashboard optionnels)
     if (currentStep === 2 && !mileage) {
       showToast('error', 'Champ requis', 'Veuillez saisir le kilométrage');
       return;
@@ -270,7 +281,40 @@ export default function InspectionDepartureNew() {
         }
       }
 
-      // 3. Upload des photos optionnelles
+      // 3. Upload des photos intérieures optionnelles
+      for (const photo of optionalInteriorPhotos) {
+        if (!photo.file || !photo.captured) continue;
+
+        try {
+          const fileExt = photo.file.name.split('.').pop();
+          const fileName = `${inspection.id}-${photo.type}-${Date.now()}.${fileExt}`;
+          const filePath = `inspections/${fileName}`;
+
+          const { error: uploadError } = await supabase.storage
+            .from('inspection-photos')
+            .upload(filePath, photo.file);
+
+          if (uploadError) throw uploadError;
+
+          const { data: urlData } = supabase.storage
+            .from('inspection-photos')
+            .getPublicUrl(filePath);
+
+          const { error: insertError } = await supabase.from('inspection_photos').insert({
+            inspection_id: inspection.id,
+            photo_type: photo.type,
+            photo_url: urlData.publicUrl,
+            description: null
+          } as any);
+
+          if (insertError) throw insertError;
+          uploadedCount++;
+        } catch (error) {
+          console.error(`Erreur upload ${photo.type} (optionnel):`, error);
+        }
+      }
+
+      // 4. Upload des photos de dommages optionnelles
       for (const optPhoto of optionalPhotos) {
         try {
           const fileExt = optPhoto.file.name.split('.').pop();
@@ -324,14 +368,14 @@ export default function InspectionDepartureNew() {
   };
 
   const getStepPhotos = () => {
-    if (currentStep === 1) return photos.slice(0, 6); // Extérieur
-    if (currentStep === 2) return photos.slice(6, 8); // Intérieur
+    if (currentStep === 1) return photos; // 6 extérieures obligatoires
+    if (currentStep === 2) return optionalInteriorPhotos; // Intérieur optionnelles
     return [];
   };
 
   const getPhotoCount = (step: number) => {
-    if (step === 1) return photos.slice(0, 6).filter(p => p.captured).length;
-    if (step === 2) return photos.slice(6, 8).filter(p => p.captured).length;
+    if (step === 1) return photos.filter(p => p.captured).length;
+    if (step === 2) return optionalInteriorPhotos.filter(p => p.captured).length;
     return 0;
   };
 
@@ -410,18 +454,24 @@ export default function InspectionDepartureNew() {
         {currentStep === 2 && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">Intérieur & détails</h2>
-              <p className="text-sm text-gray-600">Photos et état du véhicule</p>
+              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">Intérieur & détails du véhicule</h2>
+              <p className="text-sm text-gray-600">Photos optionnelles et état du véhicule</p>
             </div>
 
-            {/* Photos intérieur */}
+            {/* Photos intérieur OPTIONNELLES */}
+            <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-4">
+              <p className="text-sm text-blue-800">
+                <strong>💡 Photos optionnelles :</strong> Les photos intérieur et tableau de bord ne sont pas obligatoires. Vous pouvez passer directement aux informations du véhicule.
+              </p>
+            </div>
+
             <div className="grid grid-cols-4 gap-4">
               {getStepPhotos().map((photo) => (
                 <PhotoCard
                   key={photo.type}
                   type={photo.type}
-                  label={photo.label}
-                  isRequired={true}
+                  label={`${photo.label} (optionnel)`}
+                  isRequired={false}
                   isCaptured={photo.captured}
                   vehicleType={mission?.vehicle_type || 'VL'}
                   onClick={() => handlePhotoClick(photo.type)}
