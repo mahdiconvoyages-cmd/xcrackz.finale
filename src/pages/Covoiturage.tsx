@@ -249,14 +249,21 @@ function Covoiturage() {
 
     console.log('🔍 Profil utilisateur:', profile);
     console.log('💳 Crédits disponibles:', profile?.credits);
+    console.log('❌ Erreur profil:', profileError);
 
     if (profileError) {
       console.error('Erreur chargement profil:', profileError);
-      alert('Erreur lors de la vérification des crédits');
+      
+      // Si la colonne credits n'existe pas, afficher un message spécifique
+      if (profileError.message?.includes('column') || profileError.code === '42703') {
+        alert('⚠️ Erreur système\n\nLa colonne "credits" n\'existe pas dans la base de données.\n\nVeuillez exécuter la migration SQL ADD_CREDITS_COLUMN.sql dans Supabase.');
+      } else {
+        alert('Erreur lors de la vérification des crédits');
+      }
       return;
     }
 
-    const userCredits = profile?.credits || 0;
+    const userCredits = profile?.credits ?? 0;
 
     if (userCredits < 2) {
       alert(`⚠️ Crédits insuffisants !\n\nVous avez ${userCredits} crédits xCrackz.\nVous avez besoin de 2 crédits pour publier un trajet.\n\nRendez-vous dans la boutique pour acheter des crédits.`);
