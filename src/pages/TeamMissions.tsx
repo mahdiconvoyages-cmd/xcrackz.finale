@@ -218,7 +218,7 @@ export default function TeamMissions() {
     console.log('👤 Contact sélectionné:', assignmentForm.contact_id);
     console.log('💰 Paiement HT:', assignmentForm.payment_ht);
     console.log('💵 Commission:', assignmentForm.commission);
-    console.log('👤 User ID:', user?.id);
+    console.log('👤 User ID (assigneur):', user?.id);
 
     if (!selectedMission || !assignmentForm.contact_id) {
       console.error('❌ Validation échouée - mission ou contact manquant');
@@ -227,10 +227,15 @@ export default function TeamMissions() {
     }
 
     try {
+      // Récupérer le user_id du contact assigné
+      const selectedContact = contacts.find(c => c.id === assignmentForm.contact_id);
+      console.log('👤 Contact trouvé:', selectedContact);
+      console.log('🆔 User ID du contact:', selectedContact?.user_id);
+
       const insertData = {
         mission_id: selectedMission.id,
         contact_id: assignmentForm.contact_id,
-        user_id: user!.id,
+        user_id: selectedContact?.user_id || user!.id, // ✅ User ID du contact assigné (ou assigneur si pas de user_id)
         assigned_by: user!.id,
         payment_ht: assignmentForm.payment_ht,
         commission: assignmentForm.commission,
