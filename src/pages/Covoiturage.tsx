@@ -243,31 +243,33 @@ function Covoiturage() {
     // Vérifier que l'utilisateur a au moins 2 crédits
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('credits')
+      .select('*')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    console.log('🔍 Profil utilisateur:', profile);
+    console.log('🔍 Profil utilisateur complet:', profile);
     console.log('💳 Crédits disponibles:', profile?.credits);
     console.log('❌ Erreur profil:', profileError);
 
     if (profileError) {
       console.error('Erreur chargement profil:', profileError);
-      
-      // Si la colonne credits n'existe pas, afficher un message spécifique
-      if (profileError.message?.includes('column') || profileError.code === '42703') {
-        alert('⚠️ Erreur système\n\nLa colonne "credits" n\'existe pas dans la base de données.\n\nVeuillez exécuter la migration SQL ADD_CREDITS_COLUMN.sql dans Supabase.');
-      } else {
-        alert('Erreur lors de la vérification des crédits');
-      }
+      alert(`Erreur lors de la vérification des crédits: ${profileError.message}`);
+      return;
+    }
+
+    if (!profile) {
+      alert('⚠️ Profil introuvable\n\nVotre profil utilisateur n\'existe pas dans la base de données.');
       return;
     }
 
     const userCredits = profile?.credits ?? 0;
 
+    console.log('✅ Crédits validés:', userCredits);
+
     if (userCredits < 2) {
       alert(`⚠️ Crédits insuffisants !\n\nVous avez ${userCredits} crédits xCrackz.\nVous avez besoin de 2 crédits pour publier un trajet.\n\nRendez-vous dans la boutique pour acheter des crédits.`);
       return;
+    }
     }
 
     const { error } = await supabase
@@ -333,17 +335,22 @@ function Covoiturage() {
     // Vérifier que l'utilisateur a au moins 2 crédits
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('credits, blocked_credits')
+      .select('*')
       .eq('id', user.id)
-      .single();
+      .maybeSingle();
 
-    console.log('🔍 Profil réservation:', profile);
+    console.log('🔍 Profil réservation complet:', profile);
     console.log('💳 Crédits disponibles:', profile?.credits);
     console.log('🔒 Crédits bloqués:', profile?.blocked_credits);
 
     if (profileError) {
       console.error('Erreur chargement profil:', profileError);
-      alert('Erreur lors de la vérification des crédits');
+      alert(`Erreur lors de la vérification des crédits: ${profileError.message}`);
+      return;
+    }
+
+    if (!profile) {
+      alert('⚠️ Profil introuvable');
       return;
     }
 
