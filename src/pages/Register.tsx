@@ -207,8 +207,8 @@ export default function Register() {
       setError('Veuillez remplir tous les champs obligatoires');
       return;
     }
-    if (step === 2 && (!company || !address || !city)) {
-      setError('Veuillez remplir tous les champs obligatoires (entreprise, adresse et ville)');
+    if (step === 2 && (!company || !address)) {
+      setError('Veuillez remplir tous les champs obligatoires (entreprise et adresse)');
       return;
     }
     if (step === 3 && userType === 'convoyeur' && driverLicenses.length === 0) {
@@ -220,188 +220,288 @@ export default function Register() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-teal-900 flex items-center justify-center p-6 relative overflow-hidden">
-      {/* Background Pattern */}
-      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djItMnptMC0ydi0yIDJ6bTAtMnYtMiAyem0wLTJ2LTIgMnptMC0ydi0yIDJ6bTAtMnYtMiAyem0wLTJ2LTIgMnptMC0ydi0yIDJ6bTAtMnYtMiAyem0wLTJ2LTIgMnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-20"></div>
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-teal-950 flex items-center justify-center p-4 md:p-6 relative overflow-hidden">
+      {/* Animated Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-20 left-10 w-72 h-72 bg-teal-500/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute bottom-20 right-10 w-96 h-96 bg-cyan-500/10 rounded-full blur-3xl animate-pulse delay-1000"></div>
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-blue-500/5 rounded-full blur-3xl animate-pulse delay-500"></div>
+      </div>
 
-      <div className="w-full max-w-6xl grid lg:grid-cols-2 gap-8 relative z-10">
-        {/* Panneau Gauche - Info */}
-        <div className="hidden lg:flex flex-col justify-center p-12 text-white animate-in slide-in-from-left duration-700">
-          <div className="space-y-8">
-            <div className="animate-in fade-in duration-1000">
-              <h1 className="text-6xl font-black mb-4 bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                xCrackz
+      {/* Grid Pattern Overlay */}
+      <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wMyI+PHBhdGggZD0iTTM2IDM0djItMnptMC0ydi0yIDJ6bTAtMnYtMiAyem0wLTJ2LTIgMnptMC0ydi0yIDJ6bTAtMnYtMiAyem0wLTJ2LTIgMnptMC0ydi0yIDJ6bTAtMnYtMiAyem0wLTJ2LTIgMnoiLz48L2c+PC9nPjwvc3ZnPg==')] opacity-30"></div>
+
+      <div className="w-full max-w-7xl grid lg:grid-cols-[1fr,1.2fr] gap-8 lg:gap-12 relative z-10">
+        {/* Left Panel - Branding & Features */}
+        <div className="hidden lg:flex flex-col justify-center p-8 lg:p-12 text-white">
+          <div className="space-y-10">
+            {/* Logo & Headline */}
+            <div className="space-y-6 animate-in fade-in slide-in-from-left duration-700">
+              <div className="inline-flex items-center gap-3 px-4 py-2 bg-white/5 backdrop-blur-sm rounded-full border border-white/10">
+                <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                <span className="text-sm font-bold text-green-400">Plateforme Active</span>
+              </div>
+              
+              <h1 className="text-6xl lg:text-7xl font-black mb-4">
+                <span className="bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                  xCrackz
+                </span>
               </h1>
-              <p className="text-2xl font-bold text-slate-300 mb-2">
-                Rejoignez notre communauté
-              </p>
-              <p className="text-slate-400 text-lg">
-                Créez votre compte en quelques minutes et accédez à tous nos services
-              </p>
+              
+              <div className="space-y-2">
+                <p className="text-2xl lg:text-3xl font-bold text-white/90">
+                  Rejoignez la communauté
+                </p>
+                <p className="text-slate-400 text-lg max-w-md leading-relaxed">
+                  La solution complète pour gérer vos missions de convoyage en toute simplicité
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-6 animate-in slide-in-from-left duration-1000 delay-200">
+            {/* Feature Cards */}
+            <div className="space-y-4">
               {[
-                { icon: Zap, text: 'Configuration instantanée', color: 'from-yellow-400 to-orange-400' },
-                { icon: Shield, text: 'Données 100% sécurisées', color: 'from-teal-400 to-cyan-400' },
-                { icon: ArrowRight, text: 'Accès immédiat à la plateforme', color: 'from-blue-400 to-purple-400' },
+                { 
+                  icon: Zap, 
+                  title: 'Configuration instantanée', 
+                  desc: 'Prêt en moins de 2 minutes',
+                  color: 'from-yellow-400 to-orange-500',
+                  delay: '200'
+                },
+                { 
+                  icon: Shield, 
+                  title: 'Sécurité maximale', 
+                  desc: 'Vos données protégées',
+                  color: 'from-teal-400 to-cyan-500',
+                  delay: '400'
+                },
+                { 
+                  icon: Truck, 
+                  title: 'Plateforme complète', 
+                  desc: 'Tout ce dont vous avez besoin',
+                  color: 'from-blue-400 to-purple-500',
+                  delay: '600'
+                },
               ].map((feature, i) => (
                 <div
                   key={i}
-                  style={{ animationDelay: `${(i + 3) * 100}ms` }}
-                  className="flex items-center gap-4 p-4 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 hover:bg-white/10 transition-all animate-in slide-in-from-left"
+                  style={{ animationDelay: `${feature.delay}ms` }}
+                  className="group flex items-center gap-4 p-5 bg-white/5 backdrop-blur-md rounded-2xl border border-white/10 hover:bg-white/10 hover:border-white/20 transition-all duration-300 animate-in slide-in-from-left cursor-pointer"
                 >
-                  <div className={`p-3 bg-gradient-to-br ${feature.color} rounded-lg`}>
+                  <div className={`p-3.5 bg-gradient-to-br ${feature.color} rounded-xl shadow-lg group-hover:scale-110 transition-transform duration-300`}>
                     <feature.icon className="w-6 h-6 text-white" />
                   </div>
-                  <span className="text-lg font-semibold">{feature.text}</span>
+                  <div className="flex-1">
+                    <div className="text-lg font-bold text-white mb-1">{feature.title}</div>
+                    <div className="text-sm text-slate-400 font-medium">{feature.desc}</div>
+                  </div>
+                  <ArrowRight className="w-5 h-5 text-slate-500 group-hover:text-white group-hover:translate-x-1 transition-all" />
                 </div>
               ))}
             </div>
 
             {/* Progress Steps */}
-            <div className="mt-12 space-y-4">
+            <div className="mt-12 space-y-3 pt-8 border-t border-white/10">
+              <p className="text-sm font-bold text-slate-400 uppercase tracking-wider mb-4">Votre progression</p>
               {[
-                { num: 1, text: 'Informations personnelles' },
-                { num: 2, text: 'Entreprise & Adresse' },
-                { num: 3, text: 'Type de compte' },
-                { num: 4, text: 'Sécurité' },
+                { num: 1, text: 'Informations personnelles', icon: User },
+                { num: 2, text: 'Entreprise & Adresse', icon: Building },
+                { num: 3, text: 'Type de compte', icon: Briefcase },
+                { num: 4, text: 'Sécurité', icon: Lock },
               ].map((s) => (
                 <div
                   key={s.num}
-                  className={`flex items-center gap-3 transition-all ${
-                    step >= s.num ? 'text-teal-400' : 'text-slate-500'
+                  className={`flex items-center gap-4 transition-all duration-300 ${
+                    step >= s.num ? 'text-white' : 'text-slate-600'
                   }`}
                 >
-                  <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm ${
-                      step > s.num
-                        ? 'bg-teal-500 text-white'
-                        : step === s.num
-                        ? 'bg-teal-500 text-white ring-4 ring-teal-500/30'
-                        : 'bg-slate-700 text-slate-400'
-                    }`}
-                  >
-                    {step > s.num ? <CheckCircle className="w-5 h-5" /> : s.num}
+                  <div className="relative">
+                    <div
+                      className={`w-10 h-10 rounded-xl flex items-center justify-center font-bold text-sm transition-all duration-300 ${
+                        step > s.num
+                          ? 'bg-gradient-to-br from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/30'
+                          : step === s.num
+                          ? 'bg-gradient-to-br from-teal-500 to-cyan-500 text-white ring-4 ring-teal-500/30 shadow-lg shadow-teal-500/50 scale-110'
+                          : 'bg-slate-800 text-slate-500 border border-slate-700'
+                      }`}
+                    >
+                      {step > s.num ? (
+                        <CheckCircle className="w-5 h-5" />
+                      ) : (
+                        <s.icon className="w-5 h-5" />
+                      )}
+                    </div>
+                    {s.num < 4 && (
+                      <div className={`absolute top-full left-1/2 -translate-x-1/2 w-0.5 h-3 transition-colors ${
+                        step > s.num ? 'bg-teal-500' : 'bg-slate-700'
+                      }`}></div>
+                    )}
                   </div>
-                  <span className="font-semibold">{s.text}</span>
+                  <div className="flex-1">
+                    <span className={`font-bold text-sm transition-colors ${
+                      step >= s.num ? 'text-white' : 'text-slate-500'
+                    }`}>
+                      {s.text}
+                    </span>
+                  </div>
+                  {step > s.num && (
+                    <span className="text-xs font-bold text-teal-400 px-2 py-1 bg-teal-500/20 rounded-lg">
+                      ✓ Validé
+                    </span>
+                  )}
                 </div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Panneau Droit - Formulaire */}
+        {/* Right Panel - Form */}
         <div className="flex items-center justify-center animate-in slide-in-from-right duration-700">
-          <div className="w-full max-w-md">
-            <div className="lg:hidden text-center mb-8">
-              <h1 className="text-4xl font-black bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent mb-2">
-                xCrackz
+          <div className="w-full max-w-lg">
+            {/* Mobile Header */}
+            <div className="lg:hidden text-center mb-8 animate-in fade-in zoom-in duration-500">
+              <h1 className="text-5xl font-black mb-3">
+                <span className="bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
+                  xCrackz
+                </span>
               </h1>
-              <p className="text-slate-400">Créez votre compte gratuit</p>
+              <p className="text-slate-400 text-lg font-semibold">Créez votre compte gratuit</p>
+              <div className="inline-flex items-center gap-2 mt-4 px-4 py-2 bg-teal-500/20 rounded-full">
+                <span className="w-2 h-2 bg-teal-400 rounded-full animate-pulse"></span>
+                <span className="text-sm font-bold text-teal-400">Étape {step}/4</span>
+              </div>
             </div>
 
-            <div className="bg-white rounded-2xl shadow-2xl p-8 backdrop-blur-xl animate-in zoom-in duration-500">
-              <div className="mb-6">
-                <h2 className="text-3xl font-black text-slate-900 mb-2">Inscription</h2>
-                <p className="text-slate-600">Étape {step} sur 4</p>
+            {/* Form Card */}
+            <div className="bg-white/95 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 p-8 lg:p-10 animate-in zoom-in duration-500 hover:shadow-3xl transition-shadow">
+              {/* Header */}
+              <div className="mb-8">
+                <div className="flex items-center justify-between mb-4">
+                  <h2 className="text-3xl lg:text-4xl font-black bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
+                    Inscription
+                  </h2>
+                  <div className="hidden lg:flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-500 to-cyan-500 rounded-full shadow-lg">
+                    <span className="text-sm font-bold text-white">Étape {step}/4</span>
+                  </div>
+                </div>
+                <p className="text-slate-600 font-medium">
+                  {step === 1 && "Commençons par vos informations de base"}
+                  {step === 2 && "Parlez-nous de votre entreprise"}
+                  {step === 3 && "Quel type de compte souhaitez-vous ?"}
+                  {step === 4 && "Sécurisez votre compte"}
+                </p>
               </div>
 
-              {/* Google Sign In */}
+              {/* Google Sign In Button */}
               <button
                 onClick={handleGoogleSignIn}
                 disabled={googleLoading}
-                className="w-full mb-6 py-3 px-4 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition flex items-center justify-center gap-3 disabled:opacity-50"
+                className="w-full mb-6 py-4 px-6 bg-white border-2 border-slate-200 rounded-xl font-bold text-slate-700 hover:bg-slate-50 hover:border-slate-300 hover:shadow-lg transition-all flex items-center justify-center gap-3 disabled:opacity-50 group"
               >
-                <Chrome className="w-5 h-5 text-red-500" />
-                {googleLoading ? 'Connexion...' : 'Continuer avec Google'}
+                <Chrome className="w-5 h-5 text-red-500 group-hover:scale-110 transition-transform" />
+                {googleLoading ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-slate-300 border-t-slate-700 rounded-full animate-spin"></div>
+                    <span>Connexion...</span>
+                  </>
+                ) : (
+                  <span>Continuer avec Google</span>
+                )}
               </button>
 
-              <div className="relative mb-6">
+              {/* Divider */}
+              <div className="relative mb-8">
                 <div className="absolute inset-0 flex items-center">
                   <div className="w-full border-t-2 border-slate-200"></div>
                 </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-4 bg-white text-slate-500 font-bold">OU</span>
+                <div className="relative flex justify-center">
+                  <span className="px-6 bg-white text-slate-500 font-bold text-sm uppercase tracking-wider">
+                    Ou par email
+                  </span>
                 </div>
               </div>
 
               <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Error Alert */}
                 {error && (
-                  <div className="bg-red-50 border-2 border-red-200 rounded-xl p-4 flex items-start gap-3 animate-in slide-in-from-top">
-                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                    <p className="text-red-700 text-sm font-semibold">{error}</p>
+                  <div className="bg-gradient-to-r from-red-50 to-red-100 border-2 border-red-300 rounded-xl p-4 flex items-start gap-3 animate-in slide-in-from-top shadow-lg">
+                    <div className="p-2 bg-red-500 rounded-lg">
+                      <AlertCircle className="w-5 h-5 text-white flex-shrink-0" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-red-900 text-sm font-bold leading-relaxed">{error}</p>
+                    </div>
                   </div>
                 )}
 
-                {/* Étape 1 - Informations personnelles */}
+                {/* Step 1 - Personal Info */}
                 {step === 1 && (
-                  <div className="space-y-4">
+                  <div className="space-y-5 animate-in fade-in slide-in-from-right duration-500">
                     <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-black text-slate-700 mb-2">
+                      <div className="group">
+                        <label className="block text-sm font-black text-slate-700 mb-2 group-hover:text-teal-600 transition-colors">
                           Prénom <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                          <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-hover:text-teal-500 transition-colors" />
                           <input
                             type="text"
                             value={firstName}
                             onChange={(e) => setFirstName(e.target.value)}
                             required
-                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:ring-4 focus:ring-teal-200 focus:border-teal-500 transition"
+                            className="w-full pl-12 pr-4 py-4 bg-slate-50/80 border-2 border-slate-200 rounded-xl text-slate-900 font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-200 focus:border-teal-500 focus:bg-white transition-all"
                             placeholder="Jean"
                           />
                         </div>
                       </div>
 
-                      <div>
-                        <label className="block text-sm font-black text-slate-700 mb-2">
+                      <div className="group">
+                        <label className="block text-sm font-black text-slate-700 mb-2 group-hover:text-teal-600 transition-colors">
                           Nom <span className="text-red-500">*</span>
                         </label>
                         <div className="relative">
-                          <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                          <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-hover:text-teal-500 transition-colors" />
                           <input
                             type="text"
                             value={lastName}
                             onChange={(e) => setLastName(e.target.value)}
                             required
-                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:ring-4 focus:ring-teal-200 focus:border-teal-500 transition"
+                            className="w-full pl-12 pr-4 py-4 bg-slate-50/80 border-2 border-slate-200 rounded-xl text-slate-900 font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-200 focus:border-teal-500 focus:bg-white transition-all"
                             placeholder="Dupont"
                           />
                         </div>
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-black text-slate-700 mb-2">
+                    <div className="group">
+                      <label className="block text-sm font-black text-slate-700 mb-2 group-hover:text-teal-600 transition-colors">
                         Email <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
-                        <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-hover:text-teal-500 transition-colors" />
                         <input
                           type="email"
                           value={email}
                           onChange={(e) => setEmail(e.target.value)}
                           required
-                          className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:ring-4 focus:ring-teal-200 focus:border-teal-500 transition"
+                          className="w-full pl-12 pr-4 py-4 bg-slate-50/80 border-2 border-slate-200 rounded-xl text-slate-900 font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-200 focus:border-teal-500 focus:bg-white transition-all"
                           placeholder="votre@email.com"
                         />
                       </div>
                     </div>
 
-                    <div>
-                      <label className="block text-sm font-black text-slate-700 mb-2">
+                    <div className="group">
+                      <label className="block text-sm font-black text-slate-700 mb-2 group-hover:text-teal-600 transition-colors">
                         Téléphone <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
-                        <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-hover:text-teal-500 transition-colors" />
                         <input
                           type="tel"
                           value={phone}
                           onChange={(e) => setPhone(e.target.value)}
                           required
-                          className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:ring-4 focus:ring-teal-200 focus:border-teal-500 transition"
+                          className="w-full pl-12 pr-4 py-4 bg-slate-50/80 border-2 border-slate-200 rounded-xl text-slate-900 font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-200 focus:border-teal-500 focus:bg-white transition-all"
                           placeholder="+33 6 12 34 56 78"
                         />
                       </div>
@@ -409,27 +509,30 @@ export default function Register() {
                   </div>
                 )}
 
-                {/* Étape 2 - Entreprise & Adresse */}
+                {/* Step 2 - Company & Address */}
                 {step === 2 && (
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-black text-slate-700 mb-2">
+                  <div className="space-y-5 animate-in fade-in slide-in-from-right duration-500">
+                    <div className="group">
+                      <label className="block text-sm font-black text-slate-700 mb-2 group-hover:text-teal-600 transition-colors">
                         Entreprise <span className="text-red-500">*</span>
                       </label>
                       <div className="relative">
-                        <Building className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 z-10" />
+                        <Building className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-hover:text-teal-500 transition-colors z-10" />
                         <input
                           type="text"
                           value={company}
                           onChange={(e) => setCompany(e.target.value)}
                           required
-                          className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:ring-4 focus:ring-teal-200 focus:border-teal-500 transition"
+                          className="w-full pl-12 pr-4 py-4 bg-slate-50/80 border-2 border-slate-200 rounded-xl text-slate-900 font-semibold placeholder:text-slate-400 focus:outline-none focus:ring-4 focus:ring-teal-200 focus:border-teal-500 focus:bg-white transition-all"
                           placeholder="Mon Entreprise SARL"
                         />
                       </div>
                     </div>
 
-                    <div>
+                    <div className="group">
+                      <label className="block text-sm font-black text-slate-700 mb-2 group-hover:text-teal-600 transition-colors">
+                        Adresse complète <span className="text-red-500">*</span>
+                      </label>
                       <AddressAutocomplete
                         value={address}
                         onChange={(newAddress) => {
@@ -448,17 +551,31 @@ export default function Register() {
                           }
                         }}
                         placeholder="Commencez à taper votre adresse..."
-                        label="Adresse complète"
+                        label=""
                         required
                       />
                     </div>
 
-                    {/* Ville et code postal remplis automatiquement par AddressAutocomplete */}
-                    <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg">
-                      <p className="text-sm text-teal-700">
-                        <CheckCircle className="w-4 h-4 inline mr-2" />
-                        La ville et le code postal sont remplis automatiquement lors de la sélection de l'adresse
-                      </p>
+                    {/* Info automatique */}
+                    <div className="p-4 bg-gradient-to-r from-teal-50 to-cyan-50 border-2 border-teal-200 rounded-xl">
+                      <div className="flex items-start gap-3">
+                        <div className="p-2 bg-teal-500 rounded-lg">
+                          <CheckCircle className="w-5 h-5 text-white" />
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-bold text-teal-900 mb-1">
+                            Adresse intelligente
+                          </p>
+                          <p className="text-xs text-teal-700">
+                            La ville et le code postal sont automatiquement extraits de votre adresse
+                          </p>
+                          {city && postalCode && (
+                            <p className="text-xs text-teal-600 mt-2 font-semibold">
+                              📍 {postalCode} {city}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -717,8 +834,8 @@ export default function Register() {
                   </div>
                 )}
 
-                {/* Boutons Navigation */}
-                <div className="flex gap-3 pt-4">
+                {/* Navigation Buttons */}
+                <div className="flex gap-4 pt-6">
                   {step > 1 && (
                     <button
                       type="button"
@@ -726,9 +843,12 @@ export default function Register() {
                         setStep(step - 1);
                         setError('');
                       }}
-                      className="flex-1 py-3 px-6 bg-slate-100 text-slate-700 rounded-xl font-black hover:bg-slate-200 transition"
+                      className="flex-1 py-4 px-6 bg-slate-100 text-slate-700 rounded-xl font-black hover:bg-slate-200 hover:shadow-lg transition-all group"
                     >
-                      Retour
+                      <span className="flex items-center justify-center gap-2">
+                        <ArrowRight className="w-5 h-5 rotate-180 group-hover:-translate-x-1 transition-transform" />
+                        Retour
+                      </span>
                     </button>
                   )}
                   
@@ -736,25 +856,28 @@ export default function Register() {
                     <button
                       type="button"
                       onClick={nextStep}
-                      className="flex-1 py-3 px-6 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-black hover:from-teal-600 hover:to-cyan-600 transition shadow-lg shadow-teal-500/30"
+                      className="flex-1 py-4 px-6 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-black hover:from-teal-600 hover:to-cyan-600 hover:shadow-xl hover:shadow-teal-500/50 transition-all group"
                     >
-                      Suivant
+                      <span className="flex items-center justify-center gap-2">
+                        Suivant
+                        <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+                      </span>
                     </button>
                   ) : (
                     <button
                       type="submit"
                       disabled={loading || !acceptTerms || !isPasswordValid}
-                      className="flex-1 py-3 px-6 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-black hover:from-teal-600 hover:to-cyan-600 transition shadow-lg shadow-teal-500/30 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      className="flex-1 py-4 px-6 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-black hover:from-teal-600 hover:to-cyan-600 hover:shadow-xl hover:shadow-teal-500/50 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 group"
                     >
                       {loading ? (
                         <>
-                          <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                          Création...
+                          <div className="w-5 h-5 border-3 border-white border-t-transparent rounded-full animate-spin"></div>
+                          <span>Création...</span>
                         </>
                       ) : (
                         <>
-                          <UserPlus className="w-5 h-5" />
-                          Créer mon compte
+                          <UserPlus className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                          <span>Créer mon compte</span>
                         </>
                       )}
                     </button>
@@ -762,12 +885,15 @@ export default function Register() {
                 </div>
               </form>
 
-              {/* Lien connexion */}
-              <div className="mt-6 text-center">
+              {/* Login Link */}
+              <div className="mt-8 text-center pt-6 border-t-2 border-slate-100">
                 <p className="text-slate-600 font-semibold">
                   Vous avez déjà un compte ?{' '}
-                  <Link to="/login" className="text-teal-600 font-black hover:underline">
-                    Se connecter
+                  <Link 
+                    to="/login" 
+                    className="text-transparent bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text font-black hover:underline transition-all"
+                  >
+                    Se connecter →
                   </Link>
                 </p>
               </div>
