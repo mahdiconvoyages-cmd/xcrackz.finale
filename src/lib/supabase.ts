@@ -1,11 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+// Nettoyer les variables d'environnement (retirer \r\n et espaces)
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL?.trim().replace(/[\r\n]/g, '');
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY?.trim().replace(/[\r\n]/g, '');
 
 if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables');
 }
+
+console.log('[Supabase Config - WEB]', {
+  url: supabaseUrl,
+  hasKey: !!supabaseAnonKey,
+  keyPrefix: supabaseAnonKey.substring(0, 20) + '...'
+});
 
 // Singleton pattern pour éviter les instances multiples
 let supabaseInstance: ReturnType<typeof createClient> | null = null;
