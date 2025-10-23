@@ -17,7 +17,7 @@ export const supabase = (() => {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        // Pas de storageKey personnalisé pour garder la compatibilité
+        storageKey: 'xcrackz-auth', // Clé unique pour éviter les conflits
       },
       global: {
         headers: {

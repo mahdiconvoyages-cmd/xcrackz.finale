@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { FileText, Calendar, MapPin, Car, User, CheckCircle, XCircle, Download } from 'lucide-react';
+import { FileText, Calendar, MapPin, Car, User, CheckCircle, XCircle, Download, Eye, ZoomIn } from 'lucide-react';
 
 interface InspectionReport {
   id: string;
@@ -105,6 +105,24 @@ export default function PublicInspectionReport() {
       'tres-sale': '❌ Très sale',
     };
     return labels[value] || value;
+  };
+
+  const downloadPhoto = async (photoUrl: string, photoType: string) => {
+    try {
+      const response = await fetch(photoUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${report?.mission.reference}_${photoType}_${Date.now()}.jpg`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (error) {
+      console.error('Erreur téléchargement photo:', error);
+      alert('Erreur lors du téléchargement de la photo');
+    }
   };
 
   if (loading) {
@@ -305,16 +323,34 @@ export default function PublicInspectionReport() {
             {report.photos.map((photo) => (
               <div
                 key={photo.id}
-                className="relative group cursor-pointer"
-                onClick={() => setSelectedPhoto(photo.photo_url)}
+                className="relative group"
               >
                 <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 border-2 border-gray-200 hover:border-teal-400 transition-all">
                   <img
                     src={photo.photo_url}
                     alt={getPhotoLabel(photo.photo_type)}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
+                    className="w-full h-full object-cover"
                   />
                 </div>
+                
+                {/* Boutons superposés */}
+                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-2">
+                  <button
+                    onClick={() => setSelectedPhoto(photo.photo_url)}
+                    className="p-3 bg-white hover:bg-gray-100 rounded-full shadow-lg transition-all"
+                    title="Agrandir"
+                  >
+                    <ZoomIn className="w-5 h-5 text-gray-700" />
+                  </button>
+                  <button
+                    onClick={() => downloadPhoto(photo.photo_url, photo.photo_type)}
+                    className="p-3 bg-teal-500 hover:bg-teal-600 rounded-full shadow-lg transition-all"
+                    title="Télécharger"
+                  >
+                    <Download className="w-5 h-5 text-white" />
+                  </button>
+                </div>
+
                 <div className="mt-2">
                   <p className="text-sm font-semibold text-gray-900">{getPhotoLabel(photo.photo_type)}</p>
                   <p className="text-xs text-gray-500">{new Date(photo.created_at).toLocaleString('fr-FR')}</p>
@@ -338,9 +374,24 @@ export default function PublicInspectionReport() {
               />
               <button
                 onClick={() => setSelectedPhoto(null)}
-                className="absolute top-4 right-4 w-12 h-12 bg-white rounded-full flex items-center justify-center text-2xl hover:bg-gray-100 transition-all"
+                className="absolute top-4 right-4 w-12 h-12 bg-white rounded-full flex items-center justify-center text-2xl hover:bg-gray-100 transition-all shadow-lg"
+                title="Fermer"
               >
                 ×
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  const photoData = report?.photos.find(p => p.photo_url === selectedPhoto);
+                  if (photoData) {
+                    downloadPhoto(selectedPhoto, photoData.photo_type);
+                  }
+                }}
+                className="absolute bottom-4 right-4 px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-semibold transition-all shadow-lg flex items-center gap-2"
+                title="Télécharger"
+              >
+                <Download className="w-5 h-5" />
+                Télécharger
               </button>
             </div>
           </div>
