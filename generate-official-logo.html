@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>xCrackz Logo - Conversion SVG to PNG</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #0f172a;
+            color: white;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .preview {
+            margin: 20px 0;
+            text-align: center;
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 12px;
+        }
+        canvas {
+            border: 2px solid #14b8a6;
+            margin: 10px;
+            border-radius: 8px;
+        }
+        button {
+            background: linear-gradient(135deg, #14b8a6, #06b6d4, #3b82f6);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px;
+            box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(20, 184, 166, 0.5);
+        }
+        .info {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border-left: 4px solid #14b8a6;
+        }
+        h1 {
+            background: linear-gradient(135deg, #14b8a6, #06b6d4, #3b82f6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 xCrackz - Générateur de Logos Mobile</h1>
+        
+        <div class="info">
+            <p><strong>✅ Logo officiel de la landing page web</strong></p>
+            <p>📥 Télécharge les 3 fichiers et place-les dans <code>mobile/assets/</code></p>
+        </div>
+
+        <div class="preview">
+            <h2>📱 Icon (1024x1024)</h2>
+            <canvas id="icon" width="1024" height="1024"></canvas>
+            <br>
+            <button onclick="downloadCanvas('icon', 'icon.png')">📥 Télécharger icon.png</button>
+            <button onclick="downloadCanvas('icon', 'adaptive-icon.png')">📥 Télécharger adaptive-icon.png</button>
+        </div>
+
+        <div class="preview">
+            <h2>🚀 Splash Screen (2048x2048)</h2>
+            <canvas id="splash" width="2048" height="2048"></canvas>
+            <br>
+            <button onclick="downloadCanvas('splash', 'splash.png')">📥 Télécharger splash.png</button>
+        </div>
+    </div>
+
+    <script>
+        // Dessiner le logo XZ (même que le SVG officiel)
+        function drawLogo(ctx, size, x, y) {
+            // Gradient de fond (noir/gris)
+            const bgGradient = ctx.createLinearGradient(x, y, x + size, y + size);
+            bgGradient.addColorStop(0, '#0f172a');
+            bgGradient.addColorStop(1, '#1e293b');
+            
+            // Fond avec coins arrondis
+            const radius = size * 0.15625; // 80/512 = 0.15625
+            ctx.fillStyle = bgGradient;
+            roundRect(ctx, x, y, size, size, radius);
+            ctx.fill();
+
+            // Bordure subtile
+            const borderRadius = radius * 0.9;
+            const borderOffset = size * 0.015625; // 8/512
+            ctx.strokeStyle = 'rgba(20, 184, 166, 0.3)';
+            ctx.lineWidth = size * 0.00390625; // 2/512
+            roundRect(ctx, x + borderOffset, y + borderOffset, size - borderOffset * 2, size - borderOffset * 2, borderRadius);
+            ctx.stroke();
+
+            // Ombre du texte
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+            ctx.font = `900 ${size * 0.546875}px Arial Black, sans-serif`; // 280/512
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('XZ', x + size / 2, y + size * 0.668 + size * 0.004);
+
+            // Gradient du texte XZ
+            const textGradient = ctx.createLinearGradient(x, y, x + size, y + size);
+            textGradient.addColorStop(0, '#14b8a6');
+            textGradient.addColorStop(0.5, '#06b6d4');
+            textGradient.addColorStop(1, '#3b82f6');
+            
+            ctx.fillStyle = textGradient;
+            ctx.fillText('XZ', x + size / 2, y + size * 0.668);
+
+            // Particules décoratives
+            const particleSize1 = size * 0.015625; // 8/512
+            const particleSize2 = size * 0.01171875; // 6/512
+            
+            ctx.fillStyle = 'rgba(20, 184, 166, 0.6)';
+            ctx.beginPath();
+            ctx.arc(x + size * 0.234375, y + size * 0.234375, particleSize1, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(6, 182, 212, 0.5)';
+            ctx.beginPath();
+            ctx.arc(x + size * 0.765625, y + size * 0.234375, particleSize2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(59, 130, 246, 0.5)';
+            ctx.beginPath();
+            ctx.arc(x + size * 0.234375, y + size * 0.765625, particleSize2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            ctx.fillStyle = 'rgba(20, 184, 166, 0.6)';
+            ctx.beginPath();
+            ctx.arc(x + size * 0.765625, y + size * 0.765625, particleSize1, 0, Math.PI * 2);
+            ctx.fill();
+        }
+
+        // Fonction pour dessiner un rectangle avec coins arrondis
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        // Dessiner l'icône (1024x1024)
+        function drawIcon() {
+            const canvas = document.getElementById('icon');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawLogo(ctx, 1024, 0, 0);
+        }
+
+        // Dessiner le splash screen (2048x2048)
+        function drawSplash() {
+            const canvas = document.getElementById('splash');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Fond sombre
+            ctx.fillStyle = '#0b1220';
+            ctx.fillRect(0, 0, width, height);
+
+            // Logo centré (plus grand)
+            const logoSize = width * 0.4;
+            const x = (width - logoSize) / 2;
+            const y = (height - logoSize) / 2 - logoSize * 0.15;
+            
+            drawLogo(ctx, logoSize, x, y);
+
+            // Texte "xCrackz" en dessous
+            const textY = y + logoSize + logoSize * 0.35;
+            const textGradient = ctx.createLinearGradient(0, textY, width, textY);
+            textGradient.addColorStop(0, '#14b8a6');
+            textGradient.addColorStop(0.5, '#06b6d4');
+            textGradient.addColorStop(1, '#3b82f6');
+            
+            ctx.fillStyle = textGradient;
+            ctx.font = `bold ${logoSize * 0.22}px Arial, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('xCrackz', width / 2, textY);
+        }
+
+        // Fonction de téléchargement
+        function downloadCanvas(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // Générer au chargement
+        window.onload = function() {
+            drawIcon();
+            drawSplash();
+        };
+    </script>
+</body>
+</html>

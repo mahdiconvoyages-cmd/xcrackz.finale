@@ -128,7 +128,6 @@ export default function InspectionArrival() {
           .from('missions')
           .select('*')
           .eq('id', missionId)
-          .eq('user_id', user.id)
           .single(),
         supabase
           .from('vehicle_inspections')

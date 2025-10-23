@@ -14,11 +14,16 @@ export interface Mission {
   pickup_lat?: number;
   pickup_lng?: number;
   pickup_contact_id?: string;
+  pickup_contact_name?: string;
+  pickup_contact_phone?: string;
   delivery_address: string;
   delivery_date: string;
   delivery_lat?: number;
   delivery_lng?: number;
   delivery_contact_id?: string;
+  delivery_contact_name?: string;
+  delivery_contact_phone?: string;
+  distance?: number;
   driver_id?: string;
   price: number;
   notes?: string;

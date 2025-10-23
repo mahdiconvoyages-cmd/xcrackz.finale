@@ -22,6 +22,13 @@ import {
   type Inspection,
 } from '../services/missionService';
 import { formatDateTime, formatRelativeDate } from '../utils/dateFormat';
+import { generateAndShareMissionPDF } from '../services/missionPdfGeneratorMobile';
+import {
+  startMissionTracking,
+  stopMissionTracking,
+  isTrackingActive,
+  getActiveMission,
+} from '../services/missionTrackingService';
 
 export default function MissionDetailScreen() {
   const navigation = useNavigation();
@@ -32,10 +39,17 @@ export default function MissionDetailScreen() {
   const [inspections, setInspections] = useState<Inspection[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'details' | 'inspections'>('details');
+  const [isTracking, setIsTracking] = useState(false);
 
   useEffect(() => {
     loadData();
+    checkTrackingStatus();
   }, [missionId]);
+
+  const checkTrackingStatus = () => {
+    const activeMission = getActiveMission();
+    setIsTracking(activeMission?.id === missionId);
+  };
 
   const loadData = async () => {
     try {
@@ -82,6 +96,111 @@ export default function MissionDetailScreen() {
   const handleEmail = (email?: string) => {
     if (email) {
       Linking.openURL(`mailto:${email}`);
+    }
+  };
+
+  const handleGeneratePDF = async () => {
+    if (!mission) return;
+    
+    try {
+      await generateAndShareMissionPDF(mission);
+    } catch (error) {
+      console.error('Error generating PDF:', error);
+      Alert.alert('Erreur', 'Impossible de générer le PDF');
+    }
+  };
+
+  const handleStartTracking = async () => {
+    if (!mission) return;
+
+    Alert.alert(
+      '🚗 Démarrer la Mission',
+      'Le tracking GPS sera activé en arrière-plan. Vous recevrez une notification persistante.',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Démarrer',
+          onPress: async () => {
+            const result = await startMissionTracking({
+              id: mission.id,
+              reference: mission.reference,
+              pickup_address: mission.pickup_address,
+              delivery_address: mission.delivery_address,
+              status: mission.status,
+            });
+
+            if (result.success) {
+              setIsTracking(true);
+              Alert.alert('✅ Mission démarrée', 'Le tracking GPS est maintenant actif');
+            } else {
+              Alert.alert('❌ Erreur', result.error || 'Impossible de démarrer le tracking');
+            }
+          },
+        },
+      ]
+    );
+  };
+
+  const handleStopTracking = async () => {
+    Alert.alert(
+      '⏹️ Arrêter le Tracking',
+      'Êtes-vous sûr de vouloir arrêter le tracking GPS ?',
+      [
+        { text: 'Non', style: 'cancel' },
+        {
+          text: 'Oui, arrêter',
+          style: 'destructive',
+          onPress: async () => {
+            await stopMissionTracking();
+            setIsTracking(false);
+            Alert.alert('✅ Tracking arrêté');
+          },
+        },
+      ]
+    );
+  };
+
+  // 🆕 Gérer les changements de statut avec tracking automatique
+  const handleStatusChange = async (newStatus: string) => {
+    if (!mission) return;
+
+    try {
+      // Mettre à jour le statut dans la base de données
+      const { error } = await supabase
+        .from('missions')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', mission.id);
+
+      if (error) throw error;
+
+      // Démarrer le tracking automatiquement si le statut passe à "in_progress"
+      if (newStatus === 'in_progress' && !isTracking) {
+        const result = await startMissionTracking({
+          id: mission.id,
+          reference: mission.reference,
+          pickup_address: mission.pickup_address,
+          delivery_address: mission.delivery_address,
+          status: newStatus,
+        });
+
+        if (result.success) {
+          setIsTracking(true);
+          Alert.alert('✅ Mission démarrée', 'Le tracking GPS a été activé automatiquement.');
+        }
+      }
+
+      // Arrêter le tracking automatiquement si le statut passe à "completed"
+      if (newStatus === 'completed' && isTracking) {
+        await stopMissionTracking();
+        setIsTracking(false);
+        Alert.alert('✅ Mission terminée', 'Le tracking GPS a été arrêté automatiquement.');
+      }
+
+      // Recharger les données
+      setMission({ ...mission, status: newStatus });
+    } catch (error) {
+      console.error('Error updating status:', error);
+      Alert.alert('Erreur', 'Impossible de mettre à jour le statut');
     }
   };
 
@@ -276,19 +395,22 @@ export default function MissionDetailScreen() {
                         </Text>
                       </View>
                     </View>
-                    {mission.pickup_contact && (
+                    {(mission.pickup_contact || mission.pickup_contact_name || mission.pickup_contact_phone) && (
                       <View style={styles.contactInfo}>
                         <Text style={styles.contactName}>
-                          {mission.pickup_contact.name}
+                          👤 {mission.pickup_contact_name || mission.pickup_contact?.name || 'Contact'}
                         </Text>
-                        {mission.pickup_contact.phone && (
+                        {(mission.pickup_contact_phone || mission.pickup_contact?.phone) && (
                           <TouchableOpacity
                             style={styles.contactButton}
                             onPress={() =>
-                              handleCall(mission.pickup_contact?.phone)
+                              handleCall(mission.pickup_contact_phone || mission.pickup_contact?.phone)
                             }
                           >
                             <Feather name="phone" size={16} color="#14b8a6" />
+                            <Text style={styles.contactButtonText}>
+                              {mission.pickup_contact_phone || mission.pickup_contact?.phone}
+                            </Text>
                           </TouchableOpacity>
                         )}
                       </View>
@@ -319,19 +441,22 @@ export default function MissionDetailScreen() {
                         </Text>
                       </View>
                     </View>
-                    {mission.delivery_contact && (
+                    {(mission.delivery_contact || mission.delivery_contact_name || mission.delivery_contact_phone) && (
                       <View style={styles.contactInfo}>
                         <Text style={styles.contactName}>
-                          {mission.delivery_contact.name}
+                          👤 {mission.delivery_contact_name || mission.delivery_contact?.name || 'Contact'}
                         </Text>
-                        {mission.delivery_contact.phone && (
+                        {(mission.delivery_contact_phone || mission.delivery_contact?.phone) && (
                           <TouchableOpacity
                             style={styles.contactButton}
                             onPress={() =>
-                              handleCall(mission.delivery_contact?.phone)
+                              handleCall(mission.delivery_contact_phone || mission.delivery_contact?.phone)
                             }
                           >
                             <Feather name="phone" size={16} color="#14b8a6" />
+                            <Text style={styles.contactButtonText}>
+                              {mission.delivery_contact_phone || mission.delivery_contact?.phone}
+                            </Text>
                           </TouchableOpacity>
                         )}
                       </View>
@@ -388,6 +513,71 @@ export default function MissionDetailScreen() {
                 </View>
               </View>
             )}
+
+            {/* Action Buttons */}
+            <View style={styles.actionButtonsContainer}>
+              {/* Boutons de statut avec tracking automatique */}
+              {mission.status === 'pending' && (
+                <TouchableOpacity
+                  style={styles.startMissionButton}
+                  onPress={() => handleStatusChange('in_progress')}
+                >
+                  <Feather name="play-circle" size={20} color="#FFF" />
+                  <Text style={styles.startMissionButtonText}>
+                    🚗 Démarrer Mission
+                  </Text>
+                </TouchableOpacity>
+              )}
+
+              {mission.status === 'in_progress' && (
+                <View style={styles.inProgressButtons}>
+                  <TouchableOpacity
+                    style={[styles.trackingButton, styles.trackingButtonActive]}
+                    disabled
+                  >
+                    <Feather name="navigation" size={20} color="#FFF" />
+                    <Text style={styles.trackingButtonText}>
+                      📍 Tracking Actif
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.completeMissionButton}
+                    onPress={() => handleStatusChange('completed')}
+                  >
+                    <Feather name="check-circle" size={20} color="#FFF" />
+                    <Text style={styles.completeMissionButtonText}>
+                      ✅ Valider Arrivée
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              )}
+
+              {mission.status === 'completed' && (
+                <View style={styles.completedBadge}>
+                  <Feather name="check-circle" size={20} color="#10b981" />
+                  <Text style={styles.completedText}>Mission terminée ✅</Text>
+                </View>
+              )}
+
+              <TouchableOpacity
+                style={styles.pdfButton}
+                onPress={handleGeneratePDF}
+              >
+                <Feather name="download" size={20} color="#FFF" />
+                <Text style={styles.pdfButtonText}>Télécharger PDF</Text>
+              </TouchableOpacity>
+
+              {mission.status === 'pending' && (
+                <TouchableOpacity
+                  style={styles.inspectionButton}
+                  onPress={() => navigation.navigate('InspectionWizard', { missionId: mission.id })}
+                >
+                  <Feather name="clipboard" size={20} color="#FFF" />
+                  <Text style={styles.inspectionButtonText}>Commencer Inspection</Text>
+                </TouchableOpacity>
+              )}
+            </View>
           </View>
         ) : (
           <View>
@@ -674,12 +864,18 @@ const styles = StyleSheet.create({
     color: '#475569',
   },
   contactButton: {
-    width: 36,
-    height: 36,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 18,
     backgroundColor: '#f0fdfa',
-    justifyContent: 'center',
-    alignItems: 'center',
+  },
+  contactButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#14b8a6',
   },
   driverCard: {
     backgroundColor: '#fff',
@@ -805,6 +1001,128 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#64748b',
     textAlign: 'center',
+  },
+  actionButtonsContainer: {
+    padding: 20,
+    gap: 12,
+  },
+  startMissionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#10b981',
+    padding: 18,
+    borderRadius: 12,
+    elevation: 4,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+  },
+  startMissionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+  inProgressButtons: {
+    gap: 12,
+  },
+  trackingButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#F59E0B',
+    padding: 18,
+    borderRadius: 12,
+    elevation: 4,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+  },
+  trackingButtonActive: {
+    backgroundColor: '#EF4444',
+    shadowColor: '#EF4444',
+  },
+  trackingButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+  completeMissionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#10b981',
+    padding: 18,
+    borderRadius: 12,
+    elevation: 4,
+    shadowColor: '#10b981',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+  },
+  completeMissionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+  completedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#d1fae5',
+    padding: 18,
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#10b981',
+  },
+  completedText: {
+    color: '#10b981',
+    fontSize: 17,
+    fontWeight: 'bold',
+  },
+  pdfButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#3B82F6',
+    padding: 16,
+    borderRadius: 12,
+    elevation: 3,
+    shadowColor: '#3B82F6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  pdfButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  inspectionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
+    backgroundColor: '#22C55E',
+    padding: 16,
+    borderRadius: 12,
+    elevation: 3,
+    shadowColor: '#22C55E',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  inspectionButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   dateTimeContainer: {
     flexDirection: 'row',

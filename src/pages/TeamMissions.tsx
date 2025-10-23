@@ -9,6 +9,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import InspectionViewer from '../components/InspectionViewer';
+import { generateMissionPDF } from '../services/missionPdfGenerator';
 
 // ===== INTERFACES =====
 interface Mission {
@@ -18,6 +19,11 @@ interface Mission {
   delivery_address: string;
   pickup_date: string;
   delivery_date: string;
+  pickup_contact_name?: string;
+  pickup_contact_phone?: string;
+  delivery_contact_name?: string;
+  delivery_contact_phone?: string;
+  distance?: number;
   status: string;
   vehicle_brand: string;
   vehicle_model: string;
@@ -26,6 +32,7 @@ interface Mission {
   price: number;
   notes: string;
   created_at: string;
+  user_id?: string;
 }
 
 interface Contact {
@@ -72,9 +79,11 @@ export default function TeamMissions() {
   const [showInspectionViewer, setShowInspectionViewer] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
   const [showReassignModal, setShowReassignModal] = useState(false);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
   
   // Selected items
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [inspectionMissionId, setInspectionMissionId] = useState<string | null>(null);
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
   
@@ -127,16 +136,24 @@ export default function TeamMissions() {
   };
 
   const loadContacts = async () => {
+    // 🔥 SOLUTION RADICALE: Charger directement depuis profiles
+    // Plus besoin de la table contacts compliquée
     const { data, error } = await supabase
-      .from('contacts')
-      .select('*')
-      // ✅ CORRECTION: Charger TOUS les contacts (pas seulement les siens)
-      // Dans un système collaboratif, tout le monde peut assigner à tout le monde
-      .eq('is_active', true)
-      .order('name', { ascending: true });
+      .from('profiles')
+      .select('id, email')
+      .neq('id', user!.id)  // Tous les autres utilisateurs sauf soi-même
+      .order('email', { ascending: true });
 
     if (error) throw error;
-    setContacts(data || []);
+    // Transformer pour matcher l'interface Contact
+    const profilesAsContacts = (data || []).map(p => ({
+      id: p.id,
+      email: p.email,
+      name: p.email.split('@')[0],
+      user_id: p.id,
+      is_active: true
+    }));
+    setContacts(profilesAsContacts as any);
   };
 
   const loadAssignments = async () => {
@@ -158,53 +175,56 @@ export default function TeamMissions() {
     console.log('🔍 DEBUG loadReceivedAssignments - Début');
     console.log('📋 User ID:', user!.id);
     
-    // 1. Trouver TOUS les contacts liés à cet utilisateur
-    const { data: userContacts, error: contactError } = await supabase
-      .from('contacts')
-      .select('id')
-      .eq('user_id', user!.id);
+    // ✅ SOLUTION SIMPLE : Charger directement depuis missions avec assigned_to_user_id (comme mobile)
+    const { data: assignedMissions, error: missionError } = await supabase
+      .from('missions')
+      .select('*')
+      .eq('assigned_to_user_id', user!.id)
+      .order('pickup_date', { ascending: false });
 
-    console.log('👤 Contacts trouvés:', userContacts);
-    console.log('❌ Erreur contact:', contactError);
+    console.log('📦 Missions assignées (via assigned_to_user_id):', assignedMissions);
+    console.log('❌ Erreur missions:', missionError);
 
-    if (!userContacts || userContacts.length === 0) {
-      console.log('⚠️ Aucun contact lié à cet utilisateur');
+    if (missionError) {
+      console.error('❌ Erreur chargement missions assignées:', missionError);
       setReceivedAssignments([]);
       return;
     }
 
-    // Récupérer les IDs de tous les contacts
-    const contactIds = userContacts.map(c => c.id);
-    console.log('📋 Contact IDs:', contactIds);
+    // Transformer en format Assignment pour compatibilité avec l'UI existante
+    const formattedAssignments = (assignedMissions || []).map(mission => ({
+      id: mission.id + '_direct',
+      mission_id: mission.id,
+      contact_id: mission.user_id, // Le créateur de la mission
+      payment_ht: 0,
+      commission: 0,
+      status: 'accepted',
+      assigned_at: mission.created_at,
+      mission: mission,
+      contact: null, // Pas besoin pour l'affichage basique
+    }));
 
-    // 2. Charger les missions assignées à CES contacts
-    const { data, error } = await supabase
-      .from('mission_assignments')
-      .select(`
-        *,
-        mission:missions(*),
-        contact:contacts(*)
-      `)
-      .in('contact_id', contactIds)
-      .order('assigned_at', { ascending: false });
-
-    console.log('📦 Missions reçues:', data);
-    console.log('❌ Erreur missions:', error);
-
-    if (error) {
-      console.error('Erreur chargement missions reçues:', error);
-      setReceivedAssignments([]);
-    } else {
-      console.log('✅ Nombre missions reçues:', data?.length || 0);
-      setReceivedAssignments(data || []);
-    }
+    console.log('✅ Nombre missions assignées:', formattedAssignments.length);
+    setReceivedAssignments(formattedAssignments as any);
   };
 
   // ===== ACTIONS =====
-  const handleStartInspection = (mission: Mission) => {
-    // Si la mission est en cours (in_progress), aller vers inspection arrivée
-    // Sinon (pending), aller vers inspection départ
-    if (mission.status === 'in_progress') {
+  const handleStartInspection = async (mission: Mission) => {
+    // Vérifier si l'inspection de départ existe déjà
+    const { data: departureInspection, error } = await supabase
+      .from('vehicle_inspections')
+      .select('id')
+      .eq('mission_id', mission.id)
+      .eq('inspection_type', 'departure')
+      .single();
+    
+    if (error && error.code !== 'PGRST116') {
+      console.error('Erreur lors de la vérification de l\'inspection:', error);
+    }
+    
+    // Si l'inspection de départ existe, aller vers inspection arrivée
+    // Sinon, aller vers inspection départ
+    if (departureInspection) {
       navigate(`/inspection/arrival/${mission.id}`);
     } else {
       navigate(`/inspection/departure/${mission.id}`);
@@ -228,50 +248,25 @@ export default function TeamMissions() {
     }
 
     try {
-      // Récupérer le user_id du contact assigné
-      const selectedContact = contacts.find(c => c.id === assignmentForm.contact_id);
-      console.log('👤 Contact trouvé:', selectedContact);
-      console.log('🆔 User ID du contact:', selectedContact?.user_id);
+      console.log('📤 Assignation de la mission à:', assignmentForm.contact_id);
 
-      const insertData = {
-        mission_id: selectedMission.id,
-        contact_id: assignmentForm.contact_id,
-        user_id: selectedContact?.user_id || user!.id, // ✅ User ID du contact assigné (ou assigneur si pas de user_id)
-        assigned_by: user!.id,
-        payment_ht: assignmentForm.payment_ht,
-        commission: assignmentForm.commission,
-        notes: assignmentForm.notes,
-        status: 'assigned',
-      };
+      // ✅ SOLUTION SIMPLE: Mettre à jour assigned_to_user_id directement dans missions
+      const { error } = await supabase
+        .from('missions')
+        .update({ 
+          assigned_to_user_id: assignmentForm.contact_id,
+          status: 'in_progress'  // Changé de 'assigned' à 'in_progress' (status valide)
+        })
+        .eq('id', selectedMission.id);
 
-      console.log('📤 Données à insérer:', insertData);
-
-      const { data, error } = await supabase
-        .from('mission_assignments')
-        .insert([insertData])
-        .select();
-
-      console.log('📥 Réponse Supabase:', { data, error });
+      console.log('📥 Réponse Supabase:', { error });
 
       if (error) {
         console.error('❌ Erreur Supabase:', error);
         throw error;
       }
 
-      console.log('✅ Assignation créée:', data);
-
-      // Update mission status
-      console.log('🔄 Mise à jour statut mission...');
-      const { error: updateError } = await supabase
-        .from('missions')
-        .update({ status: 'assigned' })
-        .eq('id', selectedMission.id);
-
-      if (updateError) {
-        console.error('⚠️ Erreur mise à jour mission:', updateError);
-      } else {
-        console.log('✅ Mission mise à jour');
-      }
+      console.log('✅ Mission assignée avec succès !');
 
       setShowAssignModal(false);
       setSelectedMission(null);
@@ -313,19 +308,22 @@ export default function TeamMissions() {
     if (!editingMission) return;
 
     try {
+      // 🔥 SOLUTION RADICALE: Utiliser user_id au lieu de contact_id
       // Supprimer l'ancienne assignation
       await supabase
         .from('mission_assignments')
         .delete()
         .eq('mission_id', editingMission.id);
 
-      // Créer nouvelle assignation
+      // Créer nouvelle assignation avec user_id (profile.id)
       const { error } = await supabase
         .from('mission_assignments')
         .insert([{
           mission_id: editingMission.id,
-          contact_id: newContactId,
-          status: 'accepted',
+          contact_id: null,  // Plus utilisé
+          user_id: newContactId,  // ✅ C'est maintenant le profile.id
+          assigned_by: user!.id,  // ✅ Requis par RLS policy
+          status: 'assigned',
           assigned_at: new Date().toISOString()
         }]);
 
@@ -963,6 +961,13 @@ export default function TeamMissions() {
         {/* RECEIVED MISSIONS TAB */}
         {activeTab === 'received' && (
           <div className="space-y-4">
+            {/* DEBUG */}
+            <div className="bg-blue-100 border border-blue-500 p-4 rounded mb-4">
+              <p className="font-bold">🔍 DEBUG - Onglet Mes Missions :</p>
+              <p>Nombre de missions reçues : {receivedAssignments.length}</p>
+              <p>État : {receivedAssignments.length === 0 ? 'VIDE' : 'DONNÉES PRÉSENTES'}</p>
+            </div>
+            
             {receivedAssignments.length === 0 ? (
               <div className="backdrop-blur-xl bg-white/80 border border-slate-200 rounded-2xl p-12 text-center">
                 <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
@@ -990,30 +995,58 @@ export default function TeamMissions() {
                           🎯 Mission assignée
                         </span>
                       </div>
-                      <p className="text-slate-600">
+                      <p className="text-slate-600 mb-2">
                         {assignment.mission?.vehicle_brand} {assignment.mission?.vehicle_model}
                       </p>
+                      {/* Info assignation */}
+                      <div className="flex items-center gap-2 text-sm text-slate-500">
+                        <span>👤 Assignée par: <strong>{assignment.assigner?.email || 'N/A'}</strong></span>
+                        <span>•</span>
+                        <span>📅 {assignment.assigned_at ? new Date(assignment.assigned_at).toLocaleString('fr-FR') : 'N/A'}</span>
+                      </div>
                     </div>
                     <div className="text-right">
                       <p className="text-2xl font-bold text-teal-600">
                         {assignment.payment_ht?.toFixed(2)}€
                       </p>
                       <p className="text-sm text-slate-500">HT</p>
+                      {assignment.commission > 0 && (
+                        <p className="text-sm text-green-600 font-bold mt-1">
+                          +{assignment.commission}€ commission
+                        </p>
+                      )}
                     </div>
                   </div>
 
-                  {/* Itinéraire */}
+                  {/* Itinéraire avec contacts */}
                   <div className="grid md:grid-cols-2 gap-4 mb-4">
                     <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
                       <MapPin className="w-5 h-5 text-green-600 mt-1 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-green-900">Départ</p>
                         <p className="text-sm text-green-700 truncate">
-                          {assignment.mission?.pickup_address}
+                          {assignment.mission?.pickup_address || 'Adresse non renseignée'}
                         </p>
                         <p className="text-xs text-green-600 mt-1">
-                          {new Date(assignment.mission?.pickup_date).toLocaleDateString('fr-FR')}
+                          {assignment.mission?.pickup_date 
+                            ? new Date(assignment.mission.pickup_date).toLocaleDateString('fr-FR')
+                            : 'Date non renseignée'}
                         </p>
+                        {/* Contact départ */}
+                        {assignment.mission?.pickup_contact_name && (
+                          <div className="mt-2 pt-2 border-t border-green-200">
+                            <p className="text-xs font-bold text-green-900">📞 Contact:</p>
+                            <p className="text-xs text-green-700">{assignment.mission.pickup_contact_name}</p>
+                            {assignment.mission.pickup_contact_phone && (
+                              <a 
+                                href={`tel:${assignment.mission.pickup_contact_phone}`}
+                                className="text-xs text-green-600 hover:underline font-bold"
+                              >
+                                {assignment.mission.pickup_contact_phone}
+                              </a>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
 
@@ -1022,11 +1055,28 @@ export default function TeamMissions() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-red-900">Arrivée</p>
                         <p className="text-sm text-red-700 truncate">
-                          {assignment.mission?.delivery_address}
+                          {assignment.mission?.delivery_address || 'Adresse non renseignée'}
                         </p>
                         <p className="text-xs text-red-600 mt-1">
-                          {new Date(assignment.mission?.delivery_date).toLocaleDateString('fr-FR')}
+                          {assignment.mission?.delivery_date 
+                            ? new Date(assignment.mission.delivery_date).toLocaleDateString('fr-FR')
+                            : 'Date non renseignée'}
                         </p>
+                        {/* Contact arrivée */}
+                        {assignment.mission?.delivery_contact_name && (
+                          <div className="mt-2 pt-2 border-t border-red-200">
+                            <p className="text-xs font-bold text-red-900">📞 Contact:</p>
+                            <p className="text-xs text-red-700">{assignment.mission.delivery_contact_name}</p>
+                            {assignment.mission.delivery_contact_phone && (
+                              <a 
+                                href={`tel:${assignment.mission.delivery_contact_phone}`}
+                                className="text-xs text-red-600 hover:underline font-bold"
+                              >
+                                {assignment.mission.delivery_contact_phone}
+                              </a>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -1045,20 +1095,33 @@ export default function TeamMissions() {
                       {assignment.mission?.distance && (
                         <span>📏 {assignment.mission.distance} km</span>
                       )}
-                      {assignment.commission > 0 && (
-                        <span className="text-teal-600 font-bold">
-                          💰 Commission: {assignment.commission}€
-                        </span>
-                      )}
+                      <span className="px-2 py-1 bg-slate-100 rounded-full text-xs">
+                        Statut: <strong>{assignment.status}</strong>
+                      </span>
                     </div>
                     
-                    <button
-                      onClick={() => handleStartInspection(assignment.mission!)}
-                      className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-                    >
-                      <Play className="w-5 h-5" />
-                      Commencer Inspection
-                    </button>
+                    <div className="flex items-center gap-2">
+                      {/* Bouton Détails/PDF */}
+                      <button
+                        onClick={() => {
+                          setSelectedMission(assignment.mission!);
+                          setSelectedAssignment(assignment);
+                          setShowDetailsModal(true);
+                        }}
+                        className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-xl font-bold hover:shadow-lg transition-all duration-300"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Détails & PDF
+                      </button>
+                      
+                      <button
+                        onClick={() => handleStartInspection(assignment.mission!)}
+                        className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+                      >
+                        <Play className="w-5 h-5" />
+                        Commencer Inspection
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -1106,10 +1169,10 @@ export default function TeamMissions() {
                   className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
                   required
                 >
-                  <option value="">Sélectionner un chauffeur</option>
+                  <option value="">Sélectionner un utilisateur</option>
                   {contacts.map((contact) => (
                     <option key={contact.id} value={contact.id}>
-                      {contact.name} - {contact.role}
+                      {contact.email}
                     </option>
                   ))}
                 </select>
@@ -1348,6 +1411,152 @@ export default function TeamMissions() {
               >
                 Annuler
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Mission Details Modal */}
+      {showDetailsModal && selectedMission && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="backdrop-blur-xl bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 animate-in zoom-in duration-300">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-slate-900">📋 Détails de la Mission</h2>
+              <button
+                onClick={() => {
+                  setShowDetailsModal(false);
+                  setSelectedMission(null);
+                  setSelectedAssignment(null);
+                }}
+                className="p-2 hover:bg-slate-100 rounded-lg transition"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Mission Info */}
+            <div className="space-y-6">
+              {/* Header */}
+              <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-6">
+                <h3 className="text-3xl font-bold text-blue-900 mb-2">{selectedMission.reference}</h3>
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-blue-600 font-bold">Véhicule</p>
+                    <p className="text-blue-900">{selectedMission.vehicle_brand} {selectedMission.vehicle_model}</p>
+                    <p className="text-blue-700">{selectedMission.vehicle_plate}</p>
+                  </div>
+                  <div>
+                    <p className="text-blue-600 font-bold">Statut</p>
+                    <p className="text-blue-900 capitalize">{selectedMission.status}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Itinéraire détaillé */}
+              <div className="grid md:grid-cols-2 gap-6">
+                {/* Départ */}
+                <div className="bg-green-50 rounded-xl p-6">
+                  <h4 className="text-green-900 font-bold mb-4 flex items-center gap-2">
+                    <MapPin className="w-5 h-5" /> Point de Départ
+                  </h4>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <p className="text-green-600 font-bold">📍 Adresse</p>
+                      <p className="text-green-900">{selectedMission.pickup_address}</p>
+                    </div>
+                    <div>
+                      <p className="text-green-600 font-bold">📅 Date</p>
+                      <p className="text-green-900">
+                        {new Date(selectedMission.pickup_date).toLocaleString('fr-FR')}
+                      </p>
+                    </div>
+                    {selectedMission.pickup_contact_name && (
+                      <div>
+                        <p className="text-green-600 font-bold">📞 Contact</p>
+                        <p className="text-green-900">{selectedMission.pickup_contact_name}</p>
+                        {selectedMission.pickup_contact_phone && (
+                          <a 
+                            href={`tel:${selectedMission.pickup_contact_phone}`}
+                            className="text-green-600 hover:underline font-bold"
+                          >
+                            {selectedMission.pickup_contact_phone}
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Arrivée */}
+                <div className="bg-red-50 rounded-xl p-6">
+                  <h4 className="text-red-900 font-bold mb-4 flex items-center gap-2">
+                    <MapPin className="w-5 h-5" /> Point d'Arrivée
+                  </h4>
+                  <div className="space-y-3 text-sm">
+                    <div>
+                      <p className="text-red-600 font-bold">📍 Adresse</p>
+                      <p className="text-red-900">{selectedMission.delivery_address}</p>
+                    </div>
+                    <div>
+                      <p className="text-red-600 font-bold">📅 Date</p>
+                      <p className="text-red-900">
+                        {new Date(selectedMission.delivery_date).toLocaleString('fr-FR')}
+                      </p>
+                    </div>
+                    {selectedMission.delivery_contact_name && (
+                      <div>
+                        <p className="text-red-600 font-bold">📞 Contact</p>
+                        <p className="text-red-900">{selectedMission.delivery_contact_name}</p>
+                        {selectedMission.delivery_contact_phone && (
+                          <a 
+                            href={`tel:${selectedMission.delivery_contact_phone}`}
+                            className="text-red-600 hover:underline font-bold"
+                          >
+                            {selectedMission.delivery_contact_phone}
+                          </a>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* Notes */}
+              {selectedMission.notes && (
+                <div className="bg-blue-50 rounded-xl p-6">
+                  <h4 className="text-blue-900 font-bold mb-2">📝 Notes</h4>
+                  <p className="text-blue-700">{selectedMission.notes}</p>
+                </div>
+              )}
+
+              {/* Actions */}
+              <div className="flex gap-3 pt-6 border-t border-slate-200">
+                <button
+                  onClick={async () => {
+                    try {
+                      await generateMissionPDF(selectedMission, selectedAssignment || undefined);
+                    } catch (error) {
+                      console.error('Erreur génération PDF:', error);
+                      alert('❌ Erreur lors de la génération du PDF');
+                    }
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all"
+                >
+                  <FileText className="w-5 h-5" />
+                  Télécharger le PDF
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    setSelectedAssignment(null);
+                    handleStartInspection(selectedMission);
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all"
+                >
+                  <Play className="w-5 h-5" />
+                  Commencer Inspection
+                </button>
+              </div>
             </div>
           </div>
         </div>

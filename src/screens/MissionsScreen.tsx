@@ -412,6 +412,12 @@ export default function MissionsScreen() {
         </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity 
+            style={styles.mapButton} 
+            onPress={() => navigation.navigate('TeamMap')}
+          >
+            <Feather name="map" size={20} color="#10b981" />
+          </TouchableOpacity>
+          <TouchableOpacity 
             style={styles.reportsButton} 
             onPress={() => navigation.navigate('MissionReports')}
           >
@@ -601,6 +607,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     alignItems: 'center',
+  },
+  mapButton: {
+    width: 40,
+    height: 40,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#10b981',
   },
   reportsButton: {
     flexDirection: 'row',

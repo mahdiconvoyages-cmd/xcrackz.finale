@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import {
   Plus, Search, MapPin, Calendar, Users, Clock, Star, Car,
   PawPrint, Cigarette, Music, Filter, X, Check,
-  AlertCircle, Zap, Euro
+  AlertCircle, Zap, Euro, MessageCircle, Phone, Lock, Send,
+  CreditCard, XCircle, CheckCircle, Ban, Package, ChevronRight, ChevronDown
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import AddressAutocomplete from '../components/AddressAutocomplete';
+import CarpoolingMessages from '../components/CarpoolingMessages';
+import toast from 'react-hot-toast';
 import blablacarImg from '../assets/blablacar.png';
 
 // Alias pour Smoking icon
@@ -24,7 +27,7 @@ interface Trip {
   total_seats: number;
   available_seats: number;
   price_per_seat: number;
-  status: string;
+  status: 'published' | 'in_progress' | 'completed' | 'cancelled';
   allows_pets: boolean;
   allows_smoking: boolean;
   allows_music: boolean;
@@ -33,6 +36,12 @@ interface Trip {
   luggage_size: 'small' | 'medium' | 'large' | 'xl';
   description: string;
   instant_booking: boolean;
+  vehicle_info?: {
+    model?: string;
+    year?: number;
+  };
+  created_at: string;
+  updated_at: string;
   driver: {
     id: string;
     full_name: string;
@@ -49,24 +58,57 @@ interface Trip {
 interface Booking {
   id: string;
   trip_id: string;
+  passenger_id: string;
   seats_booked: number;
   total_price: number;
   status: 'pending' | 'confirmed' | 'rejected' | 'cancelled' | 'completed' | 'no_show';
-  message: string;
+  message?: string;
   created_at: string;
+  updated_at: string;
   trip: Trip;
+  passenger?: {
+    id: string;
+    full_name: string;
+    email: string;
+    avatar_url?: string;
+    phone?: string;
+  };
+}
+
+interface Message {
+  id: string;
+  trip_id: string;
+  sender_id: string;
+  receiver_id: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+  sender?: {
+    id: string;
+    full_name: string;
+    avatar_url?: string;
+  };
 }
 
 function Covoiturage() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'search' | 'my-trips' | 'my-bookings'>('search');
+  
+  // Tabs & Loading
+  const [activeTab, setActiveTab] = useState<'search' | 'my-trips' | 'my-bookings' | 'messages'>('search');
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  
+  // Data States
   const [trips, setTrips] = useState<Trip[]>([]);
   const [myTrips, setMyTrips] = useState<Trip[]>([]);
   const [myBookings, setMyBookings] = useState<Booking[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [tripBookings, setTripBookings] = useState<Booking[]>([]);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [conversations, setConversations] = useState<any[]>([]);
+  const [userCredits, setUserCredits] = useState<number>(0);
+  
+  // Filters & Search
   const [showFilters, setShowFilters] = useState(false);
-
-  // Search filters
   const [searchFrom, setSearchFrom] = useState('');
   const [searchTo, setSearchTo] = useState('');
   const [searchDate, setSearchDate] = useState('');
@@ -79,8 +121,20 @@ function Covoiturage() {
 
   // Modals
   const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showTripDetailsModal, setShowTripDetailsModal] = useState(false);
   const [showBookingModal, setShowBookingModal] = useState(false);
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null);
+  const [selectedBooking, setSelectedBooking] = useState<Booking | null>(null);
+  const [showMessagesModal, setShowMessagesModal] = useState(false);
+  const [expandedTripId, setExpandedTripId] = useState<string | null>(null);
+  
+  // Booking Form
+  const [seatsToBook, setSeatsToBook] = useState(1);
+  const [bookingMessage, setBookingMessage] = useState('');
+  
+  // Messages
+  const [newMessage, setNewMessage] = useState('');
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
 
   // Create trip form
   const [formData, setFormData] = useState({
@@ -99,6 +153,8 @@ function Covoiturage() {
     luggage_size: 'medium' as 'small' | 'medium' | 'large' | 'xl',
     description: '',
     instant_booking: false,
+    vehicle_model: '',
+    vehicle_year: ''
   });
 
   // Booking form
@@ -715,6 +771,18 @@ function Covoiturage() {
             <Users className="w-5 h-5 inline mr-2" />
             Mes réservations
           </button>
+          
+          <button
+            onClick={() => setActiveTab('messages')}
+            className={`flex-1 px-6 py-3 rounded-xl font-bold transition-all ${
+              activeTab === 'messages'
+                ? 'bg-gradient-to-r from-blue-500 to-teal-500 text-white shadow-lg'
+                : 'bg-slate-50 text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <MessageCircle className="w-5 h-5 inline mr-2" />
+            Messages
+          </button>
         </div>
 
         {/* Create Trip Button */}
@@ -815,6 +883,11 @@ function Covoiturage() {
                   ))
                 )}
               </div>
+            )}
+
+            {/* Messages */}
+            {activeTab === 'messages' && (
+              <CarpoolingMessages />
             )}
           </>
         )}

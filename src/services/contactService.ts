@@ -143,14 +143,27 @@ export async function acceptContactRequest(
     }
 
     // Créer le contact dans la table contacts
+    // Pour que l'utilisateur qui accepte puisse voir ce nouveau contact dans sa liste
     const requesterName = `${request.profiles.first_name || ''} ${request.profiles.last_name || ''}`.trim() || request.profiles.email;
     
-    await supabase.from('contacts').insert({
-      user_id: userId,
-      type: 'customer', // Par défaut
-      name: requesterName,
-      email: request.profiles.email,
-    });
+    // Récupérer le profil du requester pour avoir son user_id
+    const { data: requesterProfile } = await supabase
+      .from('profiles')
+      .select('id, email')
+      .eq('email', request.profiles.email)
+      .single();
+    
+    if (requesterProfile) {
+      // Créer le contact dans la liste de celui qui accepte
+      await supabase.from('contacts').insert({
+        user_id: userId,  // Propriétaire de la liste (celui qui accepte)
+        invited_user_id: requesterProfile.id,  // ✅ User ID du profil du contact (celui qui a envoyé la demande)
+        type: 'customer',
+        name: requesterName,
+        email: request.profiles.email,
+        is_active: true,
+      });
+    }
 
     console.log('✅ Demande de contact acceptée et contact créé');
     return {

@@ -199,7 +199,7 @@ export default function InspectionWizard() {
     }, 30000);
 
     return () => clearInterval(autoSave);
-  }, [data, user]);
+  }, []);
 
   const canProceed = () => {
     switch (currentStep) {

@@ -453,40 +453,12 @@ export default function Register() {
                       />
                     </div>
 
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-black text-slate-700 mb-2">
-                          Ville <span className="text-red-500">*</span>
-                        </label>
-                        <div className="relative">
-                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 z-10" />
-                          <input
-                            type="text"
-                            value={city}
-                            onChange={(e) => setCity(e.target.value)}
-                            required
-                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:ring-4 focus:ring-teal-200 focus:border-teal-500 transition"
-                            placeholder="Paris"
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-black text-slate-700 mb-2">
-                          Code postal
-                        </label>
-                        <div className="relative">
-                          <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 z-10" />
-                          <input
-                            type="text"
-                            value={postalCode}
-                            onChange={(e) => setPostalCode(e.target.value)}
-                            className="w-full pl-10 pr-4 py-3 bg-slate-50 border-2 border-slate-200 rounded-xl text-slate-900 font-semibold focus:outline-none focus:ring-4 focus:ring-teal-200 focus:border-teal-500 transition"
-                            placeholder="75001"
-                            maxLength={5}
-                          />
-                        </div>
-                      </div>
+                    {/* Ville et code postal remplis automatiquement par AddressAutocomplete */}
+                    <div className="p-3 bg-teal-50 border border-teal-200 rounded-lg">
+                      <p className="text-sm text-teal-700">
+                        <CheckCircle className="w-4 h-4 inline mr-2" />
+                        La ville et le code postal sont remplis automatiquement lors de la sélection de l'adresse
+                      </p>
                     </div>
                   </div>
                 )}
