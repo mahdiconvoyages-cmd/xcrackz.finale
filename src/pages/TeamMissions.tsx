@@ -136,24 +136,56 @@ export default function TeamMissions() {
   };
 
   const loadContacts = async () => {
-    // 🔥 SOLUTION RADICALE: Charger directement depuis profiles
-    // Plus besoin de la table contacts compliquée
-    const { data, error } = await supabase
+    console.log('🔄 DEBUT loadContacts - User ID:', user?.id);
+    
+    // ✅ NOUVEAU: Charger TOUS les users depuis auth.users (via RPC ou profiles avec fallback)
+    // Essayer d'abord profiles (avec infos complètes)
+    let { data: profileData, error: profileError } = await supabase
       .from('profiles')
-      .select('id, email')
-      .neq('id', user!.id)  // Tous les autres utilisateurs sauf soi-même
+      .select('id, first_name, last_name, email')
+      .neq('id', user!.id)
       .order('email', { ascending: true });
 
-    if (error) throw error;
-    // Transformer pour matcher l'interface Contact
-    const profilesAsContacts = (data || []).map(p => ({
+    console.log('📊 Profiles trouvés:', profileData?.length || 0, profileError);
+    console.log('📊 Data brute:', profileData);
+
+    // Si profiles vide ou erreur, charger depuis auth.users directement
+    if (!profileData || profileData.length === 0) {
+      console.log('⚠️ Profiles vide, chargement depuis auth.users via RPC...');
+      const { data: userData, error: userError } = await supabase.rpc('get_all_users');
+      
+      if (userError) {
+        console.error('❌ Erreur chargement users:', userError);
+        setContacts([]);
+        return;
+      }
+      
+      const usersAsContacts = (userData || [])
+        .filter((u: any) => u.id !== user!.id)
+        .map((u: any) => ({
+          id: u.id,
+          name: u.email.split('@')[0],
+          email: u.email,
+          user_id: u.id,
+          phone: null
+        }));
+      
+      console.log('📋 Users chargés depuis auth.users:', usersAsContacts.length);
+      setContacts(usersAsContacts as any);
+      return;
+    }
+    
+    // Transformer profiles en format Contact
+    const usersAsContacts = profileData.map(p => ({
       id: p.id,
+      name: p.first_name && p.last_name ? `${p.first_name} ${p.last_name}` : p.email.split('@')[0],
       email: p.email,
-      name: p.email.split('@')[0],
       user_id: p.id,
-      is_active: true
+      phone: null
     }));
-    setContacts(profilesAsContacts as any);
+    
+    console.log('📋 Users chargés depuis profiles:', usersAsContacts.length);
+    setContacts(usersAsContacts as any);
   };
 
   const loadAssignments = async () => {
@@ -161,8 +193,7 @@ export default function TeamMissions() {
       .from('mission_assignments')
       .select(`
         *,
-        mission:missions(*),
-        contact:contacts(*)
+        mission:missions(*)
       `)
       .eq('user_id', user!.id)
       .order('assigned_at', { ascending: false });
@@ -175,37 +206,27 @@ export default function TeamMissions() {
     console.log('🔍 DEBUG loadReceivedAssignments - Début');
     console.log('📋 User ID:', user!.id);
     
-    // ✅ SOLUTION SIMPLE : Charger directement depuis missions avec assigned_to_user_id (comme mobile)
-    const { data: assignedMissions, error: missionError } = await supabase
-      .from('missions')
-      .select('*')
-      .eq('assigned_to_user_id', user!.id)
-      .order('pickup_date', { ascending: false });
+    // ✅ CORRECTION: Charger depuis mission_assignments où je suis le contact_id
+    const { data: assignments, error } = await supabase
+      .from('mission_assignments')
+      .select(`
+        *,
+        mission:missions(*)
+      `)
+      .eq('contact_id', user!.id)
+      .order('created_at', { ascending: false });
 
-    console.log('📦 Missions assignées (via assigned_to_user_id):', assignedMissions);
-    console.log('❌ Erreur missions:', missionError);
+    console.log('📦 Assignations reçues:', assignments);
+    console.log('❌ Erreur:', error);
 
-    if (missionError) {
-      console.error('❌ Erreur chargement missions assignées:', missionError);
+    if (error) {
+      console.error('❌ Erreur chargement assignations reçues:', error);
       setReceivedAssignments([]);
       return;
     }
 
-    // Transformer en format Assignment pour compatibilité avec l'UI existante
-    const formattedAssignments = (assignedMissions || []).map(mission => ({
-      id: mission.id + '_direct',
-      mission_id: mission.id,
-      contact_id: mission.user_id, // Le créateur de la mission
-      payment_ht: 0,
-      commission: 0,
-      status: 'accepted',
-      assigned_at: mission.created_at,
-      mission: mission,
-      contact: null, // Pas besoin pour l'affichage basique
-    }));
-
-    console.log('✅ Nombre missions assignées:', formattedAssignments.length);
-    setReceivedAssignments(formattedAssignments as any);
+    console.log('✅ Nombre assignations reçues:', assignments?.length || 0);
+    setReceivedAssignments(assignments as any || []);
   };
 
   // ===== ACTIONS =====
@@ -250,20 +271,34 @@ export default function TeamMissions() {
     try {
       console.log('📤 Assignation de la mission à:', assignmentForm.contact_id);
 
-      // ✅ SOLUTION SIMPLE: Mettre à jour assigned_to_user_id directement dans missions
-      const { error } = await supabase
+      // ✅ Créer une entrée dans mission_assignments avec les VRAIS noms de colonnes
+      const { error: assignError } = await supabase
+        .from('mission_assignments')
+        .insert({
+          mission_id: selectedMission.id,
+          contact_id: assignmentForm.contact_id,  // ✅ contact_id (pas assigned_to_user_id)
+          user_id: user!.id,                      // ✅ user_id (propriétaire de la mission)
+          assigned_by: user!.id,                  // ✅ assigned_by (pas assigned_by_user_id)
+          payment_ht: assignmentForm.payment_ht || 0,
+          commission: assignmentForm.commission || 0,
+          notes: assignmentForm.notes || null
+        });
+
+      console.log('📥 Réponse Supabase (assignment):', { assignError });
+
+      if (assignError) {
+        console.error('❌ Erreur Supabase:', assignError);
+        throw assignError;
+      }
+
+      // Mettre à jour le statut de la mission
+      const { error: updateError } = await supabase
         .from('missions')
-        .update({ 
-          assigned_to_user_id: assignmentForm.contact_id,
-          status: 'in_progress'  // Changé de 'assigned' à 'in_progress' (status valide)
-        })
+        .update({ status: 'assigned' })
         .eq('id', selectedMission.id);
 
-      console.log('📥 Réponse Supabase:', { error });
-
-      if (error) {
-        console.error('❌ Erreur Supabase:', error);
-        throw error;
+      if (updateError) {
+        console.error('⚠️ Erreur mise à jour statut mission:', updateError);
       }
 
       console.log('✅ Mission assignée avec succès !');
@@ -1161,7 +1196,7 @@ export default function TeamMissions() {
 
               <div>
                 <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Chauffeur *
+                  Chauffeur * ({contacts.length} utilisateurs disponibles)
                 </label>
                 <select
                   value={assignmentForm.contact_id}
@@ -1169,13 +1204,16 @@ export default function TeamMissions() {
                   className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
                   required
                 >
-                  <option value="">Sélectionner un utilisateur</option>
+                  <option value="">Sélectionner un utilisateur ({contacts.length} disponibles)</option>
                   {contacts.map((contact) => (
                     <option key={contact.id} value={contact.id}>
-                      {contact.email}
+                      {contact.name} ({contact.email})
                     </option>
                   ))}
                 </select>
+                <p className="text-xs text-slate-500 mt-1">
+                  💡 Astuce: Effacez le champ de recherche en haut pour voir tous les utilisateurs
+                </p>
               </div>
 
               <div className="grid grid-cols-2 gap-4">

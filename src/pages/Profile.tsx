@@ -190,20 +190,28 @@ export default function Profile() {
         await supabase.storage.from('avatars').remove([oldPath]);
       }
 
-      // Upload le nouveau fichier
-      const { error: uploadError } = await supabase.storage
+      // Upload le nouveau fichier avec upsert pour éviter les conflits
+      const { data: uploadData, error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: true, // Changé à true pour écraser si existe
+          contentType: file.type
         });
 
-      if (uploadError) throw uploadError;
+      if (uploadError) {
+        console.error('Upload error details:', uploadError);
+        throw uploadError;
+      }
+
+      console.log('Upload successful:', uploadData);
 
       // Obtenir l'URL publique
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
+      
+      console.log('Public URL:', publicUrl);
 
       // Mettre à jour le profil
       const { error: updateError } = await supabase
