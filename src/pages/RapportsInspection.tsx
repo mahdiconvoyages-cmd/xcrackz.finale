@@ -16,7 +16,7 @@
 import { useState, useEffect } from 'react';
 import { 
   FileText, Download, Mail, Image, ChevronDown, ChevronUp, X,
-  Search, Filter, Calendar, Truck, CheckCircle, MapPin 
+  Search, Filter, Calendar, Truck, CheckCircle, MapPin, RefreshCw, Wifi
 } from 'lucide-react';
 import {
   listInspectionReports,
@@ -27,6 +27,7 @@ import {
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from '../utils/toast';
 import OptimizedImage from '../components/OptimizedImage';
+import { supabase } from '../lib/supabase';
 
 export default function RapportsInspection() {
   const { user } = useAuth();
@@ -40,10 +41,66 @@ export default function RapportsInspection() {
   const [emailAddress, setEmailAddress] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [isRealtime, setIsRealtime] = useState(false);
+  const [lastSync, setLastSync] = useState<Date>(new Date());
 
   useEffect(() => {
     loadReports();
+    setupRealtimeSync();
+
+    return () => {
+      // Cleanup subscription
+      supabase.channel('inspection_changes').unsubscribe();
+    };
   }, [user]);
+
+  // Synchronisation temps réel avec le mobile
+  const setupRealtimeSync = () => {
+    if (!user) return;
+
+    const channel = supabase
+      .channel('inspection_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'vehicle_inspections',
+        },
+        (payload) => {
+          console.log('📡 Inspection update from mobile/web:', payload);
+          setIsRealtime(true);
+          setLastSync(new Date());
+          
+          // Recharger les rapports
+          loadReports();
+          
+          // Notification temps réel
+          if (payload.eventType === 'INSERT') {
+            toast.success('🔄 Nouvelle inspection synchronisée depuis le mobile');
+          } else if (payload.eventType === 'UPDATE') {
+            toast.info('🔄 Inspection mise à jour');
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'inspection_photos',
+        },
+        (payload) => {
+          console.log('📸 Photo update:', payload);
+          loadReports();
+        }
+      )
+      .subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Realtime sync active');
+          setIsRealtime(true);
+        }
+      });
 
   const loadReports = async () => {
     if (!user) return;
