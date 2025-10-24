@@ -44,6 +44,7 @@ import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import TermsOfService from './pages/legal/TermsOfService';
 import CookiePolicy from './pages/legal/CookiePolicy';
 import VoiceSettings from './pages/VoiceSettings';
+import MobileDownload from './pages/MobileDownload';
 
 function AppContent() {
   return (
@@ -288,6 +289,17 @@ function AppContent() {
               <ProtectedRoute>
                 <Layout>
                   <Support />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/mobile-download"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <MobileDownload />
                 </Layout>
               </ProtectedRoute>
             }

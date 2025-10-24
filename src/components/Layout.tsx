@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import FloatingParticles from './FloatingParticles';
 import ChatAssistant from './ChatAssistant';
-import { LayoutDashboard, Users, Car, Settings, LogOut, Menu, X, CircleUser as UserCircle, MapPin, ShoppingBag, Shield, Building2, ClipboardCheck } from 'lucide-react';
+import { LayoutDashboard, Users, Car, Settings, LogOut, Menu, X, CircleUser as UserCircle, MapPin, ShoppingBag, Shield, Building2, ClipboardCheck, MessageCircle, Smartphone } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdmin } from '../hooks/useAdmin';
 import { useState, useEffect } from 'react';
@@ -22,10 +22,75 @@ export default function Layout({ children }: LayoutProps) {
   const [sidebarHovered, setSidebarHovered] = useState(false);
   const [forceHide, setForceHide] = useState(false);
   const [firstName, setFirstName] = useState<string>('');
+  const [unreadMessagesCount, setUnreadMessagesCount] = useState(0);
 
   useEffect(() => {
     loadUserProfile();
+    loadUnreadMessages();
+
+    // Subscribe to new messages
+    const channel = supabase
+      .channel('support_messages_notifications')
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'support_messages',
+        },
+        async (payload) => {
+          // Check if message is from admin to current user
+          if (payload.new.sender_type === 'admin') {
+            // Get conversation to check if it belongs to current user
+            const { data: conversation } = await supabase
+              .from('support_conversations')
+              .select('user_id')
+              .eq('id', payload.new.conversation_id)
+              .single();
+            
+            if ((conversation as any)?.user_id === user?.id) {
+              loadUnreadMessages();
+            }
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [user]);
+
+  const loadUnreadMessages = async () => {
+    if (!user) return;
+
+    try {
+      // Count conversations with unread admin messages
+      const { data: conversations } = await supabase
+        .from('support_conversations')
+        .select('id')
+        .eq('user_id', user.id);
+
+      if (!conversations || conversations.length === 0) {
+        setUnreadMessagesCount(0);
+        return;
+      }
+
+      const conversationIds = (conversations as any[]).map(c => c.id);
+
+      // Get last read timestamp for user (we'll use a simple approach: messages after last visit)
+      const { data: messages } = await supabase
+        .from('support_messages')
+        .select('conversation_id')
+        .in('conversation_id', conversationIds)
+        .eq('sender_type', 'admin')
+        .gte('created_at', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()); // Last 24h
+
+      setUnreadMessagesCount(messages?.length || 0);
+    } catch (error) {
+      console.error('Error loading unread messages:', error);
+    }
+  };
 
   const loadUserProfile = async () => {
     if (!user) return;
@@ -38,8 +103,8 @@ export default function Layout({ children }: LayoutProps) {
         .maybeSingle();
 
       if (error) throw error;
-      if (data?.first_name) {
-        setFirstName(data.first_name);
+      if ((data as any)?.first_name) {
+        setFirstName((data as any).first_name);
       }
     } catch (error) {
       console.error('Error loading profile:', error);
@@ -243,6 +308,30 @@ export default function Layout({ children }: LayoutProps) {
             <div className="flex-1 lg:flex-none"></div>
 
             <div className="flex items-center gap-3">
+              {/* Mobile Download Button */}
+              <Link
+                to="/mobile-download"
+                className="relative group text-slate-300 hover:text-white hover:bg-white/10 p-2 rounded-lg transition-all duration-300"
+                title="Télécharger l'app mobile"
+              >
+                <Smartphone className="w-6 h-6 group-hover:scale-110 transition-transform" />
+              </Link>
+
+              {/* Support Button with Notification Badge */}
+              <Link
+                to="/support"
+                className="relative group text-slate-300 hover:text-white hover:bg-white/10 p-2 rounded-lg transition-all duration-300"
+                title="Support & Assistance"
+                onClick={() => loadUnreadMessages()} // Reset count on click
+              >
+                <MessageCircle className="w-6 h-6 group-hover:scale-110 transition-transform" />
+                {unreadMessagesCount > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-gradient-to-r from-red-500 to-pink-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center shadow-lg animate-pulse">
+                    {unreadMessagesCount > 9 ? '9+' : unreadMessagesCount}
+                  </span>
+                )}
+              </Link>
+
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg backdrop-blur-md bg-white/10 border border-white/20">
                 <div className="text-right">
                   <p className="text-xs font-semibold text-white leading-none">{firstName || 'Utilisateur'}</p>

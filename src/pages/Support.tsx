@@ -90,13 +90,20 @@ export default function Support() {
     setLoading(true);
 
     try {
+      console.log('🔍 Chargement conversations support pour user:', user.id);
+      
       const { data, error } = await supabase
         .from('support_conversations')
         .select('id, user_id, subject, category, priority, status, last_message_at, created_at, updated_at')
         .eq('user_id', user.id)
         .order('last_message_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erreur chargement conversations:', error);
+        throw error;
+      }
+      
+      console.log('✅ Conversations chargées:', data?.length || 0, data);
       setConversations(data || []);
 
       if (data && data.length > 0 && !currentConversation) {
@@ -170,6 +177,13 @@ export default function Support() {
     setLoading(true);
 
     try {
+      console.log('📤 Création conversation support...', {
+        user_id: user.id,
+        subject: newConvForm.subject,
+        category: newConvForm.category,
+        priority: newConvForm.priority,
+      });
+
       const { data: convData, error: convError } = await supabase
         .from('support_conversations')
         .insert([
@@ -184,22 +198,34 @@ export default function Support() {
         .select()
         .single();
 
-      if (convError) throw convError;
+      if (convError) {
+        console.error('❌ Erreur création conversation:', convError);
+        throw convError;
+      }
+
+      console.log('✅ Conversation créée:', convData);
 
       // Message initial de l'utilisateur
-      await supabase.from('support_messages').insert([
+      console.log('📤 Ajout message initial...');
+      const { error: msgError } = await supabase.from('support_messages').insert([
         {
-          conversation_id: convData.id,
+          conversation_id: (convData as any).id,
           sender_id: user.id,
           sender_type: 'user',
           message: newConvForm.message.trim(),
         },
       ]);
 
+      if (msgError) {
+        console.error('❌ Erreur message initial:', msgError);
+      } else {
+        console.log('✅ Message initial ajouté');
+      }
+
       // Message de bienvenue automatique
       await supabase.from('support_messages').insert([
         {
-          conversation_id: convData.id,
+          conversation_id: (convData as any).id,
           sender_id: user.id,
           sender_type: 'bot',
           is_automated: true,
@@ -207,10 +233,13 @@ export default function Support() {
         },
       ]);
 
-      setConversations([convData, ...conversations]);
-      setCurrentConversation(convData);
+      setConversations([convData as any, ...conversations]);
+      setCurrentConversation(convData as any);
       setNewConvForm({ subject: '', category: 'other', priority: 'medium', message: '' });
       setShowNewConversation(false);
+      
+      // Recharger les conversations
+      await loadConversations();
     } catch (error) {
       console.error('Error creating conversation:', error);
       alert('Erreur lors de la création de la conversation');
@@ -612,9 +641,15 @@ export default function Support() {
                               ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white'
                               : msg.sender_type === 'bot'
                               ? 'bg-gradient-to-r from-purple-100 to-pink-100 text-purple-900 border-2 border-purple-200'
-                              : 'bg-white text-slate-900 border-2 border-orange-200'
+                              : 'bg-gradient-to-r from-orange-100 to-red-100 text-slate-900 border-2 border-orange-300 shadow-xl'
                           }`}
                         >
+                          {msg.sender_type === 'admin' && (
+                            <div className="flex items-center gap-2 mb-2 pb-2 border-b border-orange-300">
+                              <Sparkles className="w-4 h-4 text-orange-600" />
+                              <span className="text-xs font-black text-orange-600 uppercase tracking-wider">Réponse de l'équipe</span>
+                            </div>
+                          )}
                           <p className="text-sm whitespace-pre-wrap font-medium">{msg.message}</p>
                           {msg.is_automated && (
                             <p className="text-xs mt-2 opacity-60 flex items-center gap-1">

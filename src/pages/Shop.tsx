@@ -179,7 +179,16 @@ export default function ShopNew() {
     setSubmittingQuote(true);
 
     try {
-      const { error } = await supabase
+      console.log('📤 Envoi demande devis...', {
+        user_id: user.id,
+        company_name: quoteForm.company_name,
+        email: quoteForm.email,
+        phone: quoteForm.phone,
+        expected_volume: quoteForm.expected_volume,
+        message: quoteForm.message,
+      });
+
+      const { data, error } = await supabase
         .from('shop_quote_requests')
         .insert([{
           user_id: user.id,
@@ -189,9 +198,15 @@ export default function ShopNew() {
           expected_volume: quoteForm.expected_volume,
           message: quoteForm.message,
           status: 'pending'
-        }]);
+        }])
+        .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ Erreur Supabase:', error);
+        throw error;
+      }
+
+      console.log('✅ Demande créée:', data);
 
       setQuoteSuccess(true);
       setTimeout(() => {

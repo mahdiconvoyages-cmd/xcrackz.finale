@@ -13,7 +13,7 @@ import {
   getVATRegimeOptions,
   type LegalMentionsConfig 
 } from '../services/legalMentionsService';
-import { generateInvoiceHTML, downloadPDF, previewPDF } from '../services/pdfGenerator';
+import { generateInvoicePDF } from '../services/pdfGenerator';
 import { useSubscription } from '../hooks/useSubscription';
 import SubscriptionRequired from '../components/SubscriptionRequired';
 
@@ -371,7 +371,7 @@ export default function Billing() {
       .select('*')
       .eq(idField, doc.id);
 
-    const html = generateInvoiceHTML({
+    const pdfBlob = await generateInvoicePDF({
       number: isInvoice ? doc.invoice_number : doc.quote_number,
       type: isInvoice ? 'invoice' : 'quote',
       issueDate: doc.issue_date,
@@ -401,7 +401,10 @@ export default function Billing() {
       legalMentions: (doc as any).legal_mentions,
     });
 
-    previewPDF(html);
+    // Open PDF in new tab
+    const url = URL.createObjectURL(pdfBlob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 100);
   };
 
   const handleDownloadPDF = async (doc: Invoice | Quote) => {
@@ -416,7 +419,7 @@ export default function Billing() {
       .select('*')
       .eq(idField, doc.id);
 
-    const html = generateInvoiceHTML({
+    const pdfBlob = await generateInvoicePDF({
       number: isInvoice ? doc.invoice_number : doc.quote_number,
       type: isInvoice ? 'invoice' : 'quote',
       issueDate: doc.issue_date,
@@ -446,7 +449,15 @@ export default function Billing() {
       legalMentions: (doc as any).legal_mentions,
     });
 
-    await downloadPDF(html, `${isInvoice ? 'facture' : 'devis'}-${isInvoice ? doc.invoice_number : doc.quote_number}.pdf`);
+    // Download PDF
+    const url = URL.createObjectURL(pdfBlob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${isInvoice ? 'facture' : 'devis'}-${isInvoice ? doc.invoice_number : doc.quote_number}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
   };
 
   const handleSendEmail = async (doc: Invoice | Quote) => {

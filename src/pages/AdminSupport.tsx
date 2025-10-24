@@ -209,17 +209,49 @@ export default function AdminSupport() {
 
   const loadQuoteRequests = async () => {
     try {
-      const { data, error } = await supabase
+      console.log('🔍 Chargement demandes boutique...');
+      
+      // Charger les demandes sans JOIN
+      const { data: quotes, error } = await supabase
         .from('shop_quote_requests')
-        .select(`
-          *,
-          profiles!shop_quote_requests_user_id_fkey(full_name, email)
-        `)
+        .select('*')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
-      setQuoteRequests(data || []);
-      setFilteredQuotes(data || []);
+      if (error) {
+        console.error('❌ Erreur chargement demandes:', error);
+        throw error;
+      }
+
+      console.log('📦 Demandes brutes:', quotes?.length || 0, quotes);
+
+      // Charger les profils pour enrichir les données
+      if (quotes && quotes.length > 0) {
+        const userIds = quotes.map(q => q.user_id);
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name, email')
+          .in('id', userIds);
+
+        if (profilesError) {
+          console.error('⚠️ Erreur chargement profils:', profilesError);
+        } else {
+          console.log('👥 Profils chargés:', profiles?.length || 0);
+        }
+
+        // Enrichir les demandes avec les infos de profil
+        const enrichedQuotes = quotes.map(quote => ({
+          ...quote,
+          profiles: profiles?.find(p => p.id === quote.user_id) || { full_name: 'Utilisateur inconnu', email: '' }
+        }));
+
+        console.log('✅ Demandes enrichies:', enrichedQuotes.length, enrichedQuotes);
+        setQuoteRequests(enrichedQuotes as any);
+        setFilteredQuotes(enrichedQuotes as any);
+      } else {
+        console.log('✅ Aucune demande trouvée');
+        setQuoteRequests([]);
+        setFilteredQuotes([]);
+      }
     } catch (error) {
       console.error('Error loading quote requests:', error);
     }
