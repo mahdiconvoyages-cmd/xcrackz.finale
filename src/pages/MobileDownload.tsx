@@ -4,10 +4,10 @@ import { Download, Smartphone, Apple, PlayCircle, FileDown, CheckCircle2, AlertC
 export default function MobileDownload() {
   const [downloading, setDownloading] = useState(false);
 
-  // URLs à mettre à jour plus tard
-  const ANDROID_APK_URL = '/downloads/xcrackz.apk'; // À remplacer par l'URL réelle
-  const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.xcrackz.app'; // À mettre à jour
-  const APP_STORE_URL = 'https://apps.apple.com/app/xcrackz/id123456789'; // À mettre à jour
+  // URLs de téléchargement
+  const ANDROID_APK_URL = '/xcrackz.apk'; // APK v1.0.0 - Build 13
+  const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.finality.app'; // À publier
+  const APP_STORE_URL = 'https://apps.apple.com/app/xcrackz/id123456789'; // À publier
 
   const handleDownloadAPK = async () => {
     setDownloading(true);

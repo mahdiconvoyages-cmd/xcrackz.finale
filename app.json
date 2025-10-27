@@ -1,3 +1,15 @@
 {
-  "expo": {}
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "c13c0868-22a7-485c-9426-3f758e75be9a"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.xcrackz1232.vitereacttypescriptstarter",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
 }

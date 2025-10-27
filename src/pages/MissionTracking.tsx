@@ -3,8 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { MapPin, Truck, Clock, Navigation, Share2, Gauge, TrendingUp, Activity, Copy, Check } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
 interface Mission {
   id: string;
@@ -49,9 +49,11 @@ export default function MissionTracking() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const vehicleMarker = useRef<mapboxgl.Marker | null>(null);
-  const routeLine = useRef<string | null>(null);
+  const map = useRef<L.Map | null>(null);
+  const vehicleMarker = useRef<L.Marker | null>(null);
+  const routeLine = useRef<L.Polyline | null>(null);
+  const pickupMarker = useRef<L.Marker | null>(null);
+  const deliveryMarker = useRef<L.Marker | null>(null);
 
   const [mission, setMission] = useState<Mission | null>(null);
   const [positions, setPositions] = useState<TrackingPosition[]>([]);
@@ -187,64 +189,111 @@ export default function MissionTracking() {
   const initializeMap = () => {
     if (!mapContainer.current || map.current || !mission) return;
 
-    const mapboxToken = import.meta.env.VITE_MAPBOX_TOKEN;
-    if (!mapboxToken) {
-      console.error('Mapbox token not found');
-      return;
-    }
+    // Créer la carte Leaflet avec OpenStreetMap
+    map.current = L.map(mapContainer.current).setView(
+      [mission.pickup_lat, mission.pickup_lng],
+      12
+    );
 
-    mapboxgl.accessToken = mapboxToken;
+    // Ajouter les tuiles OpenStreetMap
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '© OpenStreetMap contributors',
+      maxZoom: 19,
+    }).addTo(map.current);
 
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/navigation-day-v1',
-      center: [mission.pickup_lng, mission.pickup_lat],
-      zoom: 12,
+    // Marqueur de départ (vert)
+    const pickupIcon = L.divIcon({
+      className: 'custom-marker',
+      html: `
+        <div style="background: #10b981; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+          <svg width="20" height="20" fill="white" viewBox="0 0 24 24">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+          </svg>
+        </div>
+      `,
+      iconSize: [40, 40],
+      iconAnchor: [20, 40],
     });
 
-    map.current.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    pickupMarker.current = L.marker([mission.pickup_lat, mission.pickup_lng], { icon: pickupIcon })
+      .addTo(map.current)
+      .bindPopup('<h3 class="font-bold">Départ</h3>');
 
-    new mapboxgl.Marker({ color: '#10b981' })
-      .setLngLat([mission.pickup_lng, mission.pickup_lat])
-      .setPopup(new mapboxgl.Popup().setHTML('<h3>Départ</h3>'))
-      .addTo(map.current);
+    // Marqueur d'arrivée (rouge)
+    const deliveryIcon = L.divIcon({
+      className: 'custom-marker',
+      html: `
+        <div style="background: #ef4444; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
+          <svg width="20" height="20" fill="white" viewBox="0 0 24 24">
+            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+          </svg>
+        </div>
+      `,
+      iconSize: [40, 40],
+      iconAnchor: [20, 40],
+    });
 
-    new mapboxgl.Marker({ color: '#ef4444' })
-      .setLngLat([mission.delivery_lng, mission.delivery_lat])
-      .setPopup(new mapboxgl.Popup().setHTML('<h3>Arrivée</h3>'))
-      .addTo(map.current);
+    deliveryMarker.current = L.marker([mission.delivery_lat, mission.delivery_lng], { icon: deliveryIcon })
+      .addTo(map.current)
+      .bindPopup('<h3 class="font-bold">Arrivée</h3>');
+
+    // Ajuster la vue pour inclure les deux marqueurs
+    const bounds = L.latLngBounds([
+      [mission.pickup_lat, mission.pickup_lng],
+      [mission.delivery_lat, mission.delivery_lng]
+    ]);
+    map.current.fitBounds(bounds, { padding: [50, 50] });
   };
 
   const updateMapPosition = (position: TrackingPosition) => {
     if (!map.current) return;
 
-    map.current.flyTo({
-      center: [position.longitude, position.latitude],
-      zoom: 14,
-      essential: true,
+    // Centrer la carte sur la nouvelle position
+    map.current.flyTo([position.latitude, position.longitude], 14, {
+      duration: 1.5,
     });
 
+    // Supprimer l'ancien marqueur véhicule
     if (vehicleMarker.current) {
-      vehicleMarker.current.remove();
+      map.current.removeLayer(vehicleMarker.current);
     }
 
-    const el = document.createElement('div');
-    el.className = 'vehicle-marker';
-    el.innerHTML = `
-      <div class="relative">
-        <div class="absolute inset-0 bg-blue-500 rounded-full animate-ping opacity-75"></div>
-        <div class="relative w-12 h-12 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center shadow-lg">
-          <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-          </svg>
+    // Créer un nouveau marqueur véhicule animé
+    const vehicleIcon = L.divIcon({
+      className: 'vehicle-marker',
+      html: `
+        <div style="position: relative; width: 48px; height: 48px;">
+          <div style="position: absolute; inset: 0; background: #3b82f6; border-radius: 50%; animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite; opacity: 0.75;"></div>
+          <div style="position: relative; width: 48px; height: 48px; background: linear-gradient(to bottom right, #3b82f6, #06b6d4); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
+            <svg width="24" height="24" fill="white" stroke="white" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
+            </svg>
+          </div>
         </div>
-      </div>
-    `;
+        <style>
+          @keyframes ping {
+            75%, 100% {
+              transform: scale(2);
+              opacity: 0;
+            }
+          }
+        </style>
+      `,
+      iconSize: [48, 48],
+      iconAnchor: [24, 24],
+    });
 
-    vehicleMarker.current = new mapboxgl.Marker({ element: el })
-      .setLngLat([position.longitude, position.latitude])
-      .addTo(map.current);
+    vehicleMarker.current = L.marker([position.latitude, position.longitude], { icon: vehicleIcon })
+      .addTo(map.current)
+      .bindPopup(`
+        <div class="p-2">
+          <p class="font-bold">Position actuelle</p>
+          <p class="text-sm">Vitesse: ${position.speed_kmh?.toFixed(0) || 0} km/h</p>
+          <p class="text-xs text-gray-600">${new Date(position.recorded_at).toLocaleTimeString('fr-FR')}</p>
+        </div>
+      `);
 
+    // Mettre à jour la ligne de route
     if (positions.length > 1) {
       updateRouteLine();
     }
@@ -253,48 +302,21 @@ export default function MissionTracking() {
   const updateRouteLine = () => {
     if (!map.current || positions.length < 2) return;
 
-    const coordinates = positions.map((p) => [p.longitude, p.latitude]);
+    // Convertir les positions en coordonnées Leaflet [lat, lng]
+    const coordinates: [number, number][] = positions.map((p) => [p.latitude, p.longitude]);
 
-    if (routeLine.current && map.current.getSource(routeLine.current)) {
-      const source = map.current.getSource(routeLine.current) as mapboxgl.GeoJSONSource;
-      source.setData({
-        type: 'Feature',
-        properties: {},
-        geometry: {
-          type: 'LineString',
-          coordinates,
-        },
-      });
-    } else {
-      routeLine.current = 'route';
-
-      map.current.addSource('route', {
-        type: 'geojson',
-        data: {
-          type: 'Feature',
-          properties: {},
-          geometry: {
-            type: 'LineString',
-            coordinates,
-          },
-        },
-      });
-
-      map.current.addLayer({
-        id: 'route',
-        type: 'line',
-        source: 'route',
-        layout: {
-          'line-join': 'round',
-          'line-cap': 'round',
-        },
-        paint: {
-          'line-color': '#3b82f6',
-          'line-width': 4,
-          'line-opacity': 0.8,
-        },
-      });
+    // Supprimer l'ancienne ligne si elle existe
+    if (routeLine.current) {
+      map.current.removeLayer(routeLine.current);
     }
+
+    // Créer une nouvelle polyline
+    routeLine.current = L.polyline(coordinates, {
+      color: '#3b82f6',
+      weight: 4,
+      opacity: 0.8,
+      smoothFactor: 1,
+    }).addTo(map.current);
   };
 
   const copyPublicLink = () => {

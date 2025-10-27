@@ -238,9 +238,11 @@ export default function InspectionDepartureNew() {
         .single();
 
       if (inspectionError) throw inspectionError;
-      if (!inspection?.id) throw new Error('ID inspection non retourné');
+      
+      const createdInspection = inspection as any;
+      if (!createdInspection?.id) throw new Error('ID inspection non retourné');
 
-      console.log('✅ Inspection créée:', inspection.id);
+      console.log('✅ Inspection créée:', createdInspection.id);
 
       // 2. Upload des photos obligatoires
       let uploadedCount = 0;
@@ -250,7 +252,7 @@ export default function InspectionDepartureNew() {
 
         try {
           const fileExt = photo.file.name.split('.').pop();
-          const fileName = `${inspection.id}-${photo.type}-${Date.now()}.${fileExt}`;
+          const fileName = `${createdInspection.id}-${photo.type}-${Date.now()}.${fileExt}`;
           const filePath = `inspections/${fileName}`;
 
           // Upload vers Storage
@@ -267,7 +269,7 @@ export default function InspectionDepartureNew() {
 
           // Enregistrer dans DB
           const { error: insertError } = await supabase.from('inspection_photos').insert({
-            inspection_id: inspection.id,
+            inspection_id: createdInspection.id,
             photo_type: photo.type,
             photo_url: urlData.publicUrl,
           } as any);
@@ -286,7 +288,7 @@ export default function InspectionDepartureNew() {
 
         try {
           const fileExt = photo.file.name.split('.').pop();
-          const fileName = `${inspection.id}-${photo.type}-${Date.now()}.${fileExt}`;
+          const fileName = `${createdInspection.id}-${photo.type}-${Date.now()}.${fileExt}`;
           const filePath = `inspections/${fileName}`;
 
           const { error: uploadError } = await supabase.storage
@@ -300,7 +302,7 @@ export default function InspectionDepartureNew() {
             .getPublicUrl(filePath);
 
           const { error: insertError } = await supabase.from('inspection_photos').insert({
-            inspection_id: inspection.id,
+            inspection_id: createdInspection.id,
             photo_type: photo.type,
             photo_url: urlData.publicUrl,
             description: null
@@ -317,7 +319,7 @@ export default function InspectionDepartureNew() {
       for (const optPhoto of optionalPhotos) {
         try {
           const fileExt = optPhoto.file.name.split('.').pop();
-          const fileName = `${inspection.id}-optional-${Date.now()}.${fileExt}`;
+          const fileName = `${createdInspection.id}-optional-${Date.now()}.${fileExt}`;
           const filePath = `inspections/${fileName}`;
 
           const { error: uploadError } = await supabase.storage
@@ -331,7 +333,7 @@ export default function InspectionDepartureNew() {
             .getPublicUrl(filePath);
 
           await supabase.from('inspection_photos').insert({
-            inspection_id: inspection.id,
+            inspection_id: createdInspection.id,
             photo_type: 'optional',
             photo_url: urlData.publicUrl,
             description: optPhoto.description || null

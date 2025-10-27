@@ -15,9 +15,7 @@ export default function Home() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-900/20 backdrop-blur-xl border-b border-white/10 shadow-lg">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-3 hover:scale-105 transition-transform group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-blue-500/50 transition-shadow">
-              <span className="text-white font-black text-lg">XZ</span>
-            </div>
+            <img src="/logo.svg" alt="xCrackz Logo" className="w-10 h-10 rounded-xl shadow-lg group-hover:shadow-teal-500/30 transition-shadow" />
             <h1 className="text-2xl font-bold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">
               xCrackz
             </h1>
@@ -428,9 +426,7 @@ function InvoicePreview() {
       <div className="flex justify-between items-start mb-8">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg">
-              <span className="text-white font-black text-lg">XZ</span>
-            </div>
+            <img src="/logo.svg" alt="xCrackz Logo" className="w-12 h-12 rounded-xl shadow-lg" />
             <h3 className="text-2xl font-bold bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
               xCrackz
             </h3>

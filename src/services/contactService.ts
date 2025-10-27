@@ -52,13 +52,15 @@ export async function createContactRequest(
       };
     }
 
+    const targetProfileData = targetProfile as any;
+
     // Utiliser la fonction SQL pour créer la demande
     const { data: requestId, error } = await supabase.rpc('create_contact_request', {
       p_requester_id: requesterId,
       p_target_email: targetEmail,
-      p_target_name: targetName || `${targetProfile.first_name || ''} ${targetProfile.last_name || ''}`.trim(),
+      p_target_name: targetName || `${targetProfileData.first_name || ''} ${targetProfileData.last_name || ''}`.trim(),
       p_message: message || 'Souhaite vous ajouter comme contact',
-    });
+    } as any);
 
     if (error) {
       console.error('❌ Erreur création demande contact:', error);
@@ -86,7 +88,7 @@ export async function createContactRequest(
       success: true,
       requestId,
       request: request as ContactRequest,
-      message: `✅ Demande de contact envoyée à ${targetEmail}. Vous serez notifié(e) quand ${targetProfile.first_name || 'cette personne'} acceptera votre demande.`,
+      message: `✅ Demande de contact envoyée à ${targetEmail}. Vous serez notifié(e) quand ${targetProfileData.first_name || 'cette personne'} acceptera votre demande.`,
     };
   } catch (err: any) {
     console.error('❌ Erreur createContactRequest:', err);
@@ -124,7 +126,11 @@ export async function acceptContactRequest(
       .eq('id', userId)
       .single();
 
-    if (userProfile?.email !== request.target_email) {
+    const requestData = request as any;
+    const userProfileData = userProfile as any;
+
+    // Vérifier que c'est bien pour cet utilisateur
+    if (userProfileData?.email !== requestData.target_email) {
       return {
         success: false,
         message: '❌ Cette demande ne vous concerne pas',
@@ -135,7 +141,7 @@ export async function acceptContactRequest(
     // Accepter la demande
     const { data: success, error } = await supabase.rpc('accept_contact_request', {
       p_request_id: requestId,
-    });
+    } as any);
 
     if (error || !success) {
       console.error('❌ Erreur acceptation demande:', error);
@@ -144,25 +150,27 @@ export async function acceptContactRequest(
 
     // Créer le contact dans la table contacts
     // Pour que l'utilisateur qui accepte puisse voir ce nouveau contact dans sa liste
-    const requesterName = `${request.profiles.first_name || ''} ${request.profiles.last_name || ''}`.trim() || request.profiles.email;
+    const requesterName = `${requestData.profiles.first_name || ''} ${requestData.profiles.last_name || ''}`.trim() || requestData.profiles.email;
     
     // Récupérer le profil du requester pour avoir son user_id
     const { data: requesterProfile } = await supabase
       .from('profiles')
       .select('id, email')
-      .eq('email', request.profiles.email)
+      .eq('email', requestData.profiles.email)
       .single();
     
-    if (requesterProfile) {
+    const requesterProfileData = requesterProfile as any;
+    
+    if (requesterProfileData) {
       // Créer le contact dans la liste de celui qui accepte
       await supabase.from('contacts').insert({
         user_id: userId,  // Propriétaire de la liste (celui qui accepte)
-        invited_user_id: requesterProfile.id,  // ✅ User ID du profil du contact (celui qui a envoyé la demande)
+        invited_user_id: requesterProfileData.id,  // ✅ User ID du profil du contact (celui qui a envoyé la demande)
         type: 'customer',
         name: requesterName,
-        email: request.profiles.email,
+        email: requestData.profiles.email,
         is_active: true,
-      });
+      } as any);
     }
 
     console.log('✅ Demande de contact acceptée et contact créé');
@@ -191,14 +199,16 @@ export async function rejectContactRequest(
       .eq('id', userId)
       .single();
 
+    const userProfileData = userProfile as any;
+
     const { error } = await supabase
       .from('contact_requests')
       .update({ 
         status: 'rejected',
         updated_at: new Date().toISOString(),
-      })
+      } as any)
       .eq('id', requestId)
-      .eq('target_email', userProfile?.email || '');
+      .eq('target_email', userProfileData?.email || '');
 
     if (error) {
       console.error('❌ Erreur rejet demande:', error);
@@ -229,7 +239,7 @@ export async function cancelContactRequest(
       .update({ 
         status: 'cancelled',
         updated_at: new Date().toISOString(),
-      })
+      } as any)
       .eq('id', requestId)
       .eq('requester_id', userId);
 
@@ -263,7 +273,9 @@ export async function getPendingContactRequests(
       .eq('id', userId)
       .single();
 
-    if (!userProfile) {
+    const userProfileData = userProfile as any;
+
+    if (!userProfileData) {
       return { success: false, requests: [], error: 'User not found' };
     }
 
@@ -271,7 +283,7 @@ export async function getPendingContactRequests(
     const { data, error } = await supabase
       .from('pending_contact_requests')
       .select('*')
-      .eq('target_email', userProfile.email)
+      .eq('target_email', userProfileData.email)
       .order('created_at', { ascending: false });
 
     if (error) {
@@ -333,7 +345,9 @@ export async function checkContactRequestStatus(
       return { success: false, error: error.message };
     }
 
-    if (!data) {
+    const requestData = data as any;
+
+    if (!requestData) {
       return {
         success: true,
         status: 'none',
@@ -343,8 +357,8 @@ export async function checkContactRequestStatus(
 
     return {
       success: true,
-      status: data.status,
-      request: data as ContactRequest,
+      status: requestData.status,
+      request: requestData as ContactRequest,
     };
   } catch (err: any) {
     console.error('❌ Erreur checkContactRequestStatus:', err);

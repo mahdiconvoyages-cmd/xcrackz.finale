@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>xCrackz - Générateur d'Assets Mobile</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #0f172a;
+            color: white;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        .preview {
+            margin: 20px 0;
+            background: #1e293b;
+            padding: 30px;
+            border-radius: 12px;
+            text-align: center;
+        }
+        canvas {
+            border: 2px solid #14b8a6;
+            margin: 10px;
+            border-radius: 8px;
+            background: #fff;
+        }
+        button {
+            background: linear-gradient(135deg, #14b8a6, #06b6d4);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            font-size: 16px;
+            font-weight: bold;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 10px;
+            box-shadow: 0 4px 12px rgba(20, 184, 166, 0.3);
+            transition: all 0.3s ease;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 16px rgba(20, 184, 166, 0.5);
+        }
+        .download-all {
+            background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+            margin-top: 30px;
+            padding: 20px 40px;
+            font-size: 18px;
+        }
+        .info {
+            background: #1e293b;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border-left: 4px solid #14b8a6;
+        }
+        h1 {
+            background: linear-gradient(135deg, #14b8a6, #06b6d4);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎨 xCrackz - Générateur d'Assets Mobile</h1>
+        
+        <div class="info">
+            <p><strong>✅ Basé sur le logo.svg officiel</strong></p>
+            <p>📥 Téléchargez les 3 fichiers et placez-les dans <code>mobile/assets/</code></p>
+            <ul>
+                <li><strong>icon.png</strong> - Icône principale (1024x1024)</li>
+                <li><strong>adaptive-icon.png</strong> - Icône Android adaptative (1024x1024)</li>
+                <li><strong>splash.png</strong> - Écran de démarrage (2048x2048)</li>
+            </ul>
+        </div>
+
+        <div class="grid">
+            <div class="preview">
+                <h2>📱 Icon (1024x1024)</h2>
+                <canvas id="icon" width="1024" height="1024"></canvas>
+                <br>
+                <button onclick="downloadCanvas('icon', 'icon.png')">📥 Télécharger icon.png</button>
+            </div>
+
+            <div class="preview">
+                <h2>🤖 Adaptive Icon (1024x1024)</h2>
+                <canvas id="adaptive" width="1024" height="1024"></canvas>
+                <br>
+                <button onclick="downloadCanvas('adaptive', 'adaptive-icon.png')">📥 Télécharger adaptive-icon.png</button>
+            </div>
+        </div>
+
+        <div class="preview">
+            <h2>🚀 Splash Screen (2048x2048)</h2>
+            <canvas id="splash" width="2048" height="2048"></canvas>
+            <br>
+            <button onclick="downloadCanvas('splash', 'splash.png')">📥 Télécharger splash.png</button>
+        </div>
+
+        <div style="text-align: center;">
+            <button class="download-all" onclick="downloadAll()">📦 Télécharger tous les fichiers</button>
+        </div>
+    </div>
+
+    <script>
+        // Fonction pour dessiner le logo XZ (basé sur logo.svg)
+        function drawLogo(ctx, size, x, y, withBackground = true) {
+            const scale = size / 200; // Le SVG fait 200x200
+            
+            if (withBackground) {
+                // Gradient de fond (turquoise -> cyan comme le SVG)
+                const bgGradient = ctx.createLinearGradient(
+                    x, y, 
+                    x + size, y + size
+                );
+                bgGradient.addColorStop(0, '#14b8a6'); // turquoise
+                bgGradient.addColorStop(1, '#06b6d4'); // cyan
+                
+                // Rectangle arrondi avec gradient (rx="40" sur 200px = 20% = 0.2)
+                const radius = size * 0.2;
+                const padding = size * 0.05; // 10px sur 200 = 5%
+                
+                ctx.fillStyle = bgGradient;
+                roundRect(ctx, x + padding, y + padding, size - padding * 2, size - padding * 2, radius);
+                ctx.fill();
+                
+                // Effet de brillance subtil (haut du rectangle)
+                const shineGradient = ctx.createLinearGradient(
+                    x + padding, y + padding,
+                    x + padding, y + padding + (size - padding * 2) / 2
+                );
+                shineGradient.addColorStop(0, 'rgba(255, 255, 255, 0.1)');
+                shineGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+                
+                ctx.fillStyle = shineGradient;
+                roundRect(ctx, x + padding, y + padding, size - padding * 2, (size - padding * 2) / 2, radius);
+                ctx.fill();
+                
+                // Bordure subtile
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+                ctx.lineWidth = size * 0.01; // 2px sur 200 = 1%
+                roundRect(ctx, x + padding, y + padding, size - padding * 2, size - padding * 2, radius);
+                ctx.stroke();
+            }
+            
+            // Texte "XZ" avec gradient blanc
+            const textGradient = ctx.createLinearGradient(
+                x, y,
+                x + size, y + size
+            );
+            textGradient.addColorStop(0, '#ffffff');
+            textGradient.addColorStop(1, '#e0f2fe');
+            
+            ctx.fillStyle = textGradient;
+            ctx.font = `900 ${size * 0.5}px Arial Black, Arial, sans-serif`; // 100 sur 200 = 50%
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            
+            // Position Y: 130 sur 200 = 65%
+            const textY = y + size * 0.65;
+            
+            // Letter spacing (simulé en dessinant chaque lettre)
+            ctx.save();
+            ctx.textAlign = 'center';
+            ctx.fillText('XZ', x + size / 2, textY);
+            ctx.restore();
+        }
+
+        // Fonction pour dessiner un rectangle avec coins arrondis
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+            ctx.lineTo(x + radius, y + height);
+            ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+        }
+
+        // Dessiner l'icône (1024x1024)
+        function drawIcon() {
+            const canvas = document.getElementById('icon');
+            const ctx = canvas.getContext('2d');
+            
+            // Fond transparent
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Dessiner le logo
+            drawLogo(ctx, 1024, 0, 0, true);
+        }
+
+        // Dessiner l'adaptive icon (1024x1024)
+        function drawAdaptiveIcon() {
+            const canvas = document.getElementById('adaptive');
+            const ctx = canvas.getContext('2d');
+            
+            // Fond transparent
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Pour adaptive icon, même chose que icon
+            // Android va appliquer un masque automatiquement
+            drawLogo(ctx, 1024, 0, 0, true);
+        }
+
+        // Dessiner le splash screen (2048x2048)
+        function drawSplash() {
+            const canvas = document.getElementById('splash');
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Fond sombre (comme dans app.json: backgroundColor: "#0b1220")
+            ctx.fillStyle = '#0b1220';
+            ctx.fillRect(0, 0, width, height);
+
+            // Logo centré (plus petit pour le splash)
+            const logoSize = width * 0.35; // 35% de la taille
+            const x = (width - logoSize) / 2;
+            const y = (height - logoSize) / 2 - logoSize * 0.1; // Légèrement vers le haut
+            
+            drawLogo(ctx, logoSize, x, y, true);
+
+            // Texte "xCrackz" en dessous du logo
+            const textY = y + logoSize + logoSize * 0.3;
+            const textGradient = ctx.createLinearGradient(0, textY, width, textY);
+            textGradient.addColorStop(0, '#14b8a6');
+            textGradient.addColorStop(0.5, '#06b6d4');
+            textGradient.addColorStop(1, '#3b82f6');
+            
+            ctx.fillStyle = textGradient;
+            ctx.font = `bold ${logoSize * 0.15}px Arial, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('xCrackz', width / 2, textY);
+        }
+
+        // Fonction de téléchargement
+        function downloadCanvas(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        // Télécharger tous les fichiers
+        function downloadAll() {
+            setTimeout(() => downloadCanvas('icon', 'icon.png'), 100);
+            setTimeout(() => downloadCanvas('adaptive', 'adaptive-icon.png'), 300);
+            setTimeout(() => downloadCanvas('splash', 'splash.png'), 500);
+        }
+
+        // Générer au chargement
+        window.onload = function() {
+            drawIcon();
+            drawAdaptiveIcon();
+            drawSplash();
+        };
+    </script>
+</body>
+</html>

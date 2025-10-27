@@ -62,7 +62,7 @@ export async function calculateDistance(
  * Note: Nécessite une API de géocodage (Nominatim, Google Maps, etc.)
  * Cette fonction est un placeholder - à implémenter selon vos besoins
  */
-export async function geocodeAddress(address: string): Promise<Coordinates> {
+export async function geocodeAddress(_address: string): Promise<Coordinates> {
   // TODO: Implémenter le géocodage avec Nominatim ou autre service
   // Pour l'instant, retourne un placeholder
   throw new Error('Geocoding not yet implemented')
