@@ -5,7 +5,14 @@ export default function MobileDownload() {
   const [downloading, setDownloading] = useState(false);
 
   // URLs de téléchargement
-  const ANDROID_APK_URL = '/xcrackz.apk'; // APK v1.0.0 - Build 13
+  // En dev: utilise l'APK local depuis public/
+  // En prod: utilise l'URL externe (Supabase Storage, GitHub Releases, etc.)
+  const isDev = import.meta.env.DEV;
+  
+  const ANDROID_APK_URL = isDev
+    ? '/xcrackz.apk' // Local: public/xcrackz.apk (115 MB, non versionné)
+    : 'https://bfrkthzovwpjrvqktdjn.supabase.co/storage/v1/object/public/mobile-apps/xcrackz.apk'; // Production: Supabase Storage
+  
   const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.finality.app'; // À publier
   const APP_STORE_URL = 'https://apps.apple.com/app/xcrackz/id123456789'; // À publier
 
