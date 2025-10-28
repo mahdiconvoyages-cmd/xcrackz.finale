@@ -8,11 +8,15 @@ export default function MobileDownload() {
   // En dev: utilise l'APK local depuis public/
   // En prod: utilise l'URL externe (Supabase Storage, GitHub Releases, etc.)
   const isDev = import.meta.env.DEV;
-  
-  const ANDROID_APK_URL = isDev
-    ? '/xcrackz.apk' // Local: public/xcrackz.apk (115 MB, non versionné)
-    : 'https://bfrkthzovwpjrvqktdjn.supabase.co/storage/v1/object/public/mobile-apps/xcrackz.apk'; // Production: Supabase Storage
-  
+  const ENV_APK_URL = import.meta.env.VITE_ANDROID_APK_URL as string | undefined;
+  const ENV_ANDROID_VERSION = (import.meta.env.VITE_ANDROID_VERSION as string | undefined) || '1.0.0';
+
+  const ANDROID_APK_URL = ENV_APK_URL
+    ? ENV_APK_URL
+    : isDev
+      ? '/xcrackzv2.apk' // Local: déposer le fichier dans public/xcrackzv2.apk
+      : 'https://bfrkthzovwpjrvqktdjn.supabase.co/storage/v1/object/public/mobile-apps/xcrackz.apk'; // Fallback production
+
   const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.finality.app'; // À publier
   const APP_STORE_URL = 'https://apps.apple.com/app/xcrackz/id123456789'; // À publier
 
@@ -60,7 +64,7 @@ export default function MobileDownload() {
               </div>
               <div>
                 <h2 className="text-2xl font-black text-slate-900">Android</h2>
-                <p className="text-sm text-slate-600">Version 1.0.0</p>
+                <p className="text-sm text-slate-600">Version {ENV_ANDROID_VERSION}</p>
               </div>
             </div>
 
@@ -86,6 +90,15 @@ export default function MobileDownload() {
                 </>
               )}
             </button>
+
+            {/* Lien direct de secours */}
+            <a
+              href={ANDROID_APK_URL}
+              className="block text-center text-sm text-slate-600 underline hover:text-slate-800 mb-2"
+              download
+            >
+              Lien direct de téléchargement APK
+            </a>
 
             {/* Google Play Store (à venir) */}
             <a
