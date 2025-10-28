@@ -3,14 +3,16 @@ import { useEffect, useState } from 'react';
 import { 
   Users, MapPin, Plus, X, Search, Truck, Package, 
   TrendingUp, Calendar, Eye, Edit, Trash2, Play, CheckCircle, 
-  FileText, UserPlus, Clock, DollarSign, BarChart3, Sparkles,
-  Filter, Grid, List, Target, XCircle, Archive, ArchiveRestore
+  FileText, Clock, DollarSign, Sparkles,
+  Filter, Grid, List, XCircle, Archive, ArchiveRestore, LogIn, UserPlus
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import InspectionViewer from '../components/InspectionViewer';
 import { generateMissionPDF } from '../services/missionPdfGenerator';
+import JoinMissionModal from '../components/JoinMissionModal';
+import ShareCodeModal from '../components/ShareCodeModal';
 
 // ===== INTERFACES =====
 interface Mission {
@@ -35,6 +37,8 @@ interface Mission {
   created_at: string;
   user_id?: string;
   archived?: boolean;
+  share_code?: string;
+  assigned_user_id?: string;
 }
 
 interface Contact {
@@ -60,7 +64,7 @@ interface Assignment {
   contact?: Contact;
 }
 
-type TabType = 'missions' | 'team' | 'assignments' | 'received' | 'stats';
+type TabType = 'missions' | 'received';
 type ViewMode = 'grid' | 'list';
 
 export default function TeamMissions() {
@@ -71,37 +75,26 @@ export default function TeamMissions() {
   const [activeTab, setActiveTab] = useState<TabType>('missions');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [missions, setMissions] = useState<Mission[]>([]);
-  const [contacts, setContacts] = useState<Contact[]>([]);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
-  const [receivedAssignments, setReceivedAssignments] = useState<Assignment[]>([]);
+  const [receivedMissions, setReceivedMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Modals
-  const [showAssignModal, setShowAssignModal] = useState(false);
   const [showInspectionViewer, setShowInspectionViewer] = useState(false);
   const [showEditModal, setShowEditModal] = useState(false);
-  const [showReassignModal, setShowReassignModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [showJoinModal, setShowJoinModal] = useState(false);
+  const [showShareCodeModal, setShowShareCodeModal] = useState(false);
   
   // Selected items
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
-  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   const [inspectionMissionId, setInspectionMissionId] = useState<string | null>(null);
   const [editingMission, setEditingMission] = useState<Mission | null>(null);
+  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
-  const [roleFilter] = useState<string>('all');
   const [showArchived, setShowArchived] = useState(false);
-  
-  // Forms
-  const [assignmentForm, setAssignmentForm] = useState({
-    contact_id: '',
-    payment_ht: 0,
-    commission: 0,
-    notes: '',
-  });
 
   // ===== EFFECTS =====
   useEffect(() => {
@@ -114,12 +107,7 @@ export default function TeamMissions() {
     setLoading(true);
 
     try {
-      await Promise.all([
-        loadMissions(),
-        loadContacts(),
-        loadAssignments(),
-        loadReceivedAssignments(),
-      ]);
+      await loadMissions();
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -128,116 +116,47 @@ export default function TeamMissions() {
   };
 
   const loadMissions = async () => {
-    let query = supabase
+    if (!user) return;
+    
+    // Charger les missions créées par l'utilisateur
+    let createdQuery = supabase
       .from('missions')
       .select('*')
-      .eq('user_id', user!.id);
+      .eq('user_id', user.id);
 
-    // Filtrer les missions archivées
     if (!showArchived) {
-      query = query.or('archived.is.null,archived.eq.false');
+      createdQuery = createdQuery.or('archived.is.null,archived.eq.false');
     }
 
-    query = query.order('pickup_date', { ascending: true });
+    createdQuery = createdQuery.order('pickup_date', { ascending: true });
 
-    const { data, error } = await query;
+    const { data: createdData, error: createdError } = await createdQuery;
 
-    if (error) throw error;
-    setMissions(data || []);
-  };
+    if (createdError) throw createdError;
+    setMissions(createdData || []);
 
-  const loadContacts = async () => {
-    console.log('🔄 DEBUT loadContacts - User ID:', user?.id);
-    
-    // ✅ NOUVEAU: Charger TOUS les users depuis auth.users (via RPC ou profiles avec fallback)
-    // Essayer d'abord profiles (avec infos complètes)
-    let { data: profileData, error: profileError } = await supabase
-      .from('profiles')
-      .select('id, first_name, last_name, email')
-      .neq('id', user!.id)
-      .order('email', { ascending: true });
+    // Charger les missions assignées à l'utilisateur (via share_code)
+    let receivedQuery = supabase
+      .from('missions')
+      .select('*')
+      .eq('assigned_user_id' as any, user.id);
 
-    console.log('📊 Profiles trouvés:', profileData?.length || 0, profileError);
-    console.log('📊 Data brute:', profileData);
+    if (!showArchived) {
+      receivedQuery = receivedQuery.or('archived.is.null,archived.eq.false');
+    }
 
-    // Si profiles vide ou erreur, charger depuis auth.users directement
-    if (!profileData || profileData.length === 0) {
-      console.log('⚠️ Profiles vide, chargement depuis auth.users via RPC...');
-      const { data: userData, error: userError } = await supabase.rpc('get_all_users');
-      
-      if (userError) {
-        console.error('❌ Erreur chargement users:', userError);
-        setContacts([]);
-        return;
+    receivedQuery = receivedQuery.order('pickup_date', { ascending: true });
+
+    const { data: receivedData, error: receivedError} = await receivedQuery;
+
+    if (receivedError) {
+      console.error('Error loading received missions:', receivedError);
+      // Ne pas bloquer si la colonne n'existe pas encore
+      if (!receivedError.message?.includes('assigned_user_id')) {
+        throw receivedError;
       }
-      
-      const usersAsContacts = (userData || [])
-        .filter((u: any) => u.id !== user!.id)
-        .map((u: any) => ({
-          id: u.id,
-          name: u.email.split('@')[0],
-          email: u.email,
-          user_id: u.id,
-          phone: null
-        }));
-      
-      console.log('📋 Users chargés depuis auth.users:', usersAsContacts.length);
-      setContacts(usersAsContacts as any);
-      return;
     }
-    
-    // Transformer profiles en format Contact
-    const usersAsContacts = profileData.map(p => ({
-      id: p.id,
-      name: p.first_name && p.last_name ? `${p.first_name} ${p.last_name}` : p.email.split('@')[0],
-      email: p.email,
-      user_id: p.id,
-      phone: null
-    }));
-    
-    console.log('📋 Users chargés depuis profiles:', usersAsContacts.length);
-    setContacts(usersAsContacts as any);
-  };
-
-  const loadAssignments = async () => {
-    const { data, error } = await supabase
-      .from('mission_assignments')
-      .select(`
-        *,
-        mission:missions(*)
-      `)
-      .eq('user_id', user!.id)
-      .order('assigned_at', { ascending: false });
-
-    if (error) throw error;
-    setAssignments(data || []);
-  };
-
-  const loadReceivedAssignments = async () => {
-    console.log('🔍 DEBUG loadReceivedAssignments - Début');
-    console.log('📋 User ID:', user!.id);
-    
-    // ✅ CORRECTION: Charger depuis mission_assignments où je suis le contact_id
-    const { data: assignments, error } = await supabase
-      .from('mission_assignments')
-      .select(`
-        *,
-        mission:missions(*)
-      `)
-      .eq('contact_id', user!.id)
-      .order('created_at', { ascending: false });
-
-    console.log('📦 Assignations reçues:', assignments);
-    console.log('❌ Erreur:', error);
-
-    if (error) {
-      console.error('❌ Erreur chargement assignations reçues:', error);
-      setReceivedAssignments([]);
-      return;
-    }
-
-    console.log('✅ Nombre assignations reçues:', assignments?.length || 0);
-    setReceivedAssignments(assignments as any || []);
+    setReceivedMissions(receivedData || []);
   };
 
   // ===== ACTIONS =====
@@ -260,75 +179,6 @@ export default function TeamMissions() {
       navigate(`/inspection/arrival/${mission.id}`);
     } else {
       navigate(`/inspection/departure/${mission.id}`);
-    }
-  };
-
-  const handleAssignMission = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    console.log('🔍 DEBUG ASSIGNATION - Début');
-    console.log('📋 Mission sélectionnée:', selectedMission?.id, selectedMission?.reference);
-    console.log('👤 Contact sélectionné:', assignmentForm.contact_id);
-    console.log('💰 Paiement HT:', assignmentForm.payment_ht);
-    console.log('💵 Commission:', assignmentForm.commission);
-    console.log('👤 User ID (assigneur):', user?.id);
-
-    if (!selectedMission || !assignmentForm.contact_id) {
-      console.error('❌ Validation échouée - mission ou contact manquant');
-      alert('⚠️ Veuillez sélectionner une mission et un chauffeur');
-      return;
-    }
-
-    try {
-      console.log('📤 Assignation de la mission à:', assignmentForm.contact_id);
-
-      // ✅ Créer une entrée dans mission_assignments avec les VRAIS noms de colonnes
-      const { error: assignError } = await supabase
-        .from('mission_assignments')
-        .insert({
-          mission_id: selectedMission.id,
-          contact_id: assignmentForm.contact_id,  // ✅ contact_id (pas assigned_to_user_id)
-          user_id: user!.id,                      // ✅ user_id (propriétaire de la mission)
-          assigned_by: user!.id,                  // ✅ assigned_by (pas assigned_by_user_id)
-          payment_ht: assignmentForm.payment_ht || 0,
-          commission: assignmentForm.commission || 0,
-          notes: assignmentForm.notes || null
-        });
-
-      console.log('📥 Réponse Supabase (assignment):', { assignError });
-
-      if (assignError) {
-        console.error('❌ Erreur Supabase:', assignError);
-        throw assignError;
-      }
-
-      // Mettre à jour le statut de la mission
-      const { error: updateError } = await supabase
-        .from('missions')
-        .update({ status: 'assigned' })
-        .eq('id', selectedMission.id);
-
-      if (updateError) {
-        console.error('⚠️ Erreur mise à jour statut mission:', updateError);
-      }
-
-      console.log('✅ Mission assignée avec succès !');
-
-      setShowAssignModal(false);
-      setSelectedMission(null);
-      setAssignmentForm({ contact_id: '', payment_ht: 0, commission: 0, notes: '' });
-      
-      console.log('🔄 Rechargement des données...');
-      await loadData();
-      
-      console.log('🎉 Assignation terminée avec succès !');
-      alert('✅ Mission assignée avec succès!');
-    } catch (error) {
-      console.error('💥 ERREUR COMPLÈTE:', error);
-      console.error('Message:', (error as any)?.message);
-      console.error('Code:', (error as any)?.code);
-      console.error('Details:', (error as any)?.details);
-      alert('❌ Erreur lors de l\'assignation: ' + ((error as any)?.message || 'Erreur inconnue'));
     }
   };
 
@@ -372,42 +222,6 @@ export default function TeamMissions() {
     } catch (error) {
       console.error('Error archiving mission:', error);
       alert('❌ Erreur lors de l\'archivage');
-    }
-  };
-
-  const handleReassignDriver = async (newContactId: string) => {
-    if (!editingMission) return;
-
-    try {
-      // 🔥 SOLUTION RADICALE: Utiliser user_id au lieu de contact_id
-      // Supprimer l'ancienne assignation
-      await supabase
-        .from('mission_assignments')
-        .delete()
-        .eq('mission_id', editingMission.id);
-
-      // Créer nouvelle assignation avec user_id (profile.id)
-      const { error } = await supabase
-        .from('mission_assignments')
-        .insert([{
-          mission_id: editingMission.id,
-          contact_id: null,  // Plus utilisé
-          user_id: newContactId,  // ✅ C'est maintenant le profile.id
-          assigned_by: user!.id,  // ✅ Requis par RLS policy
-          status: 'assigned',
-          assigned_at: new Date().toISOString()
-        }]);
-
-      if (error) throw error;
-
-      setShowReassignModal(false);
-      setShowEditModal(false);
-      setEditingMission(null);
-      await loadData();
-      alert('✅ Chauffeur réassigné avec succès !');
-    } catch (error) {
-      console.error('Error reassigning driver:', error);
-      alert('❌ Erreur lors de la réassignation');
     }
   };
 
@@ -480,23 +294,13 @@ export default function TeamMissions() {
     return matchesSearch && matchesStatus;
   });
 
-  const filteredContacts = contacts.filter(c => {
-    const matchesSearch = c.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         c.email.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesRole = roleFilter === 'all' || c.role === roleFilter;
-    return matchesSearch && matchesRole;
-  });
-
   // Stats
   const stats = {
     totalMissions: missions.length,
     pending: missions.filter(m => m.status === 'pending').length,
     inProgress: missions.filter(m => m.status === 'in_progress').length,
     completed: missions.filter(m => m.status === 'completed').length,
-    totalContacts: contacts.length,
-    activeAssignments: assignments.filter(a => a.status === 'assigned').length,
-    totalRevenue: assignments.reduce((sum, a) => sum + (a.payment_ht || 0), 0),
-    totalCommission: assignments.reduce((sum, a) => sum + (a.commission || 0), 0),
+    receivedMissions: receivedMissions.length,
   };
 
   // ===== LOADING STATE =====
@@ -525,6 +329,13 @@ export default function TeamMissions() {
         </div>
         
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => setShowJoinModal(true)}
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white shadow-glow-blue px-6 py-3 rounded-xl font-bold hover:shadow-depth-xl transition-all duration-300 hover:-translate-y-1"
+          >
+            <LogIn className="w-5 h-5" />
+            Rejoindre une mission
+          </button>
           <Link
             to="/missions/create"
             className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-glow-teal px-6 py-3 rounded-xl font-bold hover:shadow-depth-xl transition-all duration-300 hover:-translate-y-1"
@@ -547,45 +358,11 @@ export default function TeamMissions() {
             }`}
           >
             <Truck className="w-5 h-5" />
-            Missions
+            Mes Missions
             <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
               activeTab === 'missions' ? 'bg-white/20' : 'bg-slate-200'
             }`}>
               {stats.totalMissions}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('team')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all duration-300 whitespace-nowrap ${
-              activeTab === 'team'
-                ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <Users className="w-5 h-5" />
-            Équipe
-            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-              activeTab === 'team' ? 'bg-white/20' : 'bg-slate-200'
-            }`}>
-              {stats.totalContacts}
-            </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('assignments')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all duration-300 whitespace-nowrap ${
-              activeTab === 'assignments'
-                ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <Target className="w-5 h-5" />
-            Assignations
-            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-              activeTab === 'assignments' ? 'bg-white/20' : 'bg-slate-200'
-            }`}>
-              {stats.activeAssignments}
             </span>
           </button>
 
@@ -598,24 +375,12 @@ export default function TeamMissions() {
             }`}
           >
             <Package className="w-5 h-5" />
-            Mes Missions
+            Missions Reçues
             <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
               activeTab === 'received' ? 'bg-white/20' : 'bg-slate-200'
             }`}>
-              {receivedAssignments.length}
+              {stats.receivedMissions}
             </span>
-          </button>
-
-          <button
-            onClick={() => setActiveTab('stats')}
-            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all duration-300 whitespace-nowrap ${
-              activeTab === 'stats'
-                ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg'
-                : 'text-slate-600 hover:bg-slate-100'
-            }`}
-          >
-            <BarChart3 className="w-5 h-5" />
-            Statistiques
           </button>
         </div>
       </div>
@@ -839,12 +604,12 @@ export default function TeamMissions() {
                     <button
                       onClick={() => {
                         setSelectedMission(mission);
-                        setShowAssignModal(true);
+                        setShowShareCodeModal(true);
                       }}
-                      className="inline-flex items-center gap-2 bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-semibold hover:bg-slate-50 hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
                     >
                       <UserPlus className="w-4 h-4" />
-                      Assigner
+                      Partager
                     </button>
 
                     <button
@@ -888,287 +653,73 @@ export default function TeamMissions() {
           </div>
         )}
 
-        {/* TEAM TAB */}
-        {activeTab === 'team' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredContacts.length === 0 ? (
-              <div className="col-span-full text-center py-16 backdrop-blur-xl bg-white/50 border border-slate-200 rounded-2xl">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-teal-500/20 to-cyan-500/20 rounded-2xl mb-4">
-                  <Users className="w-10 h-10 text-teal-600" />
-                </div>
-                <p className="text-slate-600 mb-4 text-lg font-medium">Aucun membre d'équipe</p>
-                <button
-                  onClick={() => {
-                    // TODO: Implémenter l'ajout de contact
-                    console.log('Ajouter un contact');
-                  }}
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-                >
-                  <Plus className="w-5 h-5" />
-                  Ajouter un Membre
-                </button>
-              </div>
-            ) : (
-              filteredContacts.map((contact, index) => (
-                <div
-                  key={contact.id}
-                  style={{ animationDelay: `${index * 50}ms` }}
-                  className="backdrop-blur-xl bg-white/80 border border-slate-200 rounded-2xl p-6 hover:shadow-depth-xl hover:border-teal-500/50 transition-all duration-300 animate-in slide-in-from-bottom"
-                >
-                  <div className="flex items-start gap-4 mb-4">
-                    <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-lg">
-                      {contact.name.charAt(0)}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-lg text-slate-900">{contact.name}</h3>
-                      <p className="text-slate-600 text-sm">{contact.role}</p>
-                      {contact.company_name && (
-                        <p className="text-slate-500 text-xs">{contact.company_name}</p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-2 text-sm text-slate-600">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">Email:</span>
-                      <a href={`mailto:${contact.email}`} className="text-teal-600 hover:underline">
-                        {contact.email}
-                      </a>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">Tél:</span>
-                      <a href={`tel:${contact.phone}`} className="text-teal-600 hover:underline">
-                        {contact.phone}
-                      </a>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold">Calendrier:</span>
-                      <span className={contact.has_calendar_access ? 'text-green-600' : 'text-slate-400'}>
-                        {contact.has_calendar_access ? '✅ Activé' : '❌ Désactivé'}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 pt-4 border-t border-slate-200">
-                    <div className="text-sm text-slate-600">
-                      <span className="font-semibold">Missions:</span> {assignments.filter(a => a.contact_id === contact.id).length}
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-
-        {/* ASSIGNMENTS TAB */}
-        {activeTab === 'assignments' && (
-          <div className="backdrop-blur-xl bg-white/80 border border-slate-200 rounded-2xl overflow-hidden shadow-xl">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white">
-                  <tr>
-                    <th className="px-6 py-4 text-left font-bold">Mission</th>
-                    <th className="px-6 py-4 text-left font-bold">Chauffeur</th>
-                    <th className="px-6 py-4 text-left font-bold">Montant HT</th>
-                    <th className="px-6 py-4 text-left font-bold">Commission</th>
-                    <th className="px-6 py-4 text-left font-bold">Statut</th>
-                    <th className="px-6 py-4 text-left font-bold">Date</th>
-                    <th className="px-6 py-4 text-left font-bold">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200">
-                  {assignments.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="px-6 py-12 text-center text-slate-600">
-                        Aucune assignation pour le moment
-                      </td>
-                    </tr>
-                  ) : (
-                    assignments.map((assignment) => (
-                      <tr key={assignment.id} className="hover:bg-slate-50 transition">
-                        <td className="px-6 py-4">
-                          <div className="font-semibold text-slate-900">
-                            {assignment.mission?.reference || 'N/A'}
-                          </div>
-                          <div className="text-sm text-slate-600">
-                            {assignment.mission?.vehicle_brand} {assignment.mission?.vehicle_model}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="font-semibold text-slate-900">
-                            {assignment.contact?.name || 'N/A'}
-                          </div>
-                          <div className="text-sm text-slate-600">
-                            {assignment.contact?.email}
-                          </div>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-slate-900">
-                            {assignment.payment_ht.toLocaleString('fr-FR')}€
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className="font-bold text-teal-600">
-                            {assignment.commission.toLocaleString('fr-FR')}€
-                          </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold border ${getStatusColor(assignment.status)}`}>
-                            {getStatusLabel(assignment.status)}
-                          </span>
-                        </td>
-                        <td className="px-6 py-4 text-sm text-slate-600">
-                          {new Date(assignment.assigned_at).toLocaleDateString('fr-FR')}
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex gap-2">
-                            <button className="p-2 hover:bg-slate-100 rounded-lg transition">
-                              <Eye className="w-4 h-4 text-slate-600" />
-                            </button>
-                            <button className="p-2 hover:bg-slate-100 rounded-lg transition">
-                              <Edit className="w-4 h-4 text-slate-600" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
-
-        {/* STATS TAB */}
-        {activeTab === 'stats' && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-300 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <DollarSign className="w-8 h-8 text-blue-600" />
-                <span className="text-3xl font-black text-blue-700">
-                  {stats.totalRevenue.toLocaleString('fr-FR')}€
-                </span>
-              </div>
-              <p className="text-sm font-bold text-blue-800">Chiffre d'Affaires Total</p>
-            </div>
-
-            <div className="backdrop-blur-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-300 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <TrendingUp className="w-8 h-8 text-green-600" />
-                <span className="text-3xl font-black text-green-700">
-                  {stats.totalCommission.toLocaleString('fr-FR')}€
-                </span>
-              </div>
-              <p className="text-sm font-bold text-green-800">Commissions Totales</p>
-            </div>
-
-            <div className="backdrop-blur-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-300 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Target className="w-8 h-8 text-purple-600" />
-                <span className="text-3xl font-black text-purple-700">
-                  {stats.activeAssignments}
-                </span>
-              </div>
-              <p className="text-sm font-bold text-purple-800">Assignations Actives</p>
-            </div>
-
-            <div className="backdrop-blur-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-300 rounded-2xl p-6">
-              <div className="flex items-center justify-between mb-3">
-                <Users className="w-8 h-8 text-amber-600" />
-                <span className="text-3xl font-black text-amber-700">
-                  {stats.totalContacts}
-                </span>
-              </div>
-              <p className="text-sm font-bold text-amber-800">Membres d'Équipe</p>
-            </div>
-          </div>
-        )}
-
         {/* RECEIVED MISSIONS TAB */}
         {activeTab === 'received' && (
           <div className="space-y-4">
-            {/* DEBUG */}
-            <div className="bg-blue-100 border border-blue-500 p-4 rounded mb-4">
-              <p className="font-bold">🔍 DEBUG - Onglet Mes Missions :</p>
-              <p>Nombre de missions reçues : {receivedAssignments.length}</p>
-              <p>État : {receivedAssignments.length === 0 ? 'VIDE' : 'DONNÉES PRÉSENTES'}</p>
-            </div>
-            
-            {receivedAssignments.length === 0 ? (
+            {receivedMissions.length === 0 ? (
               <div className="backdrop-blur-xl bg-white/80 border border-slate-200 rounded-2xl p-12 text-center">
                 <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-slate-900 mb-2">
                   Aucune mission reçue
                 </h3>
                 <p className="text-slate-600">
-                  Les missions qui vous sont assignées apparaîtront ici
+                  Les missions partagées avec vous apparaîtront ici
                 </p>
               </div>
             ) : (
-              receivedAssignments.map((assignment) => (
+              receivedMissions.map((mission, index) => (
                 <div
-                  key={assignment.id}
+                  key={mission.id}
+                  style={{ animationDelay: `${index * 50}ms` }}
                   className="backdrop-blur-xl bg-white/80 border border-slate-200 rounded-2xl p-6 hover:shadow-xl transition-all duration-300"
                 >
-                  {/* Header avec badge "Assignée par" */}
+                  {/* Header */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="text-xl font-bold text-slate-900">
-                          {assignment.mission?.reference || 'N/A'}
+                          {mission.reference}
                         </h3>
                         <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-bold">
-                          🎯 Mission assignée
+                          🎯 Mission partagée
                         </span>
                       </div>
                       <p className="text-slate-600 mb-2">
-                        {assignment.mission?.vehicle_brand} {assignment.mission?.vehicle_model}
+                        {mission.vehicle_brand} {mission.vehicle_model}
                       </p>
-                      {/* Info assignation */}
-                      <div className="flex items-center gap-2 text-sm text-slate-500">
-                        <span>👤 Assignée par: <strong>{assignment.assigner?.email || 'N/A'}</strong></span>
-                        <span>•</span>
-                        <span>📅 {assignment.assigned_at ? new Date(assignment.assigned_at).toLocaleString('fr-FR') : 'N/A'}</span>
-                      </div>
                     </div>
                     <div className="text-right">
                       <p className="text-2xl font-bold text-teal-600">
-                        {assignment.payment_ht?.toFixed(2)}€
+                        {mission.price?.toFixed(2)}€
                       </p>
                       <p className="text-sm text-slate-500">HT</p>
-                      {assignment.commission > 0 && (
-                        <p className="text-sm text-green-600 font-bold mt-1">
-                          +{assignment.commission}€ commission
-                        </p>
-                      )}
                     </div>
                   </div>
 
-                  {/* Itinéraire avec contacts */}
+                  {/* Itinéraire */}
                   <div className="grid md:grid-cols-2 gap-4 mb-4">
                     <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
                       <MapPin className="w-5 h-5 text-green-600 mt-1 flex-shrink-0" />
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-green-900">Départ</p>
                         <p className="text-sm text-green-700 truncate">
-                          {assignment.mission?.pickup_address || 'Adresse non renseignée'}
+                          {mission.pickup_address || 'Adresse non renseignée'}
                         </p>
                         <p className="text-xs text-green-600 mt-1">
-                          {assignment.mission?.pickup_date 
-                            ? new Date(assignment.mission.pickup_date).toLocaleDateString('fr-FR')
+                          {mission.pickup_date 
+                            ? new Date(mission.pickup_date).toLocaleDateString('fr-FR')
                             : 'Date non renseignée'}
                         </p>
-                        {/* Contact départ */}
-                        {assignment.mission?.pickup_contact_name && (
+                        {mission.pickup_contact_name && (
                           <div className="mt-2 pt-2 border-t border-green-200">
                             <p className="text-xs font-bold text-green-900">📞 Contact:</p>
-                            <p className="text-xs text-green-700">{assignment.mission.pickup_contact_name}</p>
-                            {assignment.mission.pickup_contact_phone && (
+                            <p className="text-xs text-green-700">{mission.pickup_contact_name}</p>
+                            {mission.pickup_contact_phone && (
                               <a 
-                                href={`tel:${assignment.mission.pickup_contact_phone}`}
+                                href={`tel:${mission.pickup_contact_phone}`}
                                 className="text-xs text-green-600 hover:underline font-bold"
                               >
-                                {assignment.mission.pickup_contact_phone}
+                                {mission.pickup_contact_phone}
                               </a>
                             )}
                           </div>
@@ -1181,24 +732,23 @@ export default function TeamMissions() {
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-bold text-red-900">Arrivée</p>
                         <p className="text-sm text-red-700 truncate">
-                          {assignment.mission?.delivery_address || 'Adresse non renseignée'}
+                          {mission.delivery_address || 'Adresse non renseignée'}
                         </p>
                         <p className="text-xs text-red-600 mt-1">
-                          {assignment.mission?.delivery_date 
-                            ? new Date(assignment.mission.delivery_date).toLocaleDateString('fr-FR')
+                          {mission.delivery_date 
+                            ? new Date(mission.delivery_date).toLocaleDateString('fr-FR')
                             : 'Date non renseignée'}
                         </p>
-                        {/* Contact arrivée */}
-                        {assignment.mission?.delivery_contact_name && (
+                        {mission.delivery_contact_name && (
                           <div className="mt-2 pt-2 border-t border-red-200">
                             <p className="text-xs font-bold text-red-900">📞 Contact:</p>
-                            <p className="text-xs text-red-700">{assignment.mission.delivery_contact_name}</p>
-                            {assignment.mission.delivery_contact_phone && (
+                            <p className="text-xs text-red-700">{mission.delivery_contact_name}</p>
+                            {mission.delivery_contact_phone && (
                               <a 
-                                href={`tel:${assignment.mission.delivery_contact_phone}`}
+                                href={`tel:${mission.delivery_contact_phone}`}
                                 className="text-xs text-red-600 hover:underline font-bold"
                               >
-                                {assignment.mission.delivery_contact_phone}
+                                {mission.delivery_contact_phone}
                               </a>
                             )}
                           </div>
@@ -1208,40 +758,27 @@ export default function TeamMissions() {
                   </div>
 
                   {/* Notes */}
-                  {assignment.notes && (
+                  {mission.notes && (
                     <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                      <p className="text-sm font-bold text-blue-900 mb-1">📝 Instructions :</p>
-                      <p className="text-sm text-blue-700">{assignment.notes}</p>
+                      <p className="text-sm font-bold text-blue-900 mb-1">📝 Notes :</p>
+                      <p className="text-sm text-blue-700">{mission.notes}</p>
                     </div>
                   )}
 
                   {/* Actions */}
                   <div className="flex items-center justify-between pt-4 border-t border-slate-200">
                     <div className="flex items-center gap-3 text-sm text-slate-600">
-                      {assignment.mission?.distance && (
-                        <span>📏 {assignment.mission.distance} km</span>
+                      {mission.distance && (
+                        <span>📏 {mission.distance} km</span>
                       )}
                       <span className="px-2 py-1 bg-slate-100 rounded-full text-xs">
-                        Statut: <strong>{assignment.status}</strong>
+                        Statut: <strong>{getStatusLabel(mission.status)}</strong>
                       </span>
                     </div>
                     
                     <div className="flex items-center gap-2">
-                      {/* Bouton Détails/PDF */}
                       <button
-                        onClick={() => {
-                          setSelectedMission(assignment.mission!);
-                          setSelectedAssignment(assignment);
-                          setShowDetailsModal(true);
-                        }}
-                        className="flex items-center gap-2 bg-blue-500 text-white px-4 py-2 rounded-xl font-bold hover:shadow-lg transition-all duration-300"
-                      >
-                        <FileText className="w-4 h-4" />
-                        Détails & PDF
-                      </button>
-                      
-                      <button
-                        onClick={() => handleStartInspection(assignment.mission!)}
+                        onClick={() => handleStartInspection(mission)}
                         className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
                       >
                         <Play className="w-5 h-5" />
@@ -1258,121 +795,6 @@ export default function TeamMissions() {
 
       {/* ===== MODALS ===== */}
       
-      {/* Assignment Modal */}
-      {showAssignModal && selectedMission && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="backdrop-blur-xl bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 animate-in zoom-in duration-300">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-slate-900">Assigner Mission</h2>
-              <button
-                onClick={() => {
-                  setShowAssignModal(false);
-                  setSelectedMission(null);
-                }}
-                className="p-2 hover:bg-slate-100 rounded-lg transition"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleAssignMission} className="space-y-4">
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Mission: {selectedMission.reference}
-                </label>
-                <p className="text-sm text-slate-600">
-                  {selectedMission.vehicle_brand} {selectedMission.vehicle_model}
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Chauffeur * ({contacts.length} utilisateurs disponibles)
-                </label>
-                <select
-                  value={assignmentForm.contact_id}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, contact_id: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  required
-                >
-                  <option value="">Sélectionner un utilisateur ({contacts.length} disponibles)</option>
-                  {contacts.map((contact) => (
-                    <option key={contact.id} value={contact.id}>
-                      {contact.name} ({contact.email})
-                    </option>
-                  ))}
-                </select>
-                <p className="text-xs text-slate-500 mt-1">
-                  💡 Astuce: Effacez le champ de recherche en haut pour voir tous les utilisateurs
-                </p>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Montant HT (€)
-                  </label>
-                  <input
-                    type="number"
-                    value={assignmentForm.payment_ht}
-                    onChange={(e) => setAssignmentForm({ ...assignmentForm, payment_ht: parseFloat(e.target.value) })}
-                    className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-slate-700 mb-2">
-                    Commission (€)
-                  </label>
-                  <input
-                    type="number"
-                    value={assignmentForm.commission}
-                    onChange={(e) => setAssignmentForm({ ...assignmentForm, commission: parseFloat(e.target.value) })}
-                    className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                    min="0"
-                    step="0.01"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-slate-700 mb-2">
-                  Notes (optionnel)
-                </label>
-                <textarea
-                  value={assignmentForm.notes}
-                  onChange={(e) => setAssignmentForm({ ...assignmentForm, notes: e.target.value })}
-                  className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                  rows={3}
-                  placeholder="Instructions spéciales, remarques..."
-                />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowAssignModal(false);
-                    setSelectedMission(null);
-                  }}
-                  className="flex-1 px-6 py-3 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-bold hover:shadow-lg transition"
-                >
-                  ✅ Assigner
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* Inspection Modal */}
       {showInspectionViewer && inspectionMissionId && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50">
@@ -1434,40 +856,6 @@ export default function TeamMissions() {
                 <p className="text-sm text-slate-600"><strong>Statut:</strong> {getStatusLabel(editingMission.status)}</p>
               </div>
 
-              {/* Réassigner chauffeur si status = pending ou in_progress */}
-              {(editingMission.status === 'pending' || editingMission.status === 'in_progress') && (
-                <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                  <div className="flex items-center gap-2 mb-3">
-                    <UserPlus className="w-5 h-5 text-yellow-600" />
-                    <h3 className="font-bold text-yellow-900">Réassigner un chauffeur</h3>
-                  </div>
-                  <p className="text-sm text-yellow-700 mb-4">
-                    Mission en attente ou en cours. Vous pouvez changer le chauffeur assigné en cas de problème.
-                  </p>
-                  <button
-                    onClick={() => setShowReassignModal(true)}
-                    className="w-full px-6 py-3 bg-gradient-to-r from-yellow-500 to-orange-500 text-white rounded-xl font-bold hover:shadow-lg transition-all flex items-center justify-center gap-2"
-                  >
-                    <UserPlus className="w-5 h-5" />
-                    Choisir un autre chauffeur
-                  </button>
-                </div>
-              )}
-
-              {editingMission.status === 'completed' && (
-                <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-center">
-                  <CheckCircle className="w-12 h-12 text-green-600 mx-auto mb-2" />
-                  <p className="text-sm text-green-700 font-semibold">Mission terminée - Réassignation impossible</p>
-                </div>
-              )}
-
-              {editingMission.status === 'cancelled' && (
-                <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-center">
-                  <XCircle className="w-12 h-12 text-red-600 mx-auto mb-2" />
-                  <p className="text-sm text-red-700 font-semibold">Mission annulée - Réassignation impossible</p>
-                </div>
-              )}
-
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={() => {
@@ -1479,67 +867,6 @@ export default function TeamMissions() {
                   Fermer
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL REASSIGN DRIVER */}
-      {showReassignModal && editingMission && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full p-8 max-h-[80vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-black text-slate-900">Réassigner Chauffeur</h2>
-              <button
-                onClick={() => setShowReassignModal(false)}
-                className="p-2 hover:bg-slate-100 rounded-xl transition-all"
-              >
-                <X className="w-6 h-6 text-slate-500" />
-              </button>
-            </div>
-
-            <p className="text-slate-600 mb-6">
-              Sélectionnez un nouveau chauffeur pour la mission <strong>#{editingMission.reference}</strong>
-            </p>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {contacts.filter(c => c.is_active).map((contact) => (
-                <div
-                  key={contact.id}
-                  onClick={() => {
-                    if (confirm(`Confirmer la réassignation à ${contact.name} ?`)) {
-                      handleReassignDriver(contact.id);
-                    }
-                  }}
-                  className="bg-white border-2 border-slate-200 rounded-xl p-4 hover:border-blue-400 hover:shadow-lg transition-all cursor-pointer group"
-                >
-                  <div className="flex items-center gap-3 mb-2">
-                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-cyan-500 flex items-center justify-center text-white font-bold text-lg">
-                      {contact.name.charAt(0)}
-                    </div>
-                    <div className="flex-1">
-                      <h3 className="font-bold text-slate-900 group-hover:text-blue-600 transition-colors">
-                        {contact.name}
-                      </h3>
-                      <p className="text-xs text-slate-500">{contact.role || 'Chauffeur'}</p>
-                    </div>
-                  </div>
-                  <div className="text-xs text-slate-500 space-y-1">
-                    <p>📧 {contact.email}</p>
-                    <p>📱 {contact.phone}</p>
-                    {contact.company_name && <p>🏢 {contact.company_name}</p>}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <div className="flex gap-3 pt-6 mt-6 border-t border-slate-200">
-              <button
-                onClick={() => setShowReassignModal(false)}
-                className="flex-1 px-6 py-3 border-2 border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all"
-              >
-                Annuler
-              </button>
             </div>
           </div>
         </div>
@@ -1689,6 +1016,30 @@ export default function TeamMissions() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Modal Rejoindre Mission */}
+      <JoinMissionModal
+        isOpen={showJoinModal}
+        onClose={() => setShowJoinModal(false)}
+        onSuccess={(missionId) => {
+          // Recharger les missions après avoir rejoint
+          loadMissions();
+          setShowJoinModal(false);
+        }}
+      />
+
+      {/* Modal Partager Code */}
+      {showShareCodeModal && selectedMission && selectedMission.share_code && (
+        <ShareCodeModal
+          isOpen={showShareCodeModal}
+          shareCode={selectedMission.share_code}
+          missionReference={selectedMission.reference}
+          onClose={() => {
+            setShowShareCodeModal(false);
+            setSelectedMission(null);
+          }}
+        />
       )}
     </div>
   );

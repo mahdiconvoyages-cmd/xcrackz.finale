@@ -14,12 +14,13 @@ import {
   Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Feather, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Feather, MaterialCommunityIcons, Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useNavigation, useFocusEffect, NavigationProp } from '@react-navigation/native';
 import { getMissions, type Mission } from '../services/missionService';
 import { supabase } from '../config/supabase';
 import { formatRelativeDate, formatTime } from '../utils/dateFormat';
+import JoinMissionModal from '../components/JoinMissionModal';
 
 type InspectionsStackParamList = {
   InspectionsHome: undefined;
@@ -44,6 +45,7 @@ export default function MissionsScreen() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [activeTab, setActiveTab] = useState<'created' | 'received'>('created');
   const [userId, setUserId] = useState<string | null>(null);
+  const [showJoinModal, setShowJoinModal] = useState(false);
 
   useEffect(() => {
     loadUserId();
@@ -75,11 +77,11 @@ export default function MissionsScreen() {
       setMissions(createdData);
 
       // Charger missions assignées directement à l'user
-      // Utilise le champ missions.assigned_to_user_id (référence auth.users)
+      // Utilise le champ missions.assigned_user_id (référence auth.users)
       const { data: assignedData, error: assignedError } = await supabase
         .from('missions')
         .select('*')
-        .eq('assigned_to_user_id', userId)
+        .eq('assigned_user_id', userId)
         .order('created_at', { ascending: false });
 
       if (assignedError) {
@@ -412,6 +414,13 @@ export default function MissionsScreen() {
         </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity 
+            style={styles.joinButton} 
+            onPress={() => setShowJoinModal(true)}
+          >
+            <Ionicons name="log-in-outline" size={20} color="#3b82f6" />
+            <Text style={styles.joinButtonText}>Rejoindre</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
             style={styles.mapButton} 
             onPress={() => navigation.navigate('TeamMap')}
           >
@@ -536,6 +545,18 @@ export default function MissionsScreen() {
         }
         ListEmptyComponent={renderEmptyState}
       />
+
+      {/* Modal Rejoindre Mission */}
+      <JoinMissionModal
+        visible={showJoinModal}
+        onClose={() => setShowJoinModal(false)}
+        onSuccess={(missionId) => {
+          loadMissions();
+          setShowJoinModal(false);
+          setActiveTab('received');
+        }}
+        userId={userId || ''}
+      />
     </SafeAreaView>
   );
 }
@@ -607,6 +628,22 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     alignItems: 'center',
+  },
+  joinButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+  },
+  joinButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#3b82f6',
   },
   mapButton: {
     width: 40,

@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { LogIn, Mail, Lock, Chrome, Eye, EyeOff, Zap, Shield, ArrowRight } from 'lucide-react';
+import { LogIn, Mail, Lock, Eye, EyeOff, Zap, Shield, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function Login() {
@@ -8,9 +8,8 @@ export default function Login() {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [googleLoading, setGoogleLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { signIn, signInWithGoogle } = useAuth();
+  const { signIn } = useAuth();
   const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -31,18 +30,6 @@ export default function Login() {
       }
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleGoogleSignIn = async () => {
-    setError('');
-    setGoogleLoading(true);
-
-    try {
-      await signInWithGoogle();
-    } catch (err: any) {
-      setError(err.message || 'Erreur lors de la connexion avec Google');
-      setGoogleLoading(false);
     }
   };
 
@@ -176,28 +163,13 @@ export default function Login() {
 
                 <button
                   type="submit"
-                  disabled={loading || googleLoading}
+                  disabled={loading}
                   className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-black py-4 rounded-xl hover:shadow-2xl hover:shadow-teal-500/50 transition-all hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                 >
                   <LogIn className="w-5 h-5" />
                   {loading ? 'Connexion en cours...' : 'Se connecter'}
                 </button>
               </form>
-
-              <div className="my-6 flex items-center gap-4">
-                <div className="flex-1 h-px bg-slate-200"></div>
-                <span className="text-slate-500 text-sm font-bold">OU</span>
-                <div className="flex-1 h-px bg-slate-200"></div>
-              </div>
-
-              <button
-                onClick={handleGoogleSignIn}
-                disabled={loading || googleLoading}
-                className="w-full bg-white border-2 border-slate-200 text-slate-900 font-black py-4 rounded-xl hover:bg-slate-50 hover:border-slate-300 hover:shadow-xl transition-all hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3"
-              >
-                <Chrome className="w-5 h-5" />
-                {googleLoading ? 'Connexion en cours...' : 'Continuer avec Google'}
-              </button>
 
               <div className="mt-8 text-center">
                 <p className="text-slate-600 font-semibold">

@@ -7,6 +7,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import VehicleImageUpload from '../components/VehicleImageUpload';
+import ShareCodeDisplay from '../components/ShareCodeDisplay';
 
 export default function MissionCreate() {
   const { user } = useAuth();
@@ -15,7 +16,8 @@ export default function MissionCreate() {
   const [error, setError] = useState('');
   const [showPreview, setShowPreview] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const totalSteps = 4;
+  const [createdMission, setCreatedMission] = useState<{ id: string; share_code: string } | null>(null);
+  const totalSteps = 5; // Ajout d'une étape finale de récapitulatif & PDF
 
   const [formData, setFormData] = useState({
     reference: `MISSION-${Date.now()}`,
@@ -98,7 +100,7 @@ export default function MissionCreate() {
     setLoading(true);
 
     try {
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('missions')
         .insert([
           {
@@ -131,7 +133,13 @@ export default function MissionCreate() {
 
       if (error) throw error;
 
-      navigate('/team-missions');
+      // Afficher le code de partage
+      if (data && data.share_code) {
+        setCreatedMission({ id: data.id, share_code: data.share_code });
+      } else {
+        // Si pas de code (migration pas encore appliquée), rediriger directement
+        navigate('/team-missions');
+      }
     } catch (error: any) {
       console.error('Error creating mission:', error);
       setError(error.message || 'Une erreur est survenue');
@@ -332,6 +340,7 @@ export default function MissionCreate() {
       case 2: return 'Point de départ';
       case 3: return 'Point d\'arrivée';
       case 4: return 'Détails supplémentaires';
+      case 5: return 'Récapitulatif & PDF';
       default: return '';
     }
   };
@@ -575,6 +584,32 @@ export default function MissionCreate() {
           </div>
         );
 
+      case 5:
+        return (
+          <div className="space-y-6">
+            <div className="rounded-xl border border-slate-200 overflow-hidden">
+              <iframe
+                title="Aperçu PDF Mission"
+                srcDoc={generatePDF()}
+                className="w-full h-[600px] border-0"
+              />
+            </div>
+            <div className="flex items-center justify-between gap-3">
+              <div className="text-sm text-slate-500">
+                Vérifiez les informations ci-dessus, vous pouvez encore revenir aux étapes précédentes pour corriger avant de créer la mission.
+              </div>
+              <button
+                type="button"
+                onClick={downloadPDF}
+                className="flex items-center gap-2 px-5 py-3 bg-slate-600 text-white rounded-xl hover:bg-slate-700 transition-all shadow"
+              >
+                <Download className="w-5 h-5" />
+                Télécharger le PDF
+              </button>
+            </div>
+          </div>
+        );
+
       default:
         return null;
     }
@@ -633,7 +668,7 @@ export default function MissionCreate() {
           </div>
 
           <div className="flex justify-between mt-4">
-            {[1, 2, 3, 4].map((step) => (
+            {[1, 2, 3, 4, 5].map((step) => (
               <div
                 key={step}
                 className={`text-sm font-semibold transition-colors ${
@@ -652,29 +687,36 @@ export default function MissionCreate() {
           </div>
         )}
 
-        <form onSubmit={(e) => {
-          e.preventDefault();
-          if (currentStep === totalSteps) {
-            handleSubmit(e);
-          }
-        }}>
-          <div className="min-h-[400px]">
-            {renderStep()}
-          </div>
+        {currentStep === totalSteps ? (
+          // Étape finale: on encapsule dans un formulaire pour la soumission uniquement ici
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              handleSubmit(e);
+            }}
+            onKeyDown={(e) => {
+              // Empêcher la touche Enter de soumettre par inadvertance si des champs sont focus
+              if (e.key === 'Enter') {
+                e.preventDefault();
+              }
+            }}
+          >
+            <div className="min-h-[400px]">
+              {renderStep()}
+            </div>
 
-          <div className="flex gap-4 mt-8">
-            {currentStep > 1 && (
-              <button
-                type="button"
-                onClick={handlePrevious}
-                className="flex-1 px-6 py-4 border-2 border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition font-semibold flex items-center justify-center gap-2"
-              >
-                <ChevronLeft className="w-5 h-5" />
-                Précédent
-              </button>
-            )}
+            <div className="flex gap-4 mt-8">
+              {currentStep > 1 && (
+                <button
+                  type="button"
+                  onClick={handlePrevious}
+                  className="flex-1 px-6 py-4 border-2 border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition font-semibold flex items-center justify-center gap-2"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                  Précédent
+                </button>
+              )}
 
-            {currentStep === totalSteps ? (
               <button
                 type="submit"
                 disabled={loading}
@@ -692,7 +734,35 @@ export default function MissionCreate() {
                   </>
                 )}
               </button>
-            ) : (
+            </div>
+          </form>
+        ) : (
+          // Étapes 1 à 3: simple conteneur, aucun formulaire ici pour éviter toute soumission
+          <div
+            onKeyDown={(e) => {
+              // Empêcher Enter de déclencher un submit implicite du navigateur
+              if (e.key === 'Enter') {
+                e.preventDefault();
+                if (canProceedToNextStep()) handleNext();
+              }
+            }}
+          >
+            <div className="min-h-[400px]">
+              {renderStep()}
+            </div>
+
+            <div className="flex gap-4 mt-8">
+              {currentStep > 1 && (
+                <button
+                  type="button"
+                  onClick={handlePrevious}
+                  className="flex-1 px-6 py-4 border-2 border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition font-semibold flex items-center justify-center gap-2"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                  Précédent
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={handleNext}
@@ -702,9 +772,9 @@ export default function MissionCreate() {
                 Suivant
                 <ChevronRight className="w-5 h-5" />
               </button>
-            )}
+            </div>
           </div>
-        </form>
+        )}
       </div>
 
       {showPreview && (
@@ -739,6 +809,28 @@ export default function MissionCreate() {
                 className="flex-1 px-6 py-3 border border-slate-200 text-slate-700 rounded-xl hover:bg-slate-50 transition"
               >
                 Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Success avec Code de Partage */}
+      {createdMission && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
+            <ShareCodeDisplay 
+              code={createdMission.share_code}
+              missionTitle={`${formData.vehicle_brand} ${formData.vehicle_model}`}
+              onClose={() => navigate('/team-missions')}
+              showCloseButton
+            />
+            <div className="mt-6 flex gap-3">
+              <button
+                onClick={() => navigate('/team-missions')}
+                className="flex-1 px-6 py-3 bg-cyan-600 text-white rounded-xl hover:bg-cyan-700 transition-all font-semibold"
+              >
+                Voir mes missions
               </button>
             </div>
           </div>

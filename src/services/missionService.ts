@@ -297,7 +297,7 @@ export async function assignMissionToDriver(
 
   const { error: updateError } = await supabase
     .from('missions')
-    .update({ driver_id: driverId, status: 'assigned' })
+    .update({ driver_id: driverId, status: 'in_progress' })
     .eq('id', missionId);
 
   if (updateError) {
