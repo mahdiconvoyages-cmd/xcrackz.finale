@@ -210,7 +210,7 @@ export default function InspectionArrivalNew() {
           inspector_id: user.id,
           inspection_type: 'arrival',
           mileage_km: parseInt(mileage) || 0,
-          fuel_level: fuelLevel,
+          fuel_level: parseInt(fuelLevel) || 0,
           notes: notes,
           client_name: clientName,
           client_signature: clientSignature,
@@ -220,7 +220,10 @@ export default function InspectionArrivalNew() {
         .select()
         .single();
 
-      if (inspectionError) throw inspectionError;
+      if (inspectionError) {
+        console.error('Erreur création inspection:', inspectionError);
+        throw inspectionError;
+      }
       
       const arrivalInspection = arrivalInspectionData as any;
       if (!arrivalInspection?.id) throw new Error('ID inspection non retourné');

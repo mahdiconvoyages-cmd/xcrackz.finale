@@ -13,6 +13,17 @@ import jsPDF from 'jspdf';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 
+/**
+ * Nettoyer le texte pour le PDF (éviter les hiéroglyphes)
+ */
+function cleanTextForPDF(text: string | undefined | null): string {
+  if (!text) return '';
+  return text
+    .normalize('NFD') // Décomposer les caractères accentués
+    .replace(/[\u0300-\u036f]/g, '') // Retirer les accents
+    .replace(/[^\x00-\x7F]/g, ''); // Retirer les caractères non-ASCII
+}
+
 interface Photo {
   id?: string;
   photo_url: string;
@@ -141,7 +152,7 @@ export async function generateInspectionPDFPro(
     doc.setFontSize(24);
     doc.setFont('helvetica', 'bold');
     const title = inspection.inspection_type === 'departure' 
-      ? 'INSPECTION ENLÈVEMENT' 
+      ? 'INSPECTION ENLEVEMENT' 
       : 'INSPECTION LIVRAISON';
     doc.text(title, pageWidth / 2, 20, { align: 'center' });
     
@@ -149,7 +160,7 @@ export async function generateInspectionPDFPro(
     doc.setFontSize(12);
     doc.setFont('helvetica', 'normal');
     doc.text(
-      `Mission ${inspection.mission?.reference || 'N/A'}`,
+      `Mission ${cleanTextForPDF(inspection.mission?.reference) || 'N/A'}`,
       pageWidth / 2,
       30,
       { align: 'center' }
@@ -158,7 +169,7 @@ export async function generateInspectionPDFPro(
     // Date
     doc.setFontSize(10);
     doc.text(
-      format(new Date(inspection.created_at), "d MMMM yyyy 'à' HH:mm", { locale: fr }),
+      format(new Date(inspection.created_at), "d MMMM yyyy 'a' HH:mm", { locale: fr }),
       pageWidth / 2,
       38,
       { align: 'center' }
@@ -187,14 +198,14 @@ export async function generateInspectionPDFPro(
     
     currentY += 8;
     doc.text(
-      `Marque/Modèle: ${inspection.mission?.vehicle_brand || 'N/A'} ${inspection.mission?.vehicle_model || 'N/A'}`,
+      `Marque/Modele: ${cleanTextForPDF(inspection.mission?.vehicle_brand) || 'N/A'} ${cleanTextForPDF(inspection.mission?.vehicle_model) || 'N/A'}`,
       margin + 5,
       currentY
     );
     
     currentY += 7;
     doc.text(
-      `Immatriculation: ${inspection.mission?.vehicle_plate || 'N/A'}`,
+      `Immatriculation: ${cleanTextForPDF(inspection.mission?.vehicle_plate) || 'N/A'}`,
       margin + 5,
       currentY
     );
@@ -202,7 +213,7 @@ export async function generateInspectionPDFPro(
     currentY += 7;
     if (inspection.mileage_km !== undefined) {
       doc.text(
-        `Kilométrage: ${inspection.mileage_km.toLocaleString('fr-FR')} km`,
+        `Kilometrage: ${inspection.mileage_km.toLocaleString('fr-FR')} km`,
         margin + 5,
         currentY
       );
@@ -225,7 +236,7 @@ export async function generateInspectionPDFPro(
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('📍 Itinéraire', margin, currentY);
+    doc.text('Itineraire', margin, currentY);
     
     currentY += 8;
     
@@ -237,14 +248,14 @@ export async function generateInspectionPDFPro(
     
     currentY += 7;
     const pickupLines = doc.splitTextToSize(
-      `Enlèvement: ${inspection.mission?.pickup_address || 'Non spécifié'}`,
+      `Enlevement: ${cleanTextForPDF(inspection.mission?.pickup_address) || 'Non specifie'}`,
       pageWidth - 2 * margin - 10
     );
     doc.text(pickupLines, margin + 5, currentY);
     
     currentY += pickupLines.length * 5 + 3;
     const deliveryLines = doc.splitTextToSize(
-      `Livraison: ${inspection.mission?.delivery_address || 'Non spécifié'}`,
+      `Livraison: ${cleanTextForPDF(inspection.mission?.delivery_address) || 'Non specifie'}`,
       pageWidth - 2 * margin - 10
     );
     doc.text(deliveryLines, margin + 5, currentY);
@@ -252,12 +263,12 @@ export async function generateInspectionPDFPro(
     currentY += deliveryLines.length * 5 + 10;
 
     // ==========================================
-    // ÉTAT GÉNÉRAL
+    // ETAT GENERAL
     // ==========================================
     
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('✓ État Général', margin, currentY);
+    doc.text('Etat General', margin, currentY);
     
     currentY += 8;
     
@@ -270,7 +281,7 @@ export async function generateInspectionPDFPro(
     
     currentY += 8;
     doc.text(
-      `État général: ${inspection.overall_condition || 'N/A'}`,
+      `Etat general: ${cleanTextForPDF(inspection.overall_condition) || 'N/A'}`,
       margin + 5,
       currentY
     );
@@ -278,7 +289,7 @@ export async function generateInspectionPDFPro(
     currentY += 7;
     if (inspection.external_cleanliness) {
       doc.text(
-        `Propreté extérieure: ${inspection.external_cleanliness}`,
+        `Proprete exterieure: ${cleanTextForPDF(inspection.external_cleanliness)}`,
         margin + 5,
         currentY
       );
@@ -287,7 +298,7 @@ export async function generateInspectionPDFPro(
     currentY += 7;
     if (inspection.internal_cleanliness) {
       doc.text(
-        `Propreté intérieure: ${inspection.internal_cleanliness}`,
+        `Proprete interieure: ${cleanTextForPDF(inspection.internal_cleanliness)}`,
         margin + 5,
         currentY
       );
@@ -310,13 +321,13 @@ export async function generateInspectionPDFPro(
 
       doc.setFontSize(14);
       doc.setFont('helvetica', 'bold');
-      doc.text('📝 Notes', margin, currentY);
+      doc.text('Notes', margin, currentY);
       
       currentY += 8;
       
       doc.setFontSize(9);
       doc.setFont('helvetica', 'normal');
-      const notesLines = doc.splitTextToSize(inspection.notes, pageWidth - 2 * margin - 10);
+      const notesLines = doc.splitTextToSize(cleanTextForPDF(inspection.notes), pageWidth - 2 * margin - 10);
       doc.rect(margin, currentY, pageWidth - 2 * margin, notesLines.length * 5 + 10);
       
       currentY += 7;
@@ -434,7 +445,7 @@ export async function generateInspectionPDFPro(
 
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.text('✍️ Signatures', margin, currentY);
+    doc.text('Signatures', margin, currentY);
     
     currentY += 10;
 
@@ -508,7 +519,7 @@ export async function generateInspectionPDFPro(
       if (inspection.client_name) {
         doc.setFontSize(8);
         doc.setFont('helvetica', 'normal');
-        doc.text(inspection.client_name, clientX + sigWidth / 2, currentY + sigHeight + 10, {
+        doc.text(cleanTextForPDF(inspection.client_name), clientX + sigWidth / 2, currentY + sigHeight + 10, {
           align: 'center'
         });
       }
@@ -575,7 +586,7 @@ function addPageFooter(doc: jsPDF, pageNum: number, totalPages: number, inspecti
   
   // Gauche: Date génération
   doc.text(
-    `Généré le ${format(new Date(), 'dd/MM/yyyy à HH:mm', { locale: fr })}`,
+    `Genere le ${format(new Date(), 'dd/MM/yyyy a HH:mm', { locale: fr })}`,
     20,
     pageHeight - 10
   );
