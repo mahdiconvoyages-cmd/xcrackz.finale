@@ -6,16 +6,14 @@ export default function MobileDownload() {
 
   // URLs de téléchargement
   // En dev: utilise l'APK local depuis public/
-  // En prod: utilise l'URL externe (Supabase Storage, GitHub Releases, etc.)
+  // En prod: utilise l'URL externe (Supabase Storage)
   const isDev = import.meta.env.DEV;
   const ENV_APK_URL = import.meta.env.VITE_ANDROID_APK_URL as string | undefined;
-  const ENV_ANDROID_VERSION = (import.meta.env.VITE_ANDROID_VERSION as string | undefined) || '6.0.0';
+  const ENV_ANDROID_VERSION = (import.meta.env.VITE_ANDROID_VERSION as string | undefined) || '4.3.0';
 
   const ANDROID_APK_URL = ENV_APK_URL
     ? ENV_APK_URL
-    : isDev
-      ? '/xcrackzv6.apk' // Local: déposer le fichier dans public/xcrackzv6.apk
-      : 'https://bfrkthzovwpjrvqktdjn.supabase.co/storage/v1/object/public/mobile-apps/xcrackzv6.apk'; // Fallback production
+    : 'https://bfrkthzovwpjrvqktdjn.supabase.co/storage/v1/object/public/mobile-apps/xcrackzv9.apk';
 
   const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.finality.app'; // À publier
   const APP_STORE_URL = 'https://apps.apple.com/app/xcrackz/id123456789'; // À publier
