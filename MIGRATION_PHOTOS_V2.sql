@@ -137,6 +137,9 @@ AND vi.created_at > NOW() - INTERVAL '30 days'; -- Seulement les récentes
 -- 5. CRÉER VUE COMPATIBLE POUR TRANSITION
 -- ============================================
 
+-- Renommer l'ancienne table pour faire place à la vue
+ALTER TABLE inspection_photos RENAME TO inspection_photos_old;
+
 -- Vue qui émule l'ancienne structure pour compatibilité
 CREATE OR REPLACE VIEW inspection_photos AS
 SELECT 
@@ -159,27 +162,33 @@ IS 'Vue de compatibilité pendant migration. Pointe vers inspection_photos_v2';
 
 -- En cas de problème, restaurer depuis backup:
 /*
+-- Supprimer la vue
+DROP VIEW IF EXISTS inspection_photos;
+
+-- Restaurer la table originale
+ALTER TABLE inspection_photos_old RENAME TO inspection_photos;
+
+-- Vider et restaurer v2
 TRUNCATE inspection_photos_v2;
 INSERT INTO inspection_photos_v2 SELECT * FROM inspection_photos_backup;
 */
 
 -- ============================================
--- 7. NETTOYAGE POST-MIGRATION
+-- 7. NETTOYAGE POST-MIGRATION (OPTIONNEL)
 -- ============================================
 
--- Une fois la migration validée (après tests):
+-- Une fois la migration validée et stable (après plusieurs jours de tests):
 /*
 -- Supprimer le backup
 DROP TABLE IF EXISTS inspection_photos_backup;
 
--- Renommer l'ancienne table (archive)
-ALTER TABLE inspection_photos RENAME TO inspection_photos_old;
+-- Supprimer l'ancienne table archivée
+DROP TABLE IF EXISTS inspection_photos_old;
 
--- Supprimer la vue de compatibilité
-DROP VIEW IF EXISTS inspection_photos;
-
--- Renommer la nouvelle table
-ALTER TABLE inspection_photos_v2 RENAME TO inspection_photos;
+-- À ce stade:
+-- - inspection_photos est une VUE pointant vers inspection_photos_v2
+-- - Le code existant continue de fonctionner
+-- - inspection_photos_v2 est la vraie table
 */
 
 -- ============================================
@@ -189,8 +198,9 @@ ALTER TABLE inspection_photos_v2 RENAME TO inspection_photos;
 SELECT 
   '📊 RÉSUMÉ MIGRATION' as status,
   jsonb_build_object(
-    'photos_old', (SELECT COUNT(*) FROM inspection_photos),
+    'photos_old_archived', (SELECT COUNT(*) FROM inspection_photos_old),
     'photos_v2', (SELECT COUNT(*) FROM inspection_photos_v2),
+    'photos_via_view', (SELECT COUNT(*) FROM inspection_photos),
     'backup_created', (SELECT COUNT(*) FROM inspection_photos_backup),
     'photos_with_metadata', (SELECT COUNT(*) FROM inspection_photos_v2 WHERE file_size_bytes IS NOT NULL),
     'photos_need_thumbnails', (SELECT COUNT(*) FROM inspection_photos_v2 WHERE thumbnail_url IS NULL)
