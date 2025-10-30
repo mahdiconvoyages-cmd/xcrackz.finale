@@ -144,20 +144,38 @@ export default function RapportsInspection() {
   const handleDownloadPDF = async (report: InspectionReport) => {
     try {
       setGeneratingPDF(true);
-      toast.loading('Conversion des photos en cours...', { id: 'pdf-gen' });
+      toast.loading('Génération du PDF complet (départ + arrivée)...', { id: 'pdf-gen' });
 
-      // Utiliser le nouveau service PDF Pro
-      const inspection = report.departure_inspection || report.arrival_inspection;
-      if (!inspection) {
-        throw new Error('Aucune inspection disponible');
-      }
-
-      const success = await downloadInspectionPDFPro(inspection);
-
-      if (success) {
-        toast.success('PDF généré et téléchargé avec photos embarquées !', { id: 'pdf-gen' });
+      // Si on a les deux inspections, générer un PDF complet
+      if (report.departure_inspection && report.arrival_inspection) {
+        toast.success('PDF complet en cours de génération...', { id: 'pdf-gen' });
+        
+        // Générer d'abord le PDF de départ
+        const successDeparture = await downloadInspectionPDFPro(report.departure_inspection);
+        
+        // Puis le PDF d'arrivée
+        const successArrival = await downloadInspectionPDFPro(report.arrival_inspection);
+        
+        if (successDeparture && successArrival) {
+          toast.success('✅ PDFs générés : Inspection Départ + Inspection Arrivée', { id: 'pdf-gen', duration: 5000 });
+        } else {
+          toast.warning('Certains PDFs n\'ont pas pu être générés', { id: 'pdf-gen' });
+        }
       } else {
-        toast.error('Erreur lors de la génération du PDF', { id: 'pdf-gen' });
+        // Sinon, générer le PDF disponible
+        const inspection = report.departure_inspection || report.arrival_inspection;
+        if (!inspection) {
+          throw new Error('Aucune inspection disponible');
+        }
+
+        const success = await downloadInspectionPDFPro(inspection);
+
+        if (success) {
+          const type = report.departure_inspection ? 'Départ' : 'Arrivée';
+          toast.success(`PDF Inspection ${type} généré !`, { id: 'pdf-gen' });
+        } else {
+          toast.error('Erreur lors de la génération du PDF', { id: 'pdf-gen' });
+        }
       }
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -167,30 +185,61 @@ export default function RapportsInspection() {
     }
   };
 
-  // Télécharger toutes les photos
+  // Télécharger toutes les photos en ZIP organisé
   const handleDownloadPhotos = async (report: InspectionReport) => {
     try {
-      toast.loading('Récupération des photos...', { id: 'photos-dl' });
+      toast.loading('Récupération et compression des photos...', { id: 'photos-dl' });
 
       // @ts-ignore - Type mismatch between service interfaces, works at runtime
       const result = await downloadAllPhotos(report);
 
-      if (result.success) {
-        if (result.urls && result.urls.length > 0) {
-          // Télécharger chaque photo
-          result.urls.forEach((url, index) => {
-            const a = document.createElement('a');
-            a.href = url;
-            // @ts-ignore - Property exists at runtime
-            a.download = `photo-${report.mission_reference}-${index + 1}.jpg`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-          });
-        }
-        toast.success(`${result.urls.length} photo(s) chargée(s)`, { id: 'photos-dl' });
+      if (result.success && result.photos && result.photos.length > 0) {
+        const JSZip = (await import('jszip')).default;
+        const zip = new JSZip();
+        
+        // Créer dossiers pour inspection départ et arrivée
+        const departFolder = zip.folder("1-inspection-depart");
+        const arrivalFolder = zip.folder("2-inspection-arrivee");
+        
+        let departCount = 0;
+        let arrivalCount = 0;
+        
+        // Charger chaque photo et l'ajouter au ZIP dans le bon dossier
+        const photoPromises = result.photos.map(async (photo) => {
+          try {
+            const response = await fetch(photo.url);
+            const blob = await response.blob();
+            
+            if (photo.type === 'departure') {
+              departFolder?.file(photo.name, blob);
+              departCount++;
+            } else {
+              arrivalFolder?.file(photo.name, blob);
+              arrivalCount++;
+            }
+          } catch (error) {
+            console.error(`Erreur lors du chargement de ${photo.name}:`, error);
+          }
+        });
+
+        await Promise.all(photoPromises);
+
+        // Générer le fichier ZIP
+        const zipBlob = await zip.generateAsync({ type: "blob" });
+        
+        // Télécharger le ZIP
+        const downloadUrl = URL.createObjectURL(zipBlob);
+        const a = document.createElement('a');
+        a.href = downloadUrl;
+        a.download = `photos-inspection-${report.mission_reference}.zip`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(downloadUrl);
+
+        toast.success(`${result.photos.length} photos (${departCount} départ, ${arrivalCount} arrivée) téléchargées en ZIP`, { id: 'photos-dl' });
       } else {
-        toast.error(result.message || 'Erreur lors du chargement des photos', { id: 'photos-dl' });
+        toast.error(result.message || 'Aucune photo trouvée', { id: 'photos-dl' });
       }
     } catch (error) {
       console.error('Error downloading photos:', error);
@@ -222,7 +271,77 @@ export default function RapportsInspection() {
     try {
       setSendingEmail(true);
 
-      // Préparer le message email
+      toast.loading('Préparation de l\'état des lieux avec photos...', { id: 'email-prep' });
+
+      // 1. Télécharger automatiquement le PDF avec photos
+      const inspection = emailModalReport.departure_inspection || emailModalReport.arrival_inspection;
+      if (inspection?.id) {
+        try {
+          const { data: fullInspection } = await supabase
+            .from('vehicle_inspections')
+            .select('*, missions(*)')
+            .eq('id', inspection.id)
+            .single();
+
+          if (fullInspection) {
+            const success = await downloadInspectionPDFPro(fullInspection);
+            if (success) {
+              toast.success('PDF généré automatiquement', { id: 'pdf-auto' });
+            }
+          }
+        } catch (error) {
+          console.log('Erreur PDF (non bloquante):', error);
+        }
+      }
+
+      // 2. Télécharger automatiquement toutes les photos en ZIP
+      try {
+        const photoResult = await downloadAllPhotos(emailModalReport);
+        
+        if (photoResult.success && photoResult.photos && photoResult.photos.length > 0) {
+          const JSZip = (await import('jszip')).default;
+          const zip = new JSZip();
+          
+          // Créer dossiers organisés
+          const departFolder = zip.folder("1-inspection-depart");
+          const arrivalFolder = zip.folder("2-inspection-arrivee");
+          
+          // Charger toutes les photos
+          const photoPromises = photoResult.photos.map(async (photo) => {
+            try {
+              const response = await fetch(photo.url);
+              const blob = await response.blob();
+              
+              if (photo.type === 'departure') {
+                departFolder?.file(photo.name, blob);
+              } else {
+                arrivalFolder?.file(photo.name, blob);
+              }
+            } catch (error) {
+              console.error(`Erreur photo ${photo.name}:`, error);
+            }
+          });
+
+          await Promise.all(photoPromises);
+
+          // Générer et télécharger le ZIP
+          const zipBlob = await zip.generateAsync({ type: "blob" });
+          const downloadUrl = URL.createObjectURL(zipBlob);
+          const a = document.createElement('a');
+          a.href = downloadUrl;
+          a.download = `photos-inspection-${emailModalReport.mission_reference}.zip`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          URL.revokeObjectURL(downloadUrl);
+
+          toast.success(`${photoResult.photos.length} photos téléchargées en ZIP`, { id: 'photos-auto' });
+        }
+      } catch (error) {
+        console.log('Erreur photos (non bloquante):', error);
+      }
+
+      // 3. Préparer le message email amélioré
       const missionRef = emailModalReport.mission_reference || 'N/A';
       const vehicle = `${emailModalReport.vehicle_brand || ''} ${emailModalReport.vehicle_model || ''}`.trim() || 'Véhicule';
       const plate = emailModalReport.vehicle_plate || '';
@@ -251,32 +370,37 @@ ${emailModalReport.arrival_inspection ? `
    - Carburant : ${emailModalReport.arrival_inspection.fuel_level_end || 'N/A'}
 ` : ''}
 
-📄 Documents joints :
-   • Rapport PDF complet avec photos
-   • Photos d'inspection (départ + arrivée)
+📄 FICHIERS AUTOMATIQUEMENT TÉLÉCHARGÉS :
+   ✅ Rapport PDF complet avec photos intégrées (${missionRef}-inspection.pdf)
+   ✅ Archive photos organisée (photos-inspection-${missionRef}.zip)
 
-ℹ️ Note : Les photos et le PDF sont disponibles en téléchargement. Veuillez les joindre manuellement à cet email depuis l'interface.
+🔗 COMMENT JOINDRE LES FICHIERS :
+   1. Les fichiers sont dans votre dossier "Téléchargements"
+   2. Glissez-déposez les dans cet email ou utilisez "Joindre"
+   3. Envoyez l'email avec les pièces jointes
+
+📞 Pour toute question : ${user?.email || 'contact@finality-transport.com'}
 
 Cordialement,
-${user?.email || 'Finality Transport'}`;
+L'équipe Finality Transport`;
 
-      // Construire le mailto avec sujet et corps
+      toast.dismiss('email-prep');
+
+      // 4. Ouvrir le client email
       const mailtoLink = `mailto:${emailAddress}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
-
-      // Ouvrir le client email par défaut
       window.location.href = mailtoLink;
 
-      toast.success('Client email ouvert ! N\'oubliez pas de joindre les photos et le PDF.', { duration: 5000 });
+      toast.success('📧 Email ouvert avec les fichiers téléchargés automatiquement !', { duration: 6000 });
       
-      // Fermer le modal après un court délai
+      // Fermer le modal
       setTimeout(() => {
         setEmailModalReport(null);
         setEmailAddress('');
       }, 1000);
 
     } catch (error) {
-      console.error('Error opening email client:', error);
-      toast.error('Erreur lors de l\'ouverture du client email');
+      console.error('Error preparing email:', error);
+      toast.error('Erreur lors de la préparation de l\'email');
     } finally {
       setSendingEmail(false);
     }

@@ -51,6 +51,8 @@ interface InspectionData {
   notes?: string;
   client_name?: string;
   client_signature?: string;
+  driver_name?: string;
+  driver_signature?: string;
   inspector_signature?: string;
   mission?: {
     reference: string;
@@ -436,7 +438,7 @@ export async function generateInspectionPDFPro(
     // ==========================================
     
     // Vérifier si on a assez d'espace
-    if (currentY > pageHeight - 80) {
+    if (currentY > pageHeight - 100) {
       doc.addPage();
       currentY = margin;
       addPageHeader(doc, inspection, primaryColor);
@@ -449,44 +451,13 @@ export async function generateInspectionPDFPro(
     
     currentY += 10;
 
-    const sigWidth = (pageWidth - 2 * margin - 10) / 2;
+    // 3 signatures côte à côte : Client, Convoyeur, Inspecteur
+    const sigWidth = (pageWidth - 2 * margin - 20) / 3;
     const sigHeight = 40;
 
-    // Signature inspecteur
-    if (inspection.inspector_signature) {
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text('Inspecteur', margin, currentY);
-      
-      currentY += 5;
-      doc.setDrawColor(200, 200, 200);
-      doc.rect(margin, currentY, sigWidth, sigHeight);
-      
-      const sigBase64 = inspection.inspector_signature.startsWith('data:')
-        ? inspection.inspector_signature
-        : await imageUrlToBase64(inspection.inspector_signature);
-      
-      if (sigBase64) {
-        try {
-          doc.addImage(
-            sigBase64,
-            'PNG',
-            margin + 5,
-            currentY + 5,
-            sigWidth - 10,
-            sigHeight - 10,
-            'signature-inspector',
-            'FAST'
-          );
-        } catch (error) {
-          console.error('Erreur signature inspecteur:', error);
-        }
-      }
-    }
-
-    // Signature client
+    // Signature Client
     if (inspection.client_signature) {
-      const clientX = margin + sigWidth + 10;
+      const clientX = margin;
       
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
@@ -522,6 +493,80 @@ export async function generateInspectionPDFPro(
         doc.text(cleanTextForPDF(inspection.client_name), clientX + sigWidth / 2, currentY + sigHeight + 10, {
           align: 'center'
         });
+      }
+    }
+
+    // Signature Convoyeur
+    if (inspection.driver_signature) {
+      const driverX = margin + sigWidth + 10;
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Convoyeur', driverX, currentY);
+      
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(driverX, currentY + 5, sigWidth, sigHeight);
+      
+      const sigBase64 = inspection.driver_signature.startsWith('data:')
+        ? inspection.driver_signature
+        : await imageUrlToBase64(inspection.driver_signature);
+      
+      if (sigBase64) {
+        try {
+          doc.addImage(
+            sigBase64,
+            'PNG',
+            driverX + 5,
+            currentY + 10,
+            sigWidth - 10,
+            sigHeight - 10,
+            'signature-driver',
+            'FAST'
+          );
+        } catch (error) {
+          console.error('Erreur signature convoyeur:', error);
+        }
+      }
+
+      if (inspection.driver_name) {
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.text(cleanTextForPDF(inspection.driver_name), driverX + sigWidth / 2, currentY + sigHeight + 10, {
+          align: 'center'
+        });
+      }
+    }
+
+    // Signature Inspecteur (optionnelle)
+    if (inspection.inspector_signature) {
+      const inspectorX = margin + (sigWidth + 10) * 2;
+      
+      doc.setFontSize(10);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Inspecteur', inspectorX, currentY);
+      
+      doc.setDrawColor(200, 200, 200);
+      doc.rect(inspectorX, currentY + 5, sigWidth, sigHeight);
+      
+      const sigBase64 = inspection.inspector_signature.startsWith('data:')
+        ? inspection.inspector_signature
+        : await imageUrlToBase64(inspection.inspector_signature);
+      
+      if (sigBase64) {
+        try {
+          doc.addImage(
+            sigBase64,
+            'PNG',
+            inspectorX + 5,
+            currentY + 10,
+            sigWidth - 10,
+            sigHeight - 10,
+            'signature-inspector',
+            'FAST'
+          );
+        } catch (error) {
+          console.error('Erreur signature inspecteur:', error);
+        }
       }
     }
 

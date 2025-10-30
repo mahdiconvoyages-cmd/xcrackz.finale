@@ -104,30 +104,50 @@ export async function listInspectionReports(
 
 export async function downloadAllPhotos(
   report: InspectionReport
-): Promise<{ success: boolean; urls: string[]; message: string }> {
-  const urls: string[] = [];
+): Promise<{ success: boolean; photos: { url: string; type: 'departure' | 'arrival'; name: string }[]; message: string }> {
+  const photos: { url: string; type: 'departure' | 'arrival'; name: string }[] = [];
   try {
     if (report.departure_inspection?.id) {
       const { data: departurePhotos } = await supabase
         .from('inspection_photos')
-        .select('photo_url')
+        .select('photo_url, photo_type')
         .eq('inspection_id', report.departure_inspection.id);
 
-      if (departurePhotos) departurePhotos.forEach((p: any) => p.photo_url && urls.push(p.photo_url));
+      if (departurePhotos) {
+        departurePhotos.forEach((p: any, index: number) => {
+          if (p.photo_url) {
+            photos.push({
+              url: p.photo_url,
+              type: 'departure',
+              name: `depart-${p.photo_type || `photo-${index + 1}`}.jpg`
+            });
+          }
+        });
+      }
     }
 
     if (report.arrival_inspection?.id) {
       const { data: arrivalPhotos } = await supabase
         .from('inspection_photos')
-        .select('photo_url')
+        .select('photo_url, photo_type')
         .eq('inspection_id', report.arrival_inspection.id);
 
-      if (arrivalPhotos) arrivalPhotos.forEach((p: any) => p.photo_url && urls.push(p.photo_url));
+      if (arrivalPhotos) {
+        arrivalPhotos.forEach((p: any, index: number) => {
+          if (p.photo_url) {
+            photos.push({
+              url: p.photo_url,
+              type: 'arrival',
+              name: `arrivee-${p.photo_type || `photo-${index + 1}`}.jpg`
+            });
+          }
+        });
+      }
     }
 
-    return { success: true, urls, message: `${urls.length} photos trouvées` };
+    return { success: true, photos, message: `${photos.length} photos trouvées` };
   } catch (error: any) {
-    return { success: false, urls: [], message: error.message };
+    return { success: false, photos: [], message: error.message };
   }
 }
 

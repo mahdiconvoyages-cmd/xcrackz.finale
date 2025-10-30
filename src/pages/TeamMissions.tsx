@@ -133,7 +133,42 @@ export default function TeamMissions() {
     const { data: createdData, error: createdError } = await createdQuery;
 
     if (createdError) throw createdError;
-    setMissions(createdData || []);
+    
+    // Charger toutes les inspections pour ces missions
+    const missionIds = (createdData || []).map(m => m.id);
+    let inspections = [];
+    
+    if (missionIds.length > 0) {
+      const { data: inspectionData } = await supabase
+        .from('vehicle_inspections')
+        .select('mission_id, inspection_type')
+        .in('mission_id', missionIds);
+      
+      inspections = inspectionData || [];
+    }
+    
+    // Calculer le statut basé sur les inspections et filtrer les missions terminées
+    const processedCreatedData = (createdData || []).map(mission => {
+      const missionInspections = inspections.filter(i => i.mission_id === mission.id);
+      const hasDepart = missionInspections.some(i => i.inspection_type === 'departure');
+      const hasArrival = missionInspections.some(i => i.inspection_type === 'arrival');
+      
+      let calculatedStatus = 'pending'; // Sans inspection
+      
+      if (hasDepart && hasArrival) {
+        calculatedStatus = 'completed'; // Terminée - ne pas afficher
+        return null; // Filtrer les missions terminées
+      } else if (hasDepart) {
+        calculatedStatus = 'in_progress'; // En cours
+      }
+      
+      return {
+        ...mission,
+        status: calculatedStatus
+      };
+    }).filter(Boolean); // Supprimer les missions terminées (null)
+    
+    setMissions(processedCreatedData || []);
 
     // Charger les missions assignées à l'utilisateur (via share_code)
     let receivedQuery = supabase
@@ -156,7 +191,42 @@ export default function TeamMissions() {
         throw receivedError;
       }
     }
-    setReceivedMissions(receivedData || []);
+    
+    // Charger les inspections pour les missions reçues
+    const receivedMissionIds = (receivedData || []).map(m => m.id);
+    let receivedInspections = [];
+    
+    if (receivedMissionIds.length > 0) {
+      const { data: receivedInspectionData } = await supabase
+        .from('vehicle_inspections')
+        .select('mission_id, inspection_type')
+        .in('mission_id', receivedMissionIds);
+      
+      receivedInspections = receivedInspectionData || [];
+    }
+    
+    // Même traitement pour les missions reçues
+    const processedReceivedData = (receivedData || []).map(mission => {
+      const missionInspections = receivedInspections.filter(i => i.mission_id === mission.id);
+      const hasDepart = missionInspections.some(i => i.inspection_type === 'departure');
+      const hasArrival = missionInspections.some(i => i.inspection_type === 'arrival');
+      
+      let calculatedStatus = 'pending';
+      
+      if (hasDepart && hasArrival) {
+        calculatedStatus = 'completed';
+        return null; // Filtrer les missions terminées
+      } else if (hasDepart) {
+        calculatedStatus = 'in_progress';
+      }
+      
+      return {
+        ...mission,
+        status: calculatedStatus
+      };
+    }).filter(Boolean);
+    
+    setReceivedMissions(processedReceivedData || []);
   };
 
   // ===== ACTIONS =====
