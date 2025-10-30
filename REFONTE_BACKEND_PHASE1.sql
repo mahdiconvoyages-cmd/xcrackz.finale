@@ -136,7 +136,7 @@ SELECT
   
   -- Agrégation des URLs photos pour faciliter le chargement
   json_agg(
-    DISTINCT jsonb_build_object(
+    jsonb_build_object(
       'id', ip.id,
       'type', ip.photo_type,
       'thumbnail', ip.thumbnail_url,
