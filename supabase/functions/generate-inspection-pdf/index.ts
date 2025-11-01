@@ -1,6 +1,6 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
-import { PDFDocument, rgb, StandardFonts } from 'https://cdn.skypack.dev/pdf-lib@1.17.1'
+import { PDFDocument, rgb, StandardFonts } from 'https://esm.sh/pdf-lib@1.17.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -39,22 +39,41 @@ serve(async (req) => {
   }
 
   try {
-    const { inspectionId } = await req.json()
-
-    if (!inspectionId) {
-      throw new Error('inspectionId is required')
+    // Vérifier le secret interne pour les appels depuis la DB
+    const internalSecret = req.headers.get('X-Internal-Secret')
+    const expectedSecret = Deno.env.get('PDF_INTERNAL_SECRET')
+    
+    if (expectedSecret && internalSecret !== expectedSecret) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 401 }
+      )
     }
 
-    // Create Supabase client
+    const requestBody = await req.json()
+    const { inspectionId, missionId, departureId, arrivalId, combined } = requestBody
+
+    // Create Supabase client with service role for full access
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_ANON_KEY') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
-        global: {
-          headers: { Authorization: req.headers.get('Authorization')! },
-        },
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false
+        }
       }
     )
+
+    // Mode combiné (départ + arrivée)
+    if (combined && missionId && departureId && arrivalId) {
+      return await generateCombinedPDF(supabaseClient, missionId, departureId, arrivalId)
+    }
+
+    // Mode simple (1 seule inspection) - legacy
+    if (!inspectionId) {
+      throw new Error('inspectionId or (missionId + departureId + arrivalId) required')
+    }
 
     // Fetch inspection data with photos
     const { data: inspection, error: inspectionError } = await supabaseClient
@@ -347,3 +366,242 @@ async function generatePDF(inspection: InspectionData): Promise<Uint8Array> {
 
   return await pdfDoc.save()
 }
+
+// Fonction pour générer un PDF combiné (départ + arrivée)
+async function generateCombinedPDF(supabaseClient: any, missionId: string, departureId: string, arrivalId: string) {
+  try {
+    // Fetch both inspections
+    const { data: departure, error: depError } = await supabaseClient
+      .from('vehicle_inspections')
+      .select(`
+        *,
+        missions (
+          reference,
+          vehicle_brand,
+          vehicle_model,
+          vehicle_plate,
+          pickup_address,
+          delivery_address
+        )
+      `)
+      .eq('id', departureId)
+      .single()
+
+    if (depError) throw new Error(`Départ: ${depError.message}`)
+
+    const { data: arrival, error: arrError } = await supabaseClient
+      .from('vehicle_inspections')
+      .select('*')
+      .eq('id', arrivalId)
+      .single()
+
+    if (arrError) throw new Error(`Arrivée: ${arrError.message}`)
+
+    // Fetch photos for both
+    const { data: depPhotos } = await supabaseClient
+      .from('inspection_photos_v2')
+      .select('photo_type, full_url')
+      .eq('inspection_id', departureId)
+      .order('taken_at', { ascending: true })
+
+    const { data: arrPhotos } = await supabaseClient
+      .from('inspection_photos_v2')
+      .select('photo_type, full_url')
+      .eq('inspection_id', arrivalId)
+      .order('taken_at', { ascending: true })
+
+    // Si pas de photos dans v2, essayer dans la vue
+    let finalDepPhotos = depPhotos && depPhotos.length > 0 ? depPhotos : []
+    let finalArrPhotos = arrPhotos && arrPhotos.length > 0 ? arrPhotos : []
+
+    if (finalDepPhotos.length === 0) {
+      const { data: depPhotosView } = await supabaseClient
+        .from('inspection_photos')
+        .select('photo_type, photo_url')
+        .eq('inspection_id', departureId)
+        .order('created_at', { ascending: true })
+      finalDepPhotos = (depPhotosView || []).map((p: any) => ({ photo_type: p.photo_type, full_url: p.photo_url }))
+    }
+
+    if (finalArrPhotos.length === 0) {
+      const { data: arrPhotosView } = await supabaseClient
+        .from('inspection_photos')
+        .select('photo_type, photo_url')
+        .eq('inspection_id', arrivalId)
+        .order('created_at', { ascending: true })
+      finalArrPhotos = (arrPhotosView || []).map((p: any) => ({ photo_type: p.photo_type, full_url: p.photo_url }))
+    }
+
+    departure.photos = finalDepPhotos
+    arrival.photos = finalArrPhotos
+
+    // Generate combined PDF
+    const pdfBytes = await generateCombinedPDFDocument(departure as InspectionData, arrival as InspectionData)
+
+    // Upload to storage
+    const fileName = `mission_${missionId}_combined_${Date.now()}.pdf`
+    const { data: uploadData, error: uploadError } = await supabaseClient.storage
+      .from('inspection-pdfs')
+      .upload(fileName, pdfBytes, {
+        contentType: 'application/pdf',
+        upsert: true,
+      })
+
+    if (uploadError) throw uploadError
+
+    // Get public URL
+    const { data: { publicUrl } } = supabaseClient.storage
+      .from('inspection-pdfs')
+      .getPublicUrl(fileName)
+
+    // Save to inspection_pdfs table (avec mission_id)
+    const { error: cacheError } = await supabaseClient
+      .from('inspection_pdfs')
+      .upsert({
+        inspection_id: departureId, // On garde l'ID départ comme référence
+        mission_id: missionId,
+        pdf_url: publicUrl,
+        file_size_bytes: pdfBytes.length,
+        page_count: 2, // 2 pages minimum (1 départ + 1 arrivée)
+        version: 1,
+      }, {
+        onConflict: 'inspection_id,version'
+      })
+
+    if (cacheError) console.error('Cache error:', cacheError)
+
+    // Update both inspections
+    await supabaseClient
+      .from('vehicle_inspections')
+      .update({
+        pdf_generated: true,
+        pdf_generated_at: new Date().toISOString(),
+      })
+      .in('id', [departureId, arrivalId])
+
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        pdf_url: publicUrl,
+        file_size: pdfBytes.length,
+        combined: true 
+      }),
+      {
+        headers: { 'Content-Type': 'application/json' },
+        status: 200,
+      }
+    )
+  } catch (error: any) {
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      {
+        headers: { 'Content-Type': 'application/json' },
+        status: 400,
+      }
+    )
+  }
+}
+
+// Générer le document PDF combiné
+async function generateCombinedPDFDocument(departure: InspectionData, arrival: InspectionData): Promise<Uint8Array> {
+  const pdfDoc = await PDFDocument.create()
+  const helveticaFont = await pdfDoc.embedFont(StandardFonts.Helvetica)
+  const helveticaBold = await pdfDoc.embedFont(StandardFonts.HelveticaBold)
+
+  // Page 1: Inspection DÉPART
+  let page = pdfDoc.addPage([595, 842]) // A4
+  let { width, height } = page.getSize()
+  let yPosition = height - 50
+
+  // Header DÉPART
+  page.drawText('RAPPORT D\'INSPECTION - DÉPART', {
+    x: 50,
+    y: yPosition,
+    size: 22,
+    font: helveticaBold,
+    color: rgb(0.1, 0.6, 0.3),
+  })
+  yPosition -= 40
+
+  // Mission info
+  page.drawText(`Mission: ${departure.missions.reference}`, {
+    x: 50,
+    y: yPosition,
+    size: 12,
+    font: helveticaFont,
+  })
+  yPosition -= 20
+
+  page.drawText(`Véhicule: ${departure.missions.vehicle_brand} ${departure.missions.vehicle_model} - ${departure.missions.vehicle_plate}`, {
+    x: 50,
+    y: yPosition,
+    size: 12,
+    font: helveticaFont,
+  })
+  yPosition -= 20
+
+  page.drawText(`Kilométrage: ${departure.mileage_km} km | Carburant: ${departure.fuel_level}/8`, {
+    x: 50,
+    y: yPosition,
+    size: 11,
+    font: helveticaFont,
+  })
+  yPosition -= 30
+
+  page.drawText(`Photos DÉPART: ${departure.photos.length}`, {
+    x: 50,
+    y: yPosition,
+    size: 11,
+    font: helveticaBold,
+    color: rgb(0.1, 0.6, 0.3),
+  })
+  yPosition -= 20
+
+  // Page 2: Inspection ARRIVÉE
+  page = pdfDoc.addPage([595, 842])
+  yPosition = height - 50
+
+  page.drawText('RAPPORT D\'INSPECTION - ARRIVÉE', {
+    x: 50,
+    y: yPosition,
+    size: 22,
+    font: helveticaBold,
+    color: rgb(0.6, 0.2, 0.1),
+  })
+  yPosition -= 40
+
+  page.drawText(`Mission: ${departure.missions.reference}`, {
+    x: 50,
+    y: yPosition,
+    size: 12,
+    font: helveticaFont,
+  })
+  yPosition -= 20
+
+  page.drawText(`Véhicule: ${departure.missions.vehicle_brand} ${departure.missions.vehicle_model} - ${departure.missions.vehicle_plate}`, {
+    x: 50,
+    y: yPosition,
+    size: 12,
+    font: helveticaFont,
+  })
+  yPosition -= 20
+
+  page.drawText(`Kilométrage: ${arrival.mileage_km} km | Carburant: ${arrival.fuel_level}/8`, {
+    x: 50,
+    y: yPosition,
+    size: 11,
+    font: helveticaFont,
+  })
+  yPosition -= 30
+
+  page.drawText(`Photos ARRIVÉE: ${arrival.photos.length}`, {
+    x: 50,
+    y: yPosition,
+    size: 11,
+    font: helveticaBold,
+    color: rgb(0.6, 0.2, 0.1),
+  })
+
+  return await pdfDoc.save()
+}
+

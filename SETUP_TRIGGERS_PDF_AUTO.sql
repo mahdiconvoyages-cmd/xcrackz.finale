@@ -14,36 +14,51 @@ CREATE OR REPLACE FUNCTION trigger_pdf_generation()
 RETURNS TRIGGER AS $$
 DECLARE
   v_complete BOOLEAN;
+  v_base_url TEXT;
+  v_service_key TEXT;
   v_function_url TEXT;
 BEGIN
   -- Vérifier si l'inspection est complète
   v_complete := is_inspection_complete(NEW.id);
-  
+
   -- Si complète et PDF pas encore généré
   IF v_complete AND (NEW.pdf_generated IS NULL OR NEW.pdf_generated = FALSE) THEN
-    
+
+    -- Récupération des settings (peuvent être NULL si non configurés)
+    v_base_url   := NULLIF(current_setting('app.supabase_function_url', true), '');
+    v_service_key := NULLIF(current_setting('app.supabase_service_role_key', true), '');
+
+    -- Sécurité: si les settings ne sont pas configurés, on sort proprement
+    IF v_base_url IS NULL OR v_service_key IS NULL THEN
+      RAISE NOTICE 'PDF generation skipped: app.supabase_function_url or app.supabase_service_role_key not configured';
+      RETURN NEW;
+    END IF;
+
     -- URL de l'Edge Function
-    v_function_url := current_setting('app.supabase_function_url', true) || '/generate-inspection-pdf';
-    
+    v_function_url := v_base_url || '/generate-inspection-pdf';
+
     -- Appeler l'Edge Function de manière asynchrone
-    -- Note: pg_net.http_post est non-bloquant
+    -- Note: net.http_post (pg_net) est non-bloquant
     PERFORM net.http_post(
       url := v_function_url,
       headers := jsonb_build_object(
         'Content-Type', 'application/json',
-        'Authorization', 'Bearer ' || current_setting('app.supabase_service_role_key', true)
+        'Authorization', 'Bearer ' || v_service_key
       ),
       body := jsonb_build_object(
         'inspectionId', NEW.id
       )
     );
-    
+
     RAISE NOTICE 'PDF generation triggered for inspection %', NEW.id;
   END IF;
-  
+
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- Permissions minimales: on évite l'appel direct par PUBLIC
+REVOKE ALL ON FUNCTION trigger_pdf_generation() FROM PUBLIC;
 
 -- ============================================
 -- 2. TRIGGER SUR INSERT/UPDATE INSPECTIONS
@@ -65,33 +80,53 @@ IS 'Déclenche automatiquement la génération PDF quand inspection complète';
 -- 3. FONCTION POUR FORCER REGÉNÉRATION MANUELLE
 -- ============================================
 
-CREATE OR REPLACE FUNCTION regenerate_inspection_pdf(inspection_id UUID)
+-- Assurer la cohérence de la signature et éviter l'ambiguïté du nom de paramètre
+DROP FUNCTION IF EXISTS regenerate_inspection_pdf(UUID);
+
+CREATE OR REPLACE FUNCTION regenerate_inspection_pdf(p_inspection_id UUID)
 RETURNS jsonb AS $$
 DECLARE
+  v_base_url TEXT;
+  v_service_key TEXT;
   v_function_url TEXT;
   v_response jsonb;
 BEGIN
+  -- Récupération des settings
+  v_base_url    := NULLIF(current_setting('app.supabase_function_url', true), '');
+  v_service_key := NULLIF(current_setting('app.supabase_service_role_key', true), '');
+
+  IF v_base_url IS NULL OR v_service_key IS NULL THEN
+    RETURN jsonb_build_object(
+      'success', false,
+      'error', 'Missing app.supabase_function_url or app.supabase_service_role_key settings'
+    );
+  END IF;
+
   -- URL de l'Edge Function
-  v_function_url := current_setting('app.supabase_function_url', true) || '/generate-inspection-pdf';
+  v_function_url := v_base_url || '/generate-inspection-pdf';
   
   -- Appeler l'Edge Function
   v_response := net.http_post(
     url := v_function_url,
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'Authorization', 'Bearer ' || current_setting('app.supabase_service_role_key', true)
+      'Authorization', 'Bearer ' || v_service_key
     ),
     body := jsonb_build_object(
-      'inspectionId', inspection_id
+      'inspectionId', p_inspection_id
     )
   );
   
   RETURN v_response;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 COMMENT ON FUNCTION regenerate_inspection_pdf 
 IS 'Force la regénération du PDF pour une inspection donnée';
+
+-- Restreindre les permissions: pas d'exécution publique, mais autoriser les utilisateurs authentifiés
+REVOKE ALL ON FUNCTION regenerate_inspection_pdf(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION regenerate_inspection_pdf(UUID) TO authenticated;
 
 -- ============================================
 -- 4. FONCTION POUR NETTOYER ANCIENS PDFs
@@ -152,3 +187,12 @@ SELECT
     THEN 'Function exists ✅'
     ELSE 'Function missing ❌'
   END as result;
+
+-- Vérifier que les settings sont configurés
+SELECT 
+  '🔧 app.supabase_function_url set' AS setting,
+  COALESCE(NULLIF(current_setting('app.supabase_function_url', true), ''), 'NULL') AS value;
+
+SELECT 
+  '🔧 app.supabase_service_role_key set' AS setting,
+  CASE WHEN NULLIF(current_setting('app.supabase_service_role_key', true), '') IS NULL THEN 'NULL' ELSE '***MASKED***' END AS value;

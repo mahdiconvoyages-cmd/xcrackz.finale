@@ -37,6 +37,8 @@ import OptimizedImage from '../components/OptimizedImage';
 import PhotoGallery from '../components/PhotoGallery';
 import InspectionComparison from '../components/InspectionComparison';
 import { supabase } from '../lib/supabase';
+import InspectionReportAdvanced from '../components/InspectionReportAdvanced';
+import { generateAndWaitPdf, getCachedPdfUrl } from '../shared/services/inspectionPdfEdgeService';
 
 export default function RapportsInspection() {
   const { user } = useAuth();
@@ -50,6 +52,9 @@ export default function RapportsInspection() {
   const [emailAddress, setEmailAddress] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
+  const [advancedMode, setAdvancedMode] = useState<boolean>(true);
+  const [serverPdfBusy, setServerPdfBusy] = useState<string | null>(null);
+  const [cachedPdfs, setCachedPdfs] = useState<Record<string, string>>({});
   
   // Gallery states
   const [galleryPhotos, setGalleryPhotos] = useState<any[]>([]);
@@ -129,6 +134,19 @@ export default function RapportsInspection() {
 
     if (result.success) {
       setReports(result.reports);
+      
+      // Charger les PDFs en cache pour chaque rapport
+      const pdfCache: Record<string, string> = {};
+      for (const report of result.reports) {
+        const inspectionId = report.arrival_inspection?.id || report.departure_inspection?.id;
+        if (inspectionId) {
+          const cachedUrl = await getCachedPdfUrl(inspectionId);
+          if (cachedUrl) {
+            pdfCache[inspectionId] = cachedUrl;
+          }
+        }
+      }
+      setCachedPdfs(pdfCache);
     } else {
       toast.error(result.message || 'Erreur lors du chargement des rapports');
     }
@@ -244,6 +262,45 @@ export default function RapportsInspection() {
     } catch (error) {
       console.error('Error downloading photos:', error);
       toast.error('Erreur lors du téléchargement des photos', { id: 'photos-dl' });
+    }
+  };
+
+  // Génération côté serveur via Edge Function (cache inspection_pdfs)
+  const handleServerPDF = async (report: InspectionReport) => {
+    try {
+      const inspectionId = report.arrival_inspection?.id || report.departure_inspection?.id;
+      if (!inspectionId) {
+        toast.error('Aucune inspection trouvée pour ce rapport');
+        return;
+      }
+
+      setServerPdfBusy(inspectionId);
+      toast.loading('Génération serveur en cours...', { id: `srv-pdf-${inspectionId}` });
+
+      // Essayer d'abord d'utiliser un PDF déjà en cache
+      const cached = await getCachedPdfUrl(inspectionId);
+      if (cached) {
+        toast.success('PDF trouvé en cache', { id: `srv-pdf-${inspectionId}` });
+        window.open(cached, '_blank');
+        setServerPdfBusy(null);
+        return;
+      }
+
+      const res = await generateAndWaitPdf(inspectionId, 20000);
+      if (res.success && res.pdfUrl) {
+        toast.success('PDF généré (serveur)', { id: `srv-pdf-${inspectionId}` });
+        window.open(res.pdfUrl, '_blank');
+        
+        // Mettre à jour le cache local
+        setCachedPdfs(prev => ({ ...prev, [inspectionId]: res.pdfUrl! }));
+      } else {
+        toast.error(res.message || 'Échec génération serveur', { id: `srv-pdf-${inspectionId}` });
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast.error(e.message || 'Erreur génération serveur');
+    } finally {
+      setServerPdfBusy(null);
     }
   };
 
@@ -561,7 +618,7 @@ L'équipe Finality Transport`;
           </div>
         </div>
 
-        {/* Liste des rapports */}
+  {/* Liste des rapports */}
         {filteredReports.length === 0 ? (
           <div className="text-center py-16 bg-gradient-to-br from-slate-50 to-blue-50 rounded-2xl">
             <div className="bg-white/80 backdrop-blur-sm w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg">
@@ -580,6 +637,8 @@ L'équipe Finality Transport`;
               const isDeparture = report.departure_inspection !== null;
               const isArrival = report.arrival_inspection !== null;
               const isExpanded = expandedReport === report.mission_id;
+              const inspectionId = report.arrival_inspection?.id || report.departure_inspection?.id;
+              const hasCachedPdf = inspectionId ? !!cachedPdfs[inspectionId] : false;
 
               return (
                 <div
@@ -647,7 +706,7 @@ L'équipe Finality Transport`;
                         </div>
                       </div>
 
-                      {/* Bouton d'expansion */}
+                      {/* Bouton d'expansion + toggle vue */}
                       <button
                         onClick={() => toggleExpand(report.mission_id)}
                         className="text-teal-600 hover:text-teal-700 font-semibold flex items-center gap-2 text-sm"
@@ -663,10 +722,42 @@ L'équipe Finality Transport`;
                         )}
                       </button>
 
+                      {/* Toggle vue avancée */}
+                      {expandedReport === report.mission_id && (
+                        <div className="mt-2">
+                          <label className="inline-flex items-center gap-2 text-xs text-slate-600 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={advancedMode}
+                              onChange={(e) => setAdvancedMode(e.target.checked)}
+                            />
+                            Activer la vue avancée (comparaison, grille par type)
+                          </label>
+                        </div>
+                      )}
+
                       {/* Détails expandables */}
                       {isExpanded && (
                         <div className="mt-4 pt-4 border-t border-slate-200 space-y-3">
-                          {isDeparture && report.departure_inspection && (
+                          {advancedMode && (
+                            <div className="mb-2">
+                              <InspectionReportAdvanced
+                                missionReference={report.mission_reference}
+                                departure={report.departure_inspection ? {
+                                  id: report.departure_inspection.id,
+                                  inspection_type: 'departure',
+                                  photos: report.departure_inspection.photos || []
+                                } : null}
+                                arrival={report.arrival_inspection ? {
+                                  id: report.arrival_inspection.id,
+                                  inspection_type: 'arrival',
+                                  photos: report.arrival_inspection.photos || []
+                                } : null}
+                              />
+                            </div>
+                          )}
+
+                          {!advancedMode && isDeparture && report.departure_inspection && (
                             <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                               <h4 className="font-semibold text-green-800 mb-2 flex items-center gap-2">
                                 <MapPin className="w-4 h-4" /> Inspection Enlèvement
@@ -719,7 +810,7 @@ L'équipe Finality Transport`;
                             </div>
                           )}
 
-                          {isArrival && report.arrival_inspection && (
+                          {!advancedMode && isArrival && report.arrival_inspection && (
                             <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
                               <h4 className="font-semibold text-blue-800 mb-2 flex items-center gap-2">
                                 <CheckCircle className="w-4 h-4" /> Inspection Livraison
@@ -791,6 +882,14 @@ L'équipe Finality Transport`;
                         </span>
                       )}
 
+                      {/* Badge PDF en cache */}
+                      {hasCachedPdf && (
+                        <span className="px-3 py-1.5 bg-emerald-100 text-emerald-700 rounded-lg text-xs font-semibold border border-emerald-300 flex items-center gap-1">
+                          <FileText className="w-3 h-3" />
+                          PDF ✓
+                        </span>
+                      )}
+
                       <div className="flex gap-2">
                         {/* Bouton comparaison (uniquement pour rapports complets) */}
                         {report.is_complete && (
@@ -802,7 +901,16 @@ L'équipe Finality Transport`;
                             <ArrowLeftRight className="w-5 h-5" />
                           </button>
                         )}
-                        
+                        {/* PDF serveur (Edge Function + cache) */}
+                        <button
+                          onClick={() => handleServerPDF(report)}
+                          disabled={!!serverPdfBusy}
+                          className="p-3 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition text-indigo-700 disabled:opacity-50"
+                          title="Générer/Ouvrir PDF (serveur)"
+                        >
+                          <FileText className="w-5 h-5" />
+                        </button>
+
                         <button
                           onClick={() => handleDownloadPDF(report)}
                           disabled={generatingPDF}
