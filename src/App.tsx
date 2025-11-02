@@ -45,6 +45,7 @@ import TermsOfService from './pages/legal/TermsOfService';
 import CookiePolicy from './pages/legal/CookiePolicy';
 import VoiceSettings from './pages/VoiceSettings';
 import MobileDownload from './pages/MobileDownload';
+import ResetPassword from './pages/ResetPassword';
 
 function AppContent() {
   return (
@@ -61,6 +62,7 @@ function AppContent() {
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/tracking/public/:token" element={<PublicTracking />} />
         <Route path="/inspection/report/:inspectionId" element={<PublicInspectionReport />} />
 

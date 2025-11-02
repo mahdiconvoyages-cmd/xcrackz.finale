@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useState, useEffect } from 'react';
 import { Image as ImageIcon, Columns, SplitSquareVertical } from 'lucide-react';
 import PhotoGallery from './PhotoGallery';
 import OptimizedImage from './OptimizedImage';
@@ -38,6 +38,20 @@ export default function InspectionReportAdvanced({ missionReference, departure, 
   const [galleryIndex, setGalleryIndex] = useState(0);
   const [galleryPhotos, setGalleryPhotos] = useState<Photo[]>([]);
   const [galleryTitle, setGalleryTitle] = useState('');
+
+  // Debug: Afficher les photos reçues
+  useEffect(() => {
+    console.log('📸 InspectionReportAdvanced - Données:', {
+      missionReference,
+      departurePhotos: departure?.photos?.length || 0,
+      arrivalPhotos: arrival?.photos?.length || 0,
+    });
+    if (departure?.photos?.length) {
+      console.log('✅ Photos départ:', departure.photos.slice(0, 2));
+    } else {
+      console.warn('⚠️ Aucune photo de départ!', departure);
+    }
+  }, [missionReference, departure, arrival]);
 
   const grouped = useMemo(() => {
     const groupByType = (photos?: Photo[]) => {
