@@ -41,7 +41,6 @@ import { supabase } from '../lib/supabase';
 import InspectionReportAdvanced from '../components/InspectionReportAdvanced';
 import { generateAndWaitPdf, getCachedPdfUrl } from '../shared/services/inspectionPdfEdgeService';
 import ShareReportModal from '../components/ShareReportModal';
-import { Share2 } from 'lucide-react';
 
 export default function RapportsInspection() {
   const { user } = useAuth();

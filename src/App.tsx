@@ -39,7 +39,6 @@ import RealtimeTracking from './pages/RealtimeTracking';
 import TeamMissions from './pages/TeamMissions';
 import InspectionDepartureNew from './pages/InspectionDepartureNew';
 import InspectionArrivalNew from './pages/InspectionArrivalNew';
-import RapportsInspection from './pages/RapportsInspection';
 import PublicInspectionReport from './pages/PublicInspectionReport';
 import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import TermsOfService from './pages/legal/TermsOfService';
@@ -203,17 +202,6 @@ function AppContent() {
               <ProtectedRoute>
                 <Layout>
                   <InspectionArrivalNew />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/rapports-inspection"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <RapportsInspection />
                 </Layout>
               </ProtectedRoute>
             }
