@@ -34,13 +34,16 @@ export default function ShareReportModal({
     setLoading(true);
     setError(null);
     try {
+      // @ts-ignore - RPC function not yet in generated types
       const { data, error: rpcError } = await supabase.rpc('create_or_update_public_report', {
         p_mission_id: missionId,
-      }) as any;
+      });
 
       if (rpcError) throw rpcError;
 
+      // @ts-ignore - data type from RPC
       if (data?.success) {
+        // @ts-ignore - data type from RPC
         setShareUrl(data.share_url);
       } else {
         throw new Error('Impossible de générer le lien');
