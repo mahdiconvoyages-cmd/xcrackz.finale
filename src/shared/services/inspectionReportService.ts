@@ -69,6 +69,7 @@ export async function listInspectionReports(
 
     const reports = Array.from(missionMap.values());
 
+    // Normalize photo URLs: some rows store a full public URL, others only the storage path (e.g. "inspections/...")
     for (const report of reports) {
       if (report.departure_inspection?.id) {
         const { data: deptPhotos } = await supabase
@@ -77,7 +78,41 @@ export async function listInspectionReports(
           .eq('inspection_id', report.departure_inspection.id)
           .order('created_at', { ascending: true });
 
-        if (deptPhotos) report.departure_inspection.photos = deptPhotos;
+        if (deptPhotos && deptPhotos.length > 0) {
+          // Ensure each photo has a usable public URL
+          const normalizedPhotos = deptPhotos.map((p: any) => {
+            // prefer explicit full_url or photo_url
+            const raw = p.photo_url || p.full_url || p.path || '';
+            if (!raw) return p;
+
+            if (raw.startsWith('http')) {
+              p.photo_url = raw;
+              return p;
+            }
+
+            // If it's a storage path, try to build a public URL via supabase.storage
+            try {
+              const { data: urlData } = supabase.storage.from('inspection-photos').getPublicUrl(raw);
+              p.photo_url = (urlData && (urlData.publicUrl || urlData.public_url)) || raw;
+            } catch (e) {
+              // Fallback to the raw path if anything fails
+              p.photo_url = raw;
+            }
+
+            return p;
+          });
+          
+          // Create a new object to ensure photos property is set
+          report.departure_inspection = {
+            ...report.departure_inspection,
+            photos: normalizedPhotos
+          };
+        } else {
+          report.departure_inspection = {
+            ...report.departure_inspection,
+            photos: []
+          };
+        }
       }
 
       if (report.arrival_inspection?.id) {
@@ -87,7 +122,37 @@ export async function listInspectionReports(
           .eq('inspection_id', report.arrival_inspection.id)
           .order('created_at', { ascending: true });
 
-        if (arrPhotos) report.arrival_inspection.photos = arrPhotos;
+        if (arrPhotos && arrPhotos.length > 0) {
+          const normalizedPhotos = arrPhotos.map((p: any) => {
+            const raw = p.photo_url || p.full_url || p.path || '';
+            if (!raw) return p;
+
+            if (raw.startsWith('http')) {
+              p.photo_url = raw;
+              return p;
+            }
+
+            try {
+              const { data: urlData } = supabase.storage.from('inspection-photos').getPublicUrl(raw);
+              p.photo_url = (urlData && (urlData.publicUrl || urlData.public_url)) || raw;
+            } catch (e) {
+              p.photo_url = raw;
+            }
+
+            return p;
+          });
+          
+          // Create a new object to ensure photos property is set
+          report.arrival_inspection = {
+            ...report.arrival_inspection,
+            photos: normalizedPhotos
+          };
+        } else {
+          report.arrival_inspection = {
+            ...report.arrival_inspection,
+            photos: []
+          };
+        }
       }
     }
 

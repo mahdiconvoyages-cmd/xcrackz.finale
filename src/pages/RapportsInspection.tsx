@@ -18,7 +18,7 @@
 import { useState, useEffect } from 'react';
 import { 
   FileText, Download, Mail, Image, ChevronDown, ChevronUp, X,
-  Search, Filter, Calendar, Truck, CheckCircle, MapPin, ArrowLeftRight, Eye
+  Search, Filter, Calendar, Truck, CheckCircle, MapPin, ArrowLeftRight, Eye, FileDown
 } from 'lucide-react';
 import {
   listInspectionReports,
@@ -27,6 +27,7 @@ import {
 } from '../services/inspectionReportService';
 import { downloadInspectionPDF } from '../services/pdfGeneratorService';
 import { downloadInspectionPDFPro } from '../services/inspectionPdfGeneratorPro';
+import { downloadCompletePDF } from '../services/inspectionPdfGeneratorComplete';
 import { 
   sendInspectionEmailWithRetry, 
   previewInspectionEmail 
@@ -264,6 +265,93 @@ export default function RapportsInspection() {
       toast.error('Erreur lors du téléchargement des photos', { id: 'photos-dl' });
     }
   };
+
+  // Télécharger le RAPPORT COMPLET (Départ + Arrivée en 1 seul PDF)
+  const handleDownloadCompletePDF = async (report: InspectionReport) => {
+    try {
+      // Vérifier qu'on a au moins une inspection
+      if (!report.departure_inspection && !report.arrival_inspection) {
+        toast.error('Aucune inspection disponible pour ce rapport');
+        return;
+      }
+
+      setGeneratingPDF(true);
+      toast.loading('Génération du rapport complet (départ + arrivée)...', { id: 'complete-pdf' });
+
+      // Préparer les données mission
+      const missionData = {
+        reference: report.mission_reference,
+        vehicle_brand: report.departure_inspection?.mission?.vehicle_brand || report.arrival_inspection?.mission?.vehicle_brand,
+        vehicle_model: report.departure_inspection?.mission?.vehicle_model || report.arrival_inspection?.mission?.vehicle_model,
+        vehicle_plate: report.departure_inspection?.mission?.vehicle_plate || report.arrival_inspection?.mission?.vehicle_plate,
+        pickup_address: report.departure_inspection?.mission?.pickup_address,
+        delivery_address: report.arrival_inspection?.mission?.delivery_address,
+        pickup_date: report.departure_inspection?.created_at,
+        delivery_date: report.arrival_inspection?.created_at,
+      };
+
+      // Charger les photos départ et arrivée
+      let departurePhotos: any[] = [];
+      let arrivalPhotos: any[] = [];
+
+      if (report.departure_inspection?.id) {
+        const { data } = await supabase
+          .from('inspection_photos')
+          .select('*')
+          .eq('inspection_id', report.departure_inspection.id)
+          .order('created_at', { ascending: true });
+        
+        if (data) {
+          departurePhotos = data.map((photo) => ({
+            id: photo.id,
+            photo_type: photo.photo_type,
+            photo_url: photo.photo_url,
+            ai_description: photo.ai_description,
+            damage_detected: photo.damage_detected,
+          }));
+        }
+      }
+
+      if (report.arrival_inspection?.id) {
+        const { data } = await supabase
+          .from('inspection_photos')
+          .select('*')
+          .eq('inspection_id', report.arrival_inspection.id)
+          .order('created_at', { ascending: true });
+        
+        if (data) {
+          arrivalPhotos = data.map((photo) => ({
+            id: photo.id,
+            photo_type: photo.photo_type,
+            photo_url: photo.photo_url,
+            ai_description: photo.ai_description,
+            damage_detected: photo.damage_detected,
+          }));
+        }
+      }
+
+      // Générer le PDF complet
+      const success = await downloadCompletePDF(
+        missionData,
+        report.departure_inspection || null,
+        report.arrival_inspection || null,
+        departurePhotos,
+        arrivalPhotos
+      );
+
+      if (success) {
+        toast.success('✅ Rapport complet téléchargé (départ + arrivée + photos)', { id: 'complete-pdf' });
+      } else {
+        toast.error('Erreur lors de la génération du rapport complet', { id: 'complete-pdf' });
+      }
+    } catch (error) {
+      console.error('Error generating complete PDF:', error);
+      toast.error('Erreur lors de la génération du rapport complet', { id: 'complete-pdf' });
+    } finally {
+      setGeneratingPDF(false);
+    }
+  };
+
 
   // Génération côté serveur via Edge Function (cache inspection_pdfs)
   const handleServerPDF = async (report: InspectionReport) => {
@@ -919,6 +1007,20 @@ L'équipe Finality Transport`;
                         >
                           <Download className="w-5 h-5" />
                         </button>
+                        {/* NOUVEAU: Bouton Rapport Complet (Départ + Arrivée) */}
+                        {report.departure_inspection && report.arrival_inspection && (
+                          <button
+                            onClick={() => handleDownloadCompletePDF(report)}
+                            disabled={generatingPDF}
+                            className="p-3 bg-purple-100 hover:bg-purple-200 rounded-lg transition text-purple-700 disabled:opacity-50 relative"
+                            title="Télécharger le Rapport Complet (Départ + Arrivée + Photos)"
+                          >
+                            <FileDown className="w-5 h-5" />
+                            <span className="absolute -top-1 -right-1 bg-purple-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                              ★
+                            </span>
+                          </button>
+                        )}
                         <button
                           onClick={() => openEmailModal(report)}
                           className="p-3 bg-blue-100 hover:bg-blue-200 rounded-lg transition text-blue-700"

@@ -18,7 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import { PDFDocument } from 'pdf-lib';
-import DocumentScanner from 'react-native-document-scanner-plugin';
+import ProDocumentScanner from '../components/ProDocumentScanner';
 import { useSubscription } from '../hooks/useSubscription';
 
 const { width } = Dimensions.get('window');
@@ -34,41 +34,28 @@ export default function ScannerScreen({ navigation }: any) {
   const { subscription: userSubscription, loading: subscriptionLoading } = useSubscription();
   const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
-  const [isScanning, setIsScanning] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
 
-  const handleScanDocument = async () => {
-    try {
-      setIsScanning(true);
+  const handleScanDocument = () => {
+    setShowScanner(true);
+  };
 
-      // Lancer le scanner avec détection automatique
-      const { scannedImages } = await DocumentScanner.scanDocument({
-        // Options de scan
-        maxNumDocuments: 1, // 1 page à la fois (on peut répéter pour multi-pages)
-        croppedImageQuality: 100, // Qualité maximale
-        responseType: 'base64' as any, // Retourne le chemin du fichier
-      });
+  const handleScanComplete = (imageUri: string) => {
+    // Ajouter la page scannée à la liste
+    const newPage: ScannedPage = {
+      id: `${Date.now()}`,
+      uri: imageUri,
+      timestamp: Date.now(),
+    };
+    
+    setScannedPages((prev) => [...prev, newPage]);
+    setShowScanner(false);
+    
+    Alert.alert('✓ Succès', 'Page ajoutée avec succès !', [{ text: 'OK' }]);
+  };
 
-      if (scannedImages && scannedImages.length > 0) {
-        // Ajouter les nouvelles pages scannées
-        const newPages: ScannedPage[] = scannedImages.map((uri, index) => ({
-          id: `${Date.now()}_${index}`,
-          uri,
-          timestamp: Date.now(),
-        }));
-
-        setScannedPages((prev) => [...prev, ...newPages]);
-        Alert.alert('Succès', `${newPages.length} page(s) ajoutée(s) !`);
-      } else {
-        Alert.alert('Annulé', 'Aucun document scanné');
-      }
-    } catch (error: any) {
-      console.error('Scan error:', error);
-      if (error.message !== 'User canceled document scan') {
-        Alert.alert('Erreur', 'Impossible de scanner le document. Vérifiez les permissions caméra.');
-      }
-    } finally {
-      setIsScanning(false);
-    }
+  const handleCancelScan = () => {
+    setShowScanner(false);
   };
 
   const handleRemovePage = (id: string) => {
@@ -380,7 +367,6 @@ export default function ScannerScreen({ navigation }: any) {
         <TouchableOpacity
           style={[styles.scanButton, scannedPages.length > 0 && styles.scanButtonSecondary]}
           onPress={handleScanDocument}
-          disabled={isScanning}
         >
           <LinearGradient
             colors={
@@ -392,22 +378,20 @@ export default function ScannerScreen({ navigation }: any) {
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
           >
-            {isScanning ? (
-              <>
-                <ActivityIndicator size="small" color="white" />
-                <Text style={styles.scanText}>Scan en cours...</Text>
-              </>
-            ) : (
-              <>
-                <MaterialCommunityIcons name="camera-plus" size={24} color="white" />
-                <Text style={styles.scanText}>
-                  {scannedPages.length > 0 ? 'Ajouter une page' : 'Scanner un document'}
-                </Text>
-              </>
-            )}
+            <MaterialCommunityIcons name="camera-plus" size={24} color="white" />
+            <Text style={styles.scanText}>
+              {scannedPages.length > 0 ? 'Ajouter une page' : 'Scanner un document'}
+            </Text>
           </LinearGradient>
         </TouchableOpacity>
       </View>
+
+      {/* Scanner Modal */}
+      <ProDocumentScanner
+        visible={showScanner}
+        onScanComplete={handleScanComplete}
+        onCancel={handleCancelScan}
+      />
     </SafeAreaView>
   );
 }

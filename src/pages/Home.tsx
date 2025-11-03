@@ -1,5 +1,6 @@
-import { Truck, Camera, FileText, Store, Users, TrendingUp, Star, Check, MapPin, Clock, Shield, Zap, BarChart3, Bell } from 'lucide-react';
+import { Truck, Camera, FileText, Store, Users, TrendingUp, Star, Check, MapPin, Shield, Bell, Menu, X } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 import ImageCarousel from '../components/ImageCarousel';
 
 import blablacarImg from '../assets/blablacar.png';
@@ -10,26 +11,44 @@ import geminiMImg from '../assets/Gemini_Generated_Image_m3h3srm3h3srm3h3.png';
 const carouselImages = [blablacarImg, gemini1Img, chatgptImg, geminiMImg];
 
 export default function Home() {
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [solidNav, setSolidNav] = useState(false);
+
+  useEffect(() => {
+    const onScroll = () => setSolidNav(window.scrollY > 8);
+    window.addEventListener('scroll', onScroll);
+    return () => window.removeEventListener('scroll', onScroll);
+  }, []);
+
+  useEffect(() => {
+    document.body.style.overflow = mobileOpen ? 'hidden' : '';
+    document.documentElement.style.overflow = mobileOpen ? 'hidden' : '';
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [mobileOpen]);
+
   return (
     <div className="min-h-screen bg-slate-900 text-white">
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-900/20 backdrop-blur-xl border-b border-white/10 shadow-lg">
-        <div className="container mx-auto px-6 py-4 flex justify-between items-center">
+      <nav className={`fixed top-0 left-0 right-0 z-50 transition-colors ${solidNav ? 'bg-slate-900/90' : 'bg-slate-900/60 md:bg-slate-900/20'} backdrop-blur-xl border-b border-white/10 shadow-lg`}>
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-3 hover:scale-105 transition-transform group">
             <img src="/logo.svg" alt="xCrackz Logo" className="w-10 h-10 rounded-xl shadow-lg group-hover:shadow-teal-500/30 transition-shadow" />
             <h1 className="text-2xl font-bold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">
               xCrackz
             </h1>
           </Link>
-          <div className="flex items-center space-x-6">
+          <div className="hidden md:flex items-center space-x-6">
             <Link
               to="/about"
-              className="text-white hover:text-teal-400 transition hidden md:block"
+              className="text-white hover:text-teal-400 transition"
             >
               Qui sommes-nous
             </Link>
             <a
               href="#invoice-demo"
-              className="text-white hover:text-teal-400 transition hidden md:block"
+              className="text-white hover:text-teal-400 transition"
             >
               Facture démo
             </a>
@@ -46,18 +65,42 @@ export default function Home() {
               Commencer
             </Link>
           </div>
+          <button onClick={() => setMobileOpen(true)} className="md:hidden p-2 rounded-lg hover:bg-white/10">
+            <Menu className="w-6 h-6" />
+          </button>
         </div>
       </nav>
 
-      <section className="relative min-h-screen flex items-center overflow-hidden pt-20">
+      {/* Menu mobile plein écran */}
+      {mobileOpen && (
+        <div className="fixed inset-0 z-50 bg-slate-900/95 backdrop-blur-xl">
+          <div className="max-w-7xl mx-auto px-6 py-4 flex justify-between items-center">
+            <Link to="/" onClick={() => setMobileOpen(false)} className="flex items-center gap-3">
+              <img src="/logo.svg" alt="xCrackz Logo" className="w-9 h-9 rounded-xl" />
+              <span className="text-xl font-bold">xCrackz</span>
+            </Link>
+            <button onClick={() => setMobileOpen(false)} className="p-2 rounded-lg hover:bg-white/10">
+              <X className="w-6 h-6" />
+            </button>
+          </div>
+          <div className="px-6 pt-2 space-y-4 text-lg font-semibold">
+            <Link to="/about" onClick={() => setMobileOpen(false)} className="block py-3 border-b border-white/10">Qui sommes-nous</Link>
+            <a href="#invoice-demo" onClick={() => setMobileOpen(false)} className="block py-3 border-b border-white/10">Facture démo</a>
+            <Link to="/login" onClick={() => setMobileOpen(false)} className="block py-3 border-b border-white/10">Connexion</Link>
+            <Link to="/register" onClick={() => setMobileOpen(false)} className="block py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-center rounded-xl mt-2">Commencer</Link>
+          </div>
+        </div>
+      )}
+
+      <section className="relative min-h-[90vh] flex items-center overflow-hidden pt-20">
         <div className="absolute inset-0 z-0">
           <ImageCarousel images={carouselImages} interval={3500} />
-          <div className="absolute inset-0 bg-gradient-to-br from-slate-900/50 via-slate-900/40 to-slate-900/50"></div>
+          <div className="absolute inset-0 bg-slate-900/70 md:bg-gradient-to-br md:from-slate-900/50 md:via-slate-900/40 md:to-slate-900/50"></div>
         </div>
 
-        <div className="container mx-auto px-6 py-20 relative z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-20 relative z-10">
           <div className="max-w-4xl mx-auto text-center">
-            <h2 className="text-5xl md:text-7xl font-bold mb-6 leading-tight">
+            <h2 className="text-4xl md:text-6xl font-bold mb-4 sm:mb-6 leading-tight">
               <span className="text-white drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]">
                 Gérez vos missions de convoyage{' '}
               </span>
@@ -65,19 +108,19 @@ export default function Home() {
                 en toute simplicité
               </span>
             </h2>
-            <p className="text-xl md:text-2xl text-white mb-10 drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]">
+            <p className="text-lg md:text-2xl text-white mb-8 sm:mb-10 drop-shadow-[0_4px_12px_rgba(0,0,0,0.9)]">
               xCrackz est la plateforme SaaS complète pour organiser, suivre et facturer vos missions de convoyage automobile.
             </p>
-            <div className="flex flex-col sm:flex-row justify-center gap-4">
+            <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-4">
               <Link
                 to="/register"
-                className="bg-gradient-to-r from-teal-500 to-cyan-500 px-10 py-5 rounded-lg text-white font-bold text-xl hover:shadow-2xl hover:shadow-teal-500/50 transition-all hover:-translate-y-1 hover:scale-105"
+                className="bg-gradient-to-r from-teal-500 to-cyan-500 px-8 sm:px-10 py-4 sm:py-5 rounded-lg text-white font-bold text-lg sm:text-xl hover:shadow-2xl hover:shadow-teal-500/50 transition-all hover:-translate-y-1 hover:scale-105"
               >
                 Commencer gratuitement
               </Link>
               <a
                 href="#features"
-                className="bg-white/10 backdrop-blur-md border-2 border-white/20 px-10 py-5 rounded-lg text-white font-bold text-xl hover:bg-white/20 transition"
+                className="bg-white/10 backdrop-blur-md border-2 border-white/20 px-8 sm:px-10 py-4 sm:py-5 rounded-lg text-white font-bold text-lg sm:text-xl hover:bg-white/20 transition"
               >
                 Voir les fonctionnalités
               </a>
@@ -86,12 +129,12 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="features" className="container mx-auto px-6 py-20">
+  <section id="features" className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
         <h3 className="text-3xl md:text-4xl font-bold text-center mb-4">Fonctionnalités principales</h3>
         <p className="text-center text-slate-400 mb-12 max-w-2xl mx-auto">
           Une solution complète pour gérer tous les aspects de votre activité de convoyage automobile
         </p>
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8 max-w-6xl mx-auto">
+  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-8 max-w-6xl mx-auto">
           <FeatureCard
             icon={<Truck className="w-6 h-6" />}
             title="Gestion des Missions"
@@ -140,10 +183,10 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="bg-slate-800/30 py-20">
-        <div className="container mx-auto px-6">
+      <section className="bg-slate-800/30 py-12 sm:py-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <h3 className="text-3xl md:text-4xl font-bold text-center mb-12">Comment ça marche ?</h3>
-          <div className="grid md:grid-cols-4 gap-8 max-w-5xl mx-auto">
+          <div className="grid sm:grid-cols-2 md:grid-cols-4 gap-4 sm:gap-8 max-w-5xl mx-auto">
             <ProcessStep
               number="1"
               title="Créez votre compte"
@@ -168,7 +211,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section id="invoice-demo" className="container mx-auto px-6 py-20">
+  <section id="invoice-demo" className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
         <h3 className="text-3xl md:text-4xl font-bold text-center mb-4">Facturation professionnelle</h3>
         <p className="text-center text-slate-400 mb-12 max-w-2xl mx-auto">
           Générez automatiquement des factures conformes aux normes françaises
@@ -178,9 +221,9 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="container mx-auto px-6 py-20">
+  <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
         <h3 className="text-3xl md:text-4xl font-bold text-center mb-12">Ce que disent nos utilisateurs</h3>
-        <div className="grid md:grid-cols-3 gap-8 max-w-6xl mx-auto">
+  <div className="grid sm:grid-cols-2 md:grid-cols-3 gap-4 sm:gap-8 max-w-6xl mx-auto">
           <TestimonialCard
             text="xCrackz a transformé notre façon de gérer les convoyages. Tout est centralisé et simple à utiliser."
             author="Jean-Pierre D."
@@ -199,12 +242,12 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="container mx-auto px-6 py-20">
+  <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-20">
         <h3 className="text-3xl md:text-4xl font-bold text-center mb-4">Tarifs simples et transparents</h3>
         <p className="text-center text-slate-400 mb-12 max-w-2xl mx-auto">
           Tous les plans incluent : Facturation & Devis illimités · Scan de documents · Support · Renouvellement tous les 30 jours
         </p>
-        <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-6 max-w-7xl mx-auto">
+  <div className="grid sm:grid-cols-2 lg:grid-cols-5 gap-4 sm:gap-6 max-w-7xl mx-auto">
           <PricingCard
             title="Starter"
             price="9,99€"
@@ -304,7 +347,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="container mx-auto px-6 py-20 text-center">
+  <section className="max-w-7xl mx-auto px-4 sm:px-6 py-12 sm:py-20 text-center">
         <div className="bg-white/5 backdrop-blur-xl border border-white/20 p-12 rounded-3xl max-w-3xl mx-auto shadow-2xl">
           <h3 className="text-3xl md:text-4xl font-bold mb-4">Prêt à optimiser votre convoyage ?</h3>
           <p className="text-xl text-slate-300 mb-8">
@@ -319,8 +362,8 @@ export default function Home() {
         </div>
       </section>
 
-      <footer className="bg-slate-900/50 backdrop-blur-xl border-t border-white/10 mt-20">
-        <div className="container mx-auto px-6 py-8">
+      <footer className="bg-slate-900/60 md:bg-slate-900/50 backdrop-blur-xl border-t border-white/10 mt-12 sm:mt-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-8">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="text-center md:text-left">
               <h3 className="text-xl font-bold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">

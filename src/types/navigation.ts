@@ -11,9 +11,9 @@ export type RootStackParamList = {
 
 export type MainTabParamList = {
   Inspections: NavigatorScreenParams<InspectionsStackParamList>;
+  Missions: undefined;
   Covoiturage: NavigatorScreenParams<CovoiturageStackParamList>;
   Scanner: NavigatorScreenParams<ScannerStackParamList>;
-  Facturation: NavigatorScreenParams<FacturationStackParamList>;
   Boutique: undefined;
   Profile: undefined;
   Dashboard: undefined;
@@ -69,11 +69,6 @@ export type ScannerStackParamList = {
     documentUri: string;
     documentType?: string;
   };
-};
-
-export type FacturationStackParamList = {
-  FacturationHome: undefined;
-  Devis: undefined;
 };
 
 declare global {

@@ -35,6 +35,7 @@ import AdminSupport from './pages/AdminSupport';
 import AccountSecurity from './pages/AccountSecurity';
 import PublicTracking from './pages/PublicTracking';
 import TrackingList from './pages/TrackingList';
+import RealtimeTracking from './pages/RealtimeTracking';
 import TeamMissions from './pages/TeamMissions';
 import InspectionDepartureNew from './pages/InspectionDepartureNew';
 import InspectionArrivalNew from './pages/InspectionArrivalNew';
@@ -116,6 +117,15 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <MissionTracking />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/missions/:missionId/realtime"
+            element={
+              <ProtectedRoute>
+                <RealtimeTracking />
               </ProtectedRoute>
             }
           />

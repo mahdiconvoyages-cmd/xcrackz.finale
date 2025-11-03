@@ -18,7 +18,11 @@ export default function Layout({ children }: LayoutProps) {
   const { signOut, user } = useAuth();
   const { isAdmin } = useAdmin();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarPinned, setSidebarPinned] = useState(true);
+  // Par défaut: épinglé uniquement sur desktop (>= 1024px)
+  const [sidebarPinned, setSidebarPinned] = useState(() => {
+    if (typeof window === 'undefined') return true;
+    return window.innerWidth >= 1024;
+  });
   const [sidebarHovered, setSidebarHovered] = useState(false);
   const [forceHide, setForceHide] = useState(false);
   const [firstName, setFirstName] = useState<string>('');
@@ -60,6 +64,32 @@ export default function Layout({ children }: LayoutProps) {
       supabase.removeChannel(channel);
     };
   }, [user]);
+
+  // Adapter le pin de la sidebar aux changements de taille d'écran
+  useEffect(() => {
+    const onResize = () => {
+      const isDesktop = window.innerWidth >= 1024;
+      setSidebarPinned(isDesktop);
+      if (!isDesktop) {
+        setSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
+
+  // Empêcher le scroll du contenu quand le menu mobile est ouvert
+  useEffect(() => {
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024;
+    if (isMobile) {
+      document.body.style.overflow = sidebarOpen ? 'hidden' : '';
+      document.documentElement.style.overflow = sidebarOpen ? 'hidden' : '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.documentElement.style.overflow = '';
+    };
+  }, [sidebarOpen]);
 
   const loadUnreadMessages = async () => {
     if (!user) return;
@@ -132,16 +162,26 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-teal-50 text-slate-900 flex relative">
       <FloatingParticles />
+      
+      {/* Overlay mobile pour fermer le menu */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+      
       <aside
         onMouseEnter={() => {
-          if (!forceHide) {
+          if (!forceHide && window.innerWidth >= 1024) {
             setSidebarHovered(true);
           }
         }}
         onMouseLeave={() => setSidebarHovered(false)}
         className={`
         fixed inset-y-0 left-0 z-50
-        w-64 backdrop-blur-2xl bg-gradient-to-b from-slate-900/50 via-slate-800/55 to-slate-900/60 border-r border-teal-400/20 text-white shadow-depth-xl shadow-teal-500/10
+        w-64 lg:w-64 sm:w-72
+        backdrop-blur-2xl bg-gradient-to-b from-slate-900/50 via-slate-800/55 to-slate-900/60 border-r border-teal-400/20 text-white shadow-depth-xl shadow-teal-500/10
         transform transition-transform duration-300 ease-in-out
         flex flex-col
         ${shouldShowSidebar ? 'translate-x-0' : '-translate-x-full'}
@@ -284,11 +324,12 @@ export default function Layout({ children }: LayoutProps) {
         <header
           className="backdrop-blur-2xl bg-gradient-to-r from-slate-900/50 via-slate-800/55 to-teal-900/50 border-b border-teal-400/20 p-3 lg:p-4 shadow-depth-xl shadow-teal-500/10 sticky top-0 z-40"
         >
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="lg:hidden text-slate-300 hover:text-white hover:bg-white/10 p-2 rounded-lg transition"
+                className="lg:hidden text-slate-300 hover:text-white hover:bg-white/10 p-2 rounded-lg transition touch-manipulation"
+                aria-label="Ouvrir le menu"
               >
                 <Menu className="w-6 h-6" />
               </button>
@@ -332,12 +373,13 @@ export default function Layout({ children }: LayoutProps) {
 
               <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg backdrop-blur-md bg-white/10 border border-white/20">
                 <div className="text-right">
-                  <p className="text-xs font-semibold text-white leading-none">{firstName || 'Utilisateur'}</p>
+                  <p className="text-xs font-semibold text-white leading-none truncate max-w-[120px]">{firstName || 'Utilisateur'}</p>
                 </div>
               </div>
               <Link
                 to="/profile"
-                className="w-10 h-10 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm hover:shadow-glow-teal transition-all hover:scale-105 shadow-lg border-2 border-white/30 hover:border-white/50"
+                className="w-9 h-9 sm:w-10 sm:h-10 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm hover:shadow-glow-teal transition-all hover:scale-105 shadow-lg border-2 border-white/30 hover:border-white/50 flex-shrink-0"
+                aria-label="Profil utilisateur"
               >
                 {firstName ? firstName.charAt(0).toUpperCase() : user?.email?.charAt(0).toUpperCase() || 'U'}
               </Link>
@@ -345,7 +387,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </header>
 
-        <main className="flex-1 p-4 lg:p-8 overflow-y-auto relative z-10">
+        <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto relative z-10">
           {children}
         </main>
       </div>
