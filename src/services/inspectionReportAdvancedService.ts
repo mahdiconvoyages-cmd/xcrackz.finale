@@ -165,11 +165,18 @@ export async function getCompleteInspectionReport(
         .eq('inspection_id', inspection.id)
         .order('created_at', { ascending: true });
 
-      // Dommages
-      const { data: damages } = await supabase
-        .from('inspection_damages')
-        .select('*')
-        .eq('inspection_id', inspection.id);
+      // Récupérer les dommages pour cette inspection (optionnel - table peut ne pas exister)
+      let damages = [];
+      try {
+        const { data } = await supabase
+          .from('inspection_damages')
+          .select('*')
+          .eq('inspection_id', inspection.id);
+        damages = data || [];
+      } catch (error) {
+        // Table inspection_damages n'existe pas encore - ignorer
+        console.log('Table inspection_damages non disponible:', error);
+      }
 
       const inspectionDetails: InspectionDetails = {
         ...inspection,
@@ -180,7 +187,7 @@ export async function getCompleteInspectionReport(
           note: p.note,
           created_at: p.created_at
         })),
-        damages: damages || []
+        damages: damages
       };
 
       if (inspection.inspection_type === 'departure') {
