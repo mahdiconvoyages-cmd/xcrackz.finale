@@ -133,18 +133,10 @@ export async function getCompleteInspectionReport(
   missionId: string
 ): Promise<{ success: boolean; report?: InspectionReportComplete; message: string }> {
   try {
-    // 1. Récupérer la mission avec toutes les relations
+    // 1. Récupérer la mission (sans les relations clients pour l'instant)
     const { data: missionData, error: missionError } = await supabase
       .from('missions')
-      .select(`
-        *,
-        sender_client:clients!missions_sender_client_id_fkey (
-          id, name, email, phone, address, city, postal_code, company
-        ),
-        receiver_client:clients!missions_receiver_client_id_fkey (
-          id, name, email, phone, address, city, postal_code, company
-        )
-      `)
+      .select('*')
       .eq('id', missionId)
       .single();
 
@@ -226,26 +218,8 @@ export async function getCompleteInspectionReport(
         email: missionData.driver_email || '',
         name: missionData.driver_name
       },
-      sender_client: missionData.sender_client ? {
-        id: missionData.sender_client.id,
-        name: missionData.sender_client.name,
-        email: missionData.sender_client.email,
-        phone: missionData.sender_client.phone,
-        address: missionData.sender_client.address,
-        city: missionData.sender_client.city,
-        postal_code: missionData.sender_client.postal_code,
-        company: missionData.sender_client.company
-      } : undefined,
-      receiver_client: missionData.receiver_client ? {
-        id: missionData.receiver_client.id,
-        name: missionData.receiver_client.name,
-        email: missionData.receiver_client.email,
-        phone: missionData.receiver_client.phone,
-        address: missionData.receiver_client.address,
-        city: missionData.receiver_client.city,
-        postal_code: missionData.receiver_client.postal_code,
-        company: missionData.receiver_client.company
-      } : undefined,
+      sender_client: undefined,
+      receiver_client: undefined,
       inspection_departure: processedInspections.departure,
       inspection_arrival: processedInspections.arrival,
       has_complete_report: !!(processedInspections.departure && processedInspections.arrival)

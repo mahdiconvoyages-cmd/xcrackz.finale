@@ -10,7 +10,7 @@ import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
   FileText, Calendar, Car, MapPin, CheckCircle, AlertTriangle,
-  Download, ZoomIn, Shield, Tool, Package, FileSignature, Camera
+  Download, ZoomIn, Shield, Wrench, Package, FileSignature, Camera, ChevronUp, ChevronDown
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { toast } from '../utils/toast';
@@ -259,7 +259,7 @@ function InspectionSection({ title, inspection, color, onOpenGallery }: any) {
         {/* Équipements */}
         <CollapsibleSection
           title="Équipements de Sécurité"
-          icon={Tool}
+          icon={Wrench}
           color="text-orange-500"
           expanded={expanded.equipment}
           onToggle={() => toggleSection('equipment')}

@@ -15,7 +15,7 @@ import { useState, useEffect } from 'react';
 import {
   FileText, Download, Share2, Image, ChevronDown, ChevronUp,
   Calendar, Car, MapPin, User, CheckCircle, AlertTriangle,
-  Package, Shield, Tool, FileSignature, Camera, ZoomIn
+  Package, Shield, Wrench, FileSignature, Camera, ZoomIn
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from '../utils/toast';
@@ -247,7 +247,7 @@ export default function InspectionReportsPremium() {
             className="w-full px-6 py-4 flex items-center justify-between hover:bg-gray-50 transition-colors"
           >
             <div className="flex items-center gap-3">
-              <Tool className="w-5 h-5 text-orange-500" />
+              <Wrench className="w-5 h-5 text-orange-500" />
               <span className="font-semibold text-gray-900">Équipements de Sécurité</span>
             </div>
             {expandedSections.equipment ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
