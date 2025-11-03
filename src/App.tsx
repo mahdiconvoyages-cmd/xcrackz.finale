@@ -39,7 +39,9 @@ import RealtimeTracking from './pages/RealtimeTracking';
 import TeamMissions from './pages/TeamMissions';
 import InspectionDepartureNew from './pages/InspectionDepartureNew';
 import InspectionArrivalNew from './pages/InspectionArrivalNew';
+import InspectionReportsPremium from './pages/InspectionReportsPremium';
 import PublicInspectionReport from './pages/PublicInspectionReport';
+import PublicInspectionReportShared from './pages/PublicInspectionReportShared';
 import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import TermsOfService from './pages/legal/TermsOfService';
 import CookiePolicy from './pages/legal/CookiePolicy';
@@ -65,6 +67,7 @@ function AppContent() {
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/tracking/public/:token" element={<PublicTracking />} />
         <Route path="/rapport/:token" element={<PublicInspectionReport />} />
+        <Route path="/rapport-inspection/:token" element={<PublicInspectionReportShared />} />
         <Route path="/inspection/report/:inspectionId" element={<PublicInspectionReport />} />
 
           <Route
@@ -202,6 +205,17 @@ function AppContent() {
               <ProtectedRoute>
                 <Layout>
                   <InspectionArrivalNew />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/rapports-inspection"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <InspectionReportsPremium />
                 </Layout>
               </ProtectedRoute>
             }
