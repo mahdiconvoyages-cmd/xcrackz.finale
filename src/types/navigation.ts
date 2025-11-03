@@ -1,4 +1,9 @@
-import type { NavigatorScreenParams } from '@react-navigation/native';
+// Local minimal redefinition to avoid depending on @react-navigation/native in web build
+// Matches the common shape used by React Navigation for nesting params
+export type NavigatorScreenParams<ParamList> = {
+  screen?: keyof ParamList;
+  params?: ParamList[keyof ParamList];
+};
 
 export type RootStackParamList = {
   Main: NavigatorScreenParams<MainTabParamList>;

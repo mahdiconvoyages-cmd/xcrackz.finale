@@ -65,6 +65,7 @@ function AppContent() {
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/tracking/public/:token" element={<PublicTracking />} />
+        <Route path="/rapport/:token" element={<PublicInspectionReport />} />
         <Route path="/inspection/report/:inspectionId" element={<PublicInspectionReport />} />
 
           <Route

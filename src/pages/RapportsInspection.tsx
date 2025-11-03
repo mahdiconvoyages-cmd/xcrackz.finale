@@ -18,7 +18,7 @@
 import { useState, useEffect } from 'react';
 import { 
   FileText, Download, Mail, Image, ChevronDown, ChevronUp, X,
-  Search, Filter, Calendar, Truck, CheckCircle, MapPin, ArrowLeftRight, Eye, FileDown
+  Search, Filter, Calendar, Truck, CheckCircle, MapPin, ArrowLeftRight, Eye, FileDown, Share2
 } from 'lucide-react';
 import {
   listInspectionReports,
@@ -40,6 +40,8 @@ import InspectionComparison from '../components/InspectionComparison';
 import { supabase } from '../lib/supabase';
 import InspectionReportAdvanced from '../components/InspectionReportAdvanced';
 import { generateAndWaitPdf, getCachedPdfUrl } from '../shared/services/inspectionPdfEdgeService';
+import ShareReportModal from '../components/ShareReportModal';
+import { Share2 } from 'lucide-react';
 
 export default function RapportsInspection() {
   const { user } = useAuth();
@@ -65,6 +67,9 @@ export default function RapportsInspection() {
   
   // Comparison mode
   const [comparisonReport, setComparisonReport] = useState<InspectionReport | null>(null);
+  
+  // Share modal state
+  const [shareModalReport, setShareModalReport] = useState<InspectionReport | null>(null);
 
   useEffect(() => {
     loadReports();
@@ -135,19 +140,24 @@ export default function RapportsInspection() {
 
     if (result.success) {
       setReports(result.reports);
-      
-      // Charger les PDFs en cache pour chaque rapport
-      const pdfCache: Record<string, string> = {};
-      for (const report of result.reports) {
-        const inspectionId = report.arrival_inspection?.id || report.departure_inspection?.id;
-        if (inspectionId) {
-          const cachedUrl = await getCachedPdfUrl(inspectionId);
-          if (cachedUrl) {
-            pdfCache[inspectionId] = cachedUrl;
-          }
-        }
+
+      // Charger les PDFs en cache en parallèle pour accélérer l'affichage
+      const ids = result.reports
+        .map(r => r.arrival_inspection?.id || r.departure_inspection?.id)
+        .filter(Boolean) as string[];
+
+      if (ids.length) {
+        const uniqueIds = Array.from(new Set(ids));
+        const urls = await Promise.all(uniqueIds.map(id => getCachedPdfUrl(id)));
+        const cache: Record<string, string> = {};
+        uniqueIds.forEach((id, idx) => {
+          const url = urls[idx];
+          if (url) cache[id] = url;
+        });
+        setCachedPdfs(cache);
+      } else {
+        setCachedPdfs({});
       }
-      setCachedPdfs(pdfCache);
     } else {
       toast.error(result.message || 'Erreur lors du chargement des rapports');
     }
@@ -505,14 +515,14 @@ ${emailModalReport.is_complete ? '✅ Rapport complet (départ + arrivée)' : '�
 
 ${emailModalReport.departure_inspection ? `
 📸 État des lieux DÉPART :
-   - Kilométrage : ${emailModalReport.departure_inspection.km_start || 'N/A'} km
-   - Carburant : ${emailModalReport.departure_inspection.fuel_level_start || 'N/A'}
+  - Kilométrage : ${emailModalReport.departure_inspection.mileage_km !== undefined ? emailModalReport.departure_inspection.mileage_km.toLocaleString('fr-FR') + ' km' : 'N/A'}
+  - Carburant : ${emailModalReport.departure_inspection.fuel_level !== undefined ? emailModalReport.departure_inspection.fuel_level + '%' : 'N/A'}
 ` : ''}
 
 ${emailModalReport.arrival_inspection ? `
 📸 État des lieux ARRIVÉE :
-   - Kilométrage : ${emailModalReport.arrival_inspection.km_end || 'N/A'} km
-   - Carburant : ${emailModalReport.arrival_inspection.fuel_level_end || 'N/A'}
+  - Kilométrage : ${emailModalReport.arrival_inspection.mileage_km !== undefined ? emailModalReport.arrival_inspection.mileage_km.toLocaleString('fr-FR') + ' km' : 'N/A'}
+  - Carburant : ${emailModalReport.arrival_inspection.fuel_level !== undefined ? emailModalReport.arrival_inspection.fuel_level + '%' : 'N/A'}
 ` : ''}
 
 📄 FICHIERS AUTOMATIQUEMENT TÉLÉCHARGÉS :
@@ -852,10 +862,10 @@ L'équipe Finality Transport`;
                               </h4>
                               <div className="text-sm text-green-700 space-y-1">
                                 <p><strong>État général:</strong> {report.departure_inspection.overall_condition || 'N/A'}</p>
-                                {report.departure_inspection.mileage_km && (
+                                {report.departure_inspection.mileage_km !== undefined && (
                                   <p><strong>Kilométrage:</strong> {report.departure_inspection.mileage_km.toLocaleString('fr-FR')} km</p>
                                 )}
-                                {report.departure_inspection.fuel_level && (
+                                {report.departure_inspection.fuel_level !== undefined && (
                                   <p><strong>Niveau carburant:</strong> {report.departure_inspection.fuel_level}%</p>
                                 )}
                                 {report.departure_inspection.notes && (
@@ -905,10 +915,10 @@ L'équipe Finality Transport`;
                               </h4>
                               <div className="text-sm text-blue-700 space-y-1">
                                 <p><strong>État général:</strong> {report.arrival_inspection.overall_condition || 'N/A'}</p>
-                                {report.arrival_inspection.mileage_km && (
+                                {report.arrival_inspection.mileage_km !== undefined && (
                                   <p><strong>Kilométrage:</strong> {report.arrival_inspection.mileage_km.toLocaleString('fr-FR')} km</p>
                                 )}
-                                {report.arrival_inspection.fuel_level && (
+                                {report.arrival_inspection.fuel_level !== undefined && (
                                   <p><strong>Niveau carburant:</strong> {report.arrival_inspection.fuel_level}%</p>
                                 )}
                                 {report.arrival_inspection.notes && (
@@ -992,7 +1002,7 @@ L'équipe Finality Transport`;
                         {/* PDF serveur (Edge Function + cache) */}
                         <button
                           onClick={() => handleServerPDF(report)}
-                          disabled={!!serverPdfBusy}
+                          disabled={serverPdfBusy === inspectionId}
                           className="p-3 bg-indigo-100 hover:bg-indigo-200 rounded-lg transition text-indigo-700 disabled:opacity-50"
                           title="Générer/Ouvrir PDF (serveur)"
                         >
@@ -1006,6 +1016,17 @@ L'équipe Finality Transport`;
                           title="Télécharger le PDF"
                         >
                           <Download className="w-5 h-5" />
+                        </button>
+                        {/* NOUVEAU: Bouton Partage par lien public */}
+                        <button
+                          onClick={() => setShareModalReport(report)}
+                          className="p-3 bg-gradient-to-r from-cyan-100 to-blue-100 hover:from-cyan-200 hover:to-blue-200 rounded-lg transition text-cyan-700 relative shadow-sm hover:shadow-md"
+                          title="Partager le rapport par lien public"
+                        >
+                          <Share2 className="w-5 h-5" />
+                          <span className="absolute -top-1 -right-1 bg-gradient-to-r from-cyan-600 to-blue-600 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold animate-pulse">
+                            🔗
+                          </span>
                         </button>
                         {/* NOUVEAU: Bouton Rapport Complet (Départ + Arrivée) */}
                         {report.departure_inspection && report.arrival_inspection && (
@@ -1226,6 +1247,18 @@ L'équipe Finality Transport`;
             </div>
           </div>
         </div>
+      )}
+
+      {/* Share Modal */}
+      {shareModalReport && (
+        <ShareReportModal
+          isOpen={true}
+          onClose={() => setShareModalReport(null)}
+          missionId={shareModalReport.mission_id}
+          missionReference={shareModalReport.mission_reference}
+          vehicleLabel={`${shareModalReport.vehicle_brand} ${shareModalReport.vehicle_model}`}
+          plate={shareModalReport.vehicle_plate || ''}
+        />
       )}
       </div>
     </div>

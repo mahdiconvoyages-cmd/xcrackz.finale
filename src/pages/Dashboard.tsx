@@ -91,9 +91,33 @@ export default function Dashboard() {
   useEffect(() => {
     loadDashboardData();
     loadUserProfile();
-    const interval = setInterval(loadDashboardData, 5000);
-    return () => clearInterval(interval);
   }, [user]);
+
+  // Realtime: refresh dashboard when core tables change
+  useEffect(() => {
+    if (!user) return;
+
+    let timer: any;
+    const scheduleReload = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        loadDashboardData();
+      }, 300);
+    };
+
+    const channel = supabase
+      .channel('realtime-dashboard-web')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'missions', filter: `user_id=eq.${user.id}` }, () => scheduleReload())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices', filter: `user_id=eq.${user.id}` }, () => scheduleReload())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'contacts', filter: `user_id=eq.${user.id}` }, () => scheduleReload())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'user_credits', filter: `user_id=eq.${user.id}` }, () => scheduleReload())
+      .subscribe();
+
+    return () => {
+      try { supabase.removeChannel(channel); } catch {}
+      if (timer) clearTimeout(timer);
+    };
+  }, [user?.id]);
 
   const loadUserProfile = async () => {
     if (!user) return;

@@ -1,402 +1,441 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { supabase } from '../lib/supabase';
-import { FileText, Calendar, MapPin, Car, User, CheckCircle, XCircle, Download, Eye, ZoomIn } from 'lucide-react';
+import { Download, Calendar, MapPin, FileText, Image as ImageIcon, X, Eye } from 'lucide-react';
 
-interface InspectionReport {
+interface Photo {
+  id: string;
+  photo_url: string;
+  thumbnail_url?: string;
+  photo_type: string;
+  created_at: string;
+}
+
+interface Inspection {
   id: string;
   inspection_type: 'departure' | 'arrival';
-  overall_condition: string;
-  fuel_level: number;
-  mileage_km: number;
-  notes: string;
-  client_name: string;
-  keys_count: number;
-  has_vehicle_documents: boolean;
-  has_registration_card: boolean;
-  vehicle_is_full: boolean;
-  windshield_condition: string;
-  external_cleanliness: string;
-  internal_cleanliness: string;
-  has_spare_wheel: boolean;
-  has_repair_kit: boolean;
-  photo_time: string;
-  photo_location: string;
-  photo_weather: string;
-  completed_at: string;
+  datetime: string;
+  location: string | null;
+  notes: string | null;
+  driver_signature: string | null;
+  client_signature: string | null;
+  status: string;
+  photos: Photo[];
+}
+
+interface ReportData {
+  share_token: string;
+  created_at: string;
+  view_count: number;
   mission: {
-    reference: string;
-    vehicle_brand: string;
-    vehicle_model: string;
-    vehicle_plate: string;
-    pickup_address: string;
-    delivery_address: string;
-  };
-  photos: Array<{
     id: string;
-    photo_type: string;
-    photo_url: string;
-    description: string;
-    created_at: string;
-  }>;
+    reference: string;
+    pickup_location: string;
+    delivery_location: string;
+    status: string;
+    vehicle: {
+      id: string;
+      brand: string;
+      model: string;
+      plate: string;
+      vehicle_type: string;
+    };
+  };
+  departure: Inspection | null;
+  arrival: Inspection | null;
 }
 
 export default function PublicInspectionReport() {
-  const { inspectionId } = useParams();
-  const [report, setReport] = useState<InspectionReport | null>(null);
+  const { token } = useParams<{ token: string }>();
+  const [data, setData] = useState<ReportData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+  const [lightboxPhoto, setLightboxPhoto] = useState<string | null>(null);
+  const [downloading, setDownloading] = useState(false);
 
   useEffect(() => {
-    loadReport();
-  }, [inspectionId]);
-
-  const loadReport = async () => {
-    if (!inspectionId) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('vehicle_inspections')
-        .select(`
-          *,
-          mission:missions(
-            reference,
-            vehicle_brand,
-            vehicle_model,
-            vehicle_plate,
-            pickup_address,
-            delivery_address
-          ),
-          photos:inspection_photos(*)
-        `)
-        .eq('id', inspectionId)
-        .single();
-
-      if (error) throw error;
-      setReport(data as any);
-    } catch (error) {
-      console.error('Erreur chargement rapport:', error);
-    } finally {
+    if (!token) {
+      setError('Token manquant');
       setLoading(false);
+      return;
     }
-  };
 
-  const getPhotoLabel = (type: string) => {
-    const labels: Record<string, string> = {
-      front: '🚗 Vue Avant',
-      back: '🚗 Vue Arrière',
-      left_front: '◀️ Avant Gauche',
-      left_back: '◀️ Arrière Gauche',
-      right_front: '▶️ Avant Droit',
-      right_back: '▶️ Arrière Droit',
-      interior: '🪑 Intérieur',
-      dashboard: '📊 Tableau de bord',
-      delivery_receipt: '📄 PV de livraison',
-    };
-    return labels[type] || type;
-  };
+    fetch(`/api/public-report?token=${token}`)
+      .then(res => {
+        if (!res.ok) throw new Error('Rapport introuvable');
+        return res.json();
+      })
+      .then(data => {
+        if (data.error) throw new Error(data.error);
+        setData(data);
+      })
+      .catch(err => setError(err.message))
+      .finally(() => setLoading(false));
+  }, [token]);
 
-  const getCleanlinessLabel = (value: string) => {
-    const labels: Record<string, string> = {
-      'tres-propre': '⭐⭐⭐ Très propre',
-      'propre': '⭐⭐ Propre',
-      'moyen': '⭐ Moyen',
-      'sale': '⚠️ Sale',
-      'tres-sale': '❌ Très sale',
-    };
-    return labels[value] || value;
-  };
-
-  const downloadPhoto = async (photoUrl: string, photoType: string) => {
+  const handleDownload = async () => {
+    if (!token) return;
+    setDownloading(true);
     try {
-      const response = await fetch(photoUrl);
+      const response = await fetch(`/api/download-report?token=${token}`);
+      if (!response.ok) throw new Error('Échec du téléchargement');
+      
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `${report?.mission.reference}_${photoType}_${Date.now()}.jpg`;
+      a.download = `rapport_inspection_${data?.mission.reference || token}.zip`;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
-    } catch (error) {
-      console.error('Erreur téléchargement photo:', error);
-      alert('Erreur lors du téléchargement de la photo');
+      window.URL.revokeObjectURL(url);
+    } catch (err: any) {
+      alert('Erreur lors du téléchargement: ' + err.message);
+    } finally {
+      setDownloading(false);
     }
+  };
+
+  const openLightbox = (photoUrl: string) => {
+    setLightboxPhoto(photoUrl);
+    setLightboxOpen(true);
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-teal-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-teal-500 border-t-transparent mx-auto mb-4"></div>
-          <p className="text-gray-600">Chargement du rapport...</p>
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-sky-500 mx-auto mb-4"></div>
+          <p className="text-slate-600 font-medium">Chargement du rapport...</p>
         </div>
       </div>
     );
   }
 
-  if (!report) {
+  if (error || !data) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-teal-50 flex items-center justify-center">
-        <div className="text-center">
-          <FileText className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">Rapport introuvable</h2>
-          <p className="text-gray-600">Ce rapport d'inspection n'existe pas ou n'est plus accessible.</p>
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 flex items-center justify-center p-4">
+        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <X className="w-8 h-8 text-red-600" />
+          </div>
+          <h1 className="text-2xl font-bold text-slate-900 mb-2">Rapport introuvable</h1>
+          <p className="text-slate-600 mb-6">{error || 'Ce rapport n\'existe pas ou a expiré.'}</p>
+          <a href="/" className="inline-block px-6 py-3 bg-sky-500 text-white rounded-lg font-semibold hover:bg-sky-600 transition">
+            Retour à l'accueil
+          </a>
         </div>
       </div>
     );
   }
+
+  const { mission, departure, arrival, view_count } = data;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-teal-50 py-8 px-4">
-      <div className="max-w-6xl mx-auto">
-        
-        {/* Header */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6 border-2 border-teal-200">
-          <div className="flex items-center justify-between mb-6">
-            <div>
-              <h1 className="text-3xl font-black text-gray-900 mb-2">
-                📋 Rapport d'Inspection {report.inspection_type === 'departure' ? 'de Départ' : 'd\'Arrivée'}
-              </h1>
-              <p className="text-gray-600">
-                Mission: <span className="font-semibold text-teal-600">{report.mission.reference}</span>
-              </p>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100">
+      <div className="bg-white border-b border-slate-200 sticky top-0 z-40 shadow-sm">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 bg-gradient-to-br from-sky-500 to-sky-600 rounded-lg flex items-center justify-center">
+                <FileText className="w-6 h-6 text-white" />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold text-slate-900">xCrackz</h1>
+                <p className="text-sm text-slate-500">Rapport d'inspection</p>
+              </div>
             </div>
+            
             <button
-              onClick={() => window.print()}
-              className="flex items-center gap-2 px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-semibold transition-all shadow-lg"
+              onClick={handleDownload}
+              disabled={downloading}
+              className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg font-semibold hover:from-emerald-600 hover:to-emerald-700 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-emerald-500/30"
             >
               <Download className="w-5 h-5" />
-              Télécharger PDF
+              <span className="hidden sm:inline">{downloading ? 'Téléchargement...' : 'Télécharger ZIP'}</span>
+              <span className="sm:hidden">ZIP</span>
             </button>
           </div>
+        </div>
+      </div>
 
-          {/* Infos véhicule */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="flex items-center gap-3">
-              <Car className="w-5 h-5 text-teal-500" />
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="bg-white rounded-2xl shadow-xl overflow-hidden mb-6">
+          <div className="bg-gradient-to-r from-sky-500 to-sky-600 px-6 py-8 text-white">
+            <div className="flex items-center justify-between flex-wrap gap-4">
               <div>
-                <p className="text-sm text-gray-600">Véhicule</p>
-                <p className="font-semibold">{report.mission.vehicle_brand} {report.mission.vehicle_model}</p>
+                <h2 className="text-3xl font-bold mb-2">Mission #{mission.reference}</h2>
+                <div className="flex items-center gap-6 text-sky-100">
+                  <div className="flex items-center gap-2">
+                    <Eye className="w-4 h-4" />
+                    <span className="text-sm">{view_count} {view_count > 1 ? 'vues' : 'vue'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm px-2 py-1 bg-white/20 rounded-md">
+                      {mission.status}
+                    </span>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <FileText className="w-5 h-5 text-teal-500" />
-              <div>
-                <p className="text-sm text-gray-600">Immatriculation</p>
-                <p className="font-semibold">{report.mission.vehicle_plate}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <MapPin className="w-5 h-5 text-teal-500" />
-              <div>
-                <p className="text-sm text-gray-600">Départ</p>
-                <p className="font-semibold text-sm">{report.mission.pickup_address}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <MapPin className="w-5 h-5 text-teal-500" />
-              <div>
-                <p className="text-sm text-gray-600">Arrivée</p>
-                <p className="font-semibold text-sm">{report.mission.delivery_address}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <Calendar className="w-5 h-5 text-teal-500" />
-              <div>
-                <p className="text-sm text-gray-600">Date inspection</p>
-                <p className="font-semibold">{new Date(report.completed_at).toLocaleString('fr-FR')}</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <User className="w-5 h-5 text-teal-500" />
-              <div>
-                <p className="text-sm text-gray-600">Client</p>
-                <p className="font-semibold">{report.client_name}</p>
-              </div>
+              {mission.vehicle && (
+                <div className="bg-white/10 backdrop-blur-sm rounded-xl px-6 py-4">
+                  <p className="text-sm text-sky-100 mb-1">Véhicule</p>
+                  <p className="text-xl font-bold">{mission.vehicle.brand} {mission.vehicle.model}</p>
+                  <p className="text-lg font-mono">{mission.vehicle.plate}</p>
+                </div>
+              )}
             </div>
           </div>
         </div>
 
-        {/* État du véhicule */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 mb-6 border-2 border-teal-200">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">📊 État du véhicule</h2>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            <div className="text-center p-4 bg-teal-50 rounded-xl">
-              <p className="text-sm text-gray-600 mb-1">Kilométrage</p>
-              <p className="text-2xl font-bold text-teal-600">{report.mileage_km.toLocaleString()} km</p>
-            </div>
-            <div className="text-center p-4 bg-teal-50 rounded-xl">
-              <p className="text-sm text-gray-600 mb-1">Carburant</p>
-              <p className="text-2xl font-bold text-teal-600">{report.fuel_level}%</p>
-            </div>
-            <div className="text-center p-4 bg-teal-50 rounded-xl">
-              <p className="text-sm text-gray-600 mb-1">Clés</p>
-              <p className="text-2xl font-bold text-teal-600">{report.keys_count}</p>
-            </div>
-            <div className="text-center p-4 bg-teal-50 rounded-xl">
-              <p className="text-sm text-gray-600 mb-1">Pare-brise</p>
-              <p className="text-lg font-bold text-teal-600">{report.windshield_condition}</p>
-            </div>
-          </div>
+        <div className="grid lg:grid-cols-2 gap-6 mb-6">
+          {departure && (
+            <InspectionCard
+              inspection={departure}
+              type="departure"
+              onPhotoClick={openLightbox}
+            />
+          )}
 
-          <div className="grid grid-cols-2 gap-4 mt-6">
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <p className="text-sm text-gray-600 mb-2">Propreté externe</p>
-              <p className="font-semibold text-gray-900">{getCleanlinessLabel(report.external_cleanliness)}</p>
-            </div>
-            <div className="p-4 bg-gray-50 rounded-xl">
-              <p className="text-sm text-gray-600 mb-2">Propreté interne</p>
-              <p className="font-semibold text-gray-900">{getCleanlinessLabel(report.internal_cleanliness)}</p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6">
-            <div className={`p-4 rounded-xl ${report.has_vehicle_documents ? 'bg-green-50' : 'bg-red-50'}`}>
-              {report.has_vehicle_documents ? (
-                <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-2" />
-              ) : (
-                <XCircle className="w-6 h-6 text-red-600 mx-auto mb-2" />
-              )}
-              <p className="text-sm text-center">Documents</p>
-            </div>
-            <div className={`p-4 rounded-xl ${report.has_registration_card ? 'bg-green-50' : 'bg-red-50'}`}>
-              {report.has_registration_card ? (
-                <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-2" />
-              ) : (
-                <XCircle className="w-6 h-6 text-red-600 mx-auto mb-2" />
-              )}
-              <p className="text-sm text-center">Carte grise</p>
-            </div>
-            <div className={`p-4 rounded-xl ${report.has_spare_wheel ? 'bg-green-50' : 'bg-red-50'}`}>
-              {report.has_spare_wheel ? (
-                <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-2" />
-              ) : (
-                <XCircle className="w-6 h-6 text-red-600 mx-auto mb-2" />
-              )}
-              <p className="text-sm text-center">Roue secours</p>
-            </div>
-            <div className={`p-4 rounded-xl ${report.has_repair_kit ? 'bg-green-50' : 'bg-red-50'}`}>
-              {report.has_repair_kit ? (
-                <CheckCircle className="w-6 h-6 text-green-600 mx-auto mb-2" />
-              ) : (
-                <XCircle className="w-6 h-6 text-red-600 mx-auto mb-2" />
-              )}
-              <p className="text-sm text-center">Kit réparation</p>
-            </div>
-          </div>
-
-          {/* Conditions de photo */}
-          <div className="mt-6 p-4 bg-blue-50 rounded-xl border-2 border-blue-200">
-            <h3 className="font-semibold text-gray-900 mb-3">📸 Conditions de prise des photos</h3>
-            <div className="flex gap-6 flex-wrap">
-              <div>
-                <span className="text-sm text-gray-600">Moment:</span>
-                <span className="ml-2 font-semibold">{report.photo_time}</span>
+          {arrival ? (
+            <InspectionCard
+              inspection={arrival}
+              type="arrival"
+              onPhotoClick={openLightbox}
+            />
+          ) : (
+            <div className="bg-white rounded-2xl shadow-xl p-8 flex items-center justify-center border-2 border-dashed border-slate-300">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <FileText className="w-8 h-8 text-slate-400" />
+                </div>
+                <p className="text-slate-500 font-medium">Inspection d'arrivée</p>
+                <p className="text-sm text-slate-400 mt-1">Pas encore effectuée</p>
               </div>
-              <div>
-                <span className="text-sm text-gray-600">Lieu:</span>
-                <span className="ml-2 font-semibold">{report.photo_location}</span>
-              </div>
-              <div>
-                <span className="text-sm text-gray-600">Météo:</span>
-                <span className="ml-2 font-semibold">{report.photo_weather}</span>
-              </div>
-            </div>
-          </div>
-
-          {report.notes && (
-            <div className="mt-6 p-4 bg-yellow-50 rounded-xl border-2 border-yellow-200">
-              <h3 className="font-semibold text-gray-900 mb-2">📝 Notes</h3>
-              <p className="text-gray-700 whitespace-pre-wrap">{report.notes}</p>
             </div>
           )}
         </div>
 
-        {/* Photos */}
-        <div className="bg-white rounded-2xl shadow-xl p-8 border-2 border-teal-200">
-          <h2 className="text-2xl font-bold text-gray-900 mb-6">📸 Photos d'inspection</h2>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-            {report.photos.map((photo) => (
-              <div
-                key={photo.id}
-                className="relative group"
-              >
-                <div className="aspect-square rounded-xl overflow-hidden bg-gray-100 border-2 border-gray-200 hover:border-teal-400 transition-all">
-                  <img
-                    src={photo.photo_url}
-                    alt={getPhotoLabel(photo.photo_type)}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                
-                {/* Boutons superposés */}
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity rounded-xl flex items-center justify-center gap-2">
-                  <button
-                    onClick={() => setSelectedPhoto(photo.photo_url)}
-                    className="p-3 bg-white hover:bg-gray-100 rounded-full shadow-lg transition-all"
-                    title="Agrandir"
-                  >
-                    <ZoomIn className="w-5 h-5 text-gray-700" />
-                  </button>
-                  <button
-                    onClick={() => downloadPhoto(photo.photo_url, photo.photo_type)}
-                    className="p-3 bg-teal-500 hover:bg-teal-600 rounded-full shadow-lg transition-all"
-                    title="Télécharger"
-                  >
-                    <Download className="w-5 h-5 text-white" />
-                  </button>
-                </div>
+        {departure && arrival && (
+          <PhotoComparison
+            departurePhotos={departure.photos}
+            arrivalPhotos={arrival.photos}
+            onPhotoClick={openLightbox}
+          />
+        )}
+      </div>
 
-                <div className="mt-2">
-                  <p className="text-sm font-semibold text-gray-900">{getPhotoLabel(photo.photo_type)}</p>
-                  <p className="text-xs text-gray-500">{new Date(photo.created_at).toLocaleString('fr-FR')}</p>
-                </div>
-              </div>
-            ))}
+      {lightboxOpen && lightboxPhoto && (
+        <div
+          className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            className="absolute top-4 right-4 w-10 h-10 bg-white/10 hover:bg-white/20 rounded-full flex items-center justify-center text-white transition"
+            onClick={() => setLightboxOpen(false)}
+          >
+            <X className="w-6 h-6" />
+          </button>
+          <img
+            src={lightboxPhoto}
+            alt="Photo"
+            className="max-w-full max-h-full object-contain rounded-lg"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface InspectionCardProps {
+  inspection: Inspection;
+  type: 'departure' | 'arrival';
+  onPhotoClick: (url: string) => void;
+}
+
+function InspectionCard({ inspection, type, onPhotoClick }: InspectionCardProps) {
+  const isDepart = type === 'departure';
+  const bgColor = isDepart ? 'from-emerald-500 to-emerald-600' : 'from-sky-500 to-sky-600';
+  const borderColor = isDepart ? 'border-emerald-200' : 'border-sky-200';
+  
+  return (
+    <div className={`bg-white rounded-2xl shadow-xl overflow-hidden border-2 ${borderColor}`}>
+      <div className={`bg-gradient-to-r ${bgColor} px-6 py-4 text-white`}>
+        <h3 className="text-xl font-bold flex items-center gap-2">
+          {isDepart ? '🟢' : '🔴'}
+          {isDepart ? 'INSPECTION DE DÉPART' : 'INSPECTION D\'ARRIVÉE'}
+        </h3>
+      </div>
+
+      <div className="p-6 space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="flex items-start gap-3">
+            <Calendar className="w-5 h-5 text-slate-400 mt-0.5" />
+            <div>
+              <p className="text-xs text-slate-500 font-semibold uppercase">Date et heure</p>
+              <p className="text-sm font-semibold text-slate-900">
+                {new Date(inspection.datetime).toLocaleString('fr-FR', {
+                  day: '2-digit',
+                  month: '2-digit',
+                  year: 'numeric',
+                  hour: '2-digit',
+                  minute: '2-digit'
+                })}
+              </p>
+            </div>
           </div>
+
+          {inspection.location && (
+            <div className="flex items-start gap-3">
+              <MapPin className="w-5 h-5 text-slate-400 mt-0.5" />
+              <div>
+                <p className="text-xs text-slate-500 font-semibold uppercase">Lieu</p>
+                <p className="text-sm font-semibold text-slate-900">{inspection.location}</p>
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Modal photo agrandie */}
-        {selectedPhoto && (
-          <div
-            className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4"
-            onClick={() => setSelectedPhoto(null)}
-          >
-            <div className="relative max-w-6xl max-h-[90vh]">
-              <img
-                src={selectedPhoto}
-                alt="Photo agrandie"
-                className="max-w-full max-h-[90vh] object-contain"
-              />
-              <button
-                onClick={() => setSelectedPhoto(null)}
-                className="absolute top-4 right-4 w-12 h-12 bg-white rounded-full flex items-center justify-center text-2xl hover:bg-gray-100 transition-all shadow-lg"
-                title="Fermer"
-              >
-                ×
-              </button>
-              <button
-                onClick={(e) => {
-                  e.stopPropagation();
-                  const photoData = report?.photos.find(p => p.photo_url === selectedPhoto);
-                  if (photoData) {
-                    downloadPhoto(selectedPhoto, photoData.photo_type);
-                  }
-                }}
-                className="absolute bottom-4 right-4 px-6 py-3 bg-teal-500 hover:bg-teal-600 text-white rounded-xl font-semibold transition-all shadow-lg flex items-center gap-2"
-                title="Télécharger"
-              >
-                <Download className="w-5 h-5" />
-                Télécharger
-              </button>
-            </div>
+        {inspection.notes && (
+          <div className="bg-slate-50 rounded-lg p-4 border border-slate-200">
+            <p className="text-xs text-slate-500 font-semibold uppercase mb-2">📝 Notes du chauffeur</p>
+            <p className="text-sm text-slate-700 whitespace-pre-wrap">{inspection.notes}</p>
           </div>
         )}
 
+        <div>
+          <p className="text-xs text-slate-500 font-semibold uppercase mb-3">✍️ Signatures</p>
+          <div className="grid grid-cols-2 gap-4">
+            <SignatureBox
+              label="Chauffeur"
+              signatureUrl={inspection.driver_signature}
+            />
+            <SignatureBox
+              label="Client"
+              signatureUrl={inspection.client_signature}
+            />
+          </div>
+        </div>
+
+        <div>
+          <p className="text-xs text-slate-500 font-semibold uppercase mb-3 flex items-center gap-2">
+            <ImageIcon className="w-4 h-4" />
+            Photos ({inspection.photos.length})
+          </p>
+          {inspection.photos.length > 0 ? (
+            <div className="grid grid-cols-3 gap-2">
+              {inspection.photos.map((photo) => (
+                <button
+                  key={photo.id}
+                  onClick={() => onPhotoClick(photo.photo_url)}
+                  className="aspect-square rounded-lg overflow-hidden bg-slate-100 hover:ring-2 hover:ring-sky-400 transition"
+                >
+                  <img
+                    src={photo.thumbnail_url || photo.photo_url}
+                    alt={photo.photo_type}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400 italic">Aucune photo</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SignatureBox({ label, signatureUrl }: { label: string; signatureUrl: string | null }) {
+  return (
+    <div className="border-2 border-slate-200 rounded-lg p-3 bg-slate-50">
+      <p className="text-xs text-slate-500 font-semibold mb-2">{label}</p>
+      {signatureUrl ? (
+        <img src={signatureUrl} alt={`Signature ${label}`} className="w-full h-16 object-contain" />
+      ) : (
+        <div className="h-16 flex items-center justify-center text-slate-400">
+          <X className="w-5 h-5" />
+        </div>
+      )}
+    </div>
+  );
+}
+
+interface PhotoComparisonProps {
+  departurePhotos: Photo[];
+  arrivalPhotos: Photo[];
+  onPhotoClick: (url: string) => void;
+}
+
+function PhotoComparison({ departurePhotos, arrivalPhotos, onPhotoClick }: PhotoComparisonProps) {
+  const photoTypes = Array.from(
+    new Set([
+      ...departurePhotos.map(p => p.photo_type),
+      ...arrivalPhotos.map(p => p.photo_type)
+    ])
+  );
+
+  return (
+    <div className="bg-white rounded-2xl shadow-xl p-6">
+      <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
+        <ImageIcon className="w-6 h-6 text-sky-500" />
+        Comparaison visuelle
+      </h3>
+
+      <div className="space-y-6">
+        {photoTypes.map(type => {
+          const depPhotos = departurePhotos.filter(p => p.photo_type === type);
+          const arrPhotos = arrivalPhotos.filter(p => p.photo_type === type);
+          
+          return (
+            <div key={type} className="border-b border-slate-200 last:border-0 pb-6 last:pb-0">
+              <p className="text-sm font-semibold text-slate-600 uppercase mb-3">
+                {type.replace(/_/g, ' ')}
+              </p>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-emerald-600 font-semibold mb-2">🟢 Départ ({depPhotos.length})</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {depPhotos.length > 0 ? (
+                      depPhotos.map(p => (
+                        <button
+                          key={p.id}
+                          onClick={() => onPhotoClick(p.photo_url)}
+                          className="aspect-square rounded-lg overflow-hidden bg-slate-100 hover:ring-2 hover:ring-emerald-400 transition"
+                        >
+                          <img src={p.thumbnail_url || p.photo_url} alt={type} className="w-full h-full object-cover" />
+                        </button>
+                      ))
+                    ) : (
+                      <p className="text-sm text-slate-400 col-span-2 text-center py-4">Aucune photo</p>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-xs text-sky-600 font-semibold mb-2">🔴 Arrivée ({arrPhotos.length})</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    {arrPhotos.length > 0 ? (
+                      arrPhotos.map(p => (
+                        <button
+                          key={p.id}
+                          onClick={() => onPhotoClick(p.photo_url)}
+                          className="aspect-square rounded-lg overflow-hidden bg-slate-100 hover:ring-2 hover:ring-sky-400 transition"
+                        >
+                          <img src={p.thumbnail_url || p.photo_url} alt={type} className="w-full h-full object-cover" />
+                        </button>
+                      ))
+                    ) : (
+                      <p className="text-sm text-slate-400 col-span-2 text-center py-4">Aucune photo</p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
