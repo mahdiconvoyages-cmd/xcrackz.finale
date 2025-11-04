@@ -42,20 +42,36 @@ export default function ShareInspectionModal({
       const { data: userData } = await supabase.auth.getUser();
       if (!userData.user) throw new Error('Non authentifié');
 
+      console.log('🔗 Génération lien partage...', { missionId, reportType });
+
       const { data, error } = await supabase.rpc('create_or_get_inspection_share', {
         p_mission_id: missionId,
         p_user_id: userData.user.id,
         p_report_type: reportType
       });
 
-      if (error) throw error;
+      console.log('📥 Réponse RPC:', { data, error });
+
+      if (error) {
+        console.error('❌ Erreur RPC:', error);
+        throw error;
+      }
 
       if (data && data.length > 0) {
-        setShareUrl(data[0].share_url);
+        const token = data[0].share_token;
+        // Construire l'URL complète
+        const baseUrl = window.location.origin;
+        const fullUrl = `${baseUrl}/rapport-inspection/${token}`;
+        
+        console.log('✅ Lien généré:', fullUrl);
+        setShareUrl(fullUrl);
+        toast.success('Lien de partage généré !');
+      } else {
+        throw new Error('Aucune donnée retournée');
       }
     } catch (error: any) {
-      console.error('Erreur génération lien:', error);
-      toast.error(error.message);
+      console.error('❌ Erreur génération lien:', error);
+      toast.error(`Erreur: ${error.message || 'Impossible de générer le lien'}`);
     } finally {
       setLoading(false);
     }
