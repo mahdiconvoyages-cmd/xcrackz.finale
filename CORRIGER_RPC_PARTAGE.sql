@@ -56,18 +56,38 @@ BEGIN
     AND inspection_type = 'arrival'
   LIMIT 1;
   
-  -- 6️⃣ Récupérer les photos de départ
+  -- 6️⃣ Récupérer les photos de départ avec colonnes explicites
   IF v_departure.id IS NOT NULL THEN
-    SELECT json_agg(row_to_json(p)) INTO v_departure_photos
+    SELECT json_agg(
+      json_build_object(
+        'id', p.id,
+        'photo_url', p.photo_url,
+        'url', p.photo_url,
+        'photo_type', p.photo_type,
+        'created_at', p.created_at,
+        'inspection_id', p.inspection_id
+      )
+    ) INTO v_departure_photos
     FROM inspection_photos p
-    WHERE p.inspection_id = v_departure.id;
+    WHERE p.inspection_id = v_departure.id
+    ORDER BY p.created_at;
   END IF;
   
-  -- 7️⃣ Récupérer les photos d'arrivée
+  -- 7️⃣ Récupérer les photos d'arrivée avec colonnes explicites
   IF v_arrival.id IS NOT NULL THEN
-    SELECT json_agg(row_to_json(p)) INTO v_arrival_photos
+    SELECT json_agg(
+      json_build_object(
+        'id', p.id,
+        'photo_url', p.photo_url,
+        'url', p.photo_url,
+        'photo_type', p.photo_type,
+        'created_at', p.created_at,
+        'inspection_id', p.inspection_id
+      )
+    ) INTO v_arrival_photos
     FROM inspection_photos p
-    WHERE p.inspection_id = v_arrival.id;
+    WHERE p.inspection_id = v_arrival.id
+    ORDER BY p.created_at;
   END IF;
   
   -- 8️⃣ Construire le résultat complet avec les photos intégrées

@@ -44,6 +44,10 @@ export default function PublicInspectionReportShared() {
       if (rpcError) throw rpcError;
       if (!data || data.error) throw new Error(data?.error || 'Rapport non trouvé');
 
+      console.log('📊 Données rapport reçues:', data);
+      console.log('📸 Photos départ:', data.inspection_departure?.photos);
+      console.log('📸 Photos arrivée:', data.inspection_arrival?.photos);
+
       setReportData(data);
     } catch (err: any) {
       setError(err.message);
