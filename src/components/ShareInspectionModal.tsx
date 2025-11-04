@@ -39,14 +39,21 @@ export default function ShareInspectionModal({
     setLoading(true);
     
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) throw new Error('Non authentifié');
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) {
+        console.error('❌ Pas de session active');
+        throw new Error('Non authentifié - veuillez vous reconnecter');
+      }
 
-      console.log('🔗 Génération lien partage...', { missionId, reportType });
+      console.log('🔗 Génération lien partage...', { 
+        missionId, 
+        reportType,
+        userId: session.user.id 
+      });
 
       const { data, error } = await supabase.rpc('create_or_get_inspection_share', {
         p_mission_id: missionId,
-        p_user_id: userData.user.id,
+        p_user_id: session.user.id,
         p_report_type: reportType
       });
 
