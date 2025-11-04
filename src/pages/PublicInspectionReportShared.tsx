@@ -163,7 +163,7 @@ export default function PublicInspectionReportShared() {
   const arrival = reportData.inspection_arrival;
 
   // Calculer les métriques
-  const kmParcouru = departure?.mileage && arrival?.mileage ? arrival.mileage - departure.mileage : 0;
+  const kmParcouru = departure?.mileage_km && arrival?.mileage_km ? arrival.mileage_km - departure.mileage_km : 0;
   const tempsLivraison = departure?.created_at && arrival?.created_at 
     ? Math.round((new Date(arrival.created_at).getTime() - new Date(departure.created_at).getTime()) / (1000 * 60 * 60))
     : 0;
@@ -352,7 +352,7 @@ function InspectionCard({ title, inspection, color, onOpenPhoto }: any) {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <StatItem 
               label="Kilométrage" 
-              value={inspection.mileage ? `${inspection.mileage.toLocaleString()} km` : 'N/A'} 
+              value={inspection.mileage_km ? `${inspection.mileage_km.toLocaleString()} km` : 'N/A'} 
             />
             <StatItem 
               label="Carburant" 
