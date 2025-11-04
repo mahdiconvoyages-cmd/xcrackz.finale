@@ -47,6 +47,8 @@ export default function PublicInspectionReportShared() {
       console.log('📊 Données rapport reçues:', data);
       console.log('📸 Photos départ:', data.inspection_departure?.photos);
       console.log('📸 Photos arrivée:', data.inspection_arrival?.photos);
+      console.log('🔍 Inspection départ complète:', data.inspection_departure);
+      console.log('🔍 Inspection arrivée complète:', data.inspection_arrival);
 
       setReportData(data);
     } catch (err: any) {
@@ -348,10 +350,22 @@ function InspectionCard({ title, inspection, color, onOpenPhoto }: any) {
         {/* État Véhicule */}
         <Section title="État du Véhicule" icon={Gauge}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <StatItem label="Kilométrage" value={inspection.mileage ? `${inspection.mileage.toLocaleString()} km` : 'N/A'} />
-            <StatItem label="Carburant" value={inspection.fuel_level !== undefined ? `${inspection.fuel_level}/8` : 'N/A'} />
-            <StatItem label="Propreté Int." value={inspection.cleanliness_interior !== undefined ? `${inspection.cleanliness_interior}/5` : 'N/A'} />
-            <StatItem label="Propreté Ext." value={inspection.cleanliness_exterior !== undefined ? `${inspection.cleanliness_exterior}/5` : 'N/A'} />
+            <StatItem 
+              label="Kilométrage" 
+              value={inspection.mileage ? `${inspection.mileage.toLocaleString()} km` : 'N/A'} 
+            />
+            <StatItem 
+              label="Carburant" 
+              value={inspection.fuel_level !== null && inspection.fuel_level !== undefined ? `${inspection.fuel_level}/8` : 'N/A'} 
+            />
+            <StatItem 
+              label="Propreté Int." 
+              value={inspection.cleanliness_interior !== null && inspection.cleanliness_interior !== undefined ? `${inspection.cleanliness_interior}/5` : 'N/A'} 
+            />
+            <StatItem 
+              label="Propreté Ext." 
+              value={inspection.cleanliness_exterior !== null && inspection.cleanliness_exterior !== undefined ? `${inspection.cleanliness_exterior}/5` : 'N/A'} 
+            />
           </div>
         </Section>
 

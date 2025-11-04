@@ -66,11 +66,10 @@ BEGIN
         'photo_type', p.photo_type,
         'created_at', p.created_at,
         'inspection_id', p.inspection_id
-      )
+      ) ORDER BY p.created_at
     ) INTO v_departure_photos
     FROM inspection_photos p
-    WHERE p.inspection_id = v_departure.id
-    ORDER BY p.created_at;
+    WHERE p.inspection_id = v_departure.id;
   END IF;
   
   -- 7️⃣ Récupérer les photos d'arrivée avec colonnes explicites
@@ -83,11 +82,10 @@ BEGIN
         'photo_type', p.photo_type,
         'created_at', p.created_at,
         'inspection_id', p.inspection_id
-      )
+      ) ORDER BY p.created_at
     ) INTO v_arrival_photos
     FROM inspection_photos p
-    WHERE p.inspection_id = v_arrival.id
-    ORDER BY p.created_at;
+    WHERE p.inspection_id = v_arrival.id;
   END IF;
   
   -- 8️⃣ Construire le résultat complet avec les photos intégrées
