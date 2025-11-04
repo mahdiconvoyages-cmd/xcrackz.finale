@@ -106,18 +106,42 @@ export default function PublicInspectionReportShared() {
   const showDeparture = reportData.report_type === 'departure' || reportData.report_type === 'complete';
   const showArrival = reportData.report_type === 'arrival' || reportData.report_type === 'complete';
 
+  const handlePrint = () => {
+    window.print();
+  };
+
+  const handleDownloadPDF = async () => {
+    try {
+      toast.info('Génération du PDF en cours...');
+      // Importer le service PDF
+      const { generatePremiumInspectionPDF } = await import('../services/inspectionPdfPremiumService');
+      
+      await generatePremiumInspectionPDF({
+        mission: mission,
+        departure: departure,
+        arrival: arrival,
+        reportType: reportData.report_type
+      });
+      
+      toast.success('PDF téléchargé avec succès !');
+    } catch (error) {
+      console.error('Erreur génération PDF:', error);
+      toast.error('Erreur lors de la génération du PDF');
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8">
       <div className="max-w-5xl mx-auto px-4">
         {/* En-tête premium */}
         <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-2xl p-8 mb-8 text-white">
           <div className="flex items-start justify-between">
-            <div>
+            <div className="flex-1">
               <div className="flex items-center gap-3 mb-3">
                 <FileText className="w-10 h-10" />
                 <div>
                   <h1 className="text-3xl font-bold">Rapport d'Inspection</h1>
-                  <p className="text-white/80">Mission {mission.reference}</p>
+                  <p className="text-white/80">Mission {mission?.reference || 'N/A'}</p>
                 </div>
               </div>
               
@@ -125,14 +149,14 @@ export default function PublicInspectionReportShared() {
                 <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
                   <Car className="w-5 h-5 mb-2" />
                   <p className="text-sm text-white/80">Véhicule</p>
-                  <p className="font-semibold">{vehicle.brand} {vehicle.model}</p>
-                  <p className="text-sm">{vehicle.plate}</p>
+                  <p className="font-semibold">{vehicle?.brand || 'N/A'} {vehicle?.model || ''}</p>
+                  <p className="text-sm">{vehicle?.plate || 'N/A'}</p>
                 </div>
                 
                 <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
                   <Calendar className="w-5 h-5 mb-2" />
                   <p className="text-sm text-white/80">Date</p>
-                  <p className="font-semibold">{new Date(mission.created_at).toLocaleDateString('fr-FR')}</p>
+                  <p className="font-semibold">{mission?.created_at ? new Date(mission.created_at).toLocaleDateString('fr-FR') : 'N/A'}</p>
                 </div>
                 
                 <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
@@ -144,6 +168,24 @@ export default function PublicInspectionReportShared() {
                   </p>
                 </div>
               </div>
+            </div>
+            
+            {/* Boutons d'action */}
+            <div className="flex gap-3 ml-4 print:hidden">
+              <button
+                onClick={handlePrint}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <FileText className="w-5 h-5" />
+                <span className="hidden md:inline">Imprimer</span>
+              </button>
+              <button
+                onClick={handleDownloadPDF}
+                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
+              >
+                <Download className="w-5 h-5" />
+                <span className="hidden md:inline">PDF</span>
+              </button>
             </div>
           </div>
         </div>

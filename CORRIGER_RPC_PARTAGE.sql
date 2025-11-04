@@ -70,7 +70,7 @@ BEGIN
     WHERE p.inspection_id = v_arrival.id;
   END IF;
   
-  -- 8️⃣ Construire le résultat complet
+  -- 8️⃣ Construire le résultat complet avec les photos intégrées
   v_result := json_build_object(
     'mission_id', v_share.mission_id,
     'report_type', v_share.report_type,
@@ -85,14 +85,22 @@ BEGIN
       'year', v_mission.vehicle_year,
       'color', v_mission.vehicle_color
     ),
-    'inspection_departure', json_build_object(
-      'data', row_to_json(v_departure),
-      'photos', COALESCE(v_departure_photos, '[]'::json)
-    ),
-    'inspection_arrival', json_build_object(
-      'data', row_to_json(v_arrival),
-      'photos', COALESCE(v_arrival_photos, '[]'::json)
-    )
+    'inspection_departure', CASE 
+      WHEN v_departure.id IS NOT NULL THEN
+        (row_to_json(v_departure)::jsonb || jsonb_build_object(
+          'photos', COALESCE(v_departure_photos, '[]'::json),
+          'damages', '[]'::json
+        ))::json
+      ELSE NULL
+    END,
+    'inspection_arrival', CASE
+      WHEN v_arrival.id IS NOT NULL THEN
+        (row_to_json(v_arrival)::jsonb || jsonb_build_object(
+          'photos', COALESCE(v_arrival_photos, '[]'::json),
+          'damages', '[]'::json
+        ))::json
+      ELSE NULL
+    END
   );
   
   RETURN v_result;
