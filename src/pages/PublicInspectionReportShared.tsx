@@ -1,85 +1,115 @@
 /**
- * 📄 Page Publique de Rapport d'Inspection Partagé
+ * 📄 Page Publique de Rapport d'Inspection - VERSION PREMIUM REDESIGNÉE
  * 
- * Accessible sans authentification via lien unique
- * Design professionnel pour clients
+ * Fonctionnalités:
+ * - Affichage complet des informations de mission
+ * - Photos consultables et téléchargeables (ZIP)
+ * - Signatures visibles
+ * - Impression et export PDF optimisés
+ * - Design professionnel et responsive
  */
 
 // @ts-nocheck
 import { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import {
-  FileText, Calendar, Car, MapPin, CheckCircle, AlertTriangle,
-  Download, ZoomIn, Shield, Wrench, Package, FileSignature, Camera, ChevronUp, ChevronDown
+  FileText, Calendar, Car, MapPin, User, Phone, Clock, Gauge,
+  Fuel, Download, Printer, Archive, X, ChevronLeft, ChevronRight,
+  Navigation, Package, CheckCircle, XCircle, FileSignature, Image as ImageIcon
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { toast } from '../utils/toast';
-import OptimizedImage from '../components/OptimizedImage';
-import PhotoGallery from '../components/PhotoGallery';
+import JSZip from 'jszip';
+import { saveAs } from 'file-saver';
 
 export default function PublicInspectionReportShared() {
   const { token } = useParams();
   const [loading, setLoading] = useState(true);
   const [reportData, setReportData] = useState<any>(null);
   const [error, setError] = useState('');
-  const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
-  const [galleryOpen, setGalleryOpen] = useState(false);
-  const [galleryIndex, setGalleryIndex] = useState(0);
+  const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [photoIndex, setPhotoIndex] = useState(0);
+  const [currentPhotos, setCurrentPhotos] = useState<any[]>([]);
 
   useEffect(() => {
-    if (token) {
-      loadReport();
-    }
+    if (token) loadReport();
   }, [token]);
 
   const loadReport = async () => {
-    setLoading(true);
-    setError('');
-    
     try {
-      console.log('🔍 Chargement rapport avec token:', token);
-      
       const { data, error: rpcError } = await supabase.rpc('get_inspection_report_by_token', {
         p_token: token
       });
 
-      console.log('📥 Réponse RPC:', { data, error: rpcError });
+      if (rpcError) throw rpcError;
+      if (!data || data.error) throw new Error(data?.error || 'Rapport non trouvé');
 
-      if (rpcError) {
-        console.error('❌ Erreur RPC:', rpcError);
-        throw rpcError;
-      }
-
-      if (!data) {
-        throw new Error('Rapport non trouvé');
-      }
-
-      // La fonction RPC retourne directement un JSON, pas un tableau
-      if (data.error) {
-        throw new Error(data.error);
-      }
-
-      console.log('✅ Données rapport:', data);
       setReportData(data);
     } catch (err: any) {
-      console.error('❌ Erreur chargement rapport:', err);
-      setError(err.message || 'Erreur de chargement');
+      setError(err.message);
     } finally {
       setLoading(false);
     }
   };
 
-  const openPhotoGallery = (photos: any[], index: number = 0) => {
-    setGalleryPhotos(photos.map(p => p.url));
-    setGalleryIndex(index);
-    setGalleryOpen(true);
+  const openPhoto = (photos: any[], index: number) => {
+    setCurrentPhotos(photos);
+    setPhotoIndex(index);
+    setSelectedPhoto(photos[index]?.url || photos[index]?.photo_url);
+  };
+
+  const closePhoto = () => setSelectedPhoto(null);
+
+  const nextPhoto = () => {
+    if (photoIndex < currentPhotos.length - 1) {
+      const newIndex = photoIndex + 1;
+      setPhotoIndex(newIndex);
+      setSelectedPhoto(currentPhotos[newIndex]?.url || currentPhotos[newIndex]?.photo_url);
+    }
+  };
+
+  const prevPhoto = () => {
+    if (photoIndex > 0) {
+      const newIndex = photoIndex - 1;
+      setPhotoIndex(newIndex);
+      setSelectedPhoto(currentPhotos[newIndex]?.url || currentPhotos[newIndex]?.photo_url);
+    }
+  };
+
+  const downloadAllPhotos = async () => {
+    try {
+      toast.info('Préparation du téléchargement...');
+      const zip = new JSZip();
+      
+      const addPhotosToZip = async (photos: any[], folderName: string) => {
+        if (!photos?.length) return;
+        const folder = zip.folder(folderName);
+        for (let i = 0; i < photos.length; i++) {
+          const url = photos[i]?.url || photos[i]?.photo_url;
+          if (url) {
+            const response = await fetch(url);
+            const blob = await response.blob();
+            folder?.file(`photo_${i + 1}.jpg`, blob);
+          }
+        }
+      };
+
+      await addPhotosToZip(reportData.inspection_departure?.photos, 'Photos_Depart');
+      await addPhotosToZip(reportData.inspection_arrival?.photos, 'Photos_Arrivee');
+      
+      const content = await zip.generateAsync({ type: 'blob' });
+      saveAs(content, `Inspection_${reportData.mission_data?.reference || 'rapport'}.zip`);
+      toast.success('Photos téléchargées !');
+    } catch (error) {
+      toast.error('Erreur lors du téléchargement');
+    }
   };
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
         <div className="text-center">
-          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-16 h-16 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Chargement du rapport...</p>
         </div>
       </div>
@@ -88,9 +118,9 @@ export default function PublicInspectionReportShared() {
 
   if (error || !reportData) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-pink-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 max-w-md text-center">
-          <AlertTriangle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-xl shadow-lg p-8 max-w-md text-center">
+          <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-gray-900 mb-2">Lien invalide</h1>
           <p className="text-gray-600">{error || 'Ce rapport n\'existe pas ou a expiré'}</p>
         </div>
@@ -102,380 +132,302 @@ export default function PublicInspectionReportShared() {
   const vehicle = reportData.vehicle_data;
   const departure = reportData.inspection_departure;
   const arrival = reportData.inspection_arrival;
-  const showBoth = reportData.report_type === 'complete' && departure && arrival;
-  const showDeparture = reportData.report_type === 'departure' || reportData.report_type === 'complete';
-  const showArrival = reportData.report_type === 'arrival' || reportData.report_type === 'complete';
 
-  const handlePrint = () => {
-    window.print();
-  };
-
-  const handleDownloadPDF = async () => {
-    try {
-      toast.info('Génération du PDF en cours...');
-      // Importer le service PDF
-      const { generatePremiumInspectionPDF } = await import('../services/inspectionPdfPremiumService');
-      
-      await generatePremiumInspectionPDF({
-        mission: mission,
-        departure: departure,
-        arrival: arrival,
-        reportType: reportData.report_type
-      });
-      
-      toast.success('PDF téléchargé avec succès !');
-    } catch (error) {
-      console.error('Erreur génération PDF:', error);
-      toast.error('Erreur lors de la génération du PDF');
-    }
-  };
+  // Calculer les métriques
+  const kmParcouru = departure?.mileage && arrival?.mileage ? arrival.mileage - departure.mileage : 0;
+  const tempsLivraison = departure?.created_at && arrival?.created_at 
+    ? Math.round((new Date(arrival.created_at).getTime() - new Date(departure.created_at).getTime()) / (1000 * 60 * 60))
+    : 0;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50 py-8">
-      <div className="max-w-5xl mx-auto px-4">
-        {/* En-tête premium */}
-        <div className="bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl shadow-2xl p-8 mb-8 text-white">
-          <div className="flex items-start justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-3">
-                <FileText className="w-10 h-10" />
-                <div>
-                  <h1 className="text-3xl font-bold">Rapport d'Inspection</h1>
-                  <p className="text-white/80">Mission {mission?.reference || 'N/A'}</p>
-                </div>
+    <div className="min-h-screen bg-gray-50 py-8 print:py-0">
+      <div className="max-w-6xl mx-auto px-4 print:px-0">
+        
+        {/* HEADER PREMIUM */}
+        <div className="bg-white rounded-xl shadow-lg mb-6 print:shadow-none print:border print:border-gray-300">
+          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 rounded-t-xl text-white print:bg-blue-600">
+            <div className="flex items-start justify-between">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">Rapport d'Inspection Véhicule</h1>
+                <p className="text-blue-100">Mission: {mission?.reference || 'N/A'}</p>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
-                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-                  <Car className="w-5 h-5 mb-2" />
-                  <p className="text-sm text-white/80">Véhicule</p>
-                  <p className="font-semibold">{vehicle?.brand || 'N/A'} {vehicle?.model || ''}</p>
-                  <p className="text-sm">{vehicle?.plate || 'N/A'}</p>
-                </div>
-                
-                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-                  <Calendar className="w-5 h-5 mb-2" />
-                  <p className="text-sm text-white/80">Date</p>
-                  <p className="font-semibold">{mission?.created_at ? new Date(mission.created_at).toLocaleDateString('fr-FR') : 'N/A'}</p>
-                </div>
-                
-                <div className="bg-white/10 backdrop-blur-sm rounded-lg p-4">
-                  <Shield className="w-5 h-5 mb-2" />
-                  <p className="text-sm text-white/80">Type</p>
-                  <p className="font-semibold">
-                    {reportData.report_type === 'complete' ? 'Complet' :
-                     reportData.report_type === 'departure' ? 'Départ' : 'Arrivée'}
-                  </p>
-                </div>
+              <div className="flex gap-2 print:hidden">
+                <button onClick={() => window.print()} className="bg-white/20 hover:bg-white/30 p-3 rounded-lg transition">
+                  <Printer className="w-5 h-5" />
+                </button>
+                <button onClick={downloadAllPhotos} className="bg-white/20 hover:bg-white/30 p-3 rounded-lg transition">
+                  <Archive className="w-5 h-5" />
+                </button>
               </div>
             </div>
-            
-            {/* Boutons d'action */}
-            <div className="flex gap-3 ml-4 print:hidden">
-              <button
-                onClick={handlePrint}
-                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-              >
-                <FileText className="w-5 h-5" />
-                <span className="hidden md:inline">Imprimer</span>
-              </button>
-              <button
-                onClick={handleDownloadPDF}
-                className="bg-white/20 hover:bg-white/30 backdrop-blur-sm px-4 py-2 rounded-lg transition-colors flex items-center gap-2"
-              >
-                <Download className="w-5 h-5" />
-                <span className="hidden md:inline">PDF</span>
-              </button>
+          </div>
+
+          <div className="p-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+              {/* Véhicule */}
+              <InfoCard
+                icon={Car}
+                title="Véhicule Convoyé"
+                items={[
+                  { label: 'Marque/Modèle', value: `${vehicle?.brand || 'N/A'} ${vehicle?.model || ''}` },
+                  { label: 'Plaque', value: vehicle?.plate || 'N/A' },
+                  { label: 'Type', value: mission?.vehicle_type || 'N/A' },
+                  { label: 'Couleur', value: vehicle?.color || 'N/A' },
+                ]}
+              />
+
+              {/* Départ */}
+              <InfoCard
+                icon={Navigation}
+                title="Point de Départ"
+                items={[
+                  { label: 'Adresse', value: mission?.pickup_address || 'N/A' },
+                  { label: 'Contact', value: mission?.pickup_contact_name || 'N/A' },
+                  { label: 'Téléphone', value: mission?.pickup_contact_phone || 'N/A' },
+                  { label: 'Date/Heure', value: departure?.created_at ? new Date(departure.created_at).toLocaleString('fr-FR') : 'N/A' },
+                ]}
+              />
+
+              {/* Arrivée */}
+              <InfoCard
+                icon={MapPin}
+                title="Point d'Arrivée"
+                items={[
+                  { label: 'Adresse', value: mission?.delivery_address || 'N/A' },
+                  { label: 'Contact', value: mission?.delivery_contact_name || 'N/A' },
+                  { label: 'Téléphone', value: mission?.delivery_contact_phone || 'N/A' },
+                  { label: 'Date/Heure', value: arrival?.created_at ? new Date(arrival.created_at).toLocaleString('fr-FR') : 'N/A' },
+                ]}
+              />
+            </div>
+
+            {/* Métriques de transport */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 p-6 bg-gray-50 rounded-lg">
+              <MetricBox icon={User} label="Convoyeur" value={mission?.driver_name || 'N/A'} />
+              <MetricBox icon={Gauge} label="KM Parcourus" value={kmParcouru > 0 ? `${kmParcouru} km` : 'N/A'} />
+              <MetricBox icon={Clock} label="Temps Livraison" value={tempsLivraison > 0 ? `${tempsLivraison}h` : 'N/A'} />
+              <MetricBox icon={Phone} label="Contact Driver" value={mission?.driver_phone || 'N/A'} />
             </div>
           </div>
         </div>
 
-        {/* Inspection Départ */}
-        {showDeparture && departure && (
-          <div className="mb-8">
-            <InspectionSection
-              title="Inspection Départ"
-              inspection={departure}
-              color="from-green-500 to-emerald-600"
-              onOpenGallery={openPhotoGallery}
-            />
-          </div>
+        {/* INSPECTION DÉPART */}
+        {departure && (
+          <InspectionCard
+            title="Inspection au Départ"
+            inspection={departure}
+            color="green"
+            onOpenPhoto={openPhoto}
+          />
         )}
 
-        {/* Inspection Arrivée */}
-        {showArrival && arrival && (
-          <div>
-            <InspectionSection
-              title="Inspection Arrivée"
-              inspection={arrival}
-              color="from-blue-500 to-indigo-600"
-              onOpenGallery={openPhotoGallery}
-            />
-          </div>
+        {/* INSPECTION ARRIVÉE */}
+        {arrival && (
+          <InspectionCard
+            title="Inspection à l'Arrivée"
+            inspection={arrival}
+            color="blue"
+            onOpenPhoto={openPhoto}
+          />
         )}
 
-        {/* Pied de page */}
-        <div className="mt-8 text-center text-gray-500 text-sm">
-          <p>Rapport généré par xCrackz - Transport & Convoyage</p>
-          <p className="mt-1">Ce document est authentique et sécurisé</p>
+        {/* Footer */}
+        <div className="text-center text-gray-500 text-sm mt-8 print:mt-4">
+          <p>Document généré par xCrackz - Transport & Convoyage Professionnel</p>
+          <p className="mt-1">Rapport authentique et sécurisé • {new Date().toLocaleDateString('fr-FR')}</p>
         </div>
       </div>
 
-      {/* Galerie photos */}
-      {galleryOpen && (
-        <PhotoGallery
-          photos={galleryPhotos}
-          initialIndex={galleryIndex}
-          onClose={() => setGalleryOpen(false)}
-        />
+      {/* MODAL PHOTO */}
+      {selectedPhoto && (
+        <div className="fixed inset-0 bg-black/90 z-50 flex items-center justify-center p-4" onClick={closePhoto}>
+          <button onClick={closePhoto} className="absolute top-4 right-4 text-white hover:bg-white/20 p-2 rounded-lg">
+            <X className="w-6 h-6" />
+          </button>
+          
+          {photoIndex > 0 && (
+            <button onClick={(e) => { e.stopPropagation(); prevPhoto(); }} 
+              className="absolute left-4 text-white hover:bg-white/20 p-3 rounded-lg">
+              <ChevronLeft className="w-8 h-8" />
+            </button>
+          )}
+          
+          <img src={selectedPhoto} alt="Photo" className="max-h-[90vh] max-w-[90vw] object-contain" 
+            onClick={(e) => e.stopPropagation()} />
+          
+          {photoIndex < currentPhotos.length - 1 && (
+            <button onClick={(e) => { e.stopPropagation(); nextPhoto(); }} 
+              className="absolute right-4 text-white hover:bg-white/20 p-3 rounded-lg">
+              <ChevronRight className="w-8 h-8" />
+            </button>
+          )}
+          
+          <div className="absolute bottom-4 left-1/2 -translate-x-1/2 text-white text-sm bg-black/50 px-4 py-2 rounded-lg">
+            {photoIndex + 1} / {currentPhotos.length}
+          </div>
+        </div>
       )}
     </div>
   );
 }
 
-// Composant section d'inspection
-function InspectionSection({ title, inspection, color, onOpenGallery }: any) {
-  const [expanded, setExpanded] = useState({
-    vehicle: true,
-    documents: false,
-    equipment: false,
-    damages: false,
-    photos: true,
-    signatures: false
-  });
+// COMPOSANTS UTILITAIRES
 
-  const toggleSection = (section: string) => {
-    setExpanded(prev => ({ ...prev, [section]: !prev[section] }));
+function InfoCard({ icon: Icon, title, items }: any) {
+  return (
+    <div className="border border-gray-200 rounded-lg p-4">
+      <div className="flex items-center gap-2 mb-4 text-gray-700">
+        <Icon className="w-5 h-5" />
+        <h3 className="font-semibold">{title}</h3>
+      </div>
+      <div className="space-y-2">
+        {items.map((item: any, i: number) => (
+          <div key={i} className="text-sm">
+            <span className="text-gray-500">{item.label}:</span>{' '}
+            <span className="text-gray-900 font-medium">{item.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function MetricBox({ icon: Icon, label, value }: any) {
+  return (
+    <div className="text-center">
+      <Icon className="w-6 h-6 mx-auto mb-2 text-blue-600" />
+      <div className="text-xs text-gray-500 mb-1">{label}</div>
+      <div className="text-lg font-bold text-gray-900">{value}</div>
+    </div>
+  );
+}
+
+function InspectionCard({ title, inspection, color, onOpenPhoto }: any) {
+  const colorClasses = {
+    green: 'from-green-500 to-emerald-600 border-green-200',
+    blue: 'from-blue-500 to-indigo-600 border-blue-200',
   };
 
   return (
-    <div className="bg-white rounded-2xl shadow-lg overflow-hidden">
-      {/* En-tête */}
-      <div className={`bg-gradient-to-r ${color} p-6 text-white`}>
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold mb-2">{title}</h2>
-            <div className="flex items-center gap-4 text-sm">
-              <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4" />
-                {new Date(inspection.created_at).toLocaleDateString('fr-FR')}
-              </div>
-              {inspection.gps_location_name && (
-                <div className="flex items-center gap-2">
-                  <MapPin className="w-4 h-4" />
-                  {inspection.gps_location_name}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+    <div className="bg-white rounded-xl shadow-lg mb-6 overflow-hidden print:shadow-none print:border print:border-gray-300 print:break-inside-avoid">
+      <div className={`bg-gradient-to-r ${colorClasses[color].split(' ')[0]} ${colorClasses[color].split(' ')[1]} p-6 text-white print:bg-${color}-600`}>
+        <h2 className="text-2xl font-bold">{title}</h2>
+        <p className="text-white/80 text-sm mt-1">
+          {inspection.created_at ? new Date(inspection.created_at).toLocaleString('fr-FR') : 'N/A'}
+        </p>
       </div>
 
       <div className="p-6 space-y-6">
-        {/* État véhicule */}
-        <CollapsibleSection
-          title="État du Véhicule"
-          icon={Car}
-          color="text-blue-500"
-          expanded={expanded.vehicle}
-          onToggle={() => toggleSection('vehicle')}
-        >
+        {/* État Véhicule */}
+        <Section title="État du Véhicule" icon={Gauge}>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {inspection.mileage && (
-              <StatBox label="Kilométrage" value={`${inspection.mileage.toLocaleString()} km`} icon={Car} />
-            )}
-            {inspection.fuel_level !== undefined && (
-              <StatBox label="Carburant" value={`${inspection.fuel_level}/8`} icon={Package} />
-            )}
-            {inspection.cleanliness_interior !== undefined && (
-              <StatBox label="Propreté Int." value={`${inspection.cleanliness_interior}/5`} icon={CheckCircle} />
-            )}
-            {inspection.cleanliness_exterior !== undefined && (
-              <StatBox label="Propreté Ext." value={`${inspection.cleanliness_exterior}/5`} icon={CheckCircle} />
-            )}
+            <StatItem label="Kilométrage" value={inspection.mileage ? `${inspection.mileage.toLocaleString()} km` : 'N/A'} />
+            <StatItem label="Carburant" value={inspection.fuel_level !== undefined ? `${inspection.fuel_level}/8` : 'N/A'} />
+            <StatItem label="Propreté Int." value={inspection.cleanliness_interior !== undefined ? `${inspection.cleanliness_interior}/5` : 'N/A'} />
+            <StatItem label="Propreté Ext." value={inspection.cleanliness_exterior !== undefined ? `${inspection.cleanliness_exterior}/5` : 'N/A'} />
           </div>
-        </CollapsibleSection>
+        </Section>
 
         {/* Documents */}
-        <CollapsibleSection
-          title="Documents"
-          icon={FileText}
-          color="text-purple-500"
-          expanded={expanded.documents}
-          onToggle={() => toggleSection('documents')}
-        >
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <DocumentBadge label="Carte Grise" present={inspection.has_registration} />
-            <DocumentBadge label="Assurance" present={inspection.has_insurance} />
-            <DocumentBadge label="Tous documents" present={inspection.has_vehicle_documents} />
+        <Section title="Documents" icon={FileText}>
+          <div className="grid grid-cols-3 gap-3">
+            <Badge label="Carte Grise" checked={inspection.has_registration} />
+            <Badge label="Assurance" checked={inspection.has_insurance} />
+            <Badge label="Documents" checked={inspection.has_vehicle_documents} />
           </div>
-        </CollapsibleSection>
+        </Section>
 
         {/* Équipements */}
-        <CollapsibleSection
-          title="Équipements de Sécurité"
-          icon={Wrench}
-          color="text-orange-500"
-          expanded={expanded.equipment}
-          onToggle={() => toggleSection('equipment')}
-        >
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-            <EquipmentBadge label="Roue de secours" present={inspection.has_spare_wheel} />
-            <EquipmentBadge label="Cric" present={inspection.has_jack} />
-            <EquipmentBadge label="Triangle" present={inspection.has_warning_triangle} />
-            <EquipmentBadge label="Trousse de secours" present={inspection.has_first_aid_kit} />
-            <EquipmentBadge label="Extincteur" present={inspection.has_fire_extinguisher} />
+        <Section title="Équipements de Sécurité" icon={Package}>
+          <div className="grid grid-cols-3 gap-3">
+            <Badge label="Roue secours" checked={inspection.has_spare_wheel} />
+            <Badge label="Cric" checked={inspection.has_jack} />
+            <Badge label="Triangle" checked={inspection.has_warning_triangle} />
+            <Badge label="Trousse secours" checked={inspection.has_first_aid_kit} />
+            <Badge label="Extincteur" checked={inspection.has_fire_extinguisher} />
           </div>
-        </CollapsibleSection>
-
-        {/* Dommages */}
-        {inspection.damages && inspection.damages.length > 0 && (
-          <CollapsibleSection
-            title={`Dommages Constatés (${inspection.damages.length})`}
-            icon={AlertTriangle}
-            color="text-red-500"
-            expanded={expanded.damages}
-            onToggle={() => toggleSection('damages')}
-          >
-            <div className="space-y-3">
-              {inspection.damages.map((damage: any, idx: number) => (
-                <div key={idx} className="border-l-4 border-red-500 pl-4 py-2 bg-red-50 rounded">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="font-semibold">{damage.location}</span>
-                    <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                      damage.severity === 'minor' ? 'bg-yellow-100 text-yellow-800' :
-                      damage.severity === 'moderate' ? 'bg-orange-100 text-orange-800' :
-                      'bg-red-100 text-red-800'
-                    }`}>
-                      {damage.severity === 'minor' ? 'Mineur' : damage.severity === 'moderate' ? 'Modéré' : 'Sévère'}
-                    </span>
-                  </div>
-                  <p className="text-sm text-gray-600">{damage.description}</p>
-                </div>
-              ))}
-            </div>
-          </CollapsibleSection>
-        )}
-
-        {/* Notes */}
-        {inspection.notes && (
-          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-            <h4 className="font-semibold text-amber-900 mb-2">📝 Observations</h4>
-            <p className="text-amber-800 whitespace-pre-wrap">{inspection.notes}</p>
-          </div>
-        )}
+        </Section>
 
         {/* Photos */}
         {inspection.photos && inspection.photos.length > 0 && (
-          <CollapsibleSection
-            title={`Photographies (${inspection.photos.length})`}
-            icon={Camera}
-            color="text-green-500"
-            expanded={expanded.photos}
-            onToggle={() => toggleSection('photos')}
-          >
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {inspection.photos.map((photo: any, idx: number) => (
-                <div
-                  key={idx}
-                  className="relative group cursor-pointer"
-                  onClick={() => onOpenGallery(inspection.photos, idx)}
-                >
-                  <OptimizedImage
-                    src={photo.url}
-                    alt={photo.category}
-                    className="w-full h-32 object-cover rounded-lg"
-                  />
-                  <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 rounded-lg transition-colors flex items-center justify-center">
-                    <ZoomIn className="w-6 h-6 text-white opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </div>
-                  <p className="text-xs text-gray-500 mt-1 text-center">{photo.category}</p>
+          <Section title={`Photos (${inspection.photos.length})`} icon={ImageIcon}>
+            <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
+              {inspection.photos.map((photo: any, i: number) => (
+                <div key={i} onClick={() => onOpenPhoto(inspection.photos, i)}
+                  className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:ring-4 ring-blue-500 transition print:break-inside-avoid">
+                  <img src={photo.url || photo.photo_url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
                 </div>
               ))}
             </div>
-          </CollapsibleSection>
+          </Section>
         )}
 
         {/* Signatures */}
-        <CollapsibleSection
-          title="Signatures"
-          icon={FileSignature}
-          color="text-indigo-500"
-          expanded={expanded.signatures}
-          onToggle={() => toggleSection('signatures')}
-        >
+        <Section title="Signatures" icon={FileSignature}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <SignatureBox label="Convoyeur" signature={inspection.driver_signature} />
-            <SignatureBox label="Client" signature={inspection.client_signature} />
+            {inspection.driver_signature && (
+              <SignatureBox title="Signature Convoyeur" signature={inspection.driver_signature} />
+            )}
+            {inspection.client_signature && (
+              <SignatureBox title={title.includes('Départ') ? 'Signature Expéditeur' : 'Signature Réceptionnaire'} 
+                signature={inspection.client_signature} />
+            )}
           </div>
-        </CollapsibleSection>
+        </Section>
+
+        {/* Observations */}
+        {inspection.notes && (
+          <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 print:break-inside-avoid">
+            <h4 className="font-semibold text-amber-900 mb-2">📝 Observations</h4>
+            <p className="text-amber-800 whitespace-pre-wrap text-sm">{inspection.notes}</p>
+          </div>
+        )}
       </div>
     </div>
   );
 }
 
-// Composants helpers
-function CollapsibleSection({ title, icon: Icon, color, expanded, onToggle, children }: any) {
+function Section({ title, icon: Icon, children }: any) {
   return (
-    <div className="border border-gray-200 rounded-lg overflow-hidden">
-      <button
-        onClick={onToggle}
-        className="w-full px-4 py-3 bg-gray-50 hover:bg-gray-100 transition-colors flex items-center justify-between"
-      >
-        <div className="flex items-center gap-2">
-          <Icon className={`w-5 h-5 ${color}`} />
-          <span className="font-semibold">{title}</span>
-        </div>
-        {expanded ? <ChevronUp className="w-5 h-5" /> : <ChevronDown className="w-5 h-5" />}
-      </button>
-      {expanded && <div className="p-4">{children}</div>}
-    </div>
-  );
-}
-
-function StatBox({ label, value, icon: Icon }: any) {
-  return (
-    <div className="bg-blue-50 rounded-lg p-3">
-      <div className="flex items-center gap-2 mb-1">
-        <Icon className="w-4 h-4 text-blue-600" />
-        <p className="text-xs text-blue-600 font-medium">{label}</p>
+    <div className="print:break-inside-avoid">
+      <div className="flex items-center gap-2 mb-3 text-gray-700">
+        <Icon className="w-5 h-5" />
+        <h3 className="font-semibold">{title}</h3>
       </div>
-      <p className="font-bold text-gray-900">{value}</p>
+      {children}
     </div>
   );
 }
 
-function DocumentBadge({ label, present }: any) {
+function StatItem({ label, value }: any) {
+  return (
+    <div className="bg-gray-50 rounded-lg p-3 text-center">
+      <div className="text-xs text-gray-500 mb-1">{label}</div>
+      <div className="font-bold text-gray-900">{value}</div>
+    </div>
+  );
+}
+
+function Badge({ label, checked }: any) {
   return (
     <div className={`flex items-center gap-2 p-2 rounded-lg text-sm ${
-      present ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'
+      checked ? 'bg-green-50 text-green-700' : 'bg-gray-100 text-gray-500'
     }`}>
-      {present ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
+      {checked ? <CheckCircle className="w-4 h-4" /> : <XCircle className="w-4 h-4" />}
       <span>{label}</span>
     </div>
   );
 }
 
-function EquipmentBadge({ label, present }: any) {
+function SignatureBox({ title, signature }: any) {
   return (
-    <div className={`flex items-center gap-2 p-2 rounded-lg text-sm ${
-      present ? 'bg-green-50 text-green-700' : 'bg-gray-50 text-gray-500'
-    }`}>
-      {present ? <CheckCircle className="w-4 h-4" /> : <AlertTriangle className="w-4 h-4" />}
-      <span>{label}</span>
-    </div>
-  );
-}
-
-function SignatureBox({ label, signature }: any) {
-  return (
-    <div>
-      <p className="text-sm font-medium text-gray-700 mb-2">{label}</p>
-      <div className="border-2 border-gray-200 rounded-lg p-4 h-32 flex items-center justify-center bg-gray-50">
+    <div className="border border-gray-200 rounded-lg p-4">
+      <h4 className="text-sm font-semibold text-gray-700 mb-3">{title}</h4>
+      <div className="bg-gray-50 rounded border border-gray-200 p-2 h-32 flex items-center justify-center">
         {signature ? (
-          <img src={signature} alt={`Signature ${label}`} className="max-h-full" />
+          <img src={signature} alt={title} className="max-h-full max-w-full object-contain" />
         ) : (
-          <p className="text-gray-400 italic">Non signée</p>
+          <span className="text-gray-400 text-sm">Non signée</span>
         )}
       </div>
     </div>
