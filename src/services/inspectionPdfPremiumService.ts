@@ -689,10 +689,12 @@ async function generateInspectionPages(pdf: jsPDF, inspection: InspectionDetails
  */
 export async function generatePremiumInspectionPDF(
   report: InspectionReportComplete,
-  type: 'departure' | 'arrival' | 'complete' = 'complete'
-): Promise<{ success: boolean; message: string }> {
+  returnBlob: boolean = false
+): Promise<Blob | { success: boolean; message: string }> {
   try {
     const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+    
+    const type = report.reportType || 'complete';
     
     // Page de couverture
     generateCoverPage(pdf, report, type);
@@ -701,21 +703,27 @@ export async function generatePremiumInspectionPDF(
     const totalPages = 10; // Estimation
     
     // Pages d'inspection
-    if ((type === 'departure' || type === 'complete') && report.inspection_departure) {
-      pageNum = await generateInspectionPages(pdf, report.inspection_departure, 'departure', report, pageNum, totalPages);
+    if ((type === 'departure' || type === 'complete') && report.departure) {
+      pageNum = await generateInspectionPages(pdf, report.departure, 'departure', report, pageNum, totalPages);
     }
     
-    if ((type === 'arrival' || type === 'complete') && report.inspection_arrival) {
-      pageNum = await generateInspectionPages(pdf, report.inspection_arrival, 'arrival', report, pageNum, totalPages);
+    if ((type === 'arrival' || type === 'complete') && report.arrival) {
+      pageNum = await generateInspectionPages(pdf, report.arrival, 'arrival', report, pageNum, totalPages);
     }
     
-    // Télécharger
-    const filename = `Inspection_${type}_${report.mission.reference}_${Date.now()}.pdf`;
-    pdf.save(filename);
-    
-    return { success: true, message: 'PDF généré avec succès !' };
+    // Retourner Blob ou télécharger
+    if (returnBlob) {
+      return pdf.output('blob');
+    } else {
+      const filename = `Inspection_${type}_${report.mission?.reference || 'rapport'}_${Date.now()}.pdf`;
+      pdf.save(filename);
+      return { success: true, message: 'PDF généré avec succès !' };
+    }
   } catch (error: any) {
     console.error('❌ Erreur génération PDF:', error);
+    if (returnBlob) {
+      throw error;
+    }
     return { success: false, message: error.message || 'Erreur inconnue' };
   }
 }

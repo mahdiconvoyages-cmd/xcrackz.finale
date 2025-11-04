@@ -78,9 +78,10 @@ export default function PublicInspectionReportShared() {
 
   const downloadAllPhotos = async () => {
     try {
-      toast.info('Préparation du téléchargement...');
+      toast.info('Préparation du téléchargement complet...');
       const zip = new JSZip();
       
+      // Ajouter les photos
       const addPhotosToZip = async (photos: any[], folderName: string) => {
         if (!photos?.length) return;
         const folder = zip.folder(folderName);
@@ -97,10 +98,32 @@ export default function PublicInspectionReportShared() {
       await addPhotosToZip(reportData.inspection_departure?.photos, 'Photos_Depart');
       await addPhotosToZip(reportData.inspection_arrival?.photos, 'Photos_Arrivee');
       
+      // Générer et ajouter le PDF
+      try {
+        toast.info('Génération du PDF...');
+        const { generatePremiumInspectionPDF } = await import('../services/inspectionPdfPremiumService');
+        
+        // Générer le PDF en blob
+        const pdfBlob = await generatePremiumInspectionPDF({
+          mission: reportData.mission_data,
+          departure: reportData.inspection_departure,
+          arrival: reportData.inspection_arrival,
+          reportType: reportData.report_type
+        }, true); // true = retourner le blob au lieu de télécharger
+        
+        if (pdfBlob) {
+          zip.file(`Rapport_Inspection_${reportData.mission_data?.reference || 'rapport'}.pdf`, pdfBlob);
+        }
+      } catch (pdfError) {
+        console.error('Erreur génération PDF:', pdfError);
+        // Continuer même si le PDF échoue
+      }
+      
       const content = await zip.generateAsync({ type: 'blob' });
-      saveAs(content, `Inspection_${reportData.mission_data?.reference || 'rapport'}.zip`);
-      toast.success('Photos téléchargées !');
+      saveAs(content, `Inspection_Complete_${reportData.mission_data?.reference || 'rapport'}.zip`);
+      toast.success('Archive complète téléchargée !');
     } catch (error) {
+      console.error('Erreur téléchargement:', error);
       toast.error('Erreur lors du téléchargement');
     }
   };
