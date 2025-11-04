@@ -37,19 +37,32 @@ export default function PublicInspectionReportShared() {
     setError('');
     
     try {
+      console.log('🔍 Chargement rapport avec token:', token);
+      
       const { data, error: rpcError } = await supabase.rpc('get_inspection_report_by_token', {
         p_token: token
       });
 
-      if (rpcError) throw rpcError;
+      console.log('📥 Réponse RPC:', { data, error: rpcError });
 
-      if (!data || data.length === 0) {
+      if (rpcError) {
+        console.error('❌ Erreur RPC:', rpcError);
+        throw rpcError;
+      }
+
+      if (!data) {
         throw new Error('Rapport non trouvé');
       }
 
-      setReportData(data[0]);
+      // La fonction RPC retourne directement un JSON, pas un tableau
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      console.log('✅ Données rapport:', data);
+      setReportData(data);
     } catch (err: any) {
-      console.error('Erreur chargement rapport:', err);
+      console.error('❌ Erreur chargement rapport:', err);
       setError(err.message || 'Erreur de chargement');
     } finally {
       setLoading(false);
