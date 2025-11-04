@@ -39,21 +39,41 @@ export default function ShareInspectionModal({
     setLoading(true);
     
     try {
+      // Essayer d'abord getSession, puis getUser en fallback
+      let userId: string | null = null;
+      
       const { data: { session } } = await supabase.auth.getSession();
-      if (!session?.user) {
-        console.error('❌ Pas de session active');
-        throw new Error('Non authentifié - veuillez vous reconnecter');
+      if (session?.user) {
+        userId = session.user.id;
+      } else {
+        // Fallback: essayer getUser (fonctionne avec service_role)
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          userId = user.id;
+        } else {
+          // Dernier recours: utiliser l'ID stocké localement
+          const storedUser = localStorage.getItem('xcrackz-user');
+          if (storedUser) {
+            const parsed = JSON.parse(storedUser);
+            userId = parsed.id;
+          }
+        }
+      }
+
+      if (!userId) {
+        console.error('❌ Aucun utilisateur trouvé');
+        throw new Error('Veuillez vous reconnecter');
       }
 
       console.log('🔗 Génération lien partage...', { 
         missionId, 
         reportType,
-        userId: session.user.id 
+        userId 
       });
 
       const { data, error } = await supabase.rpc('create_or_get_inspection_share', {
         p_mission_id: missionId,
-        p_user_id: session.user.id,
+        p_user_id: userId,
         p_report_type: reportType
       });
 
