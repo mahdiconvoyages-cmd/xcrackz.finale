@@ -344,7 +344,7 @@ const DashboardPage: React.FC = () => {
             </button>
 
             <button
-              onClick={() => navigate('/covoiturage')}
+              onClick={() => navigate('/covoiturage/recherche')}
               className="flex items-center justify-center space-x-2 bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 transition"
             >
               <Search className="w-5 h-5" />
@@ -352,7 +352,7 @@ const DashboardPage: React.FC = () => {
             </button>
 
             <button
-              onClick={() => navigate('/messages')}
+              onClick={() => navigate('/covoiturage/messages')}
               className="flex items-center justify-center space-x-2 bg-gray-100 text-gray-700 px-6 py-3 rounded-lg hover:bg-gray-200 transition relative"
             >
               <MessageCircle className="w-5 h-5" />
