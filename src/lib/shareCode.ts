@@ -118,7 +118,7 @@ Pour accepter:
 3. Cliquez sur "Rejoindre une mission"
 4. Entrez le code: ${code}
 
-Téléchargez l'app: https://expo.dev/artifacts/eas/3XxXbmZ2j5R2uGyMg7AmNG.apk`;
+Téléchargez l'app: https://expo.dev/artifacts/eas/8ef092ab-d881-437a-8b12-1f1ce6c35706.apk`;
 }
 
 /**
