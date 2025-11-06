@@ -29,6 +29,7 @@ import RideDetailsPage from './pages/RideDetailsPage';
 import PublishRidePage from './pages/PublishRidePage';
 import DriverProfilePage from './pages/DriverProfilePage';
 import DashboardProPage from './pages/DashboardProPage';
+import CarpoolingMapPage from './pages/CarpoolingMapPage';
 import QuoteGenerator from './pages/QuoteGenerator';
 import CRM from './pages/CRM';
 import Settings from './pages/Settings';
@@ -288,6 +289,17 @@ function AppContent() {
               <ProtectedRoute>
                 <Layout>
                   <MyRidesDashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/covoiturage/carte"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <CarpoolingMapPage />
                 </Layout>
               </ProtectedRoute>
             }
