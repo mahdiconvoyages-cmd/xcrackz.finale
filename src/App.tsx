@@ -33,6 +33,7 @@ import CarpoolingMapPage from './pages/CarpoolingMapPage';
 import AdvancedSearchPage from './pages/AdvancedSearchPage';
 import MessagesPage from './pages/MessagesPage';
 import PublishRideSimplePage from './pages/PublishRideSimplePage';
+import RideDetailsSimplePage from './pages/RideDetailsSimplePage';
 import QuoteGenerator from './pages/QuoteGenerator';
 import CRM from './pages/CRM';
 import Settings from './pages/Settings';
@@ -277,9 +278,7 @@ function AppContent() {
             path="/covoiturage/trajet/:rideId"
             element={
               <ProtectedRoute>
-                <Layout>
-                  <RideDetailsPage />
-                </Layout>
+                <RideDetailsSimplePage />
               </ProtectedRoute>
             }
           />
