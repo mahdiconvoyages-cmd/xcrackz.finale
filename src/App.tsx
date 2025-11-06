@@ -32,6 +32,7 @@ import DashboardProPage from './pages/DashboardProPage';
 import CarpoolingMapPage from './pages/CarpoolingMapPage';
 import AdvancedSearchPage from './pages/AdvancedSearchPage';
 import MessagesPage from './pages/MessagesPage';
+import PublishRideSimplePage from './pages/PublishRideSimplePage';
 import QuoteGenerator from './pages/QuoteGenerator';
 import CRM from './pages/CRM';
 import Settings from './pages/Settings';
@@ -267,9 +268,7 @@ function AppContent() {
             path="/covoiturage/publier"
             element={
               <ProtectedRoute>
-                <Layout>
-                  <PublishRidePage />
-                </Layout>
+                <PublishRideSimplePage />
               </ProtectedRoute>
             }
           />
