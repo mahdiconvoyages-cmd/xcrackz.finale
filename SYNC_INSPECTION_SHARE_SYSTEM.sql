@@ -1,49 +1,11 @@
--- Table pour stocker les liens de partage de rapports d'inspection
-CREATE TABLE IF NOT EXISTS public.inspection_report_shares (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  mission_id UUID NOT NULL REFERENCES missions(id) ON DELETE CASCADE,
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  share_token TEXT NOT NULL UNIQUE,
-  report_type TEXT NOT NULL CHECK (report_type IN ('departure', 'arrival', 'complete')),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  expires_at TIMESTAMPTZ,
-  access_count INTEGER DEFAULT 0,
-  last_accessed_at TIMESTAMPTZ,
-  is_active BOOLEAN DEFAULT TRUE,
-  
-  CONSTRAINT unique_mission_type UNIQUE (mission_id, report_type)
-);
+-- ================================================
+-- SYNC BACKEND PARTAGE RAPPORT D'INSPECTION (Supabase)
+-- Sûr à exécuter plusieurs fois (idempotent)
+-- ================================================
 
--- Index pour performance
-CREATE INDEX IF NOT EXISTS idx_inspection_report_shares_token ON public.inspection_report_shares(share_token);
-CREATE INDEX IF NOT EXISTS idx_inspection_report_shares_mission ON public.inspection_report_shares(mission_id);
-CREATE INDEX IF NOT EXISTS idx_inspection_report_shares_user ON public.inspection_report_shares(user_id);
-
--- RLS Policies
-ALTER TABLE public.inspection_report_shares ENABLE ROW LEVEL SECURITY;
-
--- Les utilisateurs peuvent voir et créer leurs propres partages
-CREATE POLICY "Users can view own shares"
-  ON public.inspection_report_shares
-  FOR SELECT
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can create own shares"
-  ON public.inspection_report_shares
-  FOR INSERT
-  WITH CHECK (auth.uid() = user_id);
-
-CREATE POLICY "Users can update own shares"
-  ON public.inspection_report_shares
-  FOR UPDATE
-  USING (auth.uid() = user_id);
-
-CREATE POLICY "Users can delete own shares"
-  ON public.inspection_report_shares
-  FOR DELETE
-  USING (auth.uid() = user_id);
-
--- Fonction pour créer ou obtenir un lien de partage
+-- 1) Assurer l'URL de partage canonique (www.xcrackz.com)
+--    Si une version existante retourne un autre type, il faut la supprimer d'abord
+DROP FUNCTION IF EXISTS create_or_get_inspection_share(UUID, UUID, TEXT);
 CREATE OR REPLACE FUNCTION create_or_get_inspection_share(
   p_mission_id UUID,
   p_user_id UUID,
@@ -58,14 +20,13 @@ DECLARE
   v_token TEXT;
   v_existing_record RECORD;
 BEGIN
-  -- Vérifier si un partage existe déjà
   SELECT * INTO v_existing_record
   FROM public.inspection_report_shares
   WHERE mission_id = p_mission_id
     AND report_type = p_report_type
-    AND is_active = TRUE;
+    AND is_active = TRUE
+  LIMIT 1;
 
-  -- Si existe, retourner le lien existant
   IF FOUND THEN
     RETURN QUERY SELECT 
       'https://www.xcrackz.com/rapport-inspection/' || v_existing_record.share_token AS share_url,
@@ -74,24 +35,12 @@ BEGIN
     RETURN;
   END IF;
 
-  -- Sinon, créer un nouveau token
   v_token := encode(gen_random_bytes(16), 'base64');
   v_token := replace(replace(replace(v_token, '/', ''), '+', ''), '=', '');
 
-  -- Insérer le nouveau partage
-  INSERT INTO public.inspection_report_shares (
-    mission_id,
-    user_id,
-    share_token,
-    report_type
-  ) VALUES (
-    p_mission_id,
-    p_user_id,
-    v_token,
-    p_report_type
-  );
+  INSERT INTO public.inspection_report_shares (mission_id, user_id, share_token, report_type)
+  VALUES (p_mission_id, p_user_id, v_token, p_report_type);
 
-  -- Retourner le lien
   RETURN QUERY SELECT 
     'https://www.xcrackz.com/rapport-inspection/' || v_token AS share_url,
     v_token,
@@ -99,7 +48,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Fonction pour récupérer un rapport via token (accès public) - VERSION JSONB et tables v2
+GRANT EXECUTE ON FUNCTION create_or_get_inspection_share(UUID, UUID, TEXT) TO authenticated;
+
+-- 2) Fonction publique: JSONB + inspection_photos_v2 + mileage_km
+DROP FUNCTION IF EXISTS get_inspection_report_by_token(TEXT);
 CREATE OR REPLACE FUNCTION get_inspection_report_by_token(
   p_token TEXT
 )
@@ -108,24 +60,22 @@ DECLARE
   v_share_record RECORD;
   v_result JSONB;
 BEGIN
-  -- Vérifier que le partage existe et est actif
   SELECT * INTO v_share_record
   FROM public.inspection_report_shares
   WHERE share_token = p_token
     AND is_active = TRUE
-    AND (expires_at IS NULL OR expires_at > NOW());
+    AND (expires_at IS NULL OR expires_at > NOW())
+  LIMIT 1;
 
   IF NOT FOUND THEN
     RETURN jsonb_build_object('error', 'Token invalide ou expiré');
   END IF;
 
-  -- Incrémenter le compteur d'accès
   UPDATE public.inspection_report_shares
   SET access_count = access_count + 1,
       last_accessed_at = NOW()
   WHERE share_token = p_token;
 
-  -- Construire les données du rapport (JSONB)
   SELECT jsonb_build_object(
     'mission_data', jsonb_build_object(
       'id', m.id,
@@ -137,6 +87,7 @@ BEGIN
       'pickup_address', m.pickup_address,
       'delivery_address', m.delivery_address,
       'vehicle_type', m.vehicle_type,
+      -- Le nom du convoyeur est stocké sur les inspections, on le remonte ici si disponible
       'driver_name', COALESCE(
         (
           SELECT vi.driver_name
@@ -233,6 +184,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
--- Permissions
-GRANT EXECUTE ON FUNCTION create_or_get_inspection_share(UUID, UUID, TEXT) TO authenticated;
 GRANT EXECUTE ON FUNCTION get_inspection_report_by_token(TEXT) TO anon, authenticated;
+
+-- 3) Optionnel (diagnostic rapide):
+-- SELECT get_inspection_report_by_token('<collez_un_token>');

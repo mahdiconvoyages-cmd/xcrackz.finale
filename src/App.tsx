@@ -23,6 +23,10 @@ import Contacts from './pages/Contacts_PREMIUM';
 import Clients from './pages/Clients';
 import Billing from './pages/Billing';
 import Covoiturage from './pages/Covoiturage';
+import CarpoolingPage from './pages/CarpoolingPage';
+import MyRidesDashboard from './pages/MyRidesDashboard';
+import RideDetailsPage from './pages/RideDetailsPage';
+import PublishRidePage from './pages/PublishRidePage';
 import QuoteGenerator from './pages/QuoteGenerator';
 import CRM from './pages/CRM';
 import Settings from './pages/Settings';
@@ -245,6 +249,50 @@ function AppContent() {
 
           <Route
             path="/covoiturage"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <CarpoolingPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/covoiturage/publier"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <PublishRidePage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/covoiturage/trajet/:rideId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <RideDetailsPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/covoiturage/mes-trajets"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <MyRidesDashboard />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/covoiturage-old"
             element={
               <ProtectedRoute>
                 <Layout>
