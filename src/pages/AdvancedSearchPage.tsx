@@ -13,7 +13,11 @@ import {
   TrendingUp,
   Clock,
   Bookmark,
-  History
+  History,
+  Plus,
+  LayoutDashboard,
+  MessageCircle,
+  Map
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -310,10 +314,10 @@ export default function AdvancedSearchPage() {
       {/* Header */}
       <div className="bg-white border-b sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between mb-4">
             <h1 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
               <Search className="w-7 h-7 text-blue-600" />
-              Recherche avancée
+              Recherche de trajets
             </h1>
             <button
               onClick={() => setShowFilters(!showFilters)}
@@ -321,6 +325,38 @@ export default function AdvancedSearchPage() {
             >
               <Filter className="w-5 h-5" />
               {showFilters ? 'Masquer' : 'Afficher'} filtres
+            </button>
+          </div>
+
+          {/* Boutons d'action rapide */}
+          <div className="flex gap-3 overflow-x-auto pb-2">
+            <button
+              onClick={() => navigate('/covoiturage/publier')}
+              className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition whitespace-nowrap"
+            >
+              <Plus className="w-4 h-4" />
+              Publier un trajet
+            </button>
+            <button
+              onClick={() => navigate('/covoiturage/dashboard')}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition whitespace-nowrap"
+            >
+              <LayoutDashboard className="w-4 h-4" />
+              Mes trajets
+            </button>
+            <button
+              onClick={() => navigate('/covoiturage/carte')}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition whitespace-nowrap"
+            >
+              <Map className="w-4 h-4" />
+              Carte
+            </button>
+            <button
+              onClick={() => navigate('/covoiturage/messages')}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition whitespace-nowrap"
+            >
+              <MessageCircle className="w-4 h-4" />
+              Messages
             </button>
           </div>
         </div>
