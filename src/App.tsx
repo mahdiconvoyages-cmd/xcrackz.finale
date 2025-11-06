@@ -34,6 +34,7 @@ import AdvancedSearchPage from './pages/AdvancedSearchPage';
 import MessagesPage from './pages/MessagesPage';
 import PublishRideSimplePage from './pages/PublishRideSimplePage';
 import RideDetailsSimplePage from './pages/RideDetailsSimplePage';
+import BookingRequestsPage from './pages/BookingRequestsPage';
 import QuoteGenerator from './pages/QuoteGenerator';
 import CRM from './pages/CRM';
 import Settings from './pages/Settings';
@@ -321,6 +322,15 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <MessagesPage />
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/covoiturage/demandes"
+            element={
+              <ProtectedRoute>
+                <BookingRequestsPage />
               </ProtectedRoute>
             }
           />

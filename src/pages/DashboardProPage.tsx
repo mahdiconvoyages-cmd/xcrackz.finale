@@ -45,6 +45,7 @@ interface Booking {
     arrival_city: string;
     departure_date: string;
     departure_time: string;
+    driver_id: string;
   };
   driver: {
     full_name: string;
@@ -320,13 +321,26 @@ const DashboardPage: React.FC = () => {
         {/* Quick Actions */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-8">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Actions rapides</h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <button
               onClick={() => navigate('/covoiturage/publier')}
               className="flex items-center justify-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition"
             >
               <Plus className="w-5 h-5" />
               <span>Publier un trajet</span>
+            </button>
+
+            <button
+              onClick={() => navigate('/covoiturage/demandes')}
+              className="flex items-center justify-center space-x-2 bg-orange-600 text-white px-6 py-3 rounded-lg hover:bg-orange-700 transition relative"
+            >
+              <Clock className="w-5 h-5" />
+              <span>Demandes</span>
+              {stats.pending_requests > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-500 text-white text-xs font-bold px-2 py-1 rounded-full">
+                  {stats.pending_requests}
+                </span>
+              )}
             </button>
 
             <button
