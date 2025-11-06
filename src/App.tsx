@@ -255,6 +255,17 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Layout>
+                  <DashboardProPage />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/covoiturage/recherche"
+            element={
+              <ProtectedRoute>
+                <Layout>
                   <AdvancedSearchPage />
                 </Layout>
               </ProtectedRoute>
@@ -296,17 +307,6 @@ function AppContent() {
               <ProtectedRoute>
                 <Layout>
                   <CarpoolingMapPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/covoiturage/recherche"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <AdvancedSearchPage />
                 </Layout>
               </ProtectedRoute>
             }
