@@ -31,6 +31,7 @@ import DriverProfilePage from './pages/DriverProfilePage';
 import DashboardProPage from './pages/DashboardProPage';
 import CarpoolingMapPage from './pages/CarpoolingMapPage';
 import AdvancedSearchPage from './pages/AdvancedSearchPage';
+import MessagesPage from './pages/MessagesPage';
 import QuoteGenerator from './pages/QuoteGenerator';
 import CRM from './pages/CRM';
 import Settings from './pages/Settings';
@@ -313,6 +314,15 @@ function AppContent() {
                 <Layout>
                   <AdvancedSearchPage />
                 </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/covoiturage/messages"
+            element={
+              <ProtectedRoute>
+                <MessagesPage />
               </ProtectedRoute>
             }
           />
