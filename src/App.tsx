@@ -22,11 +22,6 @@ import MissionView from './pages/MissionView';
 import Contacts from './pages/Contacts_PREMIUM';
 import Clients from './pages/Clients';
 import Billing from './pages/Billing';
-import Covoiturage from './pages/Covoiturage';
-import CarpoolingPage from './pages/CarpoolingPage';
-import MyRidesDashboard from './pages/MyRidesDashboard';
-import RideDetailsPage from './pages/RideDetailsPage';
-import PublishRidePage from './pages/PublishRidePage';
 import DriverProfilePage from './pages/DriverProfilePage';
 import DashboardProPage from './pages/DashboardProPage';
 import CarpoolingMapPage from './pages/CarpoolingMapPage';
@@ -260,7 +255,7 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <CarpoolingPage />
+                  <AdvancedSearchPage />
                 </Layout>
               </ProtectedRoute>
             }
@@ -289,7 +284,7 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <MyRidesDashboard />
+                  <DashboardProPage />
                 </Layout>
               </ProtectedRoute>
             }
@@ -352,17 +347,6 @@ function AppContent() {
               <ProtectedRoute>
                 <Layout>
                   <DriverProfilePage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/covoiturage-old"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Covoiturage />
                 </Layout>
               </ProtectedRoute>
             }
