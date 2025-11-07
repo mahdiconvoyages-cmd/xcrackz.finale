@@ -599,12 +599,43 @@ export default function InspectionDepartureNew({ route, navigation }: any) {
       // Effacer la progression sauvegardée
       await clearSavedProgress();
 
-      Alert.alert('✅ Succès', `Inspection ${inspectionType === 'departure' ? 'départ' : 'arrivée'} enregistrée !\n${uploadedCount} photos uploadées${failedCount > 0 ? `\n⚠️ ${failedCount} photo(s) non uploadée(s)` : ''}`, [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      // Si inspection de départ, proposer d'envoyer le rapport à l'expéditeur
+      if (inspectionType === 'departure') {
+        Alert.alert(
+          '✅ Inspection enregistrée',
+          `${uploadedCount} photos uploadées${failedCount > 0 ? `\n⚠️ ${failedCount} photo(s) non uploadée(s)` : ''}\n\n📧 Voulez-vous envoyer le rapport de départ à l'expéditeur ?`,
+          [
+            {
+              text: 'Plus tard',
+              style: 'cancel',
+              onPress: () => navigation.goBack(),
+            },
+            {
+              text: 'Envoyer rapport',
+              onPress: () => {
+                // Naviguer vers l'écran de partage avec l'ID de l'inspection
+                navigation.navigate('InspectionSendReport' as never, { 
+                  inspectionId: createdInspection.id,
+                  inspectionType: 'departure',
+                  missionId: missionId
+                } as never);
+              },
+            },
+          ]
+        );
+      } else {
+        // Inspection arrivée: message simple
+        Alert.alert(
+          '✅ Succès', 
+          `Inspection arrivée enregistrée !\n${uploadedCount} photos uploadées${failedCount > 0 ? `\n⚠️ ${failedCount} photo(s) non uploadée(s)` : ''}`, 
+          [
+            {
+              text: 'OK',
+              onPress: () => navigation.goBack(),
+            },
+          ]
+        );
+      }
     } catch (error: any) {
       console.error('❌ Erreur sauvegarde:', error);
       Alert.alert('Erreur', error.message || "Impossible de sauvegarder l'inspection");
