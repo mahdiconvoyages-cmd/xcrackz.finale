@@ -35,9 +35,24 @@ export default function ShareInspectionModal({ visible, onClose, missionId, repo
         p_mission_id: missionId, p_report_type: reportType, p_user_id: userId
       });
 
-      if (error) throw error;
-      if (data?.share_token) setShareLink(`https://www.xcrackz.com/rapport-inspection/${data.share_token}`);
-      else throw new Error('Token non g�n�r�');
+      if (error) {
+        console.error('❌ Erreur RPC create_or_get_inspection_share:', error);
+        throw error;
+      }
+
+      console.log('📊 Réponse RPC:', data);
+
+      // Le RPC retourne un tableau, prendre le premier élément
+      const token = Array.isArray(data) ? data[0]?.share_token : data?.share_token;
+      
+      if (token) {
+        const link = `https://www.xcrackz.com/rapport-inspection/${token}`;
+        console.log('✅ Lien généré:', link);
+        setShareLink(link);
+      } else {
+        console.error('❌ Pas de token dans la réponse:', data);
+        throw new Error('Token non généré');
+      }
     } catch (err: any) {
       Alert.alert('Erreur', err.message);
     } finally {
@@ -47,7 +62,7 @@ export default function ShareInspectionModal({ visible, onClose, missionId, repo
 
   const copyToClipboard = async () => {
     await Clipboard.setStringAsync(shareLink);
-    Alert.alert('', 'Lien copi� !');
+    Alert.alert('', 'Lien copi� !');
   };
 
   const shareNative = async () => {
