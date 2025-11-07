@@ -77,11 +77,11 @@ export default function MissionsScreen() {
       setMissions(createdData);
 
       // Charger missions assignées directement à l'user
-      // Utilise le champ missions.assigned_user_id (référence auth.users)
+      // Utilise le champ missions.assigned_to_user_id (référence auth.users)
       const { data: assignedData, error: assignedError } = await supabase
         .from('missions')
         .select('*')
-        .eq('assigned_user_id', userId)
+        .eq('assigned_to_user_id', userId)
         .order('created_at', { ascending: false });
 
       if (assignedError) {

@@ -735,8 +735,15 @@ export async function generateInspectionPDFPro(
       doc.setFont('helvetica', 'bold');
       doc.text('Client', clientX, currentY);
       
+      // Nom du signataire AU-DESSUS de la signature
+      if (inspection.client_name) {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.text(cleanTextForPDF(inspection.client_name), clientX, currentY + 5);
+      }
+      
       doc.setDrawColor(200, 200, 200);
-      doc.rect(clientX, currentY + 5, sigWidth, sigHeight);
+      doc.rect(clientX, currentY + 8, sigWidth, sigHeight);
       
       const sigBase64 = inspection.client_signature.startsWith('data:')
         ? inspection.client_signature
@@ -748,7 +755,7 @@ export async function generateInspectionPDFPro(
             sigBase64,
             'PNG',
             clientX + 5,
-            currentY + 10,
+            currentY + 13,
             sigWidth - 10,
             sigHeight - 10,
             'signature-client',
@@ -757,14 +764,6 @@ export async function generateInspectionPDFPro(
         } catch (error) {
           console.error('Erreur signature client:', error);
         }
-      }
-
-      if (inspection.client_name) {
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.text(cleanTextForPDF(inspection.client_name), clientX + sigWidth / 2, currentY + sigHeight + 10, {
-          align: 'center'
-        });
       }
     }
 
@@ -776,8 +775,15 @@ export async function generateInspectionPDFPro(
       doc.setFont('helvetica', 'bold');
       doc.text('Convoyeur', driverX, currentY);
       
+      // Nom du signataire AU-DESSUS de la signature
+      if (inspection.driver_name) {
+        doc.setFontSize(9);
+        doc.setFont('helvetica', 'italic');
+        doc.text(cleanTextForPDF(inspection.driver_name), driverX, currentY + 5);
+      }
+      
       doc.setDrawColor(200, 200, 200);
-      doc.rect(driverX, currentY + 5, sigWidth, sigHeight);
+      doc.rect(driverX, currentY + 8, sigWidth, sigHeight);
       
       const sigBase64 = inspection.driver_signature.startsWith('data:')
         ? inspection.driver_signature
@@ -789,7 +795,7 @@ export async function generateInspectionPDFPro(
             sigBase64,
             'PNG',
             driverX + 5,
-            currentY + 10,
+            currentY + 13,
             sigWidth - 10,
             sigHeight - 10,
             'signature-driver',
@@ -798,14 +804,6 @@ export async function generateInspectionPDFPro(
         } catch (error) {
           console.error('Erreur signature convoyeur:', error);
         }
-      }
-
-      if (inspection.driver_name) {
-        doc.setFontSize(8);
-        doc.setFont('helvetica', 'normal');
-        doc.text(cleanTextForPDF(inspection.driver_name), driverX + sigWidth / 2, currentY + sigHeight + 10, {
-          align: 'center'
-        });
       }
     }
 
@@ -818,7 +816,7 @@ export async function generateInspectionPDFPro(
       doc.text('Inspecteur', inspectorX, currentY);
       
       doc.setDrawColor(200, 200, 200);
-      doc.rect(inspectorX, currentY + 5, sigWidth, sigHeight);
+      doc.rect(inspectorX, currentY + 8, sigWidth, sigHeight);
       
       const sigBase64 = inspection.inspector_signature.startsWith('data:')
         ? inspection.inspector_signature
@@ -830,7 +828,7 @@ export async function generateInspectionPDFPro(
             sigBase64,
             'PNG',
             inspectorX + 5,
-            currentY + 10,
+            currentY + 13,
             sigWidth - 10,
             sigHeight - 10,
             'signature-inspector',

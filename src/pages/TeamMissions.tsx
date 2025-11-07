@@ -38,7 +38,7 @@ interface Mission {
   user_id?: string;
   archived?: boolean;
   share_code?: string;
-  assigned_user_id?: string;
+  assigned_to_user_id?: string;
 }
 
 interface Contact {
