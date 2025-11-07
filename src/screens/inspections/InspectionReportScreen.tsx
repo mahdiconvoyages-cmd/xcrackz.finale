@@ -73,39 +73,43 @@ export default function InspectionReportScreen({ navigation }: any) {
 
   useEffect(() => {
     loadInspections();
-    setupRealtimeSync();
   }, [filter]);
 
-  const setupRealtimeSync = () => {
+  // Realtime sync séparé avec cleanup
+  useEffect(() => {
     if (!user) return;
 
-    // Synchronisation temps réel (écoute sans filtre, comme le web)
+    console.log('🔄 Setup realtime pour rapports inspection...');
+
+    // Synchronisation temps réel
     const channel = supabase
-      .channel('inspection_changes')
+      .channel('inspection_reports_changes')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'vehicle_inspections' },
         (payload) => {
-          console.log('📡 Inspection sync (mobile):', payload);
+          console.log('📡 Inspection modifiée (realtime):', payload.eventType);
           loadInspections();
         }
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'inspection_photos' },
+        { event: '*', schema: 'public', table: 'inspection_photos_v2' },
         (payload) => {
-          console.log('� Photo sync (mobile):', payload);
+          console.log('📸 Photo ajoutée (realtime):', payload.eventType);
           loadInspections();
         }
       )
       .subscribe((status) => {
-        if (status === 'SUBSCRIBED') console.log('✅ Realtime mobile subscription active');
+        console.log('📡 Realtime rapports inspection status:', status);
       });
 
+    // Cleanup au démontage
     return () => {
-      channel.unsubscribe();
+      console.log('🔌 Unsubscribe realtime rapports');
+      supabase.removeChannel(channel);
     };
-  };
+  }, [user]);
 
   const loadInspections = async () => {
     if (!user) return;
