@@ -22,6 +22,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import SignaturePad from '../../components/inspection/SignaturePad';
 import PhotoIndicator from '../../components/inspection/PhotoIndicator';
+import ShareInspectionModal from '../../components/ShareInspectionModal';
 
 interface PhotoData {
   type: string;
@@ -95,6 +96,7 @@ export default function InspectionDepartureNew({ route, navigation }: any) {
   const [isSigningActive, setIsSigningActive] = useState(false);
   const [isMounted, setIsMounted] = useState(true);
   const saveTimeoutRef = React.useRef<NodeJS.Timeout | null>(null);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
     setIsMounted(true);
@@ -599,11 +601,11 @@ export default function InspectionDepartureNew({ route, navigation }: any) {
       // Effacer la progression sauvegardée
       await clearSavedProgress();
 
-      // Si inspection de départ, proposer d'envoyer le rapport à l'expéditeur
+      // Si inspection de départ, proposer de générer un lien de partage
       if (inspectionType === 'departure') {
         Alert.alert(
           '✅ Inspection enregistrée',
-          `${uploadedCount} photos uploadées${failedCount > 0 ? `\n⚠️ ${failedCount} photo(s) non uploadée(s)` : ''}\n\n📧 Voulez-vous envoyer le rapport de départ à l'expéditeur ?`,
+          `${uploadedCount} photos uploadées${failedCount > 0 ? `\n⚠️ ${failedCount} photo(s) non uploadée(s)` : ''}\n\n� Voulez-vous générer un lien de partage pour l'expéditeur ?`,
           [
             {
               text: 'Plus tard',
@@ -611,15 +613,8 @@ export default function InspectionDepartureNew({ route, navigation }: any) {
               onPress: () => navigation.goBack(),
             },
             {
-              text: 'Envoyer rapport',
-              onPress: () => {
-                // Naviguer vers l'écran de partage avec l'ID de l'inspection
-                navigation.navigate('InspectionSendReport' as never, { 
-                  inspectionId: createdInspection.id,
-                  inspectionType: 'departure',
-                  missionId: missionId
-                } as never);
-              },
+              text: 'Générer le lien',
+              onPress: () => setShowShareModal(true),
             },
           ]
         );
@@ -1183,6 +1178,19 @@ export default function InspectionDepartureNew({ route, navigation }: any) {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Modal de partage du rapport de départ */}
+      {showShareModal && (
+        <ShareInspectionModal
+          visible={showShareModal}
+          onClose={() => {
+            setShowShareModal(false);
+            navigation.goBack();
+          }}
+          missionId={missionId}
+          reportType="departure"
+        />
+      )}
     </SafeAreaView>
   );
 }
