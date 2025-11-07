@@ -28,6 +28,49 @@ export default function MissionViewScreen({ route, navigation }: any) {
     loadMissionData();
   }, []);
 
+  // Realtime sync pour cette mission
+  useEffect(() => {
+    if (!user || !missionId) return;
+
+    console.log('🔄 Setup realtime pour mission:', missionId);
+
+    const channel = supabase
+      .channel(`mission_${missionId}_changes`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'missions', filter: `id=eq.${missionId}` },
+        (payload) => {
+          console.log('📡 Mission modifiée (realtime):', payload.eventType);
+          loadMissionData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'vehicle_inspections', filter: `mission_id=eq.${missionId}` },
+        (payload) => {
+          console.log('🔍 Inspection modifiée (realtime):', payload.eventType);
+          loadMissionData();
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'inspection_photos_v2', filter: `mission_id=eq.${missionId}` },
+        (payload) => {
+          console.log('📸 Photo ajoutée (realtime):', payload.eventType);
+          loadMissionData();
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Realtime mission details status:', status);
+      });
+
+    // Cleanup
+    return () => {
+      console.log('🔌 Unsubscribe realtime mission details');
+      supabase.removeChannel(channel);
+    };
+  }, [user, missionId]);
+
   const loadMissionData = async () => {
     try {
       // Charger la mission
