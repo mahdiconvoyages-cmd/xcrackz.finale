@@ -524,7 +524,15 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
       }
 
       // 5. Mettre à jour la mission
-      await supabase.from('missions').update({ arrival_inspection_completed: true }).eq('id', missionId);
+      await supabase
+        .from('missions')
+        .update({ 
+          arrival_inspection_completed: true,
+          status: 'completed' // Mission terminée après inspection d'arrivée
+        })
+        .eq('id', missionId);
+
+      console.log(`✅ Mission ${missionId} status mis à jour: completed`);
 
       Alert.alert('✅ Succès', `Inspection d'arrivée complétée !\n${photos.length} photos\n${scannedDocuments.length} documents\n${expenses.length} frais`, [
         {

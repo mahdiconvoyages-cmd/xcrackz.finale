@@ -581,7 +581,20 @@ export default function InspectionDepartureNew({ route, navigation }: any) {
       const updateField =
         inspectionType === 'departure' ? 'departure_inspection_completed' : 'arrival_inspection_completed';
 
-      await supabase.from('missions').update({ [updateField]: true }).eq('id', missionId);
+      // Mettre à jour le statut de la mission selon l'inspection
+      const missionUpdate: any = { [updateField]: true };
+      
+      if (inspectionType === 'departure') {
+        // Inspection de départ → Mission passe en "in_progress"
+        missionUpdate.status = 'in_progress';
+      } else if (inspectionType === 'arrival') {
+        // Inspection d'arrivée → Mission passe en "completed"
+        missionUpdate.status = 'completed';
+      }
+
+      await supabase.from('missions').update(missionUpdate).eq('id', missionId);
+
+      console.log(`✅ Mission ${missionId} status mis à jour: ${missionUpdate.status || 'unchanged'}`);
 
       // Effacer la progression sauvegardée
       await clearSavedProgress();
