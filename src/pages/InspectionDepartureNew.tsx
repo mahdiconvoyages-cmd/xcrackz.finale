@@ -41,7 +41,7 @@ export default function InspectionDepartureNew() {
   const [saving, setSaving] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
 
-  // Photos obligatoires (UNIQUEMENT les 6 extérieures)
+  // Photos obligatoires (8 photos: 6 extérieures + tableau de bord + intérieur)
   const [photos, setPhotos] = useState<PhotoData[]>([
     { type: 'front', label: 'Face avant générale', url: null, file: null, captured: false },
     { type: 'back', label: 'Face arrière générale', url: null, file: null, captured: false },
@@ -49,12 +49,13 @@ export default function InspectionDepartureNew() {
     { type: 'left_back', label: 'Latéral gauche arrière', url: null, file: null, captured: false },
     { type: 'right_front', label: 'Latéral droit avant', url: null, file: null, captured: false },
     { type: 'right_back', label: 'Latéral droit arrière', url: null, file: null, captured: false },
+    { type: 'interior', label: 'Intérieur véhicule', url: null, file: null, captured: false },
+    { type: 'dashboard', label: 'Tableau de bord', url: null, file: null, captured: false },
   ]);
 
-  // Photos optionnelles (intérieur, dashboard - NON BLOQUANTES)
+  // Photos optionnelles (dommages supplémentaires - NON BLOQUANTES)
   const [optionalInteriorPhotos, setOptionalInteriorPhotos] = useState<PhotoData[]>([
-    { type: 'interior', label: 'Intérieur', url: null, file: null, captured: false },
-    { type: 'dashboard', label: 'Tableau de bord', url: null, file: null, captured: false },
+    // Déplacé vers photos obligatoires (voir ci-dessus)
   ]);
 
   // Photos optionnelles (dommages supplémentaires)
@@ -178,13 +179,13 @@ export default function InspectionDepartureNew() {
   const handleComplete = async () => {
     if (!mission || !user) return;
 
-    // Validation - UNIQUEMENT les 6 photos extérieures obligatoires
+    // Validation - 8 photos obligatoires (6 extérieures + tableau de bord + intérieur)
     if (currentStep === 1 && !photos.every(p => p.captured)) {
-      showToast('error', 'Photos manquantes', 'Veuillez prendre toutes les photos extérieures (6 obligatoires)');
+      showToast('error', 'Photos manquantes', 'Veuillez prendre toutes les photos obligatoires (8 photos: 6 extérieures + tableau de bord + intérieur)');
       return;
     }
 
-    // Étape 2 : Pas de validation photo (intérieur/dashboard optionnels)
+    // Étape 2 : Validation kilométrage
     if (currentStep === 2 && !mileage) {
       showToast('error', 'Champ requis', 'Veuillez saisir le kilométrage');
       return;
@@ -369,7 +370,7 @@ export default function InspectionDepartureNew() {
   };
 
   const getStepPhotos = () => {
-    if (currentStep === 1) return photos; // 6 extérieures obligatoires
+    if (currentStep === 1) return photos; // 8 photos obligatoires (6 ext + intérieur + dashboard)
     if (currentStep === 2) return optionalInteriorPhotos; // Intérieur optionnelles
     return [];
   };
@@ -425,8 +426,8 @@ export default function InspectionDepartureNew() {
         {currentStep === 1 && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">Photos obligatoires</h2>
-              <p className="text-sm text-gray-600">* = obligatoire</p>
+              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">Photos obligatoires (8)</h2>
+              <p className="text-sm text-gray-600">6 vues extérieures + tableau de bord + intérieur</p>
             </div>
 
             <div className="grid grid-cols-4 gap-4">
@@ -451,18 +452,18 @@ export default function InspectionDepartureNew() {
           </div>
         )}
 
-        {/* ÉTAPE 2: Intérieur + Formulaire */}
+        {/* ÉTAPE 2: Détails & dommages */}
         {currentStep === 2 && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">Intérieur & détails du véhicule</h2>
-              <p className="text-sm text-gray-600">Photos optionnelles et état du véhicule</p>
+              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">Détails du véhicule & dommages</h2>
+              <p className="text-sm text-gray-600">Informations complémentaires et photos de dommages (optionnelles)</p>
             </div>
 
-            {/* Photos intérieur OPTIONNELLES */}
+            {/* Photos dommages OPTIONNELLES */}
             <div className="bg-blue-50 border-2 border-blue-200 rounded-xl p-4 mb-4">
               <p className="text-sm text-blue-800">
-                <strong>💡 Photos optionnelles :</strong> Les photos intérieur et tableau de bord ne sont pas obligatoires. Vous pouvez passer directement aux informations du véhicule.
+                <strong>💡 Photos de dommages :</strong> Ajoutez des photos supplémentaires si le véhicule présente des dommages particuliers.
               </p>
             </div>
 

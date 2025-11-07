@@ -31,6 +31,26 @@ interface Photo {
   created_at?: string;
 }
 
+interface InspectionDocument {
+  id: string;
+  document_type: string;
+  document_title: string;
+  document_url: string;
+  pages_count: number;
+  file_size_kb?: number;
+  scanned_at: string;
+}
+
+interface InspectionExpense {
+  id: string;
+  expense_type: 'carburant' | 'peage' | 'transport' | 'imprevu';
+  amount: number;
+  description?: string;
+  receipt_url?: string;
+  receipt_pages_count?: number;
+  created_at: string;
+}
+
 interface InspectionData {
   id: string;
   inspection_type: 'departure' | 'arrival';
@@ -66,6 +86,8 @@ interface InspectionData {
     client_phone?: string;
   };
   photos?: Photo[];
+  documents?: InspectionDocument[];
+  expenses?: InspectionExpense[];
 }
 
 /**
@@ -139,7 +161,7 @@ export async function generateInspectionPDFPro(
       ? [16, 185, 129] // Green
       : [59, 130, 246]; // Blue
     
-    const secondaryColor = [100, 116, 139]; // Gray
+    // const secondaryColor = [100, 116, 139]; // Gray (unused for now)
 
     // ==========================================
     // HEADER PAGE 1
@@ -434,6 +456,256 @@ export async function generateInspectionPDFPro(
     }
 
     // ==========================================
+    // DOCUMENTS ANNEXES (Documents scannés)
+    // ==========================================
+    
+    if (inspection.documents && inspection.documents.length > 0) {
+      // Vérifier si on a assez d'espace
+      if (currentY > pageHeight - 100) {
+        doc.addPage();
+        currentY = margin;
+        addPageHeader(doc, inspection, primaryColor);
+        currentY += 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text('📄 Documents Annexes', margin, currentY);
+      
+      currentY += 8;
+
+      // Tableau des documents
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setLineWidth(0.5);
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+
+      // En-tête du tableau
+      const docTableX = margin;
+      const docColWidths = [80, 30, 25, 50];
+      const rowHeight = 8;
+
+      // Header
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.rect(docTableX, currentY, docColWidths.reduce((a, b) => a + b), rowHeight, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Titre du document', docTableX + 2, currentY + 5.5);
+      doc.text('Pages', docTableX + docColWidths[0] + 2, currentY + 5.5);
+      doc.text('Taille', docTableX + docColWidths[0] + docColWidths[1] + 2, currentY + 5.5);
+      doc.text('Lien de téléchargement', docTableX + docColWidths[0] + docColWidths[1] + docColWidths[2] + 2, currentY + 5.5);
+
+      currentY += rowHeight;
+
+      // Lignes du tableau
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+
+      for (const document of inspection.documents) {
+        // Vérifier si nouvelle page nécessaire
+        if (currentY > pageHeight - 30) {
+          doc.addPage();
+          currentY = margin;
+          addPageHeader(doc, inspection, primaryColor);
+          currentY += 20;
+        }
+
+        // Ligne
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(docTableX, currentY, docColWidths.reduce((a, b) => a + b), rowHeight);
+
+        // Données
+        const titleLines = doc.splitTextToSize(cleanTextForPDF(document.document_title), docColWidths[0] - 4);
+        doc.text(titleLines[0], docTableX + 2, currentY + 5.5);
+
+        doc.text(`${document.pages_count}`, docTableX + docColWidths[0] + 2, currentY + 5.5);
+
+        const sizeKb = document.file_size_kb || 0;
+        const sizeText = sizeKb > 1024 ? `${(sizeKb / 1024).toFixed(1)} MB` : `${sizeKb} KB`;
+        doc.text(sizeText, docTableX + docColWidths[0] + docColWidths[1] + 2, currentY + 5.5);
+
+        // Lien cliquable
+        doc.setTextColor(0, 102, 204); // Bleu
+        doc.setFont('helvetica', 'underline');
+        const linkText = 'Télécharger';
+        doc.textWithLink(
+          linkText,
+          docTableX + docColWidths[0] + docColWidths[1] + docColWidths[2] + 2,
+          currentY + 5.5,
+          { url: document.document_url }
+        );
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+
+        currentY += rowHeight;
+      }
+
+      currentY += 10;
+
+      // Note explicative
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.setFont('helvetica', 'italic');
+      doc.text(
+        'Note: Cliquez sur les liens pour télécharger les documents scannés individuellement.',
+        margin,
+        currentY
+      );
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+
+      currentY += 15;
+    }
+
+    // ==========================================
+    // RÉCAPITULATIF DES FRAIS
+    // ==========================================
+    
+    if (inspection.expenses && inspection.expenses.length > 0) {
+      // Vérifier si on a assez d'espace
+      if (currentY > pageHeight - 100) {
+        doc.addPage();
+        currentY = margin;
+        addPageHeader(doc, inspection, primaryColor);
+        currentY += 20;
+      }
+
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.text('💰 Récapitulatif des Frais', margin, currentY);
+      
+      currentY += 8;
+
+      // Tableau des frais
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setLineWidth(0.5);
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+
+      const expenseTableX = margin;
+      const expenseColWidths = [40, 70, 30, 45];
+      const expenseRowHeight = 8;
+
+      // Header
+      doc.setFillColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.rect(expenseTableX, currentY, expenseColWidths.reduce((a, b) => a + b), expenseRowHeight, 'F');
+      
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.text('Type', expenseTableX + 2, currentY + 5.5);
+      doc.text('Description', expenseTableX + expenseColWidths[0] + 2, currentY + 5.5);
+      doc.text('Montant', expenseTableX + expenseColWidths[0] + expenseColWidths[1] + 2, currentY + 5.5);
+      doc.text('Justificatif', expenseTableX + expenseColWidths[0] + expenseColWidths[1] + expenseColWidths[2] + 2, currentY + 5.5);
+
+      currentY += expenseRowHeight;
+
+      // Calcul du total
+      let totalExpenses = 0;
+
+      // Icônes pour chaque type
+      const expenseIcons: Record<string, string> = {
+        carburant: '⛽',
+        peage: '🛣️',
+        transport: '🚌',
+        imprevu: '❗'
+      };
+
+      // Lignes du tableau
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+
+      for (const expense of inspection.expenses) {
+        // Vérifier si nouvelle page nécessaire
+        if (currentY > pageHeight - 30) {
+          doc.addPage();
+          currentY = margin;
+          addPageHeader(doc, inspection, primaryColor);
+          currentY += 20;
+        }
+
+        // Ligne
+        doc.setDrawColor(200, 200, 200);
+        doc.rect(expenseTableX, currentY, expenseColWidths.reduce((a, b) => a + b), expenseRowHeight);
+
+        // Type avec icône
+        const icon = expenseIcons[expense.expense_type] || '';
+        const typeText = `${icon} ${cleanTextForPDF(expense.expense_type)}`;
+        doc.text(typeText, expenseTableX + 2, currentY + 5.5);
+
+        // Description
+        const descText = cleanTextForPDF(expense.description || '-');
+        const descLines = doc.splitTextToSize(descText, expenseColWidths[1] - 4);
+        doc.text(descLines[0], expenseTableX + expenseColWidths[0] + 2, currentY + 5.5);
+
+        // Montant
+        const amountText = `${expense.amount.toFixed(2)} €`;
+        doc.text(amountText, expenseTableX + expenseColWidths[0] + expenseColWidths[1] + 2, currentY + 5.5);
+        totalExpenses += expense.amount;
+
+        // Lien justificatif
+        if (expense.receipt_url) {
+          doc.setTextColor(0, 102, 204); // Bleu
+          doc.setFont('helvetica', 'underline');
+          doc.textWithLink(
+            'Voir',
+            expenseTableX + expenseColWidths[0] + expenseColWidths[1] + expenseColWidths[2] + 2,
+            currentY + 5.5,
+            { url: expense.receipt_url }
+          );
+          doc.setTextColor(0, 0, 0);
+          doc.setFont('helvetica', 'normal');
+        } else {
+          doc.setTextColor(150, 150, 150);
+          doc.text('Non fourni', expenseTableX + expenseColWidths[0] + expenseColWidths[1] + expenseColWidths[2] + 2, currentY + 5.5);
+          doc.setTextColor(0, 0, 0);
+        }
+
+        currentY += expenseRowHeight;
+      }
+
+      // Ligne de total
+      doc.setDrawColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setLineWidth(1);
+      doc.rect(expenseTableX, currentY, expenseColWidths.reduce((a, b) => a + b), expenseRowHeight);
+
+      doc.setFont('helvetica', 'bold');
+      doc.setFillColor(245, 245, 245);
+      doc.rect(expenseTableX, currentY, expenseColWidths.reduce((a, b) => a + b), expenseRowHeight, 'F');
+      
+      doc.text('TOTAL', expenseTableX + 2, currentY + 5.5);
+      doc.setTextColor(primaryColor[0], primaryColor[1], primaryColor[2]);
+      doc.setFontSize(11);
+      doc.text(
+        `${totalExpenses.toFixed(2)} €`,
+        expenseTableX + expenseColWidths[0] + expenseColWidths[1] + 2,
+        currentY + 5.5
+      );
+      doc.setTextColor(0, 0, 0);
+      doc.setFontSize(9);
+
+      currentY += expenseRowHeight + 10;
+
+      // Note explicative
+      doc.setFontSize(8);
+      doc.setTextColor(100, 100, 100);
+      doc.setFont('helvetica', 'italic');
+      doc.text(
+        'Note: Les justificatifs scannés sont disponibles en cliquant sur les liens "Voir".',
+        margin,
+        currentY
+      );
+      doc.setTextColor(0, 0, 0);
+      doc.setFont('helvetica', 'normal');
+
+      currentY += 15;
+    }
+
+    // ==========================================
     // SIGNATURES
     // ==========================================
     
@@ -574,10 +846,10 @@ export async function generateInspectionPDFPro(
     // FOOTER SUR CHAQUE PAGE
     // ==========================================
     
-    const totalPages = doc.getNumberOfPages();
+    const totalPages = (doc as any).internal.pages.length - 1; // -1 car page[0] est vide
     for (let i = 1; i <= totalPages; i++) {
       doc.setPage(i);
-      addPageFooter(doc, i, totalPages, inspection);
+      addPageFooter(doc, i, totalPages);
     }
 
     console.log('✅ PDF généré avec succès');
@@ -617,7 +889,7 @@ function addPageHeader(doc: jsPDF, inspection: InspectionData, color: number[]) 
 /**
  * Ajouter un footer sur chaque page
  */
-function addPageFooter(doc: jsPDF, pageNum: number, totalPages: number, inspection: InspectionData) {
+function addPageFooter(doc: jsPDF, pageNum: number, totalPages: number) {
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
   

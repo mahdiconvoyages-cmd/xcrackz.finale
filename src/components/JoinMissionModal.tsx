@@ -56,7 +56,7 @@ export default function JoinMissionModal({ isOpen, onClose, onSuccess }: JoinMis
 
       // Appeler la fonction SQL pour rejoindre la mission
       const { data, error: rpcError } = await supabase
-        .rpc('join_mission_v2', {
+        .rpc('join_mission_with_code', {
           p_share_code: cleanedCode,
           p_user_id: user.id
         });
