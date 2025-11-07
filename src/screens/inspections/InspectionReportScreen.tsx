@@ -229,6 +229,54 @@ export default function InspectionReportScreen({ navigation }: any) {
     loadInspections();
   };
 
+  const deleteInspection = async (inspection: InspectionReport) => {
+    Alert.alert(
+      '🗑️ Supprimer le rapport',
+      `Voulez-vous vraiment supprimer ce rapport ${inspection.type === 'departure' ? 'de départ' : "d'arrivée"} ?\n\nMission: ${inspection.mission?.mission_number || 'N/A'}\nDate: ${format(new Date(inspection.created_at), 'dd MMM yyyy', { locale: fr })}`,
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Supprimer',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log('🗑️ Suppression inspection:', inspection.id);
+
+              // Supprimer les photos d'abord
+              const { error: photosError } = await supabase
+                .from('inspection_photos_v2')
+                .delete()
+                .eq('inspection_id', inspection.id);
+
+              if (photosError) {
+                console.error('❌ Erreur suppression photos:', photosError);
+                throw photosError;
+              }
+
+              // Supprimer l'inspection
+              const { error: inspectionError } = await supabase
+                .from('vehicle_inspections')
+                .delete()
+                .eq('id', inspection.id);
+
+              if (inspectionError) {
+                console.error('❌ Erreur suppression inspection:', inspectionError);
+                throw inspectionError;
+              }
+
+              console.log('✅ Inspection supprimée');
+              Alert.alert('✅ Succès', 'Rapport supprimé');
+              loadInspections(); // Recharger la liste
+            } catch (error: any) {
+              console.error('❌ Erreur:', error);
+              Alert.alert('❌ Erreur', error.message || 'Impossible de supprimer le rapport');
+            }
+          }
+        }
+      ]
+    );
+  };
+
   const generatePDF = async (inspection: InspectionReport) => {
     try {
       setGeneratingPDF(true);
@@ -350,6 +398,17 @@ export default function InspectionReportScreen({ navigation }: any) {
         >
           <Ionicons name="share-social" size={18} color="#2563eb" />
           <Text style={styles.actionText}>Partager</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.actionButton}
+          onPress={(e) => {
+            e.stopPropagation();
+            deleteInspection(inspection);
+          }}
+        >
+          <Ionicons name="trash-outline" size={18} color="#ef4444" />
+          <Text style={[styles.actionText, { color: '#ef4444' }]}>Supprimer</Text>
         </TouchableOpacity>
       </View>
     </TouchableOpacity>
