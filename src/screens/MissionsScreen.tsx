@@ -21,6 +21,7 @@ import { getMissions, type Mission } from '../services/missionService';
 import { supabase } from '../config/supabase';
 import { formatRelativeDate, formatTime } from '../utils/dateFormat';
 import JoinMissionModal from '../components/JoinMissionModal';
+import { useMissionsSync, useInspectionsSync } from '../hooks/useRealtimeSync';
 
 type InspectionsStackParamList = {
   InspectionsHome: undefined;
@@ -58,6 +59,17 @@ export default function MissionsScreen() {
       }
     }, [userId])
   );
+
+  // Synchronisation temps réel
+  useMissionsSync(userId || '', () => {
+    console.log('[MissionsScreen] Realtime update - reloading missions');
+    if (userId) loadMissions();
+  });
+
+  useInspectionsSync(userId || '', () => {
+    console.log('[MissionsScreen] Realtime update - reloading inspections');
+    if (userId) loadMissions();
+  });
 
   const loadUserId = async () => {
     const {

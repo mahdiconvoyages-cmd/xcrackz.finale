@@ -13,6 +13,7 @@ import InspectionViewer from '../components/InspectionViewer';
 import { generateMissionPDF } from '../services/missionPdfGenerator';
 import JoinMissionModal from '../components/JoinMissionModal';
 import ShareCodeModal from '../components/ShareCodeModal';
+import { useMissionsSync, useInspectionsSync } from '../hooks/useRealtimeSync';
 
 // ===== INTERFACES =====
 interface Mission {
@@ -101,6 +102,17 @@ export default function TeamMissions() {
     loadData();
   }, [user, showArchived]);
 
+  // Synchronisation temps réel
+  useMissionsSync(user?.id || '', () => {
+    console.log('[TeamMissions] Realtime update - reloading missions');
+    loadMissions();
+  });
+
+  useInspectionsSync(user?.id || '', () => {
+    console.log('[TeamMissions] Realtime update - reloading inspections');
+    loadMissions();
+  });
+
   // ===== DATA LOADING =====
   const loadData = async () => {
     if (!user) return;
@@ -128,7 +140,7 @@ export default function TeamMissions() {
       createdQuery = createdQuery.or('archived.is.null,archived.eq.false');
     }
 
-    createdQuery = createdQuery.order('pickup_date', { ascending: true });
+    createdQuery = createdQuery.order('created_at', { ascending: false });
 
     const { data: createdData, error: createdError } = await createdQuery;
 
@@ -180,7 +192,7 @@ export default function TeamMissions() {
       receivedQuery = receivedQuery.or('archived.is.null,archived.eq.false');
     }
 
-    receivedQuery = receivedQuery.order('pickup_date', { ascending: true });
+    receivedQuery = receivedQuery.order('created_at', { ascending: false });
 
     const { data: receivedData, error: receivedError} = await receivedQuery;
 
@@ -642,6 +654,26 @@ export default function TeamMissions() {
                     <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${getStatusColor(mission.status)}`}>
                       {getStatusLabel(mission.status)}
                     </span>
+                  </div>
+
+                  {/* Progression visuelle */}
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
+                      <span>Progression</span>
+                      <span className="font-semibold">
+                        {mission.status === 'completed' ? '100%' : 
+                         mission.status === 'in_progress' ? '50%' : '0%'}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-500 ${
+                          mission.status === 'completed' ? 'bg-gradient-to-r from-green-500 to-emerald-500 w-full' :
+                          mission.status === 'in_progress' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 w-1/2' :
+                          'bg-gradient-to-r from-amber-500 to-orange-500 w-0'
+                        }`}
+                      />
+                    </div>
                   </div>
 
                   {/* Mission Details */}

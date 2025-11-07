@@ -9,7 +9,7 @@
  * - Téléchargement local
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -26,7 +26,7 @@ import {
   TextInput,
   Image,
 } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system';
@@ -38,6 +38,7 @@ import {
   sendInspectionReportByEmail,
   type InspectionReport,
 } from '../services/inspectionReportService';
+import { useReportsSync } from '../hooks/useRealtimeSync';
 
 const { width } = Dimensions.get('window');
 
@@ -64,9 +65,19 @@ export default function InspectionReportsScreen() {
   // PDF
   const [generatingPDF, setGeneratingPDF] = useState(false);
 
-  useEffect(() => {
-    loadReports();
-  }, [user]);
+  useFocusEffect(
+    useCallback(() => {
+      if (user) {
+        loadReports();
+      }
+    }, [user])
+  );
+
+  // Synchronisation temps réel
+  useReportsSync(user?.id || '', () => {
+    console.log('[InspectionReportsScreen] Realtime update - reloading reports');
+    if (user) loadReports();
+  });
 
   const loadReports = async () => {
     if (!user) return;
