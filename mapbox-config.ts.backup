@@ -1,0 +1,16 @@
+/**
+ * Configuration Maps GRATUITE
+ * - iOS: Apple Maps (gratuit, intégré)
+ * - Android: OpenStreetMap (gratuit)
+ * - Pas d'API key requise !
+ */
+
+export const MAPBOX_CONFIG = {
+  accessToken: '', // Pas besoin d'API key avec react-native-maps par défaut
+  style: 'standard', // Style par défaut
+  navigationProfile: 'driving',
+};
+
+export function validateMapboxConfig(): boolean {
+  return true; // Toujours valide car gratuit et sans clé
+}

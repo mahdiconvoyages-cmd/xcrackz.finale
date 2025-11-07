@@ -1,0 +1,59 @@
+{
+  "cli": {
+    "version": ">= 16.20.3",
+    "appVersionSource": "local"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "channel": "development"
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview",
+      "autoIncrement": false,
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleRelease"
+      },
+      "env": {
+        "NODE_OPTIONS": "--max-old-space-size=4096"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "channel": "production",
+      "cache": {
+        "disabled": true
+      },
+      "node": "20.18.0",
+      "android": {
+        "buildType": "app-bundle"
+      },
+      "env": {
+        "NODE_OPTIONS": "--max-old-space-size=4096"
+      }
+    },
+    "production-apk": {
+      "autoIncrement": true,
+      "channel": "production",
+      "cache": {
+        "disabled": true
+      },
+      "node": "20.18.0",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "NODE_OPTIONS": "--max-old-space-size=4096"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}

@@ -1,0 +1,32 @@
+# Gradle
+android/.gradle
+android/build
+android/app/build
+android/.cxx
+
+# Node modules (already ignored by default)
+node_modules
+
+# Expo
+.expo
+.expo-shared
+
+# Build outputs
+*.apk
+*.aab
+*.ipa
+
+# Cache
+.cache
+*.log
+
+# iOS
+ios/build
+ios/Pods
+ios/.xcode.env.local
+
+# Misc
+.DS_Store
+*.orig
+*.rej
+*.sw?

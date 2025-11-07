@@ -1,0 +1,161 @@
+/**
+ * 🔄 Hook pour synchronisation temps réel Supabase - Mobile
+ * 
+ * Synchronise automatiquement les données entre web et mobile:
+ * - Missions
+ * - Inspections
+ * - Rapports
+ * - Covoiturage
+ */
+
+import { useEffect } from 'react';
+import { supabase } from '../config/supabase';
+import { RealtimeChannel } from '@supabase/supabase-js';
+
+type RealtimeTable = 'missions' | 'vehicle_inspections' | 'inspection_reports' | 'carpooling';
+
+interface RealtimeSyncOptions {
+  table: RealtimeTable;
+  userId?: string;
+  onInsert?: (payload: any) => void;
+  onUpdate?: (payload: any) => void;
+  onDelete?: (payload: any) => void;
+  filter?: string;
+}
+
+/**
+ * Active la synchronisation temps réel pour une table
+ */
+export function useRealtimeSync({
+  table,
+  userId,
+  onInsert,
+  onUpdate,
+  onDelete,
+  filter,
+}: RealtimeSyncOptions) {
+  useEffect(() => {
+    let channel: RealtimeChannel;
+
+    const setupRealtime = async () => {
+      // Créer le canal de synchronisation
+      channel = supabase
+        .channel(`${table}_changes_${userId || 'all'}`)
+        .on(
+          'postgres_changes' as any,
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: table,
+            filter: filter,
+          },
+          (payload: any) => {
+            console.log(`[Realtime] INSERT ${table}:`, payload.new);
+            onInsert?.(payload.new);
+          }
+        )
+        .on(
+          'postgres_changes' as any,
+          {
+            event: 'UPDATE',
+            schema: 'public',
+            table: table,
+            filter: filter,
+          },
+          (payload: any) => {
+            console.log(`[Realtime] UPDATE ${table}:`, payload.new);
+            onUpdate?.(payload.new);
+          }
+        )
+        .on(
+          'postgres_changes' as any,
+          {
+            event: 'DELETE',
+            schema: 'public',
+            table: table,
+            filter: filter,
+          },
+          (payload: any) => {
+            console.log(`[Realtime] DELETE ${table}:`, payload.old);
+            onDelete?.(payload.old);
+          }
+        )
+        .subscribe((status: any) => {
+          console.log(`[Realtime] ${table} subscription status:`, status);
+        });
+    };
+
+    setupRealtime();
+
+    // Cleanup: unsubscribe au démontage
+    return () => {
+      if (channel) {
+        supabase.removeChannel(channel);
+        console.log(`[Realtime] Unsubscribed from ${table}`);
+      }
+    };
+  }, [table, userId, filter, onInsert, onUpdate, onDelete]);
+}
+
+/**
+ * Hook pour synchroniser les missions
+ */
+export function useMissionsSync(userId: string, onUpdate: () => void) {
+  useRealtimeSync({
+    table: 'missions',
+    userId,
+    filter: `user_id=eq.${userId}`,
+    onInsert: onUpdate,
+    onUpdate: onUpdate,
+    onDelete: onUpdate,
+  });
+
+  // Aussi écouter les missions assignées
+  useRealtimeSync({
+    table: 'missions',
+    userId,
+    filter: `assigned_to_user_id=eq.${userId}`,
+    onInsert: onUpdate,
+    onUpdate: onUpdate,
+    onDelete: onUpdate,
+  });
+}
+
+/**
+ * Hook pour synchroniser les inspections
+ */
+export function useInspectionsSync(userId: string, onUpdate: () => void) {
+  useRealtimeSync({
+    table: 'vehicle_inspections',
+    userId,
+    onInsert: onUpdate,
+    onUpdate: onUpdate,
+    onDelete: onUpdate,
+  });
+}
+
+/**
+ * Hook pour synchroniser les rapports
+ */
+export function useReportsSync(userId: string, onUpdate: () => void) {
+  useRealtimeSync({
+    table: 'vehicle_inspections',
+    userId,
+    onInsert: onUpdate,
+    onUpdate: onUpdate,
+  });
+}
+
+/**
+ * Hook pour synchroniser le covoiturage
+ */
+export function useCarpoolingSync(userId: string, onUpdate: () => void) {
+  useRealtimeSync({
+    table: 'carpooling',
+    userId,
+    filter: `user_id=eq.${userId}`,
+    onInsert: onUpdate,
+    onUpdate: onUpdate,
+    onDelete: onUpdate,
+  });
+}

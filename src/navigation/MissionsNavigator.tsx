@@ -1,0 +1,61 @@
+import React from 'react';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { useTheme } from '../contexts/ThemeContext';
+import MenuButton from '../components/MenuButton';
+
+import MissionListScreen from '../screens/missions/MissionListScreenNew';
+import MissionCreateScreen from '../screens/missions/MissionCreateScreen';
+import MissionViewScreen from '../screens/missions/MissionViewScreen';
+import MissionTrackingScreen from '../screens/missions/MissionTrackingScreen';
+import InspectionDepartureNew from '../screens/inspections/InspectionDepartureNew';
+import InspectionArrivalNew from '../screens/inspections/InspectionArrivalNew';
+
+const Stack = createNativeStackNavigator();
+
+export default function MissionsNavigator() {
+  const { colors } = useTheme();
+
+  return (
+    <Stack.Navigator
+      id={undefined}
+      screenOptions={{
+        headerStyle: { backgroundColor: colors.surface },
+        headerTintColor: colors.text,
+      }}
+    >
+      <Stack.Screen
+        name="MissionList"
+        component={MissionListScreen}
+        options={{ 
+          title: 'Mes missions',
+          headerLeft: () => <MenuButton />
+        }}
+      />
+      <Stack.Screen
+        name="MissionCreate"
+        component={MissionCreateScreen}
+        options={{ title: 'Nouvelle mission' }}
+      />
+      <Stack.Screen
+        name="MissionView"
+        component={MissionViewScreen}
+        options={{ title: 'Détails mission' }}
+      />
+      <Stack.Screen
+        name="MissionTracking"
+        component={MissionTrackingScreen}
+        options={{ title: 'Tracking GPS' }}
+      />
+      <Stack.Screen
+        name="InspectionDeparture"
+        component={InspectionDepartureNew}
+        options={{ title: 'Inspection Départ' }}
+      />
+      <Stack.Screen
+        name="InspectionArrival"
+        component={InspectionArrivalNew}
+        options={{ title: 'Inspection Arrivée' }}
+      />
+    </Stack.Navigator>
+  );
+}
