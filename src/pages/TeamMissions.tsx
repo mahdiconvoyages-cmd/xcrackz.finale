@@ -159,24 +159,34 @@ export default function TeamMissions() {
       inspections = inspectionData || [];
     }
     
-    // Calculer le statut basé sur les inspections et filtrer les missions terminées
+    // Calculer le statut basé sur les inspections (fallback si status DB manquant) et filtrer les missions terminées
     const processedCreatedData = (createdData || []).map(mission => {
-      const missionInspections = inspections.filter(i => i.mission_id === mission.id);
-      const hasDepart = missionInspections.some(i => i.inspection_type === 'departure');
-      const hasArrival = missionInspections.some(i => i.inspection_type === 'arrival');
+      // Utiliser le statut de la DB en priorité (mis à jour par mobile)
+      let finalStatus = mission.status;
       
-      let calculatedStatus = 'pending'; // Sans inspection
+      // Fallback: calculer le statut si absent ou si 'pending' dans DB
+      if (!finalStatus || finalStatus === 'pending') {
+        const missionInspections = inspections.filter(i => i.mission_id === mission.id);
+        const hasDepart = missionInspections.some(i => i.inspection_type === 'departure');
+        const hasArrival = missionInspections.some(i => i.inspection_type === 'arrival');
+        
+        if (hasDepart && hasArrival) {
+          finalStatus = 'completed';
+        } else if (hasDepart) {
+          finalStatus = 'in_progress';
+        } else {
+          finalStatus = 'pending';
+        }
+      }
       
-      if (hasDepart && hasArrival) {
-        calculatedStatus = 'completed'; // Terminée - ne pas afficher
-        return null; // Filtrer les missions terminées
-      } else if (hasDepart) {
-        calculatedStatus = 'in_progress'; // En cours
+      // Filtrer les missions terminées (ne pas afficher)
+      if (finalStatus === 'completed') {
+        return null;
       }
       
       return {
         ...mission,
-        status: calculatedStatus
+        status: finalStatus
       };
     }).filter(Boolean); // Supprimer les missions terminées (null)
     
@@ -219,22 +229,32 @@ export default function TeamMissions() {
     
     // Même traitement pour les missions reçues
     const processedReceivedData = (receivedData || []).map(mission => {
-      const missionInspections = receivedInspections.filter(i => i.mission_id === mission.id);
-      const hasDepart = missionInspections.some(i => i.inspection_type === 'departure');
-      const hasArrival = missionInspections.some(i => i.inspection_type === 'arrival');
+      // Utiliser le statut de la DB en priorité (mis à jour par mobile)
+      let finalStatus = mission.status;
       
-      let calculatedStatus = 'pending';
+      // Fallback: calculer le statut si absent ou si 'pending' dans DB
+      if (!finalStatus || finalStatus === 'pending') {
+        const missionInspections = receivedInspections.filter(i => i.mission_id === mission.id);
+        const hasDepart = missionInspections.some(i => i.inspection_type === 'departure');
+        const hasArrival = missionInspections.some(i => i.inspection_type === 'arrival');
+        
+        if (hasDepart && hasArrival) {
+          finalStatus = 'completed';
+        } else if (hasDepart) {
+          finalStatus = 'in_progress';
+        } else {
+          finalStatus = 'pending';
+        }
+      }
       
-      if (hasDepart && hasArrival) {
-        calculatedStatus = 'completed';
-        return null; // Filtrer les missions terminées
-      } else if (hasDepart) {
-        calculatedStatus = 'in_progress';
+      // Filtrer les missions terminées
+      if (finalStatus === 'completed') {
+        return null;
       }
       
       return {
         ...mission,
-        status: calculatedStatus
+        status: finalStatus
       };
     }).filter(Boolean);
     
