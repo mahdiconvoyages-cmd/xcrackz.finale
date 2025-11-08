@@ -41,6 +41,7 @@ export default function MissionViewScreen({ route, navigation }: any) {
         { event: '*', schema: 'public', table: 'missions', filter: `id=eq.${missionId}` },
         (payload) => {
           console.log('📡 Mission modifiée (realtime):', payload.eventType);
+          console.log('🔄 Rechargement des données mission...');
           loadMissionData();
         }
       )
@@ -48,7 +49,8 @@ export default function MissionViewScreen({ route, navigation }: any) {
         'postgres_changes',
         { event: '*', schema: 'public', table: 'vehicle_inspections', filter: `mission_id=eq.${missionId}` },
         (payload) => {
-          console.log('🔍 Inspection modifiée (realtime):', payload.eventType);
+          console.log('🔍 Inspection modifiée (realtime):', payload.eventType, payload.new);
+          console.log('🔄 Rechargement des inspections...');
           loadMissionData();
         }
       )
@@ -62,6 +64,9 @@ export default function MissionViewScreen({ route, navigation }: any) {
       )
       .subscribe((status) => {
         console.log('📡 Realtime mission details status:', status);
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ Realtime activé pour mission:', missionId);
+        }
       });
 
     // Cleanup
@@ -73,6 +78,8 @@ export default function MissionViewScreen({ route, navigation }: any) {
 
   const loadMissionData = async () => {
     try {
+      console.log('📥 Chargement données mission:', missionId);
+      
       // Charger la mission
       const { data: missionData, error: missionError } = await supabase
         .from('missions')
@@ -98,6 +105,7 @@ export default function MissionViewScreen({ route, navigation }: any) {
         return;
       }
 
+      console.log('✅ Mission chargée:', missionData.reference);
       setMission(missionData);
 
       // Charger les inspections
@@ -107,8 +115,17 @@ export default function MissionViewScreen({ route, navigation }: any) {
         .eq('mission_id', missionId)
         .order('created_at', { ascending: false });
 
-      setInspections(inspectionsData || []);
+      console.log('✅ Inspections chargées:', inspectionsData?.length || 0);
+      if (inspectionsData) {
+        inspectionsData.forEach(insp => {
+          console.log(`  - ${insp.inspection_type}: ${insp.completed_at ? '✅ Terminée' : '⏳ En cours'}`);
+        });
+      }
+
+      // Force le re-render en créant un nouveau array
+      setInspections([...(inspectionsData || [])]);
     } catch (error: any) {
+      console.error('❌ Erreur chargement mission:', error);
       Alert.alert('Erreur', error.message);
       navigation.goBack();
     } finally {
@@ -180,7 +197,16 @@ export default function MissionViewScreen({ route, navigation }: any) {
 
   const canStartArrival = () => {
     const departureInspection = inspections.find(i => i.inspection_type === 'departure');
-    return departureInspection && departureInspection.completed_at;
+    const canStart = departureInspection && departureInspection.completed_at;
+    
+    console.log('🔍 canStartArrival check:', {
+      inspectionsCount: inspections.length,
+      hasDeparture: !!departureInspection,
+      departureCompleted: !!departureInspection?.completed_at,
+      canStart
+    });
+    
+    return canStart;
   };
 
   const canCompleteMission = () => {
