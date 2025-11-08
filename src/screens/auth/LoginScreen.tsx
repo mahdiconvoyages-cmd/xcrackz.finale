@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -7,16 +7,17 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
-  Alert,
   ScrollView,
   Dimensions,
+  Animated,
+  Easing,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import AppLogo from '../../components/AppLogo';
 
-const { width } = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
@@ -24,8 +25,65 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
   const { signIn } = useAuth();
+
+  // Animations
+  const logoScale = useRef(new Animated.Value(0)).current;
+  const formTranslateY = useRef(new Animated.Value(50)).current;
+  const formOpacity = useRef(new Animated.Value(0)).current;
+  const particleAnimations = useRef(
+    Array.from({ length: 5 }, () => ({
+      translateY: new Animated.Value(0),
+      opacity: new Animated.Value(0.3),
+    }))
+  ).current;
+
+  useEffect(() => {
+    // Logo entrance animation
+    Animated.spring(logoScale, {
+      toValue: 1,
+      tension: 50,
+      friction: 7,
+      useNativeDriver: true,
+    }).start();
+
+    // Form entrance animation
+    Animated.parallel([
+      Animated.timing(formTranslateY, {
+        toValue: 0,
+        duration: 800,
+        easing: Easing.out(Easing.cubic),
+        useNativeDriver: true,
+      }),
+      Animated.timing(formOpacity, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Floating particles animation
+    particleAnimations.forEach((anim, index) => {
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(anim.translateY, {
+            toValue: -50,
+            duration: 3000 + index * 500,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(anim.translateY, {
+            toValue: 0,
+            duration: 3000 + index * 500,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      ).start();
+    });
+  }, []);
 
   const handleLogin = async () => {
     if (!email || !password) {
@@ -56,137 +114,253 @@ export default function LoginScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
     >
       <LinearGradient
-        colors={['#0f172a', '#1e293b', '#115e59']}
+        colors={['#0a0a1a', '#1a1a2e', '#0f4c5c']}
         style={styles.gradient}
       >
+        {/* Animated Floating Particles */}
+        {particleAnimations.map((anim, index) => (
+          <Animated.View
+            key={index}
+            style={[
+              styles.particle,
+              {
+                left: `${(index + 1) * 20}%`,
+                top: `${10 + index * 15}%`,
+                opacity: anim.opacity,
+                transform: [{ translateY: anim.translateY }],
+              },
+            ]}
+          />
+        ))}
+
         <ScrollView 
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          {/* Header */}
-          <View style={styles.header}>
-            <View style={styles.logoRow}>
-              <AppLogo size={44} rounded={12} />
-              <Text style={styles.brandName}>xCrackz</Text>
-            </View>
-            <Text style={styles.subtitle}>Votre solution de gestion professionnelle</Text>
-            <Text style={styles.description}>
-              Gérez vos missions, contacts et flotte en toute simplicité
-            </Text>
-          </View>
-
-          {/* Features */}
-          <View style={styles.features}>
-            {[
-              { icon: 'flash', text: 'Suivi GPS en temps réel', gradient: ['#fbbf24', '#f97316'] as const },
-              { icon: 'shield-checkmark', text: 'Sécurité de niveau entreprise', gradient: ['#2dd4bf', '#22d3ee'] as const },
-              { icon: 'sparkles', text: 'Interface moderne et intuitive', gradient: ['#3b82f6', '#8b5cf6'] as const },
-            ].map((feature, i) => (
-              <View key={i} style={styles.featureCard}>
-                <LinearGradient
-                  colors={feature.gradient}
-                  style={styles.featureIcon}
-                >
-                  <Ionicons name={feature.icon as any} size={20} color="#fff" />
-                </LinearGradient>
-                <Text style={styles.featureText}>{feature.text}</Text>
-              </View>
-            ))}
-          </View>
-
-          {/* Login Form */}
-          <View style={styles.formContainer}>
-            <View style={styles.formHeader}>
-              <Text style={styles.formTitle}>Bienvenue !</Text>
-              <Text style={styles.formSubtitle}>Connectez-vous pour continuer</Text>
-            </View>
-
-            {error ? (
-              <View style={styles.errorContainer}>
-                <Ionicons name="warning" size={18} color="#dc2626" />
-                <Text style={styles.errorText}>{error}</Text>
-              </View>
-            ) : null}
-
-            {/* Email Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Adresse email</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons name="mail-outline" size={20} color="#94a3b8" style={styles.inputIcon} />
-                <TextInput
-                  style={styles.input}
-                  placeholder="votre@email.com"
-                  placeholderTextColor="#94a3b8"
-                  value={email}
-                  onChangeText={(text) => {
-                    setEmail(text);
-                    setError('');
-                  }}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  autoComplete="email"
-                />
-              </View>
-            </View>
-
-            {/* Password Input */}
-            <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Mot de passe</Text>
-              <View style={styles.inputWrapper}>
-                <Ionicons name="lock-closed-outline" size={20} color="#94a3b8" style={styles.inputIcon} />
-                <TextInput
-                  style={[styles.input, { paddingRight: 50 }]}
-                  placeholder="••••••••"
-                  placeholderTextColor="#94a3b8"
-                  value={password}
-                  onChangeText={(text) => {
-                    setPassword(text);
-                    setError('');
-                  }}
-                  secureTextEntry={!showPassword}
-                  autoCapitalize="none"
-                  autoComplete="password"
-                />
-                <TouchableOpacity
-                  style={styles.eyeIcon}
-                  onPress={() => setShowPassword(!showPassword)}
-                >
-                  <Ionicons
-                    name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                    size={20}
-                    color="#94a3b8"
-                  />
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Login Button */}
-            <TouchableOpacity
-              style={styles.loginButtonContainer}
-              onPress={handleLogin}
-              disabled={loading}
-              activeOpacity={0.8}
-            >
+          {/* Animated Header with Logo */}
+          <Animated.View 
+            style={[
+              styles.header,
+              { transform: [{ scale: logoScale }] }
+            ]}
+          >
+            <View style={styles.logoContainer}>
               <LinearGradient
-                colors={['#14b8a6', '#22d3ee']}
+                colors={['#14b8a6', '#22d3ee', '#06b6d4']}
+                style={styles.logoGradient}
                 start={{ x: 0, y: 0 }}
-                end={{ x: 1, y: 0 }}
-                style={styles.loginButton}
+                end={{ x: 1, y: 1 }}
               >
-                <Ionicons name="log-in-outline" size={22} color="#fff" />
-                <Text style={styles.loginButtonText}>
-                  {loading ? 'Connexion en cours...' : 'Se connecter'}
-                </Text>
+                <AppLogo size={56} rounded={16} />
               </LinearGradient>
-            </TouchableOpacity>
-          </View>
+              <View style={styles.logoPulse} />
+            </View>
+            
+            <LinearGradient
+              colors={['#ffffff', '#e0f2fe']}
+              style={styles.brandNameGradient}
+            >
+              <Text style={styles.brandName}>xCrackz</Text>
+            </LinearGradient>
+            
+            <Text style={styles.subtitle}>Votre solution de gestion professionnelle</Text>
+            
+            <View style={styles.statsRow}>
+              {[
+                { icon: 'speedometer', label: 'Rapide', color: ['#f59e0b', '#f97316'] },
+                { icon: 'shield-checkmark', label: 'Sécurisé', color: ['#14b8a6', '#22d3ee'] },
+                { icon: 'star', label: 'Premium', color: ['#8b5cf6', '#a855f7'] },
+              ].map((stat, i) => (
+                <View key={i} style={styles.statBadge}>
+                  <LinearGradient
+                    colors={stat.color as [string, string]}
+                    style={styles.statIcon}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                  >
+                    <Ionicons name={stat.icon as any} size={16} color="#fff" />
+                  </LinearGradient>
+                  <Text style={styles.statLabel}>{stat.label}</Text>
+                </View>
+              ))}
+            </View>
+          </Animated.View>
+
+          {/* Animated Login Form */}
+          <Animated.View
+            style={[
+              styles.formWrapper,
+              {
+                opacity: formOpacity,
+                transform: [{ translateY: formTranslateY }],
+              },
+            ]}
+          >
+            <View style={styles.formContainer}>
+              <View style={styles.formHeader}>
+                <Text style={styles.formTitle}>Bienvenue ! 👋</Text>
+                <Text style={styles.formSubtitle}>Connectez-vous pour continuer votre aventure</Text>
+              </View>
+
+              {error ? (
+                <Animated.View style={styles.errorContainer}>
+                  <LinearGradient
+                    colors={['#fee2e2', '#fecaca']}
+                    style={styles.errorGradient}
+                  >
+                    <Ionicons name="warning" size={20} color="#dc2626" />
+                    <Text style={styles.errorText}>{error}</Text>
+                  </LinearGradient>
+                </Animated.View>
+              ) : null}
+
+              {/* Email Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>
+                  <Ionicons name="mail" size={14} color="#64748b" /> Adresse email
+                </Text>
+                <View style={[
+                  styles.inputWrapper,
+                  focusedInput === 'email' && styles.inputWrapperFocused
+                ]}>
+                  <LinearGradient
+                    colors={focusedInput === 'email' ? ['#14b8a6', '#22d3ee'] : ['#f1f5f9', '#f1f5f9']}
+                    style={styles.inputGradientBorder}
+                  >
+                    <View style={styles.inputInner}>
+                      <View style={styles.inputIconContainer}>
+                        <Ionicons 
+                          name="mail-outline" 
+                          size={20} 
+                          color={focusedInput === 'email' ? '#14b8a6' : '#94a3b8'} 
+                        />
+                      </View>
+                      <TextInput
+                        style={styles.input}
+                        placeholder="votre@email.com"
+                        placeholderTextColor="#94a3b8"
+                        value={email}
+                        onChangeText={(text) => {
+                          setEmail(text);
+                          setError('');
+                        }}
+                        onFocus={() => setFocusedInput('email')}
+                        onBlur={() => setFocusedInput(null)}
+                        keyboardType="email-address"
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                        autoComplete="email"
+                      />
+                    </View>
+                  </LinearGradient>
+                </View>
+              </View>
+
+              {/* Password Input */}
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>
+                  <Ionicons name="lock-closed" size={14} color="#64748b" /> Mot de passe
+                </Text>
+                <View style={[
+                  styles.inputWrapper,
+                  focusedInput === 'password' && styles.inputWrapperFocused
+                ]}>
+                  <LinearGradient
+                    colors={focusedInput === 'password' ? ['#14b8a6', '#22d3ee'] : ['#f1f5f9', '#f1f5f9']}
+                    style={styles.inputGradientBorder}
+                  >
+                    <View style={styles.inputInner}>
+                      <View style={styles.inputIconContainer}>
+                        <Ionicons 
+                          name="lock-closed-outline" 
+                          size={20} 
+                          color={focusedInput === 'password' ? '#14b8a6' : '#94a3b8'} 
+                        />
+                      </View>
+                      <TextInput
+                        style={[styles.input, { paddingRight: 50 }]}
+                        placeholder="••••••••"
+                        placeholderTextColor="#94a3b8"
+                        value={password}
+                        onChangeText={(text) => {
+                          setPassword(text);
+                          setError('');
+                        }}
+                        onFocus={() => setFocusedInput('password')}
+                        onBlur={() => setFocusedInput(null)}
+                        secureTextEntry={!showPassword}
+                        autoCapitalize="none"
+                        autoComplete="password"
+                      />
+                      <TouchableOpacity
+                        style={styles.eyeIcon}
+                        onPress={() => setShowPassword(!showPassword)}
+                      >
+                        <Ionicons
+                          name={showPassword ? 'eye-off' : 'eye'}
+                          size={20}
+                          color={focusedInput === 'password' ? '#14b8a6' : '#94a3b8'}
+                        />
+                      </TouchableOpacity>
+                    </View>
+                  </LinearGradient>
+                </View>
+              </View>
+
+              {/* Login Button */}
+              <TouchableOpacity
+                style={styles.loginButtonContainer}
+                onPress={handleLogin}
+                disabled={loading}
+                activeOpacity={0.8}
+              >
+                <LinearGradient
+                  colors={loading ? ['#94a3b8', '#cbd5e1'] : ['#14b8a6', '#06b6d4', '#0891b2']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 0 }}
+                  style={styles.loginButton}
+                >
+                  {loading ? (
+                    <Animated.View style={styles.loadingContainer}>
+                      <Ionicons name="refresh" size={22} color="#fff" />
+                      <Text style={styles.loginButtonText}>Connexion...</Text>
+                    </Animated.View>
+                  ) : (
+                    <>
+                      <Ionicons name="rocket" size={22} color="#fff" />
+                      <Text style={styles.loginButtonText}>Se connecter</Text>
+                      <Ionicons name="arrow-forward" size={20} color="#fff" />
+                    </>
+                  )}
+                </LinearGradient>
+              </TouchableOpacity>
+
+              {/* Additional Features */}
+              <View style={styles.featuresGrid}>
+                {[
+                  { icon: 'flash', text: 'Connexion instantanée', color: '#f59e0b' },
+                  { icon: 'shield-checkmark', text: 'Données chiffrées', color: '#14b8a6' },
+                  { icon: 'fingerprint', text: 'Authentification sécurisée', color: '#8b5cf6' },
+                ].map((feature, i) => (
+                  <View key={i} style={styles.featureItem}>
+                    <Ionicons name={feature.icon as any} size={16} color={feature.color} />
+                    <Text style={styles.featureItemText}>{feature.text}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          </Animated.View>
 
           {/* Footer */}
           <View style={styles.footer}>
+            <View style={styles.divider}>
+              <View style={styles.dividerLine} />
+              <Text style={styles.dividerText}>xCrackz © 2025</Text>
+              <View style={styles.dividerLine} />
+            </View>
             <Text style={styles.footerText}>
-              En vous connectant, vous acceptez nos Conditions d'utilisation
+              🔒 Vos données sont protégées et chiffrées
             </Text>
           </View>
         </ScrollView>
@@ -201,116 +375,128 @@ const styles = StyleSheet.create({
   },
   gradient: {
     flex: 1,
-    paddingTop: 48,
-    paddingHorizontal: 16,
-    paddingBottom: 24,
+  },
+  particle: {
+    position: 'absolute',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: 'rgba(20, 184, 166, 0.15)',
   },
   scrollContent: {
-    paddingVertical: 24,
-    gap: 16,
+    paddingTop: 60,
+    paddingBottom: 40,
+    paddingHorizontal: 20,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 40,
   },
-  logoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    alignSelf: 'center',
-    gap: 10,
-    marginBottom: 8,
+  logoContainer: {
+    position: 'relative',
+    marginBottom: 20,
+  },
+  logoGradient: {
+    padding: 16,
+    borderRadius: 24,
+    shadowColor: '#14b8a6',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  logoPulse: {
+    position: 'absolute',
+    top: -4,
+    left: -4,
+    right: -4,
+    bottom: -4,
+    borderRadius: 28,
+    borderWidth: 2,
+    borderColor: 'rgba(20, 184, 166, 0.3)',
+  },
+  brandNameGradient: {
+    paddingHorizontal: 2,
+    paddingVertical: 1,
+    borderRadius: 4,
   },
   brandName: {
-    fontSize: 22,
-    fontWeight: '900',
-    backgroundColor: 'transparent',
-    color: '#e0f2fe',
-    letterSpacing: 0.5,
-  },
-  logo: {
     fontSize: 36,
     fontWeight: '900',
     color: '#fff',
-    letterSpacing: -1,
+    letterSpacing: 1,
+    textAlign: 'center',
   },
   subtitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#cbd5e1',
-    marginBottom: 8,
-  },
-  description: {
     fontSize: 16,
-    color: '#94a3b8',
-    lineHeight: 24,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.8)',
+    marginTop: 12,
+    textAlign: 'center',
   },
-  features: {
-    marginBottom: 32,
+  statsRow: {
+    flexDirection: 'row',
+    marginTop: 24,
     gap: 12,
   },
-  featureCard: {
-    flexDirection: 'row',
+  statBadge: {
     alignItems: 'center',
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-    borderRadius: 16,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.1)',
-    gap: 16,
+    gap: 8,
   },
-  featureIcon: {
-    width: 48,
-    height: 48,
+  statIcon: {
+    width: 40,
+    height: 40,
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  featureText: {
-    flex: 1,
-    fontSize: 15,
-    fontWeight: '600',
-    color: '#fff',
-    lineHeight: 20,
+  statLabel: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  formWrapper: {
+    marginBottom: 32,
   },
   formContainer: {
     backgroundColor: '#fff',
-    borderRadius: 24,
-    padding: 24,
+    borderRadius: 28,
+    padding: 28,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.3,
-    shadowRadius: 24,
-    elevation: 8,
-    marginBottom: 24,
+    shadowOffset: { width: 0, height: 16 },
+    shadowOpacity: 0.25,
+    shadowRadius: 32,
+    elevation: 12,
   },
   formHeader: {
-    marginBottom: 24,
+    marginBottom: 28,
   },
   formTitle: {
-    fontSize: 28,
+    fontSize: 32,
     fontWeight: '900',
-    color: '#0f172a',
-    marginBottom: 4,
+    color: '#0a0a1a',
+    marginBottom: 8,
   },
   formSubtitle: {
-    fontSize: 16,
+    fontSize: 15,
     color: '#64748b',
     fontWeight: '500',
+    lineHeight: 22,
   },
   errorContainer: {
+    marginBottom: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  errorGradient: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fef2f2',
-    borderWidth: 2,
-    borderColor: '#fecaca',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    gap: 8,
+    padding: 16,
+    gap: 12,
   },
   errorText: {
     flex: 1,
-    fontSize: 13,
+    fontSize: 14,
     fontWeight: '700',
     color: '#dc2626',
   },
@@ -318,69 +504,113 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   inputLabel: {
-    fontSize: 13,
-    fontWeight: '900',
+    fontSize: 14,
+    fontWeight: '700',
     color: '#334155',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   inputWrapper: {
-    position: 'relative',
+    borderRadius: 16,
+    overflow: 'hidden',
+  },
+  inputWrapperFocused: {
+    transform: [{ scale: 1.01 }],
+  },
+  inputGradientBorder: {
+    padding: 2,
+    borderRadius: 16,
+  },
+  inputInner: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: '#fff',
+    borderRadius: 14,
   },
-  inputIcon: {
-    position: 'absolute',
-    left: 16,
-    zIndex: 1,
+  inputIconContainer: {
+    width: 50,
+    height: 54,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   input: {
     flex: 1,
-    height: 52,
-    backgroundColor: '#f8fafc',
-    borderWidth: 2,
-    borderColor: '#e2e8f0',
-    borderRadius: 12,
-    paddingLeft: 48,
-    paddingRight: 16,
-    fontSize: 15,
+    height: 54,
+    fontSize: 16,
     fontWeight: '600',
-    color: '#0f172a',
+    color: '#0a0a1a',
+    paddingRight: 16,
   },
   eyeIcon: {
     position: 'absolute',
     right: 16,
-    padding: 4,
+    padding: 8,
   },
   loginButtonContainer: {
-    marginTop: 8,
-    borderRadius: 12,
+    marginTop: 24,
+    borderRadius: 16,
     overflow: 'hidden',
     shadowColor: '#14b8a6',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 12,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.4,
+    shadowRadius: 16,
+    elevation: 8,
   },
   loginButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    gap: 8,
+    paddingVertical: 18,
+    gap: 10,
+  },
+  loadingContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
   loginButtonText: {
-    fontSize: 16,
+    fontSize: 17,
     fontWeight: '900',
     color: '#fff',
     letterSpacing: 0.5,
   },
+  featuresGrid: {
+    marginTop: 24,
+    gap: 12,
+  },
+  featureItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingVertical: 8,
+  },
+  featureItemText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+  },
   footer: {
     alignItems: 'center',
-    paddingHorizontal: 16,
+    paddingTop: 20,
+  },
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 16,
+    gap: 12,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  },
+  dividerText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: 'rgba(255, 255, 255, 0.6)',
   },
   footerText: {
     fontSize: 13,
-    color: '#94a3b8',
+    color: 'rgba(255, 255, 255, 0.7)',
     textAlign: 'center',
     lineHeight: 20,
   },
