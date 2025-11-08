@@ -3,9 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import {
-  MapPin, Calendar, Clock, Users, TrendingUp, DollarSign,
-  Plus, Filter, Search, Bell, MessageCircle, Star, Car,
-  CheckCircle, XCircle, AlertCircle, Navigation, Fuel
+  MapPin, Calendar, Clock, Users, DollarSign,
+  Plus, Search, MessageCircle, Star, Car,
+  CheckCircle, XCircle, Navigation
 } from 'lucide-react';
 
 interface DashboardStats {
@@ -121,7 +121,7 @@ const DashboardPage: React.FC = () => {
       const { data: pendingRequests } = await supabase
         .from('ride_bookings_pro')
         .select('id')
-        .in('ride_id', rides?.map(r => r.id) || [])
+        .in('ride_id', rides?.map((r: any) => r.id) || [])
         .eq('status', 'pending');
 
       // Messages non lus
@@ -130,8 +130,8 @@ const DashboardPage: React.FC = () => {
         .select('unread_count')
         .contains('participants', [user.id]);
 
-      const unreadCount = conversations?.reduce((sum, conv) => {
-        const userUnread = (conv.unread_count as any)?.[user.id] || 0;
+      const unreadCount = conversations?.reduce((sum, conv: any) => {
+        const userUnread = conv.unread_count?.[user.id] || 0;
         return sum + userUnread;
       }, 0) || 0;
 
@@ -142,17 +142,17 @@ const DashboardPage: React.FC = () => {
         .eq('user_id', user.id)
         .eq('type', 'credit');
 
-      const totalEarnings = transactions?.reduce((sum, t) => sum + parseFloat(t.amount.toString()), 0) || 0;
+      const totalEarnings = transactions?.reduce((sum, t: any) => sum + parseFloat(t.amount.toString()), 0) || 0;
 
       setStats({
-        active_rides: rides?.filter(r => r.status === 'published').length || 0,
-        upcoming_bookings: bookings?.filter(b => b.status === 'confirmed').length || 0,
-        completed_rides: rides?.filter(r => r.status === 'completed').length || 0,
+        active_rides: rides?.filter((r: any) => r.status === 'published').length || 0,
+        upcoming_bookings: bookings?.filter((b: any) => b.status === 'confirmed').length || 0,
+        completed_rides: rides?.filter((r: any) => r.status === 'completed').length || 0,
         total_earnings: totalEarnings,
         pending_requests: pendingRequests?.length || 0,
         unread_messages: unreadCount,
-        average_rating: profile?.average_rating || 0,
-        total_km: profile?.total_km_driven || 0
+        average_rating: (profile as any)?.average_rating || 0,
+        total_km: (profile as any)?.total_km_driven || 0
       });
     } catch (error) {
       console.error('Erreur chargement statistiques:', error);

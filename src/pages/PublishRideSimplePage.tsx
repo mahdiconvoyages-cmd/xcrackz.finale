@@ -3,9 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { 
   MapPin, 
   Calendar, 
-  Clock, 
   Users, 
-  DollarSign, 
   Car,
   Cigarette,
   Dog,
@@ -83,8 +81,8 @@ export default function PublishRideSimplePage() {
         .eq('user_id', user.id)
         .single();
 
-      if (profile?.vehicles) {
-        const vehiclesList = profile.vehicles as Vehicle[];
+      if ((profile as any)?.vehicles) {
+        const vehiclesList = (profile as any).vehicles as Vehicle[];
         setVehicles(vehiclesList);
         if (vehiclesList.length > 0) {
           setSelectedVehicle(vehiclesList[0]);

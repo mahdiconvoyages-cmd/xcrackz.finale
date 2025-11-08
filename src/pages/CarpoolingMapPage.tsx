@@ -76,7 +76,6 @@ const createCustomIcon = (color: string, isMoving: boolean = false) => {
 };
 
 const CarpoolingMapPage: React.FC = () => {
-  const { user } = useAuth();
   const [rides, setRides] = useState<Ride[]>([]);
   const [selectedRide, setSelectedRide] = useState<Ride | null>(null);
   const [center, setCenter] = useState<[number, number]>([46.603354, 1.888334]); // Centre de la France

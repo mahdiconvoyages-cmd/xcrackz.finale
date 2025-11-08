@@ -4,8 +4,8 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   User, MapPin, Star, Calendar, Car, Shield, Award, 
-  MessageCircle, Phone, Mail, CheckCircle, Clock, TrendingUp,
-  Users, Navigation, Fuel, Heart
+  MessageCircle, CheckCircle, Clock, TrendingUp,
+  Users, Navigation, Heart, Fuel
 } from 'lucide-react';
 
 interface DriverProfile {
@@ -85,6 +85,8 @@ const DriverProfilePage: React.FC = () => {
   }, [userId]);
 
   const fetchDriverProfile = async () => {
+    if (!userId) return;
+    
     try {
       const { data, error } = await supabase
         .from('driver_profiles')
@@ -102,6 +104,8 @@ const DriverProfilePage: React.FC = () => {
   };
 
   const fetchReviews = async () => {
+    if (!userId) return;
+    
     try {
       const { data, error } = await supabase
         .from('ride_reviews')
@@ -125,6 +129,8 @@ const DriverProfilePage: React.FC = () => {
   };
 
   const fetchStatistics = async () => {
+    if (!userId) return;
+    
     try {
       const { data, error } = await supabase
         .from('driver_statistics')
@@ -140,10 +146,10 @@ const DriverProfilePage: React.FC = () => {
   };
 
   const checkIfFavorite = async () => {
-    if (!user) return;
+    if (!user || !userId) return;
     
     try {
-      const { data, error } = await supabase
+      const { data } = await supabase
         .from('user_favorites')
         .select('id')
         .eq('user_id', user.id)
@@ -158,7 +164,7 @@ const DriverProfilePage: React.FC = () => {
   };
 
   const toggleFavorite = async () => {
-    if (!user) return;
+    if (!user || !userId) return;
 
     try {
       if (isFavorite) {
@@ -176,7 +182,7 @@ const DriverProfilePage: React.FC = () => {
             favorite_type: 'contact',
             favorite_user_id: userId,
             notify_new_rides: true
-          });
+          } as any);
         setIsFavorite(true);
       }
     } catch (error) {
@@ -196,19 +202,19 @@ const DriverProfilePage: React.FC = () => {
         .single();
 
       if (existingConv) {
-        navigate(`/messages/${existingConv.id}`);
+        navigate(`/messages/${(existingConv as any).id}`);
       } else {
         const { data: newConv, error } = await supabase
           .from('ride_conversations')
           .insert({
             participants: [user.id, userId],
             is_group_chat: false
-          })
+          } as any)
           .select()
           .single();
 
         if (error) throw error;
-        navigate(`/messages/${newConv.id}`);
+        navigate(`/messages/${(newConv as any).id}`);
       }
     } catch (error) {
       console.error('Erreur création conversation:', error);
@@ -293,7 +299,9 @@ const DriverProfilePage: React.FC = () => {
                   <div className="flex items-center space-x-2">
                     <h1 className="text-3xl font-bold text-gray-900">{profile.full_name}</h1>
                     {profile.is_identity_verified && (
-                      <CheckCircle className="w-6 h-6 text-blue-500" title="Identité vérifiée" />
+                      <div title="Identité vérifiée">
+                        <CheckCircle className="w-6 h-6 text-blue-500" />
+                      </div>
                     )}
                   </div>
                   

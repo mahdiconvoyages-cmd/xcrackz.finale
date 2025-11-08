@@ -15,10 +15,7 @@ import {
   Calendar,
   Phone,
   Video,
-  MoreVertical,
-  Archive,
-  Star,
-  Trash2
+  MoreVertical
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
