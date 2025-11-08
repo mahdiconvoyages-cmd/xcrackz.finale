@@ -25,8 +25,21 @@ BEGIN
     END IF;
 END $$;
 
--- 3. Activer Realtime sur table profiles
-ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
+-- 3. Activer Realtime sur table profiles (si pas déjà fait)
+DO $$ 
+BEGIN
+    -- Vérifier si profiles est déjà dans la publication
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_publication_tables 
+        WHERE pubname = 'supabase_realtime' 
+        AND tablename = 'profiles'
+    ) THEN
+        ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
+        RAISE NOTICE 'Realtime activé sur profiles';
+    ELSE
+        RAISE NOTICE 'Realtime déjà activé sur profiles';
+    END IF;
+END $$;
 
 -- 4. Créer fonction pour déduire des crédits
 CREATE OR REPLACE FUNCTION deduct_credits(
