@@ -66,9 +66,10 @@ export default function DashboardScreenNew() {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { colors } = useTheme();
-  const { credits, loading: creditsLoading } = useCredits();
+  const { credits, loading: creditsLoading, refreshCredits } = useCredits();
   
   console.log('🎯 Dashboard: credits =', credits, 'loading =', creditsLoading);
+  console.log('🎯 Dashboard: user.id =', user?.id);
   
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -435,14 +436,26 @@ export default function DashboardScreenNew() {
                     <Text style={styles.creditsLabel}>Crédits disponibles</Text>
                     <Text style={styles.creditsValue}>{stats.totalCredits}</Text>
                     <Text style={styles.creditsUsed}>Utilisés: {stats.usedCredits}</Text>
+                    {/* DEBUG: Afficher la vraie valeur du hook */}
+                    <Text style={{ color: '#fff', fontSize: 10, marginTop: 4 }}>
+                      Hook: {credits} | Loading: {creditsLoading ? 'oui' : 'non'}
+                    </Text>
                   </View>
                 </View>
                 
                 <View style={styles.creditsRight}>
-                  <View style={styles.rechargeButton}>
-                    <Ionicons name="add-circle" size={24} color="#fff" />
-                    <Text style={styles.rechargeText}>Recharger</Text>
-                  </View>
+                  <TouchableOpacity 
+                    style={styles.rechargeButton}
+                    onPress={async () => {
+                      console.log('🔄 Refresh manuel des crédits...');
+                      await refreshCredits();
+                      await loadDashboardData();
+                      console.log('✅ Refresh terminé');
+                    }}
+                  >
+                    <Ionicons name="refresh" size={24} color="#fff" />
+                    <Text style={styles.rechargeText}>Refresh</Text>
+                  </TouchableOpacity>
                 </View>
               </View>
 
