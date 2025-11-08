@@ -111,6 +111,7 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
   const [clientSignature, setClientSignature] = useState('');
   const [driverName, setDriverName] = useState('');
   const [driverSignature, setDriverSignature] = useState('');
+  const [isSigningActive, setIsSigningActive] = useState(false);
 
   useEffect(() => {
     loadMission();
@@ -726,7 +727,7 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
   );
 
   const renderStep4 = () => (
-    <ScrollView style={styles.stepContainer}>
+    <ScrollView style={styles.stepContainer} scrollEnabled={!isSigningActive}>
       <View style={styles.formGroup}>
         <Text style={[styles.label, { color: colors.text }]}>Nom du client *</Text>
         <TextInput
@@ -743,6 +744,8 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
         <SignaturePad
           onSave={(signature) => setClientSignature(signature)}
           value={clientSignature}
+          onBegin={() => setIsSigningActive(true)}
+          onEnd={() => setIsSigningActive(false)}
         />
       </View>
 
@@ -762,6 +765,8 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
         <SignaturePad
           onSave={(signature) => setDriverSignature(signature)}
           value={driverSignature}
+          onBegin={() => setIsSigningActive(true)}
+          onEnd={() => setIsSigningActive(false)}
         />
       </View>
     </ScrollView>
