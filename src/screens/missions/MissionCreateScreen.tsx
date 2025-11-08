@@ -102,22 +102,42 @@ export default function MissionCreateScreen({ navigation }: any) {
       return;
     }
 
-    // Vérifier les crédits AVANT de créer la mission
-    if (!hasEnoughCredits(1)) {
-      setShowBuyCreditModal(true);
-      return;
-    }
-
     setLoading(true);
     try {
-      // 1. Déduire 1 crédit
-      const deductResult = await deductCredits(1, `Création de mission ${formData.reference}`);
-      
-      if (!deductResult.success) {
-        Alert.alert('Crédits insuffisants', deductResult.error || 'Impossible de déduire les crédits');
-        setShowBuyCreditModal(true);
-        setLoading(false);
-        return;
+      // 1. Vérifier si l'utilisateur a un abonnement actif OU des crédits
+      const { data: subscription } = await supabase
+        .from('subscriptions')
+        .select('status, plan_name')
+        .eq('user_id', user.id)
+        .eq('status', 'active')
+        .maybeSingle();
+
+      const hasActiveSubscription = subscription && subscription.status === 'active';
+
+      // Si pas d'abonnement actif, vérifier les crédits
+      if (!hasActiveSubscription) {
+        if (!hasEnoughCredits(1)) {
+          setLoading(false);
+          Alert.alert(
+            '❌ Accès limité',
+            'Vous avez besoin d\'un abonnement actif ou d\'au moins 1 crédit pour créer une mission.',
+            [
+              { text: 'Acheter des crédits', onPress: () => setShowBuyCreditModal(true) },
+              { text: 'Annuler', style: 'cancel' }
+            ]
+          );
+          return;
+        }
+
+        // Déduire 1 crédit si pas d'abonnement
+        const deductResult = await deductCredits(1, `Création de mission ${formData.reference}`);
+        
+        if (!deductResult.success) {
+          Alert.alert('Crédits insuffisants', deductResult.error || 'Impossible de déduire les crédits');
+          setShowBuyCreditModal(true);
+          setLoading(false);
+          return;
+        }
       }
 
       // 2. Générer un code de partage unique
@@ -168,9 +188,13 @@ export default function MissionCreateScreen({ navigation }: any) {
 
       if (error) throw error;
 
+      const successMessage = hasActiveSubscription
+        ? `Mission ${formData.reference} créée avec succès\n\n✨ Abonnement ${subscription?.plan_name || 'actif'}`
+        : `Mission ${formData.reference} créée avec succès\n\n💳 -1 crédit (Solde: ${credits - 1})`;
+
       Alert.alert(
         '✅ Mission créée',
-        `Mission ${formData.reference} créée avec succès\n\n💳 -1 crédit (Solde: ${credits - 1})`,
+        successMessage,
         [
           {
             text: 'Voir la mission',
