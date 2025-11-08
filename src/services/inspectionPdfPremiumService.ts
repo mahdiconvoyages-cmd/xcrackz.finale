@@ -224,7 +224,14 @@ function addCheckTable(pdf: jsPDF, y: number, items: Array<[string, boolean]>): 
 /**
  * Ajoute les signatures
  */
-async function addSignatures(pdf: jsPDF, y: number, driverSig?: string, clientSig?: string): Promise<number> {
+async function addSignatures(
+  pdf: jsPDF, 
+  y: number, 
+  driverSig?: string, 
+  clientSig?: string,
+  driverName?: string,
+  clientName?: string
+): Promise<number> {
   const W = pdf.internal.pageSize.getWidth();
   const sigW = (W - 50) / 2;
   const sigH = 32;
@@ -235,24 +242,32 @@ async function addSignatures(pdf: jsPDF, y: number, driverSig?: string, clientSi
   pdf.setFont('helvetica', 'bold');
   pdf.text('✍️ Signature Convoyeur', 20, y);
   
+  // Nom du convoyeur
+  if (driverName) {
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(...C.gray);
+    pdf.text(driverName, 20, y + 4);
+  }
+  
   pdf.setDrawColor(...C.border);
   pdf.setLineWidth(0.5);
-  pdf.roundedRect(20, y + 2, sigW, sigH, 2, 2, 'S');
+  pdf.roundedRect(20, y + (driverName ? 6 : 2), sigW, sigH, 2, 2, 'S');
   
   if (driverSig) {
     try {
-      pdf.addImage(driverSig, 'PNG', 21, y + 3, sigW - 2, sigH - 2);
+      pdf.addImage(driverSig, 'PNG', 21, y + (driverName ? 7 : 3), sigW - 2, sigH - 2);
     } catch {
       pdf.setTextColor(...C.gray);
       pdf.setFontSize(8);
       pdf.setFont('helvetica', 'italic');
-      pdf.text('Signature indisponible', 20 + sigW / 2, y + sigH / 2 + 2, { align: 'center' });
+      pdf.text('Signature indisponible', 20 + sigW / 2, y + sigH / 2 + (driverName ? 6 : 2), { align: 'center' });
     }
   } else {
     pdf.setTextColor(...C.gray);
     pdf.setFontSize(8);
     pdf.setFont('helvetica', 'italic');
-    pdf.text('Non signée', 20 + sigW / 2, y + sigH / 2 + 2, { align: 'center' });
+    pdf.text('Non signée', 20 + sigW / 2, y + sigH / 2 + (driverName ? 6 : 2), { align: 'center' });
   }
   
   // Signature Client
@@ -262,27 +277,35 @@ async function addSignatures(pdf: jsPDF, y: number, driverSig?: string, clientSi
   pdf.setFont('helvetica', 'bold');
   pdf.text('✍️ Signature Client', rightX, y);
   
+  // Nom du client
+  if (clientName) {
+    pdf.setFontSize(8);
+    pdf.setFont('helvetica', 'normal');
+    pdf.setTextColor(...C.gray);
+    pdf.text(clientName, rightX, y + 4);
+  }
+  
   pdf.setDrawColor(...C.border);
   pdf.setLineWidth(0.5);
-  pdf.roundedRect(rightX, y + 2, sigW, sigH, 2, 2, 'S');
+  pdf.roundedRect(rightX, y + (clientName ? 6 : 2), sigW, sigH, 2, 2, 'S');
   
   if (clientSig) {
     try {
-      pdf.addImage(clientSig, 'PNG', rightX + 1, y + 3, sigW - 2, sigH - 2);
+      pdf.addImage(clientSig, 'PNG', rightX + 1, y + (clientName ? 7 : 3), sigW - 2, sigH - 2);
     } catch {
       pdf.setTextColor(...C.gray);
       pdf.setFontSize(8);
       pdf.setFont('helvetica', 'italic');
-      pdf.text('Signature indisponible', rightX + sigW / 2, y + sigH / 2 + 2, { align: 'center' });
+      pdf.text('Signature indisponible', rightX + sigW / 2, y + sigH / 2 + (clientName ? 6 : 2), { align: 'center' });
     }
   } else {
     pdf.setTextColor(...C.gray);
     pdf.setFontSize(8);
     pdf.setFont('helvetica', 'italic');
-    pdf.text('Non signée', rightX + sigW / 2, y + sigH / 2 + 2, { align: 'center' });
+    pdf.text('Non signée', rightX + sigW / 2, y + sigH / 2 + (clientName ? 6 : 2), { align: 'center' });
   }
   
-  return y + sigH + 12;
+  return y + sigH + (driverName || clientName ? 16 : 12);
 }
 
 /**
@@ -549,7 +572,7 @@ async function generateInspectionPages(pdf: jsPDF, inspection: InspectionDetails
   y = addSection(pdf, y, 'État du Véhicule', '🚗', C.primary);
   const vehicleData: Array<[string, string]> = [];
   if (inspection.mileage) vehicleData.push(['Kilométrage', `${inspection.mileage} km`]);
-  if (inspection.fuel_level !== undefined) vehicleData.push(['Niveau carburant', `${inspection.fuel_level}/8`]);
+  if (inspection.fuel_level !== undefined) vehicleData.push(['Niveau carburant', `${inspection.fuel_level}%`]);
   if (inspection.cleanliness_interior !== undefined) vehicleData.push(['Propreté intérieure', `${'⭐'.repeat(inspection.cleanliness_interior)} (${inspection.cleanliness_interior}/5)`]);
   if (inspection.cleanliness_exterior !== undefined) vehicleData.push(['Propreté extérieure', `${'⭐'.repeat(inspection.cleanliness_exterior)} (${inspection.cleanliness_exterior}/5)`]);
   if (vehicleData.length > 0) {
@@ -651,7 +674,14 @@ async function generateInspectionPages(pdf: jsPDF, inspection: InspectionDetails
   }
   
   y = addSection(pdf, y, 'Signatures', '✍️', C.success);
-  y = await addSignatures(pdf, y, inspection.driver_signature, inspection.client_signature);
+  y = await addSignatures(
+    pdf, 
+    y, 
+    inspection.driver_signature, 
+    inspection.client_signature,
+    inspection.driver_name,
+    inspection.client_name
+  );
   
   // === PHOTOS ===
   if (inspection.photos && inspection.photos.length > 0) {
