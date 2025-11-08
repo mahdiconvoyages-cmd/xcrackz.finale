@@ -7,8 +7,8 @@
 DO $$ 
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns 
-                   WHERE table_name = 'users' AND column_name = 'credits') THEN
-        ALTER TABLE users ADD COLUMN credits INTEGER DEFAULT 0 NOT NULL;
+                   WHERE table_name = 'profiles' AND column_name = 'credits') THEN
+        ALTER TABLE profiles ADD COLUMN credits INTEGER DEFAULT 0 NOT NULL;
         RAISE NOTICE 'Colonne credits ajoutée';
     ELSE
         RAISE NOTICE 'Colonne credits existe déjà';
@@ -19,14 +19,14 @@ END $$;
 DO $$ 
 BEGIN
     IF EXISTS (SELECT 1 FROM information_schema.columns 
-               WHERE table_name = 'users' AND column_name = 'revenue') THEN
-        UPDATE users SET credits = COALESCE(revenue, 0) WHERE credits = 0;
+               WHERE table_name = 'profiles' AND column_name = 'revenue') THEN
+        UPDATE profiles SET credits = COALESCE(revenue, 0) WHERE credits = 0;
         RAISE NOTICE 'Revenue migré vers credits';
     END IF;
 END $$;
 
--- 3. Activer Realtime sur table users
-ALTER PUBLICATION supabase_realtime ADD TABLE users;
+-- 3. Activer Realtime sur table profiles
+ALTER PUBLICATION supabase_realtime ADD TABLE profiles;
 
 -- 4. Créer fonction pour déduire des crédits
 CREATE OR REPLACE FUNCTION deduct_credits(
@@ -44,7 +44,7 @@ DECLARE
 BEGIN
     -- Récupérer crédits actuels avec verrou
     SELECT credits INTO v_current_credits
-    FROM users
+    FROM profiles
     WHERE id = p_user_id
     FOR UPDATE;
     
@@ -59,7 +59,7 @@ BEGIN
     END IF;
     
     -- Déduire
-    UPDATE users
+    UPDATE profiles
     SET credits = credits - p_amount
     WHERE id = p_user_id;
     
@@ -94,7 +94,7 @@ DECLARE
     v_new_balance INTEGER;
 BEGIN
     -- Ajouter crédits
-    UPDATE users
+    UPDATE profiles
     SET credits = credits + p_amount
     WHERE id = p_user_id
     RETURNING credits INTO v_new_balance;
@@ -126,7 +126,7 @@ GRANT EXECUTE ON FUNCTION add_credits(UUID, INTEGER, TEXT) TO authenticated;
 -- Table optionnelle pour historique
 CREATE TABLE IF NOT EXISTS credit_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
     amount INTEGER NOT NULL,
     type TEXT NOT NULL CHECK (type IN ('addition', 'deduction')),
     reason TEXT NOT NULL,
@@ -150,4 +150,4 @@ USING (user_id = auth.uid());
 -- ============================================
 -- SELECT deduct_credits('user-uuid', 1, 'Création mission');
 -- SELECT add_credits('user-uuid', 10, 'Achat boutique');
--- SELECT credits FROM users WHERE id = 'user-uuid';
+-- SELECT credits FROM profiles WHERE id = 'user-uuid';

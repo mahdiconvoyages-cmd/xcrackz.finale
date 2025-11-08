@@ -29,7 +29,7 @@ export function useCredits(): CreditInfo & {
 
     try {
       const { data, error } = await supabase
-        .from('users')
+        .from('profiles')
         .select('credits')
         .eq('id', user.id)
         .single();
@@ -57,7 +57,7 @@ export function useCredits(): CreditInfo & {
         {
           event: 'UPDATE',
           schema: 'public',
-          table: 'users',
+          table: 'profiles',
           filter: `id=eq.${user.id}`,
         },
         (payload) => {
