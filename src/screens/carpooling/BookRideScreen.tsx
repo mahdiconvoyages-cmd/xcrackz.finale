@@ -31,37 +31,13 @@ export default function BookRideScreen() {
   const { user } = useAuth();
 
   const [seats, setSeats] = useState(1);
-  const [paymentMethod, setPaymentMethod] = useState<'credits' | 'cash'>('credits');
+  const [paymentMethod, setPaymentMethod] = useState<'cash'>('cash');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
 
   const totalPrice = ride.price_per_seat * seats;
 
   const handleBooking = async () => {
-    if (paymentMethod === 'credits') {
-      // Vérifier le solde
-      const { data: creditsData } = await supabase
-        .from('user_credits')
-        .select('balance')
-        .eq('user_id', user.id)
-        .single();
-
-      if (!creditsData || creditsData.balance < totalPrice) {
-        Alert.alert(
-          'Crédits insuffisants',
-          `Il vous faut ${totalPrice}€ de crédits. Souhaitez-vous recharger ?`,
-          [
-            { text: 'Annuler', style: 'cancel' },
-            {
-              text: 'Recharger',
-              onPress: () => navigation.navigate('CreditsWallet' as never),
-            },
-          ]
-        );
-        return;
-      }
-    }
-
     setLoading(true);
 
     try {
@@ -92,25 +68,6 @@ export default function BookRideScreen() {
         .eq('id', ride.id);
 
       if (updateError) throw updateError;
-
-      // Si paiement par crédits et auto-accept, traiter le paiement
-      if (paymentMethod === 'credits' && ride.auto_accept) {
-        const { data: paymentResult, error: paymentError } = await supabase.rpc(
-          'process_credit_payment',
-          {
-            p_passenger_id: user.id,
-            p_driver_id: ride.driver_id,
-            p_amount: totalPrice,
-            p_booking_id: booking.id,
-          }
-        );
-
-        if (paymentError) throw paymentError;
-
-        if (!paymentResult.success) {
-          throw new Error(paymentResult.error);
-        }
-      }
 
       Alert.alert(
         'Réservation confirmée !',
@@ -209,54 +166,21 @@ export default function BookRideScreen() {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Mode de paiement</Text>
 
-          {ride.payment_methods.includes('credits') && (
-            <TouchableOpacity
-              style={[
-                styles.paymentOption,
-                paymentMethod === 'credits' && styles.paymentOptionSelected,
-              ]}
-              onPress={() => setPaymentMethod('credits')}
-            >
-              <View style={styles.paymentLeft}>
-                <Ionicons name="wallet" size={24} color={colors.primary} />
-                <View style={styles.paymentInfo}>
-                  <Text style={styles.paymentTitle}>Crédits XCrackz</Text>
-                  <Text style={styles.paymentSubtitle}>Paiement instantané et sécurisé</Text>
-                </View>
+          <TouchableOpacity
+            style={[styles.paymentOption, styles.paymentOptionSelected]}
+            disabled
+          >
+            <View style={styles.paymentLeft}>
+              <Ionicons name="cash" size={24} color={colors.primary} />
+              <View style={styles.paymentInfo}>
+                <Text style={styles.paymentTitle}>Espèces</Text>
+                <Text style={styles.paymentSubtitle}>Paiement au conducteur</Text>
               </View>
-              <View
-                style={[
-                  styles.radio,
-                  paymentMethod === 'credits' && styles.radioSelected,
-                ]}
-              >
-                {paymentMethod === 'credits' && <View style={styles.radioDot} />}
-              </View>
-            </TouchableOpacity>
-          )}
-
-          {ride.payment_methods.includes('cash') && (
-            <TouchableOpacity
-              style={[
-                styles.paymentOption,
-                paymentMethod === 'cash' && styles.paymentOptionSelected,
-              ]}
-              onPress={() => setPaymentMethod('cash')}
-            >
-              <View style={styles.paymentLeft}>
-                <Ionicons name="cash" size={24} color={colors.primary} />
-                <View style={styles.paymentInfo}>
-                  <Text style={styles.paymentTitle}>Espèces</Text>
-                  <Text style={styles.paymentSubtitle}>Paiement au conducteur</Text>
-                </View>
-              </View>
-              <View
-                style={[styles.radio, paymentMethod === 'cash' && styles.radioSelected]}
-              >
-                {paymentMethod === 'cash' && <View style={styles.radioDot} />}
-              </View>
-            </TouchableOpacity>
-          )}
+            </View>
+            <View style={[styles.radio, styles.radioSelected]}>
+              <View style={styles.radioDot} />
+            </View>
+          </TouchableOpacity>
         </View>
 
         {/* Message au conducteur */}
@@ -284,12 +208,6 @@ export default function BookRideScreen() {
             </Text>
             <Text style={styles.summaryValue}>{totalPrice.toFixed(2)}€</Text>
           </View>
-          {paymentMethod === 'credits' && (
-            <View style={styles.summaryRow}>
-              <Text style={styles.summaryLabel}>Frais de service</Text>
-              <Text style={styles.summaryValue}>0€</Text>
-            </View>
-          )}
           <View style={[styles.summaryRow, styles.summaryTotal]}>
             <Text style={styles.totalLabel}>Total</Text>
             <Text style={styles.totalValue}>{totalPrice.toFixed(2)}€</Text>

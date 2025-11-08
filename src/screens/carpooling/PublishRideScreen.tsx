@@ -53,7 +53,6 @@ export default function PublishRideScreen() {
   const [autoAccept, setAutoAccept] = useState(true);
   
   // Modes de paiement
-  const [acceptCredits, setAcceptCredits] = useState(true);
   const [acceptCash, setAcceptCash] = useState(true);
 
   const [loading, setLoading] = useState(false);
@@ -71,17 +70,15 @@ export default function PublishRideScreen() {
       return;
     }
 
-    if (!acceptCredits && !acceptCash) {
-      Alert.alert('Erreur', 'Sélectionnez au moins un mode de paiement');
+    if (!acceptCash) {
+      Alert.alert('Erreur', 'Le mode de paiement espèces doit être activé');
       return;
     }
 
     setLoading(true);
 
     try {
-      const paymentMethods = [];
-      if (acceptCredits) paymentMethods.push('credits');
-      if (acceptCash) paymentMethods.push('cash');
+      const paymentMethods = ['cash'];
 
       const { data, error } = await supabase
         .from('carpooling_rides')
@@ -370,19 +367,6 @@ export default function PublishRideScreen() {
         {/* Modes de paiement */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Modes de paiement acceptés</Text>
-
-          <TouchableOpacity
-            style={styles.preferenceRow}
-            onPress={() => setAcceptCredits(!acceptCredits)}
-          >
-            <View style={styles.preferenceLeft}>
-              <Ionicons name="wallet-outline" size={24} color={colors.text} />
-              <Text style={styles.preferenceText}>Crédits XCrackz</Text>
-            </View>
-            <View style={[styles.switch, acceptCredits && styles.switchActive]}>
-              {acceptCredits && <View style={styles.switchDot} />}
-            </View>
-          </TouchableOpacity>
 
           <TouchableOpacity
             style={styles.preferenceRow}
