@@ -1,8 +1,7 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { 
-  View, Text, FlatList, TouchableOpacity, ActivityIndicator, 
-  StyleSheet, Dimensions, RefreshControl, Alert, Image, Platform,
-  ScrollView
+  View, Text, TouchableOpacity, ActivityIndicator, 
+  StyleSheet, Dimensions, Alert, Image, ScrollView
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,18 +9,13 @@ import ImageView from 'react-native-image-viewing';
 import { supabase } from '../../lib/supabase';
 import { getCachedPdfUrl, generateAndWaitPdf } from '../../shared/services/inspectionPdfEdgeService';
 import ShareReportSheet from '../../components/ShareReportSheet';
-import { cacheManager } from '../../utils/cacheManager';
 
-// Fallback si FastImage n'est pas disponible (Expo Go)
+// Fallback si FastImage n'est pas disponible
 let FastImage: any = Image;
-let FastImageResizeMode: any = { cover: 'cover' };
-let FastImagePriority: any = { normal: undefined };
 
 try {
   const FastImageModule = require('react-native-fast-image');
   FastImage = FastImageModule.default || FastImageModule;
-  FastImageResizeMode = FastImage.resizeMode || { cover: 'cover' };
-  FastImagePriority = FastImage.priority || { normal: undefined };
 } catch (e) {
   console.log('⚠️ FastImage non disponible, utilisation de Image standard');
 }

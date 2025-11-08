@@ -6,7 +6,7 @@ import MenuButton from '../components/MenuButton';
 import InspectionListScreen from '../screens/inspections/InspectionListScreen';
 import InspectionDepartureNew from '../screens/inspections/InspectionDepartureNew';
 import InspectionArrivalNew from '../screens/inspections/InspectionArrivalNew';
-import InspectionReportAdvanced from '../screens/inspections/InspectionReportAdvanced';
+import InspectionReportAdvanced from '../screens/inspections/InspectionReportAdvancedNew';
 import InspectionShareScreen from '../screens/inspections/InspectionShareScreen';
 
 const Stack = createNativeStackNavigator();
@@ -33,9 +33,7 @@ export default function InspectionsNavigator() {
       <Stack.Screen
         name="InspectionReportAdvanced"
         component={InspectionReportAdvanced}
-        options={{ 
-          title: 'Rapport détaillé',
-        }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="InspectionList"
