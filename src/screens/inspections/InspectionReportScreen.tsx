@@ -1,141 +1,139 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Image,
   Alert,
   RefreshControl,
   ActivityIndicator,
-  Share,
-  Platform,
+  Animated,
+  Dimensions,
 } from 'react-native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import { MaterialIcons, Ionicons, FontAwesome5 } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { generateAndShareInspectionPDF } from '../../services/pdfGenerator';
 import ShareInspectionModal from '../../components/ShareInspectionModal';
 
+const { width } = Dimensions.get('window');
+
 interface InspectionReport {
   id: string;
   mission_id: string;
-  type: 'departure' | 'arrival';
-  vehicle_info: any;
-  equipment_status: any;
+  inspection_type: 'departure' | 'arrival';
+  overall_condition: string;
+  mileage_km: number;
+  fuel_level: number;
   remarks?: string;
   created_at: string;
   completed_at?: string;
   inspector_signature?: string;
   client_signature?: string;
-  photos?: InspectionPhoto[];
+  photos_count?: number;
   mission?: {
     id: string;
-    mission_number: string;
+    reference: string;
+    vehicle_brand: string;
+    vehicle_model: string;
+    vehicle_plate: string;
     pickup_address: string;
     delivery_address: string;
-    vehicle?: {
-      brand: string;
-      model: string;
-      registration: string;
-    };
-    client?: {
-      name: string;
-      email: string;
-      phone: string;
-    };
+    status: string;
   };
 }
 
-interface InspectionPhoto {
-  id: string;
-  photo_url: string;
-  photo_type: string;
-  created_at: string;
+interface Stats {
+  total: number;
+  departure: number;
+  arrival: number;
+  thisWeek: number;
 }
 
-export default function InspectionReportScreen({ navigation }: any) {
+export default function InspectionReportScreenNew({ navigation }: any) {
   const { user } = useAuth();
   const { colors } = useTheme();
   const [inspections, setInspections] = useState<InspectionReport[]>([]);
+  const [stats, setStats] = useState<Stats>({ total: 0, departure: 0, arrival: 0, thisWeek: 0 });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [generatingPDF, setGeneratingPDF] = useState(false);
+  const [generatingPDF, setGeneratingPDF] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'departure' | 'arrival'>('all');
-  const [selectedInspection, setSelectedInspection] = useState<InspectionReport | null>(null);
-  const [showDetails, setShowDetails] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareModalMissionId, setShareModalMissionId] = useState<string | null>(null);
 
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+
   useEffect(() => {
     loadInspections();
+    
+    // Animation d'entrée
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        useNativeDriver: true,
+      }),
+      Animated.spring(slideAnim, {
+        toValue: 0,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+    ]).start();
   }, [filter]);
 
-  // Realtime sync séparé avec cleanup
+  // Realtime
   useEffect(() => {
     if (!user) return;
 
-    console.log('🔄 Setup realtime pour rapports inspection...');
-
-    // Synchronisation temps réel
     const channel = supabase
-      .channel('inspection_reports_changes')
+      .channel('inspection_reports_realtime')
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'vehicle_inspections' },
-        (payload) => {
-          console.log('📡 Inspection modifiée (realtime):', payload.eventType);
-          loadInspections();
-        }
+        () => loadInspections()
       )
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'inspection_photos_v2' },
-        (payload) => {
-          console.log('📸 Photo ajoutée (realtime):', payload.eventType);
-          loadInspections();
-        }
+        () => loadInspections()
       )
-      .subscribe((status) => {
-        console.log('📡 Realtime rapports inspection status:', status);
-      });
+      .subscribe();
 
-    // Cleanup au démontage
     return () => {
-      console.log('🔌 Unsubscribe realtime rapports');
       supabase.removeChannel(channel);
     };
   }, [user]);
 
   const loadInspections = async () => {
-    if (!user) return;
-
     try {
-      console.log('🔍 Chargement des inspections pour user:', user.id);
-      
-      // Première étape : récupérer toutes les inspections (COMME WEB)
+      if (!user) return;
+
       let query = supabase
         .from('vehicle_inspections')
         .select(`
           *,
-          mission:missions(
+          missions!inner (
             id,
             reference,
-            user_id,
-            pickup_address,
-            delivery_address,
             vehicle_brand,
             vehicle_model,
             vehicle_plate,
-            client_name,
-            client_email,
-            client_phone
+            pickup_address,
+            delivery_address,
+            status,
+            user_id
           )
         `)
+        .eq('missions.user_id', user.id)
         .order('created_at', { ascending: false });
 
       if (filter !== 'all') {
@@ -144,80 +142,40 @@ export default function InspectionReportScreen({ navigation }: any) {
 
       const { data, error } = await query;
 
-      if (error) {
-        console.error('❌ Erreur Supabase:', error);
-        throw error;
-      }
+      if (error) throw error;
 
-      console.log('✅ Inspections récupérées:', data?.length || 0);
-
-      // 🔒 SÉCURITÉ: Filtrer pour que l'utilisateur voie UNIQUEMENT:
-      // 1. Ses propres missions (user_id)
-      // 2. Missions qui lui sont assignées (assigned_to_user_id)
-      // 3. Missions auxquelles il a accès via code de partage
-      const userInspections = (data || []).filter((inspection: any) => {
-        const mission = inspection.mission;
-        if (!mission) return false;
-
-        // 1. C'est sa mission
-        if (mission.user_id === user.id) {
-          console.log(`✅ Mission ${mission.reference}: propriétaire`);
-          return true;
-        }
-
-        // 2. Mission lui a été assignée
-        if (mission.assigned_to_user_id === user.id) {
-          console.log(`✅ Mission ${mission.reference}: assignée à moi`);
-          return true;
-        }
-
-        // 3. Mission accessible via share_code
-        // Note: Si l'utilisateur a utilisé le share_code, la mission devrait avoir assigned_to_user_id = user.id
-        // Donc normalement couvert par le cas 2
-
-        console.log(`❌ Mission ${mission.reference}: accès refusé`);
-        return false;
-      });
-
-      console.log('🔒 Inspections filtrées pour cet utilisateur:', userInspections.length, '/', data?.length || 0);
-
-      // Charger les photos pour chaque inspection
+      // Compter les photos pour chaque inspection
       const inspectionsWithPhotos = await Promise.all(
-        userInspections.map(async (inspection: any) => {
-          // Ensure older UI that expects `inspection.mission.vehicle` and `inspection.mission.client` keeps working
-          if (inspection.mission) {
-            if (!inspection.mission.vehicle) {
-              inspection.mission.vehicle = {
-                brand: inspection.mission.vehicle_brand || null,
-                model: inspection.mission.vehicle_model || null,
-                registration: inspection.mission.vehicle_plate || null,
-              };
-            }
-            if (!inspection.mission.client) {
-              inspection.mission.client = {
-                name: inspection.mission.client_name || null,
-                email: inspection.mission.client_email || null,
-                phone: inspection.mission.client_phone || null,
-              };
-            }
-          }
-          const { data: photos } = await supabase
-            .from('inspection_photos')
-            .select('*')
-            .eq('inspection_id', inspection.id)
-            .order('created_at');
+        (data || []).map(async (inspection) => {
+          const { count } = await supabase
+            .from('inspection_photos_v2')
+            .select('*', { count: 'exact', head: true })
+            .eq('inspection_id', inspection.id);
+          
           return {
             ...inspection,
-            photos: photos || [],
+            photos_count: count || 0,
+            mission: inspection.missions,
           };
         })
       );
 
-      console.log('✅ Photos chargées pour', inspectionsWithPhotos.length, 'inspections');
-      setInspections(inspectionsWithPhotos);
+      setInspections(inspectionsWithPhotos as any);
+
+      // Calculer les stats
+      const now = new Date();
+      const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+      setStats({
+        total: data?.length || 0,
+        departure: data?.filter(i => i.inspection_type === 'departure').length || 0,
+        arrival: data?.filter(i => i.inspection_type === 'arrival').length || 0,
+        thisWeek: data?.filter(i => new Date(i.created_at) >= oneWeekAgo).length || 0,
+      });
+
     } catch (error: any) {
-      console.error('❌ Erreur chargement inspections:', error);
-      Alert.alert('Erreur', error.message || 'Impossible de charger les rapports');
+      console.error('Erreur chargement inspections:', error);
+      Alert.alert('Erreur', error.message);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -231,8 +189,8 @@ export default function InspectionReportScreen({ navigation }: any) {
 
   const deleteInspection = async (inspection: InspectionReport) => {
     Alert.alert(
-      '🗑️ Supprimer le rapport',
-      `Voulez-vous vraiment supprimer ce rapport ${inspection.type === 'departure' ? 'de départ' : "d'arrivée"} ?\n\nMission: ${inspection.mission?.mission_number || 'N/A'}\nDate: ${format(new Date(inspection.created_at), 'dd MMM yyyy', { locale: fr })}`,
+      'Confirmer la suppression',
+      `Supprimer le rapport ${inspection.inspection_type === 'departure' ? 'de départ' : "d'arrivée"} ?\n\nMission: ${inspection.mission?.reference}`,
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -240,247 +198,406 @@ export default function InspectionReportScreen({ navigation }: any) {
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log('🗑️ Suppression inspection:', inspection.id);
-
               // Supprimer les photos d'abord
               const { error: photosError } = await supabase
                 .from('inspection_photos_v2')
                 .delete()
                 .eq('inspection_id', inspection.id);
 
-              if (photosError) {
-                console.error('❌ Erreur suppression photos:', photosError);
-                throw photosError;
-              }
+              if (photosError) throw photosError;
 
               // Supprimer l'inspection
-              const { error: inspectionError } = await supabase
+              const { error } = await supabase
                 .from('vehicle_inspections')
                 .delete()
                 .eq('id', inspection.id);
 
-              if (inspectionError) {
-                console.error('❌ Erreur suppression inspection:', inspectionError);
-                throw inspectionError;
-              }
+              if (error) throw error;
 
-              console.log('✅ Inspection supprimée');
               Alert.alert('✅ Succès', 'Rapport supprimé');
-              loadInspections(); // Recharger la liste
+              loadInspections();
             } catch (error: any) {
-              console.error('❌ Erreur:', error);
-              Alert.alert('❌ Erreur', error.message || 'Impossible de supprimer le rapport');
+              Alert.alert('Erreur', error.message);
             }
-          }
-        }
+          },
+        },
       ]
     );
   };
 
   const generatePDF = async (inspection: InspectionReport) => {
     try {
-      setGeneratingPDF(true);
-      Alert.alert('📄 Génération PDF', 'Conversion des photos en cours...');
+      setGeneratingPDF(inspection.id);
 
-      // Utiliser le nouveau service de génération PDF
-      const result = await generateAndShareInspectionPDF({
-        ...inspection,
-        mission: {
-          reference: inspection.mission?.mission_number || 'N/A',
-          pickup_address: inspection.mission?.pickup_address || '',
-          delivery_address: inspection.mission?.delivery_address || '',
-          vehicle_brand: inspection.mission?.vehicle?.brand || '',
-          vehicle_model: inspection.mission?.vehicle?.model || '',
-          vehicle_plate: inspection.mission?.vehicle?.registration || '',
-          client_name: inspection.mission?.client?.name,
-          client_email: inspection.mission?.client?.email,
-          client_phone: inspection.mission?.client?.phone,
-        },
-      } as any);
+      // Appeler l'Edge Function via RPC
+      const { data, error } = await supabase.rpc('regenerate_inspection_pdf', {
+        p_inspection_id: inspection.id
+      });
 
-      setGeneratingPDF(false);
+      if (error) throw error;
 
-      if (result.success) {
-        Alert.alert('✅ Succès', 'PDF généré et partagé avec succès !');
-      } else {
-        Alert.alert('❌ Erreur', result.error || 'Impossible de générer le PDF');
-      }
-    } catch (error) {
+      setGeneratingPDF(null);
+      Alert.alert('✅ Succès', 'PDF généré et disponible !');
+    } catch (error: any) {
       console.error('Erreur génération PDF:', error);
-      setGeneratingPDF(false);
-      Alert.alert('Erreur', 'Impossible de générer le PDF');
+      setGeneratingPDF(null);
+      Alert.alert('Erreur', error.message || 'Impossible de générer le PDF');
     }
   };
 
-  const renderInspectionCard = (inspection: InspectionReport) => (
-    <TouchableOpacity
-      key={inspection.id}
-      style={styles.card}
-      onPress={() => {
-        setSelectedInspection(inspection);
-        setShowDetails(true);
-      }}
-      activeOpacity={0.7}
+  const getConditionColor = (condition: string) => {
+    switch (condition?.toLowerCase()) {
+      case 'excellent': return '#10b981';
+      case 'bon': return '#3b82f6';
+      case 'correct': return '#f59e0b';
+      case 'mauvais': return '#ef4444';
+      default: return '#6b7280';
+    }
+  };
+
+  const getConditionIcon = (condition: string) => {
+    switch (condition?.toLowerCase()) {
+      case 'excellent': return 'star';
+      case 'bon': return 'thumbs-up';
+      case 'correct': return 'hand-left';
+      case 'mauvais': return 'thumbs-down';
+      default: return 'help-circle';
+    }
+  };
+
+  const renderStatsCard = () => (
+    <Animated.View
+      style={[
+        styles.statsContainer,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }],
+        },
+      ]}
     >
-      <View style={styles.cardHeader}>
-        <View style={styles.cardBadge}>
-          <Ionicons 
-            name={inspection.type === 'departure' ? 'exit-outline' : 'enter-outline'} 
-            size={20} 
-            color="white" 
-          />
-          <Text style={styles.badgeText}>
-            {inspection.type === 'departure' ? 'DÉPART' : 'ARRIVÉE'}
-          </Text>
-        </View>
-        <Text style={styles.cardDate}>
-          {format(new Date(inspection.created_at), 'dd MMM yyyy', { locale: fr })}
-        </Text>
-      </View>
-
-      <View style={styles.cardContent}>
-        <Text style={styles.missionNumber}>
-          Mission {inspection.mission?.mission_number || 'N/A'}
-        </Text>
-        <Text style={styles.vehicle}>
-          {inspection.mission?.vehicle?.brand || ''} {inspection.mission?.vehicle?.model || ''}
-        </Text>
-        <Text style={styles.registration}>
-          {inspection.mission?.vehicle?.registration || ''}
-        </Text>
-
-        <View style={styles.locations}>
-          <View style={styles.location}>
-            <Ionicons name="location-outline" size={16} color="#666" />
-            <Text style={styles.locationText} numberOfLines={1}>
-              {inspection.mission?.pickup_address || ''}
-            </Text>
+      <LinearGradient
+        colors={['#2563eb', '#1d4ed8']}
+        start={{ x: 0, y: 0 }}
+        end={{ x: 1, y: 1 }}
+        style={styles.statsGradient}
+      >
+        <View style={styles.statsRow}>
+          <View style={styles.statItem}>
+            <Ionicons name="document-text" size={28} color="#fff" />
+            <Text style={styles.statValue}>{stats.total}</Text>
+            <Text style={styles.statLabel}>Total</Text>
           </View>
-          <MaterialIcons name="arrow-forward" size={16} color="#666" />
-          <View style={styles.location}>
-            <Ionicons name="location" size={16} color="#666" />
-            <Text style={styles.locationText} numberOfLines={1}>
-              {inspection.mission?.delivery_address || ''}
-            </Text>
+
+          <View style={styles.statDivider} />
+
+          <View style={styles.statItem}>
+            <Ionicons name="exit-outline" size={28} color="#fff" />
+            <Text style={styles.statValue}>{stats.departure}</Text>
+            <Text style={styles.statLabel}>Départs</Text>
+          </View>
+
+          <View style={styles.statDivider} />
+
+          <View style={styles.statItem}>
+            <Ionicons name="enter-outline" size={28} color="#fff" />
+            <Text style={styles.statValue}>{stats.arrival}</Text>
+            <Text style={styles.statLabel}>Arrivées</Text>
+          </View>
+
+          <View style={styles.statDivider} />
+
+          <View style={styles.statItem}>
+            <Ionicons name="trending-up" size={28} color="#fff" />
+            <Text style={styles.statValue}>{stats.thisWeek}</Text>
+            <Text style={styles.statLabel}>7 jours</Text>
           </View>
         </View>
-
-        {inspection.photos && inspection.photos.length > 0 && (
-          <View style={styles.photoIndicator}>
-            <Ionicons name="camera" size={16} color="#2563eb" />
-            <Text style={styles.photoCount}>{inspection.photos.length} photos</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.cardActions}>
-        <TouchableOpacity
-          style={[styles.actionButton, generatingPDF && styles.actionButtonDisabled]}
-          onPress={(e) => {
-            e.stopPropagation();
-            generatePDF(inspection);
-          }}
-          disabled={generatingPDF}
-        >
-          <FontAwesome5 name="file-pdf" size={18} color={generatingPDF ? "#9ca3af" : "#ef4444"} />
-          <Text style={[styles.actionText, generatingPDF && styles.actionTextDisabled]}>
-            {generatingPDF ? 'Génération...' : 'PDF'}
-          </Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            setShareModalMissionId(inspection.mission_id);
-            setShowShareModal(true);
-          }}
-        >
-          <Ionicons name="share-social" size={18} color="#2563eb" />
-          <Text style={styles.actionText}>Partager</Text>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          style={styles.actionButton}
-          onPress={(e) => {
-            e.stopPropagation();
-            deleteInspection(inspection);
-          }}
-        >
-          <Ionicons name="trash-outline" size={18} color="#ef4444" />
-          <Text style={[styles.actionText, { color: '#ef4444' }]}>Supprimer</Text>
-        </TouchableOpacity>
-      </View>
-    </TouchableOpacity>
+      </LinearGradient>
+    </Animated.View>
   );
+
+  const renderInspectionCard = (inspection: InspectionReport, index: number) => {
+    const cardAnim = useRef(new Animated.Value(0)).current;
+
+    useEffect(() => {
+      Animated.timing(cardAnim, {
+        toValue: 1,
+        duration: 400,
+        delay: index * 100,
+        useNativeDriver: true,
+      }).start();
+    }, []);
+
+    return (
+      <Animated.View
+        key={inspection.id}
+        style={[
+          styles.card,
+          {
+            opacity: cardAnim,
+            transform: [
+              {
+                translateY: cardAnim.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [30, 0],
+                }),
+              },
+            ],
+          },
+        ]}
+      >
+        <TouchableOpacity
+          onPress={() => navigation.navigate('InspectionReportAdvanced', { 
+            inspectionId: inspection.id,
+            missionId: inspection.mission_id 
+          })}
+          activeOpacity={0.9}
+        >
+          {/* Header avec gradient */}
+          <LinearGradient
+            colors={
+              inspection.inspection_type === 'departure'
+                ? ['#10b981', '#059669']
+                : ['#3b82f6', '#2563eb']
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 0 }}
+            style={styles.cardHeader}
+          >
+            <View style={styles.cardHeaderContent}>
+              <View style={styles.typeBadge}>
+                <Ionicons
+                  name={inspection.inspection_type === 'departure' ? 'exit' : 'enter'}
+                  size={18}
+                  color="#fff"
+                />
+                <Text style={styles.typeText}>
+                  {inspection.inspection_type === 'departure' ? 'DÉPART' : 'ARRIVÉE'}
+                </Text>
+              </View>
+              <Text style={styles.cardDate}>
+                {format(new Date(inspection.created_at), 'dd MMM yyyy', { locale: fr })}
+              </Text>
+            </View>
+          </LinearGradient>
+
+          {/* Contenu */}
+          <View style={styles.cardBody}>
+            <View style={styles.missionInfo}>
+              <Text style={styles.missionRef}>Mission {inspection.mission?.reference}</Text>
+              <View style={styles.vehicleInfo}>
+                <Ionicons name="car-sport" size={16} color="#6b7280" />
+                <Text style={styles.vehicleText}>
+                  {inspection.mission?.vehicle_brand} {inspection.mission?.vehicle_model}
+                </Text>
+              </View>
+              <View style={styles.plateContainer}>
+                <View style={styles.plateBadge}>
+                  <Text style={styles.plateText}>{inspection.mission?.vehicle_plate}</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Condition générale */}
+            <View style={styles.conditionRow}>
+              <View style={styles.conditionLabel}>
+                <Ionicons 
+                  name={getConditionIcon(inspection.overall_condition)} 
+                  size={20} 
+                  color={getConditionColor(inspection.overall_condition)} 
+                />
+                <Text style={[styles.conditionText, { color: getConditionColor(inspection.overall_condition) }]}>
+                  {inspection.overall_condition}
+                </Text>
+              </View>
+              
+              <View style={styles.detailsRow}>
+                <View style={styles.detailItem}>
+                  <Ionicons name="speedometer" size={16} color="#6b7280" />
+                  <Text style={styles.detailText}>{inspection.mileage_km?.toLocaleString()} km</Text>
+                </View>
+                <View style={styles.detailItem}>
+                  <Ionicons name="water" size={16} color="#6b7280" />
+                  <Text style={styles.detailText}>{inspection.fuel_level}%</Text>
+                </View>
+              </View>
+            </View>
+
+            {/* Photos */}
+            {inspection.photos_count && inspection.photos_count > 0 && (
+              <View style={styles.photosBadge}>
+                <Ionicons name="camera" size={14} color="#2563eb" />
+                <Text style={styles.photosText}>{inspection.photos_count} photos</Text>
+              </View>
+            )}
+
+            {/* Actions */}
+            <View style={styles.cardActions}>
+              <TouchableOpacity
+                style={[styles.actionButton, generatingPDF === inspection.id && styles.actionButtonDisabled]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  generatePDF(inspection);
+                }}
+                disabled={generatingPDF === inspection.id}
+              >
+                {generatingPDF === inspection.id ? (
+                  <ActivityIndicator size="small" color="#ef4444" />
+                ) : (
+                  <FontAwesome5 name="file-pdf" size={16} color="#ef4444" />
+                )}
+                <Text style={[styles.actionText, { color: '#ef4444' }]}>
+                  {generatingPDF === inspection.id ? 'Génération...' : 'PDF'}
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  setShareModalMissionId(inspection.mission_id);
+                  setShowShareModal(true);
+                }}
+              >
+                <Ionicons name="share-social" size={16} color="#2563eb" />
+                <Text style={styles.actionText}>Partager</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  navigation.navigate('InspectionReportAdvanced', {
+                    inspectionId: inspection.id,
+                    missionId: inspection.mission_id,
+                  });
+                }}
+              >
+                <Ionicons name="eye" size={16} color="#10b981" />
+                <Text style={[styles.actionText, { color: '#10b981' }]}>Voir</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.actionButton}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  deleteInspection(inspection);
+                }}
+              >
+                <Ionicons name="trash-outline" size={16} color="#ef4444" />
+              </TouchableOpacity>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
 
   if (loading) {
     return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#2563eb" />
-        <Text style={styles.loadingText}>Chargement des rapports...</Text>
+      <View style={[styles.container, { backgroundColor: colors.background }]}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563eb" />
+          <Text style={[styles.loadingText, { color: colors.text }]}>
+            Chargement des rapports...
+          </Text>
+        </View>
       </View>
     );
   }
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Rapports d'Inspection</Text>
-        <View style={styles.filters}>
-          <TouchableOpacity
-            style={[styles.filterButton, filter === 'all' && styles.filterActive]}
-            onPress={() => setFilter('all')}
-          >
-            <Text style={[styles.filterText, filter === 'all' && styles.filterTextActive]}>
-              Tous
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, filter === 'departure' && styles.filterActive]}
-            onPress={() => setFilter('departure')}
-          >
-            <Text style={[styles.filterText, filter === 'departure' && styles.filterTextActive]}>
-              Départ
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.filterButton, filter === 'arrival' && styles.filterActive]}
-            onPress={() => setFilter('arrival')}
-          >
-            <Text style={[styles.filterText, filter === 'arrival' && styles.filterTextActive]}>
-              Arrivée
-            </Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-
+    <View style={[styles.container, { backgroundColor: colors.background }]}>
       <ScrollView
-        style={styles.scrollView}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
+        contentContainerStyle={styles.scrollContent}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
+        showsVerticalScrollIndicator={false}
       >
-        {inspections.length === 0 ? (
-          <View style={styles.emptyState}>
-            <Ionicons name="document-text-outline" size={64} color="#d1d5db" />
-            <Text style={styles.emptyText}>Aucun rapport d'inspection</Text>
-          </View>
-        ) : (
-          inspections.map(renderInspectionCard)
-        )}
+        {/* Header */}
+        <View style={styles.header}>
+          <Text style={[styles.title, { color: colors.text }]}>Rapports d'Inspection</Text>
+          <Text style={[styles.subtitle, { color: colors.textSecondary }]}>
+            Historique complet de vos inspections
+          </Text>
+        </View>
+
+        {/* Stats */}
+        {renderStatsCard()}
+
+        {/* Filtres */}
+        <View style={styles.filtersContainer}>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+            <TouchableOpacity
+              style={[styles.filterChip, filter === 'all' && styles.filterChipActive]}
+              onPress={() => setFilter('all')}
+            >
+              <Ionicons 
+                name="apps" 
+                size={18} 
+                color={filter === 'all' ? '#fff' : '#6b7280'} 
+              />
+              <Text style={[styles.filterChipText, filter === 'all' && styles.filterChipTextActive]}>
+                Tous ({stats.total})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.filterChip, filter === 'departure' && styles.filterChipActive]}
+              onPress={() => setFilter('departure')}
+            >
+              <Ionicons 
+                name="exit-outline" 
+                size={18} 
+                color={filter === 'departure' ? '#fff' : '#6b7280'} 
+              />
+              <Text style={[styles.filterChipText, filter === 'departure' && styles.filterChipTextActive]}>
+                Départs ({stats.departure})
+              </Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.filterChip, filter === 'arrival' && styles.filterChipActive]}
+              onPress={() => setFilter('arrival')}
+            >
+              <Ionicons 
+                name="enter-outline" 
+                size={18} 
+                color={filter === 'arrival' ? '#fff' : '#6b7280'} 
+              />
+              <Text style={[styles.filterChipText, filter === 'arrival' && styles.filterChipTextActive]}>
+                Arrivées ({stats.arrival})
+              </Text>
+            </TouchableOpacity>
+          </ScrollView>
+        </View>
+
+        {/* Liste des inspections */}
+        <View style={styles.listContainer}>
+          {inspections.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Ionicons name="document-text-outline" size={80} color="#d1d5db" />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                Aucun rapport d'inspection
+              </Text>
+              <Text style={[styles.emptySubtext, { color: colors.textSecondary }]}>
+                Vos rapports apparaîtront ici après vos inspections
+              </Text>
+            </View>
+          ) : (
+            inspections.map((inspection, index) => renderInspectionCard(inspection, index))
+          )}
+        </View>
       </ScrollView>
 
-      {/* Modal de Partage */}
+      {/* Modal de partage */}
       {showShareModal && shareModalMissionId && (
         <ShareInspectionModal
           visible={showShareModal}
+          missionId={shareModalMissionId}
           onClose={() => {
             setShowShareModal(false);
             setShareModalMissionId(null);
           }}
-          missionId={shareModalMissionId}
-          reportType="complete"
         />
       )}
     </View>
@@ -490,135 +607,217 @@ export default function InspectionReportScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#f5f5f5',
+  },
+  scrollContent: {
+    paddingBottom: 30,
   },
   header: {
-    backgroundColor: 'white',
-    padding: 20,
-    paddingTop: 40,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 10,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 14,
+  },
+  statsContainer: {
+    marginHorizontal: 20,
+    marginVertical: 20,
+    borderRadius: 16,
+    overflow: 'hidden',
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowRadius: 8,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 15,
+  statsGradient: {
+    padding: 20,
   },
-  filters: {
+  statsRow: {
     flexDirection: 'row',
-    gap: 10,
-  },
-  filterButton: {
-    flex: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 15,
-    borderRadius: 25,
-    backgroundColor: '#f3f4f6',
+    justifyContent: 'space-between',
     alignItems: 'center',
   },
-  filterActive: {
+  statItem: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  statValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#fff',
+    marginTop: 8,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.9)',
+    marginTop: 4,
+  },
+  statDivider: {
+    width: 1,
+    height: 40,
+    backgroundColor: 'rgba(255,255,255,0.3)',
+  },
+  filtersContainer: {
+    paddingLeft: 20,
+    marginBottom: 20,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 24,
+    backgroundColor: '#f3f4f6',
+    marginRight: 12,
+    gap: 6,
+  },
+  filterChipActive: {
     backgroundColor: '#2563eb',
   },
-  filterText: {
+  filterChipText: {
     fontSize: 14,
     fontWeight: '600',
     color: '#6b7280',
   },
-  filterTextActive: {
-    color: 'white',
+  filterChipTextActive: {
+    color: '#fff',
   },
-  scrollView: {
-    flex: 1,
-    padding: 15,
+  listContainer: {
+    paddingHorizontal: 20,
   },
   card: {
-    backgroundColor: 'white',
-    borderRadius: 12,
-    marginBottom: 15,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginBottom: 16,
+    overflow: 'hidden',
+    elevation: 2,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
+    shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 3,
+    shadowRadius: 4,
   },
   cardHeader: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  cardHeaderContent: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f3f4f6',
   },
-  cardBadge: {
+  typeB adge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#2563eb',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 20,
-    gap: 5,
+    gap: 6,
   },
-  badgeText: {
-    color: 'white',
-    fontSize: 12,
+  typeText: {
+    color: '#fff',
+    fontSize: 14,
     fontWeight: 'bold',
   },
   cardDate: {
+    color: '#fff',
     fontSize: 12,
-    color: '#6b7280',
+    opacity: 0.9,
   },
-  cardContent: {
-    padding: 15,
+  cardBody: {
+    padding: 16,
   },
-  missionNumber: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1f2937',
-    marginBottom: 5,
+  missionInfo: {
+    marginBottom: 12,
   },
-  vehicle: {
+  missionRef: {
     fontSize: 16,
-    color: '#4b5563',
-    marginBottom: 2,
+    fontWeight: 'bold',
+    color: '#111827',
+    marginBottom: 6,
   },
-  registration: {
+  vehicleInfo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  vehicleText: {
     fontSize: 14,
     color: '#6b7280',
-    marginBottom: 10,
   },
-  locations: {
+  plateContainer: {
+    marginTop: 4,
+  },
+  plateBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#f3f4f6',
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+  },
+  plateText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#111827',
+    letterSpacing: 1,
+  },
+  conditionRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#f3f4f6',
+  },
+  conditionLabel: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
-    gap: 5,
+    gap: 6,
   },
-  location: {
-    flex: 1,
+  conditionText: {
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  detailsRow: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  detailItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
+    gap: 4,
   },
-  locationText: {
-    flex: 1,
+  detailText: {
     fontSize: 12,
     color: '#6b7280',
+    fontWeight: '500',
   },
-  photoIndicator: {
+  photosBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 5,
-    marginTop: 10,
+    gap: 4,
+    alignSelf: 'flex-start',
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    marginBottom: 12,
   },
-  photoCount: {
+  photosText: {
     fontSize: 12,
     color: '#2563eb',
+    fontWeight: '600',
   },
   cardActions: {
     flexDirection: 'row',
+    gap: 8,
+    paddingTop: 12,
     borderTopWidth: 1,
     borderTopColor: '#f3f4f6',
   },
@@ -627,38 +826,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    gap: 5,
+    gap: 6,
+    paddingVertical: 10,
+    borderRadius: 8,
+    backgroundColor: '#f9fafb',
   },
   actionButtonDisabled: {
     opacity: 0.5,
   },
   actionText: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    color: '#4b5563',
+    color: '#374151',
   },
-  actionTextDisabled: {
-    color: '#9ca3af',
-  },
-  emptyState: {
+  emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 100,
+    paddingVertical: 60,
   },
   emptyText: {
-    fontSize: 16,
-    color: '#9ca3af',
-    marginTop: 10,
+    fontSize: 18,
+    fontWeight: '600',
+    marginTop: 16,
+  },
+  emptySubtext: {
+    fontSize: 14,
+    marginTop: 8,
+    textAlign: 'center',
   },
   loadingContainer: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
+    justifyContent: 'center',
   },
   loadingText: {
-    marginTop: 10,
+    marginTop: 12,
     fontSize: 14,
-    color: '#6b7280',
   },
 });
