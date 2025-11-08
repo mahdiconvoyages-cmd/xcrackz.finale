@@ -1,11 +1,13 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { 
   View, Text, TouchableOpacity, ActivityIndicator, 
-  StyleSheet, ScrollView, Alert, Image, Dimensions
+  StyleSheet, ScrollView, Alert, Image, Dimensions, Share
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import ImageView from 'react-native-image-viewing';
+import * as FileSystem from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
 import { supabase } from '../../lib/supabase';
 
 const { width } = Dimensions.get('window');
@@ -49,6 +51,8 @@ export default function InspectionReportAdvancedNew({ route, navigation }: Props
   const [lightboxVisible, setLightboxVisible] = useState(false);
   const [lightboxIndex, setLightboxIndex] = useState(0);
   const [lightboxImages, setLightboxImages] = useState<{ uri: string }[]>([]);
+  const [pdfGenerating, setPdfGenerating] = useState(false);
+  const [pdfUrl, setPdfUrl] = useState<string | null>(null);
 
   useEffect(() => {
     loadData();
@@ -112,6 +116,86 @@ export default function InspectionReportAdvancedNew({ route, navigation }: Props
       Alert.alert('Erreur', err.message || 'Erreur lors du chargement du rapport');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleGeneratePdf = async () => {
+    const inspectionId = arrivalId || departureId;
+    if (!inspectionId) {
+      Alert.alert('Erreur', 'Aucune inspection sélectionnée');
+      return;
+    }
+
+    setPdfGenerating(true);
+    try {
+      // Appeler la edge function pour générer le PDF
+      const { data, error } = await supabase.functions.invoke('generate-inspection-pdf', {
+        body: { inspectionId }
+      });
+
+      if (error) throw error;
+
+      if (data?.pdfUrl) {
+        setPdfUrl(data.pdfUrl);
+        Alert.alert('✅ Succès', 'PDF généré avec succès !');
+      } else {
+        throw new Error('URL du PDF non reçue');
+      }
+    } catch (error: any) {
+      console.error('❌ Erreur génération PDF:', error);
+      Alert.alert('Erreur', error.message || 'Impossible de générer le PDF');
+    } finally {
+      setPdfGenerating(false);
+    }
+  };
+
+  const handleSharePdf = async () => {
+    if (!pdfUrl) {
+      Alert.alert('Info', 'Veuillez d\'abord générer le PDF');
+      return;
+    }
+
+    try {
+      // Télécharger le PDF localement
+      const filename = `rapport-inspection-${missionReference || 'mission'}.pdf`;
+      const localUri = `${FileSystem.documentDirectory}${filename}`;
+      
+      const download = await FileSystem.downloadAsync(pdfUrl, localUri);
+      
+      if (download.status === 200) {
+        // Partager le fichier
+        const canShare = await Sharing.isAvailableAsync();
+        if (canShare) {
+          await Sharing.shareAsync(download.uri, {
+            mimeType: 'application/pdf',
+            dialogTitle: 'Partager le rapport d\'inspection',
+          });
+        } else {
+          Alert.alert('Info', 'Le partage n\'est pas disponible sur cet appareil');
+        }
+      } else {
+        throw new Error('Échec du téléchargement du PDF');
+      }
+    } catch (error: any) {
+      console.error('❌ Erreur partage PDF:', error);
+      Alert.alert('Erreur', error.message || 'Impossible de partager le PDF');
+    }
+  };
+
+  const handleShareByEmail = async () => {
+    if (!pdfUrl) {
+      Alert.alert('Info', 'Veuillez d\'abord générer le PDF');
+      return;
+    }
+
+    // Option alternative: partager juste le lien
+    try {
+      await Share.share({
+        message: `Rapport d'inspection - Mission ${missionReference}\n\nConsultez le rapport complet: ${pdfUrl}`,
+        title: 'Rapport d\'inspection',
+      });
+    } catch (error: any) {
+      console.error('❌ Erreur partage:', error);
     }
   };
 
@@ -180,6 +264,59 @@ export default function InspectionReportAdvancedNew({ route, navigation }: Props
             )}
           </View>
         </LinearGradient>
+
+        {/* Actions - Générer et Partager PDF */}
+        <View style={styles.actionsSection}>
+          <TouchableOpacity
+            style={styles.actionButton}
+            onPress={handleGeneratePdf}
+            disabled={pdfGenerating}
+          >
+            <LinearGradient
+              colors={pdfGenerating ? ['#94a3b8', '#64748b'] : ['#8b5cf6', '#7c3aed']}
+              style={styles.actionGradient}
+            >
+              {pdfGenerating ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Ionicons name={pdfUrl ? "checkmark-circle" : "document-text"} size={20} color="#fff" />
+              )}
+              <Text style={styles.actionText}>
+                {pdfGenerating ? 'Génération...' : pdfUrl ? 'PDF généré ✓' : 'Générer PDF'}
+              </Text>
+            </LinearGradient>
+          </TouchableOpacity>
+
+          {pdfUrl && (
+            <View style={styles.shareButtons}>
+              <TouchableOpacity
+                style={[styles.actionButton, styles.halfButton]}
+                onPress={handleSharePdf}
+              >
+                <LinearGradient
+                  colors={['#06b6d4', '#0891b2']}
+                  style={styles.actionGradient}
+                >
+                  <Ionicons name="share-social" size={20} color="#fff" />
+                  <Text style={styles.actionText}>Partager</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[styles.actionButton, styles.halfButton]}
+                onPress={handleShareByEmail}
+              >
+                <LinearGradient
+                  colors={['#10b981', '#059669']}
+                  style={styles.actionGradient}
+                >
+                  <Ionicons name="mail" size={20} color="#fff" />
+                  <Text style={styles.actionText}>Envoyer</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
 
         {/* Vue avancée par type de photo */}
         <View style={styles.section}>
@@ -515,5 +652,40 @@ const styles = StyleSheet.create({
   comparisonEmptyText: {
     fontSize: 12,
     color: '#94a3b8',
+  },
+  // Actions
+  actionsSection: {
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    gap: 12,
+  },
+  actionButton: {
+    borderRadius: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  halfButton: {
+    flex: 1,
+  },
+  actionGradient: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  actionText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  shareButtons: {
+    flexDirection: 'row',
+    gap: 12,
   },
 });
