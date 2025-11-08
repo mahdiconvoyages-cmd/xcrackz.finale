@@ -460,7 +460,7 @@ async function generatePDF(inspection: InspectionData): Promise<Uint8Array> {
     }
   }
 
-  // Documents scannés section
+  // Documents scannés section avec images
   if (inspection.scannedDocuments && inspection.scannedDocuments.length > 0) {
     // Add new page if needed
     if (yPosition < 150) {
@@ -476,39 +476,146 @@ async function generatePDF(inspection: InspectionData): Promise<Uint8Array> {
       font: helveticaBold,
       color: rgb(0.2, 0.4, 0.6),
     })
-    yPosition -= 25
+    yPosition -= 30
 
+    // Télécharger et intégrer chaque document comme image
     for (const doc of inspection.scannedDocuments) {
-      if (yPosition < 40) {
+      console.log(`📄 Processing document: ${doc.document_title}`)
+      
+      // Ajouter nouvelle page si nécessaire
+      if (yPosition < 400) {
         page = pdfDoc.addPage([595, 842])
         yPosition = height - 50
       }
 
-      page.drawText(`• ${doc.document_title}`, {
-        x: 60,
+      // Titre du document
+      page.drawText(`📄 ${doc.document_title}`, {
+        x: 50,
         y: yPosition,
-        size: 11,
+        size: 12,
         font: helveticaBold,
+        color: rgb(0.2, 0.4, 0.6),
       })
-      yPosition -= 15
+      yPosition -= 20
 
-      page.drawText(`  Type: ${doc.document_type} | Pages: ${doc.pages_count}`, {
-        x: 70,
+      page.drawText(`Type: ${doc.document_type} | ${doc.pages_count} page(s)`, {
+        x: 50,
         y: yPosition,
         size: 9,
         font: helveticaFont,
         color: rgb(0.4, 0.4, 0.4),
       })
-      yPosition -= 12
+      yPosition -= 25
 
-      page.drawText(`  URL: ${doc.document_url.substring(0, 80)}...`, {
-        x: 70,
-        y: yPosition,
-        size: 8,
-        font: helveticaFont,
-        color: rgb(0.5, 0.5, 0.7),
-      })
-      yPosition -= 20
+      // Télécharger et intégrer l'image du document
+      try {
+        console.log(`📥 Downloading document image: ${doc.document_url}`)
+        
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 15000) // 15s timeout pour documents
+        
+        const response = await fetch(doc.document_url, { 
+          signal: controller.signal,
+          headers: {
+            'User-Agent': 'Mozilla/5.0 (compatible; PDF-Generator/1.0)'
+          }
+        })
+        clearTimeout(timeoutId)
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`)
+        }
+        
+        const documentBytes = await response.arrayBuffer()
+        console.log(`✅ Document downloaded: ${documentBytes.byteLength} bytes`)
+        
+        // Déterminer le format (PNG ou JPEG)
+        const urlLower = doc.document_url.toLowerCase()
+        const contentType = response.headers.get('content-type') || ''
+        let documentImage
+        
+        if (urlLower.includes('.png') || contentType.includes('png')) {
+          console.log('📷 Embedding as PNG')
+          documentImage = await pdfDoc.embedPng(documentBytes)
+        } else {
+          console.log('📷 Embedding as JPEG')
+          documentImage = await pdfDoc.embedJpg(documentBytes)
+        }
+        
+        // Calculer dimensions pour l'intégration (max 495px de large)
+        const maxWidth = 495
+        const maxHeight = 300
+        const docWidth = documentImage.width
+        const docHeight = documentImage.height
+        const scale = Math.min(maxWidth / docWidth, maxHeight / docHeight, 1)
+        
+        const finalWidth = docWidth * scale
+        const finalHeight = docHeight * scale
+        
+        // Vérifier s'il faut une nouvelle page
+        if (yPosition < finalHeight + 40) {
+          page = pdfDoc.addPage([595, 842])
+          yPosition = height - 50
+        }
+        
+        // Dessiner l'image du document
+        page.drawImage(documentImage, {
+          x: 50,
+          y: yPosition - finalHeight,
+          width: finalWidth,
+          height: finalHeight,
+        })
+        
+        yPosition -= finalHeight + 30
+        console.log(`✅ Document ${doc.document_title} successfully embedded`)
+        
+      } catch (docError: any) {
+        console.error(`❌ Error embedding document ${doc.document_title}:`, docError)
+        console.error(`❌ URL: ${doc.document_url}`)
+        
+        // Placeholder si échec de chargement
+        const placeholderHeight = 100
+        
+        if (yPosition < placeholderHeight + 40) {
+          page = pdfDoc.addPage([595, 842])
+          yPosition = height - 50
+        }
+        
+        page.drawRectangle({
+          x: 50,
+          y: yPosition - placeholderHeight,
+          width: 495,
+          height: placeholderHeight,
+          borderColor: rgb(0.8, 0.6, 0.2),
+          borderWidth: 2,
+        })
+        
+        page.drawText(`⚠️ Document ${doc.document_title}`, {
+          x: 60,
+          y: yPosition - placeholderHeight / 2 + 10,
+          size: 12,
+          font: helveticaBold,
+          color: rgb(0.8, 0.6, 0.2),
+        })
+        
+        page.drawText('Impossible de charger l\'image', {
+          x: 60,
+          y: yPosition - placeholderHeight / 2 - 10,
+          size: 10,
+          font: helveticaFont,
+          color: rgb(0.6, 0.4, 0.1),
+        })
+        
+        page.drawText(`URL: ${doc.document_url.substring(0, 60)}...`, {
+          x: 60,
+          y: yPosition - placeholderHeight / 2 - 25,
+          size: 8,
+          font: helveticaFont,
+          color: rgb(0.5, 0.5, 0.5),
+        })
+        
+        yPosition -= placeholderHeight + 30
+      }
     }
   }
 
