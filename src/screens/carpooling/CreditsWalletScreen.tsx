@@ -45,18 +45,18 @@ export default function CreditsWalletScreen() {
 
   const fetchWalletData = async () => {
     try {
-      // Récupérer le solde
-      const { data: creditsData, error: creditsError } = await supabase
-        .from('user_credits')
-        .select('balance')
-        .eq('user_id', user.id)
+      // Récupérer le solde depuis profiles
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('credits')
+        .eq('id', user.id)
         .single();
 
-      if (creditsError && creditsError.code !== 'PGRST116') {
-        throw creditsError;
+      if (profileError) {
+        throw profileError;
       }
 
-      setBalance(creditsData?.balance || 0);
+      setBalance(profileData?.credits || 0);
 
       // Récupérer l'historique
       const { data: transactionsData, error: transactionsError } = await supabase

@@ -55,9 +55,9 @@ export default function TripCreateScreen({ navigation }: any) {
     if (!user) return;
 
     const { data, error } = await supabase
-      .from('user_credits')
-      .select('balance')
-      .eq('user_id', user.id)
+      .from('profiles')
+      .select('credits')
+      .eq('id', user.id)
       .maybeSingle();
 
     if (error) {
@@ -65,7 +65,7 @@ export default function TripCreateScreen({ navigation }: any) {
       return;
     }
 
-    setCredits(data?.balance || 0);
+    setCredits(data?.credits || 0);
   };
 
   const handleDateChange = (event: any, selectedDate?: Date) => {

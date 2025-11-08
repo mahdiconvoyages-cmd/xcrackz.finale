@@ -81,13 +81,13 @@ export default function TripDetailsScreen({ route, navigation }: any) {
     if (!user) return;
 
     const { data, error } = await supabase
-      .from('user_credits')
-      .select('balance')
-      .eq('user_id', user.id)
+      .from('profiles')
+      .select('credits')
+      .eq('id', user.id)
       .maybeSingle();
 
     if (!error && data) {
-      setCredits(data.balance);
+      setCredits(data.credits);
     }
   };
 
