@@ -30,6 +30,18 @@ interface InspectionData {
     photo_type: string
     full_url: string
   }>
+  scannedDocuments?: Array<{
+    document_type: string
+    document_title: string
+    document_url: string
+    pages_count: number
+  }>
+  expenses?: Array<{
+    expense_type: string
+    amount: number
+    description: string
+    receipt_url: string | null
+  }>
 }
 
 serve(async (req) => {
@@ -105,6 +117,27 @@ serve(async (req) => {
     if (photosError) throw photosError
 
     inspection.photos = photos || []
+
+    // Fetch scanned documents
+    const { data: documents, error: documentsError } = await supabaseClient
+      .from('inspection_documents')
+      .select('document_type, document_title, document_url, pages_count')
+      .eq('inspection_id', inspectionId)
+      .order('created_at', { ascending: true })
+
+    if (documentsError) console.error('Documents error:', documentsError)
+
+    // Fetch expenses
+    const { data: expenses, error: expensesError } = await supabaseClient
+      .from('inspection_expenses')
+      .select('expense_type, amount, description, receipt_url')
+      .eq('inspection_id', inspectionId)
+      .order('created_at', { ascending: true })
+
+    if (expensesError) console.error('Expenses error:', expensesError)
+
+    inspection.scannedDocuments = documents || []
+    inspection.expenses = expenses || []
 
     // Generate PDF
     const pdfBytes = await generatePDF(inspection as InspectionData)
@@ -364,6 +397,161 @@ async function generatePDF(inspection: InspectionData): Promise<Uint8Array> {
     }
   }
 
+  // Documents scannés section
+  if (inspection.scannedDocuments && inspection.scannedDocuments.length > 0) {
+    // Add new page if needed
+    if (yPosition < 150) {
+      page = pdfDoc.addPage([595, 842])
+      yPosition = height - 50
+    }
+
+    yPosition -= 20
+    page.drawText('DOCUMENTS ANNEXES', {
+      x: 50,
+      y: yPosition,
+      size: 14,
+      font: helveticaBold,
+      color: rgb(0.2, 0.4, 0.6),
+    })
+    yPosition -= 25
+
+    for (const doc of inspection.scannedDocuments) {
+      if (yPosition < 40) {
+        page = pdfDoc.addPage([595, 842])
+        yPosition = height - 50
+      }
+
+      page.drawText(`• ${doc.document_title}`, {
+        x: 60,
+        y: yPosition,
+        size: 11,
+        font: helveticaBold,
+      })
+      yPosition -= 15
+
+      page.drawText(`  Type: ${doc.document_type} | Pages: ${doc.pages_count}`, {
+        x: 70,
+        y: yPosition,
+        size: 9,
+        font: helveticaFont,
+        color: rgb(0.4, 0.4, 0.4),
+      })
+      yPosition -= 12
+
+      page.drawText(`  URL: ${doc.document_url.substring(0, 80)}...`, {
+        x: 70,
+        y: yPosition,
+        size: 8,
+        font: helveticaFont,
+        color: rgb(0.5, 0.5, 0.7),
+      })
+      yPosition -= 20
+    }
+  }
+
+  // Frais de mission section
+  if (inspection.expenses && inspection.expenses.length > 0) {
+    // Add new page if needed
+    if (yPosition < 200) {
+      page = pdfDoc.addPage([595, 842])
+      yPosition = height - 50
+    }
+
+    yPosition -= 20
+    page.drawText('FRAIS DE MISSION', {
+      x: 50,
+      y: yPosition,
+      size: 14,
+      font: helveticaBold,
+      color: rgb(0.6, 0.2, 0.1),
+    })
+    yPosition -= 30
+
+    // Table header
+    page.drawRectangle({
+      x: 50,
+      y: yPosition - 18,
+      width: 495,
+      height: 20,
+      color: rgb(0.9, 0.9, 0.9),
+    })
+
+    page.drawText('Type', { x: 60, y: yPosition - 13, size: 10, font: helveticaBold })
+    page.drawText('Montant', { x: 200, y: yPosition - 13, size: 10, font: helveticaBold })
+    page.drawText('Description', { x: 280, y: yPosition - 13, size: 10, font: helveticaBold })
+    page.drawText('Reçu', { x: 480, y: yPosition - 13, size: 10, font: helveticaBold })
+    yPosition -= 25
+
+    let totalExpenses = 0
+
+    for (const expense of inspection.expenses) {
+      if (yPosition < 40) {
+        page = pdfDoc.addPage([595, 842])
+        yPosition = height - 50
+      }
+
+      totalExpenses += expense.amount
+
+      // Type de frais
+      const expenseTypeLabels: Record<string, string> = {
+        carburant: 'Carburant',
+        peage: 'Péage',
+        transport: 'Transport',
+        imprevu: 'Imprévu',
+      }
+      const typeLabel = expenseTypeLabels[expense.expense_type] || expense.expense_type
+
+      page.drawText(typeLabel, { x: 60, y: yPosition, size: 9, font: helveticaFont })
+      page.drawText(`${expense.amount.toFixed(2)} €`, { 
+        x: 200, 
+        y: yPosition, 
+        size: 9, 
+        font: helveticaFont 
+      })
+
+      // Description (truncate if too long)
+      const description = expense.description.length > 25 
+        ? expense.description.substring(0, 25) + '...' 
+        : expense.description
+      page.drawText(description, { x: 280, y: yPosition, size: 9, font: helveticaFont })
+
+      // Reçu indicator
+      page.drawText(expense.receipt_url ? '✓' : '-', { 
+        x: 490, 
+        y: yPosition, 
+        size: 9, 
+        font: helveticaFont,
+        color: expense.receipt_url ? rgb(0.1, 0.6, 0.3) : rgb(0.5, 0.5, 0.5)
+      })
+
+      yPosition -= 18
+    }
+
+    // Total line
+    yPosition -= 5
+    page.drawLine({
+      start: { x: 50, y: yPosition },
+      end: { x: 545, y: yPosition },
+      thickness: 1,
+      color: rgb(0.3, 0.3, 0.3),
+    })
+    yPosition -= 20
+
+    page.drawText('TOTAL:', { 
+      x: 60, 
+      y: yPosition, 
+      size: 11, 
+      font: helveticaBold 
+    })
+    page.drawText(`${totalExpenses.toFixed(2)} €`, { 
+      x: 200, 
+      y: yPosition, 
+      size: 11, 
+      font: helveticaBold,
+      color: rgb(0.6, 0.2, 0.1)
+    })
+  }
+
   return await pdfDoc.save()
 }
 
@@ -434,6 +622,37 @@ async function generateCombinedPDF(supabaseClient: any, missionId: string, depar
 
     departure.photos = finalDepPhotos
     arrival.photos = finalArrPhotos
+
+    // Fetch documents for both inspections
+    const { data: depDocuments } = await supabaseClient
+      .from('inspection_documents')
+      .select('document_type, document_title, document_url, pages_count')
+      .eq('inspection_id', departureId)
+      .order('created_at', { ascending: true })
+
+    const { data: arrDocuments } = await supabaseClient
+      .from('inspection_documents')
+      .select('document_type, document_title, document_url, pages_count')
+      .eq('inspection_id', arrivalId)
+      .order('created_at', { ascending: true })
+
+    // Fetch expenses for both inspections
+    const { data: depExpenses } = await supabaseClient
+      .from('inspection_expenses')
+      .select('expense_type, amount, description, receipt_url')
+      .eq('inspection_id', departureId)
+      .order('created_at', { ascending: true })
+
+    const { data: arrExpenses } = await supabaseClient
+      .from('inspection_expenses')
+      .select('expense_type, amount, description, receipt_url')
+      .eq('inspection_id', arrivalId)
+      .order('created_at', { ascending: true })
+
+    departure.scannedDocuments = depDocuments || []
+    departure.expenses = depExpenses || []
+    arrival.scannedDocuments = arrDocuments || []
+    arrival.expenses = arrExpenses || []
 
     // Generate combined PDF
     const pdfBytes = await generateCombinedPDFDocument(departure as InspectionData, arrival as InspectionData)
@@ -557,6 +776,39 @@ async function generateCombinedPDFDocument(departure: InspectionData, arrival: I
   })
   yPosition -= 20
 
+  // Documents DÉPART
+  if (departure.scannedDocuments && departure.scannedDocuments.length > 0) {
+    if (yPosition < 100) {
+      page = pdfDoc.addPage([595, 842])
+      yPosition = height - 50
+    }
+    page.drawText(`Documents scannés: ${departure.scannedDocuments.length}`, {
+      x: 50,
+      y: yPosition,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.4, 0.4, 0.4),
+    })
+    yPosition -= 20
+  }
+
+  // Frais DÉPART
+  if (departure.expenses && departure.expenses.length > 0) {
+    if (yPosition < 80) {
+      page = pdfDoc.addPage([595, 842])
+      yPosition = height - 50
+    }
+    const totalDep = departure.expenses.reduce((sum, e) => sum + e.amount, 0)
+    page.drawText(`Frais mission: ${totalDep.toFixed(2)} € (${departure.expenses.length} frais)`, {
+      x: 50,
+      y: yPosition,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.6, 0.2, 0.1),
+    })
+    yPosition -= 20
+  }
+
   // Page 2: Inspection ARRIVÉE
   page = pdfDoc.addPage([595, 842])
   yPosition = height - 50
@@ -601,6 +853,40 @@ async function generateCombinedPDFDocument(departure: InspectionData, arrival: I
     font: helveticaBold,
     color: rgb(0.6, 0.2, 0.1),
   })
+  yPosition -= 20
+
+  // Documents ARRIVÉE
+  if (arrival.scannedDocuments && arrival.scannedDocuments.length > 0) {
+    if (yPosition < 100) {
+      page = pdfDoc.addPage([595, 842])
+      yPosition = height - 50
+    }
+    page.drawText(`Documents scannés: ${arrival.scannedDocuments.length}`, {
+      x: 50,
+      y: yPosition,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.4, 0.4, 0.4),
+    })
+    yPosition -= 20
+  }
+
+  // Frais ARRIVÉE
+  if (arrival.expenses && arrival.expenses.length > 0) {
+    if (yPosition < 80) {
+      page = pdfDoc.addPage([595, 842])
+      yPosition = height - 50
+    }
+    const totalArr = arrival.expenses.reduce((sum, e) => sum + e.amount, 0)
+    page.drawText(`Frais mission: ${totalArr.toFixed(2)} € (${arrival.expenses.length} frais)`, {
+      x: 50,
+      y: yPosition,
+      size: 10,
+      font: helveticaFont,
+      color: rgb(0.6, 0.2, 0.1),
+    })
+    yPosition -= 20
+  }
 
   return await pdfDoc.save()
 }
