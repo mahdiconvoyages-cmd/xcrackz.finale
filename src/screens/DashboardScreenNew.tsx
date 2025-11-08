@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useCredits } from '../hooks/useCredits';
 
 interface DashboardStats {
   totalMissions: number;
@@ -62,6 +63,7 @@ export default function DashboardScreenNew() {
   const navigation = useNavigation();
   const { user } = useAuth();
   const { colors } = useTheme();
+  const { credits, loading: creditsLoading } = useCredits();
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [firstName, setFirstName] = useState<string>('');
@@ -117,12 +119,11 @@ export default function DashboardScreenNew() {
     if (!user) return;
 
     try {
-      const [missionsRes, contactsRes, invoicesRes, recentMissionsRes, creditsRes] = await Promise.all([
+      const [missionsRes, contactsRes, invoicesRes, recentMissionsRes] = await Promise.all([
         supabase.from('missions').select('status, price, created_at, company_commission, bonus_amount, distance_km').eq('user_id', user.id),
         supabase.from('contacts').select('id, type, is_driver, rating_average').eq('user_id', user.id),
         supabase.from('invoices').select('status, total, created_at').eq('user_id', user.id),
         supabase.from('missions').select('id, reference, status, vehicle_brand, vehicle_model, price').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
-        supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle(),
       ]);
 
       const missions = missionsRes.data || [];
@@ -168,7 +169,7 @@ export default function DashboardScreenNew() {
 
       const totalDistance = missions.reduce((sum, m) => sum + (m.distance_km || 0), 0);
 
-      const totalCredits = creditsRes.data?.balance || 0;
+      // Crédits viennent du hook useCredits (realtime)
 
       const last6Months = [];
       for (let i = 5; i >= 0; i--) {
@@ -200,7 +201,7 @@ export default function DashboardScreenNew() {
         weeklyRevenue,
         averageMissionPrice: avgPrice,
         completionRate,
-        totalCredits,
+        totalCredits: credits, // Utilise le hook useCredits (realtime)
         usedCredits: totalCount,
         topRatedContacts,
         missionsThisWeek: weeklyMissions.length,
@@ -323,17 +324,23 @@ export default function DashboardScreenNew() {
             <Text style={styles.mainStatExtra}>+{stats.missionsThisWeek} cette semaine</Text>
           </TouchableOpacity>
 
-          {/* Revenu Total */}
-          <TouchableOpacity style={[styles.mainStatCard, { borderColor: '#a855f7' }]}>
+          {/* Crédits disponibles */}
+          <TouchableOpacity 
+            style={[styles.mainStatCard, { borderColor: '#f59e0b' }]}
+            onPress={() => {
+              // TODO: Rediriger vers boutique web
+              console.log('Acheter des crédits');
+            }}
+          >
             <LinearGradient
-              colors={['#a855f7', '#ec4899']}
+              colors={['#f59e0b', '#fbbf24']}
               style={styles.statIconGradient}
             >
-              <Ionicons name="cash" size={24} color="#fff" />
+              <Ionicons name="wallet" size={24} color="#fff" />
             </LinearGradient>
-            <Text style={styles.mainStatValue}>{Math.round(stats.totalRevenue)}€</Text>
-            <Text style={styles.mainStatLabel}>Total généré</Text>
-            <Text style={styles.mainStatExtra}>Moy: {Math.round(stats.averageMissionPrice)}€</Text>
+            <Text style={styles.mainStatValue}>{stats.totalCredits}</Text>
+            <Text style={styles.mainStatLabel}>Crédits disponibles</Text>
+            <Text style={styles.mainStatExtra}>Toucher pour recharger</Text>
           </TouchableOpacity>
 
           {/* Taux de succès */}
