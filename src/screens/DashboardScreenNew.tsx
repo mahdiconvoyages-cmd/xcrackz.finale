@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,9 @@ import {
   RefreshControl,
   TouchableOpacity,
   Dimensions,
+  Animated,
+  Easing,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -68,6 +71,12 @@ export default function DashboardScreenNew() {
   const [refreshing, setRefreshing] = useState(false);
   const [firstName, setFirstName] = useState<string>('');
   
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(50)).current;
+  const scaleAnim = useRef(new Animated.Value(0.9)).current;
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  
   const [stats, setStats] = useState<DashboardStats>({
     totalMissions: 0,
     activeMissions: 0,
@@ -96,6 +105,48 @@ export default function DashboardScreenNew() {
   const [recentMissions, setRecentMissions] = useState<RecentMission[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const reloadTimer = React.useRef<NodeJS.Timeout | null>(null);
+
+  // Animation on mount
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 800,
+        easing: Easing.ease,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 600,
+        easing: Easing.ease,
+        useNativeDriver: true,
+      }),
+    ]).start();
+
+    // Pulse animation loop for credits badge
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, {
+          toValue: 1.05,
+          duration: 1000,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+        Animated.timing(pulseAnim, {
+          toValue: 1,
+          duration: 1000,
+          easing: Easing.ease,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, []);
 
   const loadUserProfile = async () => {
     if (!user) return;
@@ -275,9 +326,10 @@ export default function DashboardScreenNew() {
   const maxRevenue = Math.max(...monthlyData.map((d) => d.revenue), 1);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]} edges={['bottom']}>
+    <SafeAreaView style={[styles.container, { backgroundColor: '#0a0a1a' }]} edges={['bottom']}>
       <ScrollView
         contentContainerStyle={styles.content}
+        showsVerticalScrollIndicator={false}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -285,283 +337,402 @@ export default function DashboardScreenNew() {
               setRefreshing(true);
               loadDashboardData();
             }}
-            tintColor={colors.primary}
+            tintColor="#14b8a6"
           />
         }
       >
-        {/* Header Premium */}
-        <LinearGradient
-          colors={['#14b8a6', '#06b6d4', '#3b82f6']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 1, y: 1 }}
-          style={styles.headerGradient}
+        {/* Header avec animation */}
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          }}
         >
-          <View style={styles.headerContent}>
-            <View style={styles.headerTextContainer}>
-              <MaterialCommunityIcons name="shimmer" size={32} color="#fff" />
-              <Text style={styles.headerTitle}>
-                Bienvenue{firstName ? ` ${firstName}` : ''} ! 👋
-              </Text>
+          <LinearGradient
+            colors={['#14b8a6', '#06b6d4', '#0891b2']}
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={styles.headerGradient}
+          >
+            <View style={styles.headerTop}>
+              <View style={styles.headerLeft}>
+                <View style={styles.shimmerIcon}>
+                  <MaterialCommunityIcons name="shimmer" size={28} color="#fff" />
+                </View>
+                <View>
+                  <Text style={styles.welcomeText}>Bonjour ! 👋</Text>
+                  <Text style={styles.userName}>{firstName || 'Utilisateur'}</Text>
+                </View>
+              </View>
+              
+              <TouchableOpacity
+                style={styles.notificationButton}
+                onPress={() => console.log('Notifications')}
+              >
+                <Ionicons name="notifications" size={24} color="#fff" />
+                <View style={styles.notificationDot} />
+              </TouchableOpacity>
             </View>
+
             <Text style={styles.headerSubtitle}>
-              Voici un aperçu de votre activité en temps réel
+              Tableau de bord en temps réel
             </Text>
-          </View>
-        </LinearGradient>
 
-        {/* Stats principales - 4 cartes */}
-        <View style={styles.mainStatsContainer}>
-          {/* Missions Totales */}
-          <TouchableOpacity style={[styles.mainStatCard, { borderColor: '#3b82f6' }]}>
-            <LinearGradient
-              colors={['#3b82f6', '#06b6d4']}
-              style={styles.statIconGradient}
-            >
-              <Ionicons name="car-sport" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.mainStatValue}>{stats.totalMissions}</Text>
-            <Text style={styles.mainStatLabel}>Missions</Text>
-            <Text style={styles.mainStatExtra}>+{stats.missionsThisWeek} cette semaine</Text>
-          </TouchableOpacity>
+            {/* Quick Stats dans le header */}
+            <View style={styles.quickStatsRow}>
+              <View style={styles.quickStatItem}>
+                <Ionicons name="calendar-outline" size={20} color="rgba(255,255,255,0.9)" />
+                <Text style={styles.quickStatLabel}>Aujourd'hui</Text>
+                <Text style={styles.quickStatValue}>{stats.missionsToday}</Text>
+              </View>
+              
+              <View style={[styles.quickStatItem, styles.quickStatDivider]}>
+                <Ionicons name="time-outline" size={20} color="rgba(255,255,255,0.9)" />
+                <Text style={styles.quickStatLabel}>Cette semaine</Text>
+                <Text style={styles.quickStatValue}>{stats.missionsThisWeek}</Text>
+              </View>
+              
+              <View style={styles.quickStatItem}>
+                <Ionicons name="speedometer-outline" size={20} color="rgba(255,255,255,0.9)" />
+                <Text style={styles.quickStatLabel}>En cours</Text>
+                <Text style={styles.quickStatValue}>{stats.activeMissions}</Text>
+              </View>
+            </View>
+          </LinearGradient>
+        </Animated.View>
 
-          {/* Crédits disponibles */}
-          <TouchableOpacity 
-            style={[styles.mainStatCard, { borderColor: '#f59e0b' }]}
+        {/* Carte Crédits Principale avec animation pulse */}
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            transform: [{ scale: scaleAnim }],
+          }}
+        >
+          <TouchableOpacity
+            style={styles.creditsMainCard}
             onPress={() => {
-              // TODO: Rediriger vers boutique web
-              console.log('Acheter des crédits');
+              Linking.openURL('https://www.xcrackz.com/boutique');
             }}
+            activeOpacity={0.9}
           >
             <LinearGradient
-              colors={['#f59e0b', '#fbbf24']}
-              style={styles.statIconGradient}
+              colors={['#f59e0b', '#fbbf24', '#fcd34d']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 1, y: 1 }}
+              style={styles.creditsGradient}
             >
-              <Ionicons name="wallet" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.mainStatValue}>{stats.totalCredits}</Text>
-            <Text style={styles.mainStatLabel}>Crédits disponibles</Text>
-            <Text style={styles.mainStatExtra}>Toucher pour recharger</Text>
-          </TouchableOpacity>
-
-          {/* Taux de succès */}
-          <TouchableOpacity style={[styles.mainStatCard, { borderColor: '#10b981' }]}>
-            <LinearGradient
-              colors={['#10b981', '#22c55e']}
-              style={styles.statIconGradient}
-            >
-              <Ionicons name="checkmark-circle" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.mainStatValue}>{stats.completionRate.toFixed(1)}%</Text>
-            <Text style={styles.mainStatLabel}>Taux de succès</Text>
-            <Text style={styles.mainStatExtra}>{stats.completedMissions} complétées</Text>
-          </TouchableOpacity>
-
-          {/* Contacts */}
-          <TouchableOpacity style={[styles.mainStatCard, { borderColor: '#6366f1' }]}>
-            <LinearGradient
-              colors={['#6366f1', '#3b82f6']}
-              style={styles.statIconGradient}
-            >
-              <Ionicons name="people" size={24} color="#fff" />
-            </LinearGradient>
-            <Text style={styles.mainStatValue}>{stats.totalContacts}</Text>
-            <Text style={styles.mainStatLabel}>Contacts</Text>
-            <Text style={styles.mainStatExtra}>{stats.totalDrivers} chauffeurs</Text>
-          </TouchableOpacity>
-        </View>
-
-        {/* Stats secondaires - Mini cartes 2x3 */}
-        <View style={styles.secondaryStatsContainer}>
-          <View style={[styles.miniStatCard, { backgroundColor: '#fff7ed', borderColor: '#fb923c' }]}>
-            <View style={[styles.miniStatIcon, { backgroundColor: '#fed7aa' }]}>
-              <Ionicons name="speedometer" size={20} color="#f97316" />
-            </View>
-            <Text style={[styles.miniStatValue, { color: '#f97316' }]}>{stats.activeMissions}</Text>
-            <Text style={styles.miniStatLabel}>En cours</Text>
-          </View>
-
-          <View style={[styles.miniStatCard, { backgroundColor: '#fef9c3', borderColor: '#fbbf24' }]}>
-            <View style={[styles.miniStatIcon, { backgroundColor: '#fde68a' }]}>
-              <Ionicons name="time" size={20} color="#f59e0b" />
-            </View>
-            <Text style={[styles.miniStatValue, { color: '#f59e0b' }]}>{stats.pendingMissions}</Text>
-            <Text style={styles.miniStatLabel}>En attente</Text>
-          </View>
-
-          <View style={[styles.miniStatCard, { backgroundColor: '#fee2e2', borderColor: '#f87171' }]}>
-            <View style={[styles.miniStatIcon, { backgroundColor: '#fca5a5' }]}>
-              <Ionicons name="close-circle" size={20} color="#ef4444" />
-            </View>
-            <Text style={[styles.miniStatValue, { color: '#ef4444' }]}>{stats.cancelledMissions}</Text>
-            <Text style={styles.miniStatLabel}>Annulées</Text>
-          </View>
-
-          <View style={[styles.miniStatCard, { backgroundColor: '#fef3c7', borderColor: '#facc15' }]}>
-            <View style={[styles.miniStatIcon, { backgroundColor: '#fde047' }]}>
-              <Ionicons name="star" size={20} color="#eab308" />
-            </View>
-            <Text style={[styles.miniStatValue, { color: '#eab308' }]}>{stats.topRatedContacts}</Text>
-            <Text style={styles.miniStatLabel}>Top notés</Text>
-          </View>
-
-          <View style={[styles.miniStatCard, { backgroundColor: '#ecfeff', borderColor: '#06b6d4' }]}>
-            <View style={[styles.miniStatIcon, { backgroundColor: '#a5f3fc' }]}>
-              <Ionicons name="navigate" size={20} color="#06b6d4" />
-            </View>
-            <Text style={[styles.miniStatValue, { color: '#06b6d4' }]}>{Math.round(stats.totalDistance)}</Text>
-            <Text style={styles.miniStatLabel}>Km total</Text>
-          </View>
-
-          <View style={[styles.miniStatCard, { backgroundColor: '#dbeafe', borderColor: '#3b82f6' }]}>
-            <View style={[styles.miniStatIcon, { backgroundColor: '#93c5fd' }]}>
-              <Ionicons name="flash" size={20} color="#3b82f6" />
-            </View>
-            <Text style={[styles.miniStatValue, { color: '#3b82f6', fontSize: 18 }]}>{stats.missionsToday}</Text>
-            <Text style={styles.miniStatLabel}>Aujourd'hui</Text>
-          </View>
-        </View>
-
-        {/* Graphique évolution 6 mois */}
-        <View style={[styles.chartCard, { backgroundColor: colors.card }]}>
-          <View style={styles.chartHeader}>
-            <View style={styles.chartTitleContainer}>
-              <Ionicons name="bar-chart" size={24} color="#14b8a6" />
-              <Text style={[styles.chartTitle, { color: colors.text }]}>Évolution des 6 derniers mois</Text>
-            </View>
-            <View style={styles.chartLegend}>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#14b8a6' }]} />
-                <Text style={[styles.legendText, { color: colors.textSecondary }]}>Missions</Text>
-              </View>
-              <View style={styles.legendItem}>
-                <View style={[styles.legendDot, { backgroundColor: '#a855f7' }]} />
-                <Text style={[styles.legendText, { color: colors.textSecondary }]}>Revenus</Text>
-              </View>
-            </View>
-          </View>
-
-          <View style={styles.chartContainer}>
-            {monthlyData.map((data, index) => {
-              const missionHeight = maxMissions > 0 ? (data.missions / maxMissions) * 100 : 0;
-              const revenueHeight = maxRevenue > 0 ? (data.revenue / maxRevenue) * 100 : 0;
-
-              return (
-                <View key={index} style={styles.chartBar}>
-                  {/* Missions bar */}
-                  <View style={styles.barContainer}>
-                    <LinearGradient
-                      colors={['#14b8a6', '#06b6d4']}
-                      style={[styles.bar, { height: `${Math.max(missionHeight, 5)}%` }]}
-                    >
-                      <Text style={styles.barValue}>{data.missions}</Text>
-                    </LinearGradient>
+              <View style={styles.creditsContent}>
+                <View style={styles.creditsLeft}>
+                  <View style={styles.creditsIconContainer}>
+                    <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
+                      <Ionicons name="wallet" size={32} color="#fff" />
+                    </Animated.View>
                   </View>
-
-                  {/* Revenus bar (mini) */}
-                  <View style={styles.barContainerSmall}>
-                    <LinearGradient
-                      colors={['#a855f7', '#ec4899']}
-                      style={[styles.barSmall, { height: `${Math.max(revenueHeight, 10)}%` }]}
-                    />
+                  <View>
+                    <Text style={styles.creditsLabel}>Crédits disponibles</Text>
+                    <Text style={styles.creditsValue}>{stats.totalCredits}</Text>
+                    <Text style={styles.creditsUsed}>Utilisés: {stats.usedCredits}</Text>
                   </View>
-
-                  {/* Month label */}
-                  <Text style={[styles.monthLabel, { color: colors.textSecondary }]}>{data.month}</Text>
                 </View>
-              );
-            })}
-          </View>
-        </View>
+                
+                <View style={styles.creditsRight}>
+                  <View style={styles.rechargeButton}>
+                    <Ionicons name="add-circle" size={24} color="#fff" />
+                    <Text style={styles.rechargeText}>Recharger</Text>
+                  </View>
+                </View>
+              </View>
 
-        {/* Missions récentes */}
-        <View style={[styles.recentCard, { backgroundColor: colors.card }]}>
-          <View style={styles.recentHeader}>
-            <View style={styles.recentTitleContainer}>
-              <Ionicons name="list" size={24} color="#14b8a6" />
-              <Text style={[styles.recentTitle, { color: colors.text }]}>Missions récentes</Text>
-            </View>
-            <TouchableOpacity onPress={() => (navigation as any).navigate('Missions')}>
-              <Text style={styles.viewAllText}>Tout voir →</Text>
+              {/* Prix indicatifs */}
+              <View style={styles.creditsPricing}>
+                <View style={styles.pricingItem}>
+                  <Ionicons name="car-sport" size={16} color="rgba(255,255,255,0.9)" />
+                  <Text style={styles.pricingText}>Mission: 1 crédit</Text>
+                </View>
+                <View style={styles.pricingItem}>
+                  <Ionicons name="people" size={16} color="rgba(255,255,255,0.9)" />
+                  <Text style={styles.pricingText}>Covoiturage: 2 crédits</Text>
+                </View>
+              </View>
+            </LinearGradient>
+          </TouchableOpacity>
+        </Animated.View>
+
+        {/* Stats Grid 2x2 */}
+        <Animated.View
+          style={{
+            opacity: fadeAnim,
+            transform: [{ translateY: slideAnim }],
+          }}
+        >
+          <View style={styles.statsGrid}>
+            {/* Missions Totales */}
+            <TouchableOpacity
+              style={[styles.statCard, { backgroundColor: '#1e1e2e' }]}
+              onPress={() => (navigation as any).navigate('Missions')}
+            >
+              <LinearGradient
+                colors={['#3b82f6', '#2563eb']}
+                style={styles.statIconCircle}
+              >
+                <Ionicons name="car-sport" size={28} color="#fff" />
+              </LinearGradient>
+              <Text style={styles.statValue}>{stats.totalMissions}</Text>
+              <Text style={styles.statLabel}>Missions totales</Text>
+              <View style={styles.statBadge}>
+                <Ionicons name="arrow-up" size={12} color="#10b981" />
+                <Text style={styles.statBadgeText}>+{stats.missionsThisWeek} cette semaine</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Taux de succès */}
+            <TouchableOpacity style={[styles.statCard, { backgroundColor: '#1e1e2e' }]}>
+              <LinearGradient
+                colors={['#10b981', '#059669']}
+                style={styles.statIconCircle}
+              >
+                <Ionicons name="trophy" size={28} color="#fff" />
+              </LinearGradient>
+              <Text style={styles.statValue}>{stats.completionRate.toFixed(0)}%</Text>
+              <Text style={styles.statLabel}>Taux de succès</Text>
+              <View style={styles.statBadge}>
+                <Ionicons name="checkmark-circle" size={12} color="#10b981" />
+                <Text style={styles.statBadgeText}>{stats.completedMissions} complétées</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Contacts */}
+            <TouchableOpacity
+              style={[styles.statCard, { backgroundColor: '#1e1e2e' }]}
+              onPress={() => (navigation as any).navigate('Contacts')}
+            >
+              <LinearGradient
+                colors={['#6366f1', '#4f46e5']}
+                style={styles.statIconCircle}
+              >
+                <Ionicons name="people" size={28} color="#fff" />
+              </LinearGradient>
+              <Text style={styles.statValue}>{stats.totalContacts}</Text>
+              <Text style={styles.statLabel}>Contacts</Text>
+              <View style={styles.statBadge}>
+                <Ionicons name="person" size={12} color="#6366f1" />
+                <Text style={styles.statBadgeText}>{stats.totalDrivers} chauffeurs</Text>
+              </View>
+            </TouchableOpacity>
+
+            {/* Revenus */}
+            <TouchableOpacity style={[styles.statCard, { backgroundColor: '#1e1e2e' }]}>
+              <LinearGradient
+                colors={['#a855f7', '#9333ea']}
+                style={styles.statIconCircle}
+              >
+                <Ionicons name="cash" size={28} color="#fff" />
+              </LinearGradient>
+              <Text style={styles.statValue}>{Math.round(stats.monthlyRevenue)}€</Text>
+              <Text style={styles.statLabel}>Ce mois</Text>
+              <View style={styles.statBadge}>
+                <Ionicons name="trending-up" size={12} color="#a855f7" />
+                <Text style={styles.statBadgeText}>Semaine: {Math.round(stats.weeklyRevenue)}€</Text>
+              </View>
             </TouchableOpacity>
           </View>
+        </Animated.View>
 
-          {recentMissions.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name="car-sport-outline" size={48} color={colors.textSecondary} />
-              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>Aucune mission</Text>
+        {/* Mini Stats Row */}
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <View style={styles.miniStatsRow}>
+            <View style={[styles.miniStatCard, { borderLeftColor: '#f59e0b' }]}>
+              <Ionicons name="time" size={20} color="#f59e0b" />
+              <Text style={styles.miniStatValue}>{stats.pendingMissions}</Text>
+              <Text style={styles.miniStatLabel}>En attente</Text>
             </View>
-          ) : (
-            <View style={styles.missionsList}>
-              {recentMissions.map((mission) => (
-                <TouchableOpacity
-                  key={mission.id}
-                  style={[styles.missionItem, { backgroundColor: colors.background, borderColor: colors.border }]}
-                  onPress={() => (navigation as any).navigate('MissionView', { missionId: mission.id })}
-                >
-                  <View style={styles.missionHeader}>
-                    <Text style={[styles.missionRef, { color: colors.text }]}>{mission.reference}</Text>
-                    <View style={[styles.statusBadge, { backgroundColor: `${getStatusColor(mission.status)}20`, borderColor: getStatusColor(mission.status) }]}>
-                      <Text style={[styles.statusText, { color: getStatusColor(mission.status) }]}>
-                        {getStatusLabel(mission.status)}
-                      </Text>
+
+            <View style={[styles.miniStatCard, { borderLeftColor: '#ef4444' }]}>
+              <Ionicons name="close-circle" size={20} color="#ef4444" />
+              <Text style={styles.miniStatValue}>{stats.cancelledMissions}</Text>
+              <Text style={styles.miniStatLabel}>Annulées</Text>
+            </View>
+
+            <View style={[styles.miniStatCard, { borderLeftColor: '#06b6d4' }]}>
+              <Ionicons name="navigate" size={20} color="#06b6d4" />
+              <Text style={styles.miniStatValue}>{Math.round(stats.totalDistance)}</Text>
+              <Text style={styles.miniStatLabel}>Km</Text>
+            </View>
+          </View>
+        </Animated.View>
+
+        {/* Graphique évolution */}
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <View style={styles.chartCard}>
+            <View style={styles.chartHeader}>
+              <View style={styles.chartTitleRow}>
+                <Ionicons name="analytics" size={24} color="#14b8a6" />
+                <Text style={styles.chartTitle}>Évolution 6 mois</Text>
+              </View>
+              <View style={styles.chartLegend}>
+                <View style={styles.legendItem}>
+                  <View style={[styles.legendDot, { backgroundColor: '#14b8a6' }]} />
+                  <Text style={styles.legendText}>Missions</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.chartBars}>
+              {monthlyData.map((data, index) => {
+                const maxMissions = Math.max(...monthlyData.map(d => d.missions), 1);
+                const height = (data.missions / maxMissions) * 100;
+                
+                return (
+                  <View key={index} style={styles.chartBarContainer}>
+                    <View style={styles.barWrapper}>
+                      <LinearGradient
+                        colors={['#14b8a6', '#0891b2']}
+                        style={[styles.chartBar, { height: `${Math.max(height, 10)}%` }]}
+                      >
+                        {data.missions > 0 && (
+                          <Text style={styles.barLabel}>{data.missions}</Text>
+                        )}
+                      </LinearGradient>
                     </View>
+                    <Text style={styles.barMonth}>{data.month}</Text>
                   </View>
-                  <Text style={[styles.missionVehicle, { color: colors.textSecondary }]}>
-                    {mission.vehicle_brand} {mission.vehicle_model}
-                  </Text>
-                  {mission.price > 0 && (
-                    <Text style={styles.missionPrice}>{mission.price}€</Text>
-                  )}
-                </TouchableOpacity>
-              ))}
+                );
+              })}
             </View>
-          )}
-        </View>
+          </View>
+        </Animated.View>
 
-        {/* Performance cards */}
-        <View style={styles.performanceContainer}>
-          <LinearGradient
-            colors={['#14b8a6', '#06b6d4']}
-            style={styles.performanceCard}
-          >
-            <View style={styles.performanceIcon}>
-              <Ionicons name="calendar" size={24} color="#fff" />
+        {/* Missions récentes */}
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <View style={styles.recentSection}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionTitleRow}>
+                <Ionicons name="list" size={24} color="#14b8a6" />
+                <Text style={styles.sectionTitle}>Missions récentes</Text>
+              </View>
+              <TouchableOpacity onPress={() => (navigation as any).navigate('Missions')}>
+                <Text style={styles.seeAllText}>Tout voir →</Text>
+              </TouchableOpacity>
             </View>
-            <View style={styles.performanceContent}>
-              <Text style={styles.performanceLabel}>Ce mois</Text>
-              <Text style={styles.performanceValue}>{Math.round(stats.monthlyRevenue)}€</Text>
-              <Text style={styles.performanceExtra}>Semaine: {Math.round(stats.weeklyRevenue)}€</Text>
-            </View>
-          </LinearGradient>
 
-          <LinearGradient
-            colors={['#a855f7', '#ec4899']}
-            style={styles.performanceCard}
-          >
-            <View style={styles.performanceIcon}>
-              <Ionicons name="cube" size={24} color="#fff" />
-            </View>
-            <View style={styles.performanceContent}>
-              <Text style={styles.performanceLabel}>Crédits</Text>
-              <Text style={styles.performanceValue}>{stats.totalCredits}</Text>
-              <Text style={styles.performanceExtra}>Utilisés: {stats.usedCredits}</Text>
-            </View>
-          </LinearGradient>
+            {recentMissions.length === 0 ? (
+              <View style={styles.emptyState}>
+                <Ionicons name="car-sport-outline" size={64} color="#4b5563" />
+                <Text style={styles.emptyText}>Aucune mission</Text>
+                <Text style={styles.emptySubtext}>Créez votre première mission</Text>
+              </View>
+            ) : (
+              <View style={styles.missionsList}>
+                {recentMissions.map((mission, index) => (
+                  <TouchableOpacity
+                    key={mission.id}
+                    style={[
+                      styles.missionCard,
+                      { borderLeftColor: getStatusColor(mission.status) }
+                    ]}
+                    onPress={() => (navigation as any).navigate('MissionView', { missionId: mission.id })}
+                  >
+                    <View style={styles.missionHeader}>
+                      <Text style={styles.missionRef}>#{mission.reference}</Text>
+                      <View
+                        style={[
+                          styles.missionStatusBadge,
+                          { backgroundColor: `${getStatusColor(mission.status)}20` }
+                        ]}
+                      >
+                        <View
+                          style={[
+                            styles.statusDot,
+                            { backgroundColor: getStatusColor(mission.status) }
+                          ]}
+                        />
+                        <Text
+                          style={[
+                            styles.missionStatus,
+                            { color: getStatusColor(mission.status) }
+                          ]}
+                        >
+                          {getStatusLabel(mission.status)}
+                        </Text>
+                      </View>
+                    </View>
+                    
+                    <Text style={styles.missionVehicle}>
+                      {mission.vehicle_brand} {mission.vehicle_model}
+                    </Text>
+                    
+                    {mission.price > 0 && (
+                      <View style={styles.missionPriceRow}>
+                        <Ionicons name="cash-outline" size={16} color="#14b8a6" />
+                        <Text style={styles.missionPrice}>{mission.price}€</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
+          </View>
+        </Animated.View>
 
-          <LinearGradient
-            colors={['#6366f1', '#3b82f6']}
-            style={styles.performanceCard}
-          >
-            <View style={styles.performanceIcon}>
-              <Ionicons name="receipt" size={24} color="#fff" />
+        {/* Actions rapides */}
+        <Animated.View style={{ opacity: fadeAnim }}>
+          <View style={styles.quickActionsSection}>
+            <Text style={styles.quickActionsTitle}>Actions rapides</Text>
+            <View style={styles.quickActionsGrid}>
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => (navigation as any).navigate('MissionCreate')}
+              >
+                <LinearGradient
+                  colors={['#3b82f6', '#2563eb']}
+                  style={styles.quickActionGradient}
+                >
+                  <Ionicons name="add-circle" size={32} color="#fff" />
+                  <Text style={styles.quickActionText}>Nouvelle mission</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => (navigation as any).navigate('Contacts')}
+              >
+                <LinearGradient
+                  colors={['#6366f1', '#4f46e5']}
+                  style={styles.quickActionGradient}
+                >
+                  <Ionicons name="person-add" size={32} color="#fff" />
+                  <Text style={styles.quickActionText}>Nouveau contact</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => (navigation as any).navigate('Invoices')}
+              >
+                <LinearGradient
+                  colors={['#a855f7', '#9333ea']}
+                  style={styles.quickActionGradient}
+                >
+                  <Ionicons name="receipt" size={32} color="#fff" />
+                  <Text style={styles.quickActionText}>Factures</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => Linking.openURL('https://www.xcrackz.com/boutique')}
+              >
+                <LinearGradient
+                  colors={['#f59e0b', '#fbbf24']}
+                  style={styles.quickActionGradient}
+                >
+                  <Ionicons name="cart" size={32} color="#fff" />
+                  <Text style={styles.quickActionText}>Boutique</Text>
+                </LinearGradient>
+              </TouchableOpacity>
             </View>
-            <View style={styles.performanceContent}>
-              <Text style={styles.performanceLabel}>Factures</Text>
-              <Text style={styles.performanceValue}>{stats.totalInvoices}</Text>
-              <Text style={styles.performanceExtra}>Payées: {stats.paidInvoices}</Text>
-            </View>
-          </LinearGradient>
-        </View>
+          </View>
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -576,7 +747,7 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
 
-  // Header Premium
+  // Header
   headerGradient: {
     borderRadius: 24,
     padding: 24,
@@ -584,137 +755,290 @@ const styles = StyleSheet.create({
     elevation: 8,
     shadowColor: '#14b8a6',
     shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.3,
-    shadowRadius: 10,
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
   },
-  headerContent: {
-    gap: 12,
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
   },
-  headerTextContainer: {
+  headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  headerTitle: {
-    fontSize: 24,
+  shimmerIcon: {
+    width: 48,
+    height: 48,
+    borderRadius: 14,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  welcomeText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+  userName: {
+    fontSize: 22,
     fontWeight: '900',
     color: '#fff',
-    flex: 1,
+  },
+  notificationButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  notificationDot: {
+    position: 'absolute',
+    top: 8,
+    right: 8,
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#ef4444',
+    borderWidth: 2,
+    borderColor: '#14b8a6',
   },
   headerSubtitle: {
     fontSize: 14,
-    fontWeight: '500',
+    fontWeight: '600',
     color: 'rgba(255, 255, 255, 0.9)',
-    lineHeight: 20,
+    marginBottom: 16,
+  },
+  quickStatsRow: {
+    flexDirection: 'row',
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 16,
+    padding: 12,
+    gap: 12,
+  },
+  quickStatItem: {
+    flex: 1,
+    alignItems: 'center',
+    gap: 4,
+  },
+  quickStatDivider: {
+    borderLeftWidth: 1,
+    borderRightWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  quickStatLabel: {
+    fontSize: 10,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
+  quickStatValue: {
+    fontSize: 20,
+    fontWeight: '900',
+    color: '#fff',
   },
 
-  // Stats principales
-  mainStatsContainer: {
+  // Crédits Main Card
+  creditsMainCard: {
+    marginBottom: 20,
+    borderRadius: 24,
+    elevation: 10,
+    shadowColor: '#f59e0b',
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.4,
+    shadowRadius: 12,
+  },
+  creditsGradient: {
+    borderRadius: 24,
+    padding: 24,
+  },
+  creditsContent: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  creditsLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 16,
+  },
+  creditsIconContainer: {
+    width: 64,
+    height: 64,
+    borderRadius: 18,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  creditsLabel: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+    marginBottom: 4,
+  },
+  creditsValue: {
+    fontSize: 36,
+    fontWeight: '900',
+    color: '#fff',
+    marginBottom: 2,
+  },
+  creditsUsed: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.85)',
+  },
+  creditsRight: {
+    alignItems: 'flex-end',
+  },
+  rechargeButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  rechargeText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#fff',
+  },
+  creditsPricing: {
+    flexDirection: 'row',
+    gap: 16,
+    backgroundColor: 'rgba(255, 255, 255, 0.15)',
+    borderRadius: 12,
+    padding: 12,
+  },
+  pricingItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  pricingText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: 'rgba(255, 255, 255, 0.9)',
+  },
+
+  // Stats Grid 2x2
+  statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     gap: 12,
     marginBottom: 20,
   },
-  mainStatCard: {
+  statCard: {
     width: (width - 44) / 2,
-    backgroundColor: '#fff',
     borderRadius: 20,
-    padding: 18,
-    elevation: 4,
+    padding: 20,
+    elevation: 6,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    borderWidth: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
-  statIconGradient: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
+  statIconCircle: {
+    width: 56,
+    height: 56,
+    borderRadius: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: 14,
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
   },
-  mainStatValue: {
-    fontSize: 28,
+  statValue: {
+    fontSize: 32,
     fontWeight: '900',
-    color: '#1f2937',
+    color: '#fff',
     marginBottom: 4,
   },
-  mainStatLabel: {
+  statLabel: {
     fontSize: 13,
     fontWeight: '600',
-    color: '#6b7280',
-    marginBottom: 6,
+    color: '#9ca3af',
+    marginBottom: 10,
   },
-  mainStatExtra: {
+  statBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: 'rgba(16, 185, 129, 0.15)',
+    borderRadius: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  statBadgeText: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#14b8a6',
+    color: '#9ca3af',
   },
 
-  // Stats secondaires (mini)
-  secondaryStatsContainer: {
+  // Mini Stats Row
+  miniStatsRow: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
     gap: 10,
     marginBottom: 20,
   },
   miniStatCard: {
-    width: (width - 52) / 3,
+    flex: 1,
+    backgroundColor: '#1e1e2e',
     borderRadius: 16,
     padding: 14,
-    borderWidth: 2,
-    elevation: 2,
+    borderLeftWidth: 4,
+    elevation: 4,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
-  },
-  miniStatIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 12,
-    justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 8,
   },
   miniStatValue: {
     fontSize: 24,
     fontWeight: '900',
-    marginBottom: 2,
+    color: '#fff',
+    marginVertical: 4,
   },
   miniStatLabel: {
     fontSize: 11,
     fontWeight: '600',
-    color: '#6b7280',
+    color: '#9ca3af',
   },
 
-  // Graphique
+  // Chart Card
   chartCard: {
+    backgroundColor: '#1e1e2e',
     borderRadius: 24,
     padding: 20,
     marginBottom: 20,
-    elevation: 4,
+    elevation: 6,
     shadowColor: '#14b8a6',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    borderWidth: 2,
-    borderColor: 'rgba(20, 184, 166, 0.1)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
   chartHeader: {
     marginBottom: 20,
   },
-  chartTitleContainer: {
+  chartTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
     marginBottom: 12,
   },
   chartTitle: {
-    fontSize: 17,
+    fontSize: 18,
     fontWeight: '800',
+    color: '#fff',
   },
   chartLegend: {
     flexDirection: 'row',
@@ -733,92 +1057,82 @@ const styles = StyleSheet.create({
   legendText: {
     fontSize: 12,
     fontWeight: '600',
+    color: '#9ca3af',
   },
-
-  chartContainer: {
+  chartBars: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     justifyContent: 'space-between',
-    height: 180,
-    paddingBottom: 30,
+    height: 160,
+    gap: 4,
   },
-  chartBar: {
+  chartBarContainer: {
     flex: 1,
     alignItems: 'center',
-    gap: 4,
     height: '100%',
   },
-  barContainer: {
+  barWrapper: {
     flex: 1,
-    width: '70%',
-    justifyContent: 'flex-end',
-  },
-  bar: {
     width: '100%',
-    borderTopLeftRadius: 8,
-    borderTopRightRadius: 8,
+    justifyContent: 'flex-end',
+    paddingBottom: 25,
+  },
+  chartBar: {
+    width: '100%',
+    borderTopLeftRadius: 10,
+    borderTopRightRadius: 10,
     justifyContent: 'flex-start',
     alignItems: 'center',
     paddingTop: 6,
-    elevation: 3,
+    elevation: 4,
     shadowColor: '#14b8a6',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.3,
+    shadowOpacity: 0.4,
     shadowRadius: 4,
   },
-  barValue: {
+  barLabel: {
+    fontSize: 10,
+    fontWeight: '800',
     color: '#fff',
+  },
+  barMonth: {
     fontSize: 10,
     fontWeight: '700',
-  },
-  barContainerSmall: {
-    height: 40,
-    width: '70%',
-    justifyContent: 'flex-end',
-  },
-  barSmall: {
-    width: '100%',
-    borderTopLeftRadius: 6,
-    borderTopRightRadius: 6,
-    elevation: 2,
-  },
-  monthLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    textTransform: 'capitalize',
+    color: '#9ca3af',
+    textTransform: 'uppercase',
     marginTop: 6,
   },
 
-  // Missions récentes
-  recentCard: {
+  // Recent Section
+  recentSection: {
+    backgroundColor: '#1e1e2e',
     borderRadius: 24,
     padding: 20,
     marginBottom: 20,
-    elevation: 4,
+    elevation: 6,
     shadowColor: '#14b8a6',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    borderWidth: 2,
-    borderColor: 'rgba(20, 184, 166, 0.1)',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
   },
-  recentHeader: {
+  sectionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     marginBottom: 16,
   },
-  recentTitleContainer: {
+  sectionTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
   },
-  recentTitle: {
+  sectionTitle: {
     fontSize: 18,
     fontWeight: '800',
+    color: '#fff',
   },
-  viewAllText: {
-    fontSize: 14,
+  seeAllText: {
+    fontSize: 13,
     fontWeight: '700',
     color: '#14b8a6',
   },
@@ -828,95 +1142,111 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   emptyText: {
-    fontSize: 15,
-    fontWeight: '600',
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#9ca3af',
+  },
+  emptySubtext: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#6b7280',
   },
   missionsList: {
     gap: 12,
   },
-  missionItem: {
+  missionCard: {
+    backgroundColor: '#0a0a1a',
     borderRadius: 16,
     padding: 16,
-    borderWidth: 2,
-    elevation: 2,
+    borderLeftWidth: 4,
+    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
+    shadowOpacity: 0.2,
     shadowRadius: 4,
   },
   missionHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 10,
   },
   missionRef: {
-    fontSize: 15,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '900',
+    color: '#fff',
   },
-  statusBadge: {
+  missionStatusBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 10,
-    paddingVertical: 4,
+    paddingVertical: 5,
     borderRadius: 10,
-    borderWidth: 2,
   },
-  statusText: {
+  statusDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+  },
+  missionStatus: {
     fontSize: 11,
     fontWeight: '700',
   },
   missionVehicle: {
     fontSize: 13,
-    fontWeight: '500',
-    marginBottom: 6,
+    fontWeight: '600',
+    color: '#9ca3af',
+    marginBottom: 8,
+  },
+  missionPriceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   missionPrice: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '800',
     color: '#14b8a6',
   },
 
-  // Performance cards
-  performanceContainer: {
+  // Quick Actions
+  quickActionsSection: {
+    marginBottom: 20,
+  },
+  quickActionsTitle: {
+    fontSize: 18,
+    fontWeight: '800',
+    color: '#fff',
+    marginBottom: 16,
+    paddingHorizontal: 4,
+  },
+  quickActionsGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 12,
   },
-  performanceCard: {
+  quickActionCard: {
+    width: (width - 44) / 2,
+    borderRadius: 20,
+    elevation: 6,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+  },
+  quickActionGradient: {
     borderRadius: 20,
     padding: 20,
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-  },
-  performanceIcon: {
-    width: 48,
-    height: 48,
-    borderRadius: 14,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    gap: 12,
+    minHeight: 120,
     justifyContent: 'center',
-    alignItems: 'center',
   },
-  performanceContent: {
-    flex: 1,
-  },
-  performanceLabel: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.9)',
-    marginBottom: 4,
-  },
-  performanceValue: {
-    fontSize: 24,
-    fontWeight: '900',
+  quickActionText: {
+    fontSize: 14,
+    fontWeight: '700',
     color: '#fff',
-    marginBottom: 4,
-  },
-  performanceExtra: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: 'rgba(255, 255, 255, 0.8)',
+    textAlign: 'center',
   },
 });
