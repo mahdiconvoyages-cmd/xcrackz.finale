@@ -426,7 +426,7 @@ export default function DashboardScreenNew() {
           <TouchableOpacity
             style={styles.creditsMainCard}
             onPress={() => {
-              Linking.openURL('https://www.xcrackz.com/boutique');
+              Linking.openURL('https://www.xcrackz.com/shop');
             }}
             activeOpacity={0.9}
           >
@@ -745,7 +745,7 @@ export default function DashboardScreenNew() {
 
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => Linking.openURL('https://www.xcrackz.com/factures')}
+                onPress={() => Linking.openURL('https://www.xcrackz.com/crm')}
               >
                 <LinearGradient
                   colors={['#a855f7', '#9333ea']}
@@ -758,7 +758,7 @@ export default function DashboardScreenNew() {
 
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => Linking.openURL('https://www.xcrackz.com/boutique')}
+                onPress={() => Linking.openURL('https://www.xcrackz.com/shop')}
               >
                 <LinearGradient
                   colors={['#f59e0b', '#fbbf24']}
