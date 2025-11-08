@@ -31,33 +31,18 @@ export function useCredits(): CreditInfo & {
     console.log('🔄 useCredits: Chargement crédits pour user:', user.id);
     
     try {
-      // Charger depuis user_credits (table web) ET profiles.credits (fallback)
-      const [userCreditsResult, profileResult] = await Promise.all([
-        supabase
-          .from('user_credits')
-          .select('balance')
-          .eq('user_id', user.id)
-          .maybeSingle(),
-        supabase
-          .from('profiles')
-          .select('credits')
-          .eq('id', user.id)
-          .single()
-      ]);
+      // MÊME LOGIQUE QUE WEB: utiliser profiles.credits uniquement
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('credits')
+        .eq('id', user.id)
+        .single();
 
-      // Priorité à user_credits (système web d'abonnements)
-      if (userCreditsResult.data) {
-        console.log('✅ useCredits: Crédits depuis user_credits (abonnement web):', userCreditsResult.data.balance);
-        setCredits(userCreditsResult.data.balance || 0);
-      } else if (profileResult.data) {
-        console.log('✅ useCredits: Crédits depuis profiles (système mobile):', profileResult.data.credits);
-        setCredits(profileResult.data.credits || 0);
-      } else {
-        console.log('⚠️ useCredits: Aucun crédit trouvé, défaut à 0');
-        setCredits(0);
-      }
-      
-      console.log('💰 useCredits: Crédits finaux =', userCreditsResult.data?.balance || profileResult.data?.credits || 0);
+      if (error) throw error;
+
+      const creditAmount = (data as any)?.credits || 0;
+      console.log('✅ useCredits: Crédits chargés depuis profiles:', creditAmount);
+      setCredits(creditAmount);
       
     } catch (error) {
       console.error('❌ Erreur chargement crédits:', error);
@@ -73,31 +58,9 @@ export function useCredits(): CreditInfo & {
 
     if (!user) return;
 
-    // Écouter les changements sur user_credits (système web d'abonnements)
-    const userCreditsChannel = supabase
-      .channel(`user_credits_realtime_${user.id}`)
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'user_credits',
-          filter: `user_id=eq.${user.id}`,
-        },
-        (payload) => {
-          console.log('💰 Crédits mis à jour (realtime user_credits):', (payload.new as any)?.balance || (payload.old as any)?.balance);
-          if ((payload.new as any)?.balance !== undefined) {
-            setCredits((payload.new as any).balance);
-          }
-        }
-      )
-      .subscribe((status) => {
-        console.log('📡 Realtime user_credits status:', status);
-      });
-
-    // Fallback: écouter aussi profiles.credits
-    const profilesChannel = supabase
-      .channel(`profiles_credits_${user.id}`)
+    // MÊME LOGIQUE QUE WEB: écouter profiles.credits uniquement
+    const channel = supabase
+      .channel(`user_credits_${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -114,12 +77,11 @@ export function useCredits(): CreditInfo & {
         }
       )
       .subscribe((status) => {
-        console.log('📡 Realtime profiles status:', status);
+        console.log('📡 Realtime crédits status:', status);
       });
 
     return () => {
-      supabase.removeChannel(userCreditsChannel);
-      supabase.removeChannel(profilesChannel);
+      supabase.removeChannel(channel);
     };
   }, [user]);
 
