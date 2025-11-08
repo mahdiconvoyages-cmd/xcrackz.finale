@@ -74,6 +74,11 @@ export default function DashboardScreenNew() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [firstName, setFirstName] = useState<string>('');
+  const [subscription, setSubscription] = useState<{
+    plan_name: string;
+    status: string;
+    end_date: string;
+  } | null>(null);
   
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -174,16 +179,22 @@ export default function DashboardScreenNew() {
     if (!user) return;
 
     try {
-      const [missionsRes, contactsRes, invoicesRes, recentMissionsRes] = await Promise.all([
+      const [missionsRes, contactsRes, invoicesRes, recentMissionsRes, subscriptionRes] = await Promise.all([
         supabase.from('missions').select('status, price, created_at, company_commission, bonus_amount, distance_km').eq('user_id', user.id),
         supabase.from('contacts').select('id, type, is_driver, rating_average').eq('user_id', user.id),
         supabase.from('invoices').select('status, total, created_at').eq('user_id', user.id),
         supabase.from('missions').select('id, reference, status, vehicle_brand, vehicle_model, price').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
+        supabase.from('subscriptions').select('plan_name, status, end_date').eq('user_id', user.id).eq('status', 'active').maybeSingle(),
       ]);
 
       const missions = missionsRes.data || [];
       const contacts = contactsRes.data || [];
       const invoices = invoicesRes.data || [];
+      
+      // Set subscription data
+      if (subscriptionRes.data) {
+        setSubscription(subscriptionRes.data);
+      }
 
       const completedCount = missions.filter((m) => m.status === 'completed').length;
       const cancelledCount = missions.filter((m) => m.status === 'cancelled').length;
@@ -405,7 +416,7 @@ export default function DashboardScreenNew() {
           </LinearGradient>
         </Animated.View>
 
-        {/* Carte Crédits Principale avec animation pulse */}
+        {/* Carte Abonnement/Crédits Principale avec animation pulse */}
         <Animated.View
           style={{
             opacity: fadeAnim,
@@ -420,7 +431,7 @@ export default function DashboardScreenNew() {
             activeOpacity={0.9}
           >
             <LinearGradient
-              colors={['#f59e0b', '#fbbf24', '#fcd34d']}
+              colors={subscription ? ['#14b8a6', '#0d9488', '#0f766e'] : ['#f59e0b', '#fbbf24', '#fcd34d']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.creditsGradient}
@@ -429,17 +440,28 @@ export default function DashboardScreenNew() {
                 <View style={styles.creditsLeft}>
                   <View style={styles.creditsIconContainer}>
                     <Animated.View style={{ transform: [{ scale: pulseAnim }] }}>
-                      <Ionicons name="wallet" size={32} color="#fff" />
+                      <Ionicons name={subscription ? "star" : "wallet"} size={32} color="#fff" />
                     </Animated.View>
                   </View>
                   <View>
-                    <Text style={styles.creditsLabel}>Crédits disponibles</Text>
-                    <Text style={styles.creditsValue}>{stats.totalCredits}</Text>
-                    <Text style={styles.creditsUsed}>Utilisés: {stats.usedCredits}</Text>
-                    {/* DEBUG: Afficher la vraie valeur du hook */}
-                    <Text style={{ color: '#fff', fontSize: 10, marginTop: 4 }}>
-                      Hook: {credits} | Loading: {creditsLoading ? 'oui' : 'non'}
-                    </Text>
+                    {subscription ? (
+                      <>
+                        <Text style={styles.creditsLabel}>✨ Abonnement Actif</Text>
+                        <Text style={styles.creditsValue}>{subscription.plan_name}</Text>
+                        <Text style={styles.creditsUsed}>
+                          Expire dans: {Math.ceil((new Date(subscription.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} jours
+                        </Text>
+                        <Text style={styles.creditsUsed}>
+                          Crédits: {credits}
+                        </Text>
+                      </>
+                    ) : (
+                      <>
+                        <Text style={styles.creditsLabel}>Crédits disponibles</Text>
+                        <Text style={styles.creditsValue}>{credits}</Text>
+                        <Text style={styles.creditsUsed}>Mode à la carte</Text>
+                      </>
+                    )}
                   </View>
                 </View>
                 
@@ -447,7 +469,7 @@ export default function DashboardScreenNew() {
                   <TouchableOpacity 
                     style={styles.rechargeButton}
                     onPress={async () => {
-                      console.log('🔄 Refresh manuel des crédits...');
+                      console.log('🔄 Refresh manuel...');
                       await refreshCredits();
                       await loadDashboardData();
                       console.log('✅ Refresh terminé');
@@ -463,7 +485,7 @@ export default function DashboardScreenNew() {
               <View style={styles.creditsPricing}>
                 <View style={styles.pricingItem}>
                   <Ionicons name="car-sport" size={16} color="rgba(255,255,255,0.9)" />
-                  <Text style={styles.pricingText}>Mission: 1 crédit</Text>
+                  <Text style={styles.pricingText}>{subscription ? 'Missions illimitées' : 'Mission: 1 crédit'}</Text>
                 </View>
                 <View style={styles.pricingItem}>
                   <Ionicons name="people" size={16} color="rgba(255,255,255,0.9)" />
@@ -723,7 +745,7 @@ export default function DashboardScreenNew() {
 
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => (navigation as any).navigate('Invoices')}
+                onPress={() => Linking.openURL('https://www.xcrackz.com/factures')}
               >
                 <LinearGradient
                   colors={['#a855f7', '#9333ea']}
@@ -736,7 +758,7 @@ export default function DashboardScreenNew() {
 
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => (navigation as any).navigate('Shop')}
+                onPress={() => Linking.openURL('https://www.xcrackz.com/boutique')}
               >
                 <LinearGradient
                   colors={['#f59e0b', '#fbbf24']}
