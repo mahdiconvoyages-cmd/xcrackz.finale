@@ -327,21 +327,20 @@ export async function publishTrip(
       };
     }
 
-    // 4. Déduire les crédits
-    const { error: updateError } = await supabase
-      .from('profiles')
-      .update({
-        credits: profile.credits - PUBLISH_COST
-      })
-      .eq('id', userId);
+    // 4. Déduire les crédits avec RPC sécurisé
+    const { data: deductResult, error: deductError } = await supabase.rpc('deduct_credits', {
+      p_user_id: userId,
+      p_amount: PUBLISH_COST,
+      p_reason: `Publication trajet covoiturage ${tripData.departure_city} → ${tripData.arrival_city}`
+    });
 
-    if (updateError) {
-      console.error('Erreur déduction crédits:', updateError);
+    if (deductError || !deductResult?.success) {
+      console.error('Erreur déduction crédits:', deductError);
       // Annuler la création du trajet
       await supabase.from('carpooling_trips').delete().eq('id', newTrip.id);
       return {
         success: false,
-        message: 'Erreur lors de la déduction des crédits'
+        message: deductResult?.error || 'Erreur lors de la déduction des crédits'
       };
     }
 

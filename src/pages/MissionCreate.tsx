@@ -12,9 +12,11 @@ import ShareCodeDisplay from '../components/ShareCodeDisplay';
 export default function MissionCreate() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const { credits, deductCredits, hasEnoughCredits, loading: creditsLoading } = useCredits();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPreview, setShowPreview] = useState(false);
+  const [showBuyCreditModal, setShowBuyCreditModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
   const [createdMission, setCreatedMission] = useState<{ id: string; share_code: string } | null>(null);
   const totalSteps = 5; // Ajout d'une étape finale de récapitulatif & PDF
@@ -96,10 +98,27 @@ export default function MissionCreate() {
     e.preventDefault();
     if (!user) return;
 
+    // Vérifier les crédits AVANT de créer la mission
+    if (!hasEnoughCredits(1)) {
+      setShowBuyCreditModal(true);
+      return;
+    }
+
     setError('');
     setLoading(true);
 
     try {
+      // 1. Déduire 1 crédit
+      const deductResult = await deductCredits(1, `Création de mission ${formData.reference}`);
+      
+      if (!deductResult.success) {
+        setError(deductResult.error || 'Impossible de déduire les crédits');
+        setShowBuyCreditModal(true);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Créer la mission
       const { data, error } = await supabase
         .from('missions')
         .insert([
@@ -836,6 +855,15 @@ export default function MissionCreate() {
           </div>
         </div>
       )}
+
+      {/* Modal Achat Crédits */}
+      <BuyCreditModal
+        isOpen={showBuyCreditModal}
+        onClose={() => setShowBuyCreditModal(false)}
+        currentCredits={credits}
+        requiredCredits={1}
+        action="créer une mission"
+      />
     </div>
   );
 }
