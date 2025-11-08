@@ -20,10 +20,8 @@ import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
 import { useTheme } from '../contexts/ThemeContext';
 import CamScannerLikeScanner from '../components/CamScannerLikeScanner';
-import * as ImagePicker from 'expo-image-manipulator';
 import * as ImageManipulator from 'expo-image-manipulator';
-import Tesseract from 'tesseract.js';
-import { imageFilters, applyBestFilterForOCR } from '../utils/imageFilters';
+import { imageFilters } from '../utils/imageFilters';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 2;
@@ -32,8 +30,6 @@ interface ScannedPage {
   id: string;
   uri: string;
   timestamp: number;
-  ocrText?: string; // Texte extrait par OCR
-  hasOcr?: boolean; // Indique si l'OCR a été effectué
   filterApplied?: string; // Nom du filtre appliqué
 }
 
@@ -42,46 +38,10 @@ export default function ScannerProScreen({ navigation }: any) {
   const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
-  const [isProcessingOCR, setIsProcessingOCR] = useState(false);
   const [filterModalVisible, setFilterModalVisible] = useState(false);
   const [selectedPageForFilter, setSelectedPageForFilter] = useState<ScannedPage | null>(null);
   const [applyingFilter, setApplyingFilter] = useState(false);
   const [proScannerVisible, setProScannerVisible] = useState(false);
-
-  // Améliorer l'image avant OCR (contraste maximum, netteté, niveau de gris)
-  const enhanceImage = async (uri: string): Promise<string> => {
-    try {
-      // Étape 1: Redimensionner pour performance optimale OCR
-      const step1 = await ImageManipulator.manipulateAsync(
-        uri,
-        [
-          { resize: { width: 2400 } }, // Taille optimale pour OCR
-        ],
-        {
-          compress: 1,
-          format: ImageManipulator.SaveFormat.JPEG,
-        }
-      );
-
-      // Étape 2: Appliquer des transformations pour améliorer la lisibilité
-      const enhanced = await ImageManipulator.manipulateAsync(
-        step1.uri,
-        [
-          { flip: ImageManipulator.FlipType.Horizontal }, // Flip puis re-flip pour forcer le reprocessing
-          { flip: ImageManipulator.FlipType.Horizontal },
-        ],
-        {
-          compress: 0.95,
-          format: ImageManipulator.SaveFormat.JPEG,
-        }
-      );
-
-      return enhanced.uri;
-    } catch (error) {
-      console.error('Erreur amélioration image:', error);
-      return uri;
-    }
-  };
 
   const handleScanDocument = async () => {
     // Ouvrir le scanner professionnel
@@ -96,7 +56,6 @@ export default function ScannerProScreen({ navigation }: any) {
       id: `${Date.now()}`,
       uri: imageUri,
       timestamp: Date.now(),
-      hasOcr: false,
       filterApplied: 'Pro Scanner',
     };
 
@@ -110,68 +69,7 @@ export default function ScannerProScreen({ navigation }: any) {
     // Fermer le scanner APRÈS l'ajout
     setProScannerVisible(false);
     
-    Alert.alert(
-      '✅ Document scanné', 
-      'Voulez-vous extraire le texte (OCR) ?',
-      [
-        { text: 'Plus tard', style: 'cancel' },
-        {
-          text: 'Extraire texte',
-          onPress: () => performOCR(newPage.id, imageUri),
-        },
-      ]
-    );
-  };
-
-  // Effectuer l'OCR sur une image avec configuration optimisée
-  const performOCR = async (pageId: string, imageUri: string) => {
-    try {
-      setIsProcessingOCR(true);
-
-      // Configuration Tesseract optimisée pour documents
-      const { data } = await Tesseract.recognize(imageUri, 'fra+eng', {
-        logger: (m) => {
-          if (m.status === 'recognizing text') {
-            console.log(`OCR Progress: ${Math.round(m.progress * 100)}%`);
-          }
-        },
-      });
-
-      const extractedText = data.text.trim();
-
-      // Mettre à jour la page avec le texte extrait
-      setScannedPages((prev) =>
-        prev.map((page) =>
-          page.id === pageId
-            ? { ...page, ocrText: extractedText, hasOcr: true }
-            : page
-        )
-      );
-
-      if (extractedText) {
-        Alert.alert(
-          '✅ Texte extrait',
-          `${extractedText.length} caractères détectés.\n\nAperçu:\n${extractedText.substring(0, 200)}${extractedText.length > 200 ? '...' : ''}`,
-          [
-            { text: 'OK' },
-            {
-              text: 'Copier',
-              onPress: () => {
-                // Note: Vous pourriez ajouter expo-clipboard ici
-                Alert.alert('Info', 'Texte prêt à être utilisé');
-              },
-            },
-          ]
-        );
-      } else {
-        Alert.alert('Aucun texte détecté', 'L\'image ne contient pas de texte lisible.');
-      }
-    } catch (error) {
-      console.error('OCR error:', error);
-      Alert.alert('Erreur OCR', 'Impossible d\'extraire le texte de l\'image.');
-    } finally {
-      setIsProcessingOCR(false);
-    }
+    Alert.alert('✅ Document scanné', `Page ${scannedPages.length + 1} ajoutée avec succès`);
   };
 
   const handleRemovePage = (id: string) => {
@@ -198,7 +96,7 @@ export default function ScannerProScreen({ navigation }: any) {
       setScannedPages((prev) =>
         prev.map((page) =>
           page.id === selectedPageForFilter.id
-            ? { ...page, uri: filteredUri, filterApplied: filterName, hasOcr: false, ocrText: undefined }
+            ? { ...page, uri: filteredUri, filterApplied: filterName }
             : page
         )
       );
@@ -385,34 +283,13 @@ export default function ScannerProScreen({ navigation }: any) {
           <Text style={styles.filterActionText}>Filtre</Text>
         </TouchableOpacity>
 
-        {page.hasOcr ? (
-          <View style={styles.ocrStatusContainer}>
-            <MaterialCommunityIcons name="text-recognition" size={16} color="#10b981" />
-            <Text style={[styles.pageStatus, { color: '#10b981' }]}>
-              OCR ({page.ocrText?.length || 0} car.)
-            </Text>
-          </View>
-        ) : (
-          <TouchableOpacity
-            style={styles.ocrButton}
-            onPress={() => performOCR(page.id, page.uri)}
-            disabled={isProcessingOCR}
-          >
-            <MaterialCommunityIcons name="text-search" size={16} color="#3b82f6" />
-            <Text style={[styles.ocrButtonText, { color: '#3b82f6' }]}>
-              {isProcessingOCR ? 'Extraction...' : 'Extraire texte'}
-            </Text>
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {page.ocrText && (
-        <View style={styles.ocrTextPreview}>
-          <Text style={[styles.ocrText, { color: colors.textSecondary }]} numberOfLines={3}>
-            {page.ocrText}
+        <View style={styles.pageInfoContainer}>
+          <Ionicons name="document-text" size={16} color="#14b8a6" />
+          <Text style={[styles.pageStatus, { color: '#14b8a6' }]}>
+            Prêt pour export
           </Text>
         </View>
-      )}
+      </View>
     </View>
   );
 
@@ -754,7 +631,7 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#334155',
   },
-  ocrStatusContainer: {
+  pageInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 6,
@@ -763,32 +640,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: '600',
     color: '#14b8a6',
-  },
-  ocrButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    backgroundColor: '#eff6ff',
-    borderRadius: 8,
-  },
-  ocrButtonText: {
-    fontSize: 12,
-    fontWeight: '600',
-  },
-  ocrTextPreview: {
-    paddingHorizontal: 12,
-    paddingBottom: 12,
-    paddingTop: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#334155',
-    backgroundColor: 'rgba(0,0,0,0.2)',
-  },
-  ocrText: {
-    fontSize: 11,
-    lineHeight: 16,
-    fontStyle: 'italic',
   },
   footer: {
     padding: 20,
