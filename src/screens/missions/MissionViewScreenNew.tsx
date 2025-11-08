@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useRef } from 'react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
+import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -59,6 +60,14 @@ export default function MissionViewScreenNew({ route, navigation }: any) {
       }),
     ]).start();
   }, []);
+
+  // Refresh data when screen comes into focus (after returning from inspection)
+  useFocusEffect(
+    useCallback(() => {
+      console.log('🔄 Screen focused - Refreshing mission data');
+      loadMissionData();
+    }, [missionId])
+  );
 
   // Realtime sync
   useEffect(() => {
