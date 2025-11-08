@@ -360,8 +360,33 @@ async function generatePDF(inspection: InspectionData): Promise<Uint8Array> {
 
     for (const photo of inspection.photos.slice(0, 8)) { // Max 8 photos
       try {
-        const photoBytes = await fetch(photo.full_url).then(r => r.arrayBuffer())
-        const photoImage = await pdfDoc.embedJpg(photoBytes)
+        console.log(`📸 Loading photo: ${photo.photo_type} from ${photo.full_url.substring(0, 80)}`)
+        
+        // Fetch photo with timeout
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => controller.abort(), 10000) // 10s timeout
+        
+        const response = await fetch(photo.full_url, { signal: controller.signal })
+        clearTimeout(timeoutId)
+        
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+        }
+        
+        const photoBytes = await response.arrayBuffer()
+        console.log(`✅ Photo loaded: ${photoBytes.byteLength} bytes`)
+        
+        // Detect format from URL or content type
+        let photoImage
+        const urlLower = photo.full_url.toLowerCase()
+        
+        if (urlLower.includes('.png') || response.headers.get('content-type')?.includes('png')) {
+          console.log(`🖼️ Embedding as PNG`)
+          photoImage = await pdfDoc.embedPng(photoBytes)
+        } else {
+          console.log(`🖼️ Embedding as JPEG`)
+          photoImage = await pdfDoc.embedJpg(photoBytes)
+        }
 
         if (yPosition < photoHeight + 50) {
           page = pdfDoc.addPage([595, 842])
@@ -391,8 +416,46 @@ async function generatePDF(inspection: InspectionData): Promise<Uint8Array> {
         } else {
           photoX += photoWidth + 15
         }
-      } catch (photoError) {
-        console.error(`Error embedding photo ${photo.photo_type}:`, photoError)
+        
+        console.log(`✅ Photo ${photo.photo_type} successfully embedded in PDF`)
+      } catch (photoError: any) {
+        console.error(`❌ Error embedding photo ${photo.photo_type}:`, photoError)
+        console.error(`❌ URL: ${photo.full_url}`)
+        console.error(`❌ Error details:`, photoError?.message, photoError?.stack)
+        
+        // Ajouter un placeholder pour indiquer la photo manquante
+        page.drawRectangle({
+          x: photoX,
+          y: yPosition - photoHeight,
+          width: photoWidth,
+          height: photoHeight,
+          borderColor: rgb(0.8, 0.2, 0.2),
+          borderWidth: 2,
+        })
+        
+        page.drawText(`⚠️ Photo ${photo.photo_type}`, {
+          x: photoX + 10,
+          y: yPosition - photoHeight / 2,
+          size: 10,
+          font: helveticaBold,
+          color: rgb(0.8, 0.2, 0.2),
+        })
+        
+        page.drawText('non disponible', {
+          x: photoX + 10,
+          y: yPosition - photoHeight / 2 - 15,
+          size: 8,
+          font: helveticaFont,
+          color: rgb(0.8, 0.2, 0.2),
+        })
+        
+        photoCount++
+        if (photoCount % photosPerRow === 0) {
+          yPosition -= photoHeight + 30
+          photoX = 50
+        } else {
+          photoX += photoWidth + 15
+        }
       }
     }
   }
