@@ -5,7 +5,7 @@ import MenuButton from '../components/MenuButton';
 
 import MissionListScreen from '../screens/missions/MissionListScreenNew';
 import MissionCreateScreen from '../screens/missions/MissionCreateScreen';
-import MissionViewScreen from '../screens/missions/MissionViewScreen';
+import MissionViewScreen from '../screens/missions/MissionViewScreenNew';
 import MissionTrackingScreen from '../screens/missions/MissionTrackingScreen';
 import InspectionDepartureNew from '../screens/inspections/InspectionDepartureNew';
 import InspectionArrivalNew from '../screens/inspections/InspectionArrivalNew';
@@ -39,7 +39,7 @@ export default function MissionsNavigator() {
       <Stack.Screen
         name="MissionView"
         component={MissionViewScreen}
-        options={{ title: 'Détails mission' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="MissionTracking"
