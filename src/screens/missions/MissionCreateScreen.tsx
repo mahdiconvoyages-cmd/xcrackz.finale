@@ -14,21 +14,25 @@ import { Ionicons } from '@expo/vector-icons';
 import { Picker } from '@react-native-picker/picker';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
+import { useCredits } from '../../hooks/useCredits';
 import { supabase } from '../../lib/supabase';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AddressAutocomplete from '../../components/AddressAutocomplete';
 import VehicleImageUpload from '../../components/VehicleImageUpload';
+import BuyCreditModal from '../../components/BuyCreditModal';
 
 const TOTAL_STEPS = 4;
 
 export default function MissionCreateScreen({ navigation }: any) {
   const { colors } = useTheme();
   const { user } = useAuth();
+  const { credits, deductCredits, hasEnoughCredits } = useCredits();
   
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [showPickupPicker, setShowPickupPicker] = useState(false);
   const [showDeliveryPicker, setShowDeliveryPicker] = useState(false);
+  const [showBuyCreditModal, setShowBuyCreditModal] = useState(false);
 
   const [formData, setFormData] = useState({
     reference: `MISSION-${Date.now()}`,
@@ -98,9 +102,25 @@ export default function MissionCreateScreen({ navigation }: any) {
       return;
     }
 
+    // Vérifier les crédits AVANT de créer la mission
+    if (!hasEnoughCredits(1)) {
+      setShowBuyCreditModal(true);
+      return;
+    }
+
     setLoading(true);
     try {
-      // Générer un code de partage unique
+      // 1. Déduire 1 crédit
+      const deductResult = await deductCredits(1, `Création de mission ${formData.reference}`);
+      
+      if (!deductResult.success) {
+        Alert.alert('Crédits insuffisants', deductResult.error || 'Impossible de déduire les crédits');
+        setShowBuyCreditModal(true);
+        setLoading(false);
+        return;
+      }
+
+      // 2. Générer un code de partage unique
       const generateShareCode = () => {
         const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
         let code = '';
@@ -111,6 +131,7 @@ export default function MissionCreateScreen({ navigation }: any) {
         return code; // Format: XX-XXX-XXX
       };
 
+      // 3. Créer la mission
       const { data, error } = await supabase
         .from('missions')
         .insert({
@@ -149,7 +170,7 @@ export default function MissionCreateScreen({ navigation }: any) {
 
       Alert.alert(
         '✅ Mission créée',
-        `Mission ${formData.reference} créée avec succès`,
+        `Mission ${formData.reference} créée avec succès\n\n💳 -1 crédit (Solde: ${credits - 1})`,
         [
           {
             text: 'Voir la mission',
@@ -557,6 +578,15 @@ export default function MissionCreateScreen({ navigation }: any) {
           </TouchableOpacity>
         )}
       </View>
+
+      {/* Modal Achat Crédits */}
+      <BuyCreditModal
+        visible={showBuyCreditModal}
+        onClose={() => setShowBuyCreditModal(false)}
+        currentCredits={credits}
+        requiredCredits={1}
+        action="créer une mission"
+      />
     </SafeAreaView>
   );
 }
