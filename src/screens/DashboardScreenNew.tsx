@@ -67,6 +67,9 @@ export default function DashboardScreenNew() {
   const { user } = useAuth();
   const { colors } = useTheme();
   const { credits, loading: creditsLoading } = useCredits();
+  
+  console.log('🎯 Dashboard: credits =', credits, 'loading =', creditsLoading);
+  
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [firstName, setFirstName] = useState<string>('');

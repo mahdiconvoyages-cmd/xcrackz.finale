@@ -22,11 +22,14 @@ export function useCredits(): CreditInfo & {
   // Charger crédits initiaux
   const loadCredits = async () => {
     if (!user) {
+      console.log('⚠️ useCredits: Aucun utilisateur connecté');
       setCredits(0);
       setLoading(false);
       return;
     }
 
+    console.log('🔄 useCredits: Chargement crédits pour user:', user.id);
+    
     try {
       const { data, error } = await supabase
         .from('profiles')
@@ -34,7 +37,14 @@ export function useCredits(): CreditInfo & {
         .eq('id', user.id)
         .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ useCredits: Erreur query:', error);
+        throw error;
+      }
+      
+      console.log('✅ useCredits: Données récupérées:', data);
+      console.log('💰 useCredits: Crédits =', data?.credits);
+      
       setCredits(data?.credits || 0);
     } catch (error) {
       console.error('❌ Erreur chargement crédits:', error);
