@@ -31,21 +31,34 @@ export function useCredits(): CreditInfo & {
     console.log('🔄 useCredits: Chargement crédits pour user:', user.id);
     
     try {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('credits')
-        .eq('id', user.id)
-        .single();
+      // Charger depuis user_credits (table web) ET profiles.credits (fallback)
+      const [userCreditsResult, profileResult] = await Promise.all([
+        supabase
+          .from('user_credits')
+          .select('balance')
+          .eq('user_id', user.id)
+          .maybeSingle(),
+        supabase
+          .from('profiles')
+          .select('credits')
+          .eq('id', user.id)
+          .single()
+      ]);
 
-      if (error) {
-        console.error('❌ useCredits: Erreur query:', error);
-        throw error;
+      // Priorité à user_credits (système web d'abonnements)
+      if (userCreditsResult.data) {
+        console.log('✅ useCredits: Crédits depuis user_credits (abonnement web):', userCreditsResult.data.balance);
+        setCredits(userCreditsResult.data.balance || 0);
+      } else if (profileResult.data) {
+        console.log('✅ useCredits: Crédits depuis profiles (système mobile):', profileResult.data.credits);
+        setCredits(profileResult.data.credits || 0);
+      } else {
+        console.log('⚠️ useCredits: Aucun crédit trouvé, défaut à 0');
+        setCredits(0);
       }
       
-      console.log('✅ useCredits: Données récupérées:', data);
-      console.log('💰 useCredits: Crédits =', data?.credits);
+      console.log('💰 useCredits: Crédits finaux =', userCreditsResult.data?.balance || profileResult.data?.credits || 0);
       
-      setCredits(data?.credits || 0);
     } catch (error) {
       console.error('❌ Erreur chargement crédits:', error);
       setCredits(0);
@@ -60,8 +73,31 @@ export function useCredits(): CreditInfo & {
 
     if (!user) return;
 
-    const channel = supabase
-      .channel(`user_credits_${user.id}`)
+    // Écouter les changements sur user_credits (système web d'abonnements)
+    const userCreditsChannel = supabase
+      .channel(`user_credits_realtime_${user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'user_credits',
+          filter: `user_id=eq.${user.id}`,
+        },
+        (payload) => {
+          console.log('💰 Crédits mis à jour (realtime user_credits):', (payload.new as any)?.balance || (payload.old as any)?.balance);
+          if ((payload.new as any)?.balance !== undefined) {
+            setCredits((payload.new as any).balance);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Realtime user_credits status:', status);
+      });
+
+    // Fallback: écouter aussi profiles.credits
+    const profilesChannel = supabase
+      .channel(`profiles_credits_${user.id}`)
       .on(
         'postgres_changes',
         {
@@ -71,16 +107,19 @@ export function useCredits(): CreditInfo & {
           filter: `id=eq.${user.id}`,
         },
         (payload) => {
-          console.log('💰 Crédits mis à jour (realtime):', payload.new.credits);
-          setCredits(payload.new.credits || 0);
+          console.log('💰 Crédits mis à jour (realtime profiles):', (payload.new as any)?.credits);
+          if ((payload.new as any)?.credits !== undefined) {
+            setCredits((payload.new as any).credits);
+          }
         }
       )
       .subscribe((status) => {
-        console.log('📡 Realtime crédits status:', status);
+        console.log('📡 Realtime profiles status:', status);
       });
 
     return () => {
-      supabase.removeChannel(channel);
+      supabase.removeChannel(userCreditsChannel);
+      supabase.removeChannel(profilesChannel);
     };
   }, [user]);
 
