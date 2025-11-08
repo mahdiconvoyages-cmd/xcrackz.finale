@@ -697,7 +697,7 @@ export default function DashboardScreenNew() {
             <View style={styles.quickActionsGrid}>
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => (navigation as any).navigate('MissionCreate')}
+                onPress={() => (navigation as any).navigate('Missions', { screen: 'MissionCreate' })}
               >
                 <LinearGradient
                   colors={['#3b82f6', '#2563eb']}
@@ -710,14 +710,14 @@ export default function DashboardScreenNew() {
 
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => (navigation as any).navigate('Contacts')}
+                onPress={() => (navigation as any).navigate('ScannerPro')}
               >
                 <LinearGradient
                   colors={['#6366f1', '#4f46e5']}
                   style={styles.quickActionGradient}
                 >
-                  <Ionicons name="person-add" size={32} color="#fff" />
-                  <Text style={styles.quickActionText}>Nouveau contact</Text>
+                  <Ionicons name="scan" size={32} color="#fff" />
+                  <Text style={styles.quickActionText}>Scanner</Text>
                 </LinearGradient>
               </TouchableOpacity>
 
@@ -736,7 +736,7 @@ export default function DashboardScreenNew() {
 
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => Linking.openURL('https://www.xcrackz.com/boutique')}
+                onPress={() => (navigation as any).navigate('Shop')}
               >
                 <LinearGradient
                   colors={['#f59e0b', '#fbbf24']}
