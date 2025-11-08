@@ -47,12 +47,12 @@ export default function InspectionsNavigator() {
       <Stack.Screen
         name="InspectionDeparture"
         component={InspectionDepartureNew}
-        options={{ title: 'Inspection départ' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name="InspectionArrival"
         component={InspectionArrivalNew}
-        options={{ title: 'Inspection arrivée' }}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );
