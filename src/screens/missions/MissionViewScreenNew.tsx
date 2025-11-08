@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import * as Clipboard from 'expo-clipboard';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
@@ -449,6 +450,67 @@ export default function MissionViewScreenNew({ route, navigation }: any) {
               }}
             >
               <LocationSharing missionId={missionId} />
+            </Animated.View>
+          )}
+
+          {/* Code de partage */}
+          {mission.share_code && mission.user_id === user?.id && (
+            <Animated.View
+              style={[
+                styles.card,
+                {
+                  opacity: fadeAnim,
+                  transform: [{ scale: scaleAnim }],
+                },
+              ]}
+            >
+              <LinearGradient
+                colors={['#1e293b', '#0f172a'] as any}
+                style={styles.cardGradient}
+              >
+                <View style={styles.cardHeader}>
+                  <Ionicons name="share-social" size={24} color="#14b8a6" />
+                  <Text style={styles.cardTitle}>Code de partage</Text>
+                </View>
+
+                <View style={styles.shareCodeContainer}>
+                  <View style={styles.shareCodeBox}>
+                    <Text style={styles.shareCodeText}>
+                      {mission.share_code}
+                    </Text>
+                  </View>
+
+                  <View style={styles.shareActions}>
+                    <TouchableOpacity
+                      style={styles.shareButton}
+                      onPress={async () => {
+                        await Clipboard.setStringAsync(mission.share_code);
+                        Alert.alert('✅ Copié', 'Code de partage copié dans le presse-papiers');
+                      }}
+                    >
+                      <Ionicons name="copy" size={18} color="#fff" />
+                      <Text style={styles.shareButtonText}>Copier</Text>
+                    </TouchableOpacity>
+
+                    <TouchableOpacity
+                      style={styles.shareButton}
+                      onPress={async () => {
+                        try {
+                          await Share.share({
+                            message: `Rejoignez ma mission de convoyage !\n\nCode: ${mission.share_code}\n\nOuvrez l'app FleetCheck et utilisez "Rejoindre mission" pour accepter.`,
+                            title: 'Partager mission',
+                          });
+                        } catch (error: any) {
+                          Alert.alert('Erreur', error.message);
+                        }
+                      }}
+                    >
+                      <Ionicons name="share" size={18} color="#fff" />
+                      <Text style={styles.shareButtonText}>Partager</Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </LinearGradient>
             </Animated.View>
           )}
 
@@ -1132,6 +1194,45 @@ const styles = StyleSheet.create({
   backButtonText: {
     color: '#fff',
     fontSize: 16,
+    fontWeight: '600',
+  },
+  // Code de partage
+  shareCodeContainer: {
+    gap: 16,
+  },
+  shareCodeBox: {
+    backgroundColor: 'rgba(20, 184, 166, 0.1)',
+    borderWidth: 2,
+    borderColor: '#14b8a6',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 20,
+    alignItems: 'center',
+  },
+  shareCodeText: {
+    fontSize: 32,
+    fontWeight: '800',
+    color: '#14b8a6',
+    letterSpacing: 4,
+    fontFamily: 'monospace',
+  },
+  shareActions: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  shareButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#14b8a6',
+    paddingVertical: 14,
+    borderRadius: 12,
+  },
+  shareButtonText: {
+    color: '#fff',
+    fontSize: 15,
     fontWeight: '600',
   },
 });
