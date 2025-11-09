@@ -29,6 +29,7 @@ import {
   isTrackingActive,
   getActiveMission,
 } from '../services/missionTrackingService';
+import { getVehicleImageSource } from '../utils/vehicleDefaults';
 
 export default function MissionDetailScreen() {
   const navigation = useNavigation();
@@ -323,12 +324,10 @@ export default function MissionDetailScreen() {
               </View>
             </View>
 
-            {mission.vehicle_image_url && (
-              <Image
-                source={{ uri: mission.vehicle_image_url }}
-                style={styles.vehicleImage}
-              />
-            )}
+            <Image
+              source={getVehicleImageSource(mission.vehicle_image_url, (mission as any).vehicle_type || 'VL')}
+              style={styles.vehicleImage}
+            />
 
             <View style={styles.section}>
               <Text style={styles.sectionTitle}>Véhicule</Text>

@@ -8,6 +8,7 @@ import { useAuth } from '../contexts/AuthContext';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import VehicleImageUpload from '../components/VehicleImageUpload';
 import ShareCodeDisplay from '../components/ShareCodeDisplay';
+import { getVehicleImageUrl } from '../utils/vehicleDefaults';
 
 export default function MissionCreate() {
   const { user } = useAuth();
@@ -253,11 +254,9 @@ export default function MissionCreate() {
           <div class="section-title">
             🚗 Informations du véhicule
           </div>
-          ${formData.vehicle_image_url ? `
           <div style="margin-bottom: 20px; text-align: center;">
-            <img src="${formData.vehicle_image_url}" alt="Véhicule" style="max-width: 100%; max-height: 400px; border-radius: 8px; object-fit: cover; border: 2px solid #e2e8f0;" />
+            <img src="${getVehicleImageUrl(formData.vehicle_image_url, formData.vehicle_type)}" alt="Véhicule ${formData.vehicle_type}" style="max-width: 100%; max-height: 400px; border-radius: 8px; object-fit: cover; border: 2px solid #e2e8f0;" />
           </div>
-          ` : ''}
           <div class="info-row">
             <span class="info-label">Marque:</span>
             <span class="info-value">${formData.vehicle_brand || '-'}</span>
