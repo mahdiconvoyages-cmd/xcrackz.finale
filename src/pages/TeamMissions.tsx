@@ -14,6 +14,7 @@ import { generateMissionPDF } from '../services/missionPdfGenerator';
 import JoinMissionModal from '../components/JoinMissionModal';
 import ShareCodeModal from '../components/ShareCodeModal';
 import { useMissionsSync, useInspectionsSync } from '../hooks/useRealtimeSync';
+import { getVehicleImageUrl } from '../utils/vehicleDefaults';
 
 // ===== INTERFACES =====
 interface Mission {
@@ -644,17 +645,11 @@ export default function TeamMissions() {
                   {/* Mission Header */}
                   <div className="flex items-start justify-between mb-4">
                     <div className="flex items-center gap-3">
-                      {mission.vehicle_image_url ? (
-                        <img
-                          src={mission.vehicle_image_url}
-                          alt="Véhicule"
-                          className="w-14 h-14 rounded-xl object-cover border-2 border-teal-500/50 group-hover:scale-110 transition-transform duration-300"
-                        />
-                      ) : (
-                        <div className="w-14 h-14 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform duration-300 shadow-lg">
-                          <Truck className="w-7 h-7 text-white" />
-                        </div>
-                      )}
+                      <img
+                        src={getVehicleImageUrl(mission.vehicle_image_url, mission.vehicle_type)}
+                        alt={`Véhicule ${mission.vehicle_type || 'VL'}`}
+                        className="w-14 h-14 rounded-xl object-cover border-2 border-teal-500/50 group-hover:scale-110 transition-transform duration-300"
+                      />
                       <div>
                         <div className="flex items-center gap-2">
                           <h3 className="font-bold text-lg text-slate-900">{mission.reference}</h3>
