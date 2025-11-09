@@ -39,14 +39,15 @@ export default function CamScannerLikeScanner({ visible, onScanComplete, onCance
 
       // Utilise le scanner natif avec détection ML
       const { scannedImages } = await DocumentScanner.scanDocument({
-        // Options CamScanner-like
+        // Options CamScanner-like  
         croppedImageQuality: 100,
         maxNumDocuments: 1,
-        responseType: 'base64' as any,
-      } as any);
+        responseType: 'imageFilePath',  // ✅ CHANGÉ: Retourne un chemin de fichier au lieu de base64
+      });
 
       if (scannedImages && scannedImages.length > 0) {
         const imageUri = scannedImages[0];
+        console.log('✅ Scanner: Image capturée -', imageUri);
         setScannedImage(imageUri);
         onScanComplete(imageUri);
         setIsScanning(false);
@@ -55,7 +56,7 @@ export default function CamScannerLikeScanner({ visible, onScanComplete, onCance
         onCancel();
       }
     } catch (error: any) {
-      console.error('Erreur scan:', error);
+      console.error('❌ Erreur scan:', error);
       setIsScanning(false);
 
       if (error.code === 'userCanceled') {
@@ -81,18 +82,12 @@ export default function CamScannerLikeScanner({ visible, onScanComplete, onCance
       });
 
       if (!result.canceled && result.assets[0]) {
-        // Lancer la détection sur l'image de la galerie
-        const { scannedImages } = await DocumentScanner.scanDocument({
-          croppedImageQuality: 100,
-          responseType: 'base64' as any,
-        } as any);
-
-        if (scannedImages && scannedImages.length > 0) {
-          onScanComplete(scannedImages[0]);
-        }
+        // Retourner directement l'URI de l'image de la galerie
+        console.log('✅ Galerie: Image sélectionnée -', result.assets[0].uri);
+        onScanComplete(result.assets[0].uri);
       }
     } catch (error) {
-      console.error('Erreur galerie:', error);
+      console.error('❌ Erreur galerie:', error);
       Alert.alert('Erreur', 'Impossible de traiter l\'image');
     }
   };

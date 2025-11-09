@@ -77,7 +77,7 @@ export default function DashboardScreenNew() {
   const [subscription, setSubscription] = useState<{
     plan_name: string;
     status: string;
-    end_date: string;
+    current_period_end: string;
   } | null>(null);
   
   // Animations
@@ -184,7 +184,7 @@ export default function DashboardScreenNew() {
         supabase.from('contacts').select('id, type, is_driver, rating_average').eq('user_id', user.id),
         supabase.from('invoices').select('status, total, created_at').eq('user_id', user.id),
         supabase.from('missions').select('id, reference, status, vehicle_brand, vehicle_model, inspection_reports(id)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
-        supabase.from('subscriptions').select('plan_name, status, end_date').eq('user_id', user.id).eq('status', 'active').maybeSingle(),
+        supabase.from('subscriptions').select('plan_name, status, current_period_end').eq('user_id', user.id).eq('status', 'active').maybeSingle(),
       ]);
 
       const missions = missionsRes.data || [];
@@ -460,7 +460,7 @@ export default function DashboardScreenNew() {
                         <Text style={styles.creditsLabel}>✨ Abonnement Actif</Text>
                         <Text style={styles.creditsValue}>{subscription.plan_name}</Text>
                         <Text style={styles.creditsUsed}>
-                          Expire dans: {Math.ceil((new Date(subscription.end_date).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} jours
+                          Expire dans: {Math.ceil((new Date(subscription.current_period_end).getTime() - new Date().getTime()) / (1000 * 60 * 60 * 24))} jours
                         </Text>
                         <Text style={styles.creditsUsed}>
                           Crédits: {credits}

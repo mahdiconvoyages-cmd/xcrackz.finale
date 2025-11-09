@@ -163,27 +163,47 @@ export default function ScannerProScreen({ navigation }: any) {
     try {
       setIsGeneratingPDF(true);
       console.log('🔄 Début génération PDF de', scannedPages.length, 'pages');
+      console.log('📋 Pages à traiter:', scannedPages.map(p => ({ id: p.id, uri: p.uri })));
 
       // Créer le HTML avec toutes les images
       console.log('📄 Conversion des images en base64...');
       const imagesHtml = await Promise.all(
         scannedPages.map(async (page, index) => {
           try {
-            console.log(`  - Page ${index + 1}: ${page.uri}`);
+            console.log(`  🔍 Page ${index + 1}: Chemin = ${page.uri}`);
+            
+            // Vérifier si l'URI est valide
+            if (!page.uri || page.uri.trim() === '') {
+              throw new Error(`Page ${index + 1}: URI vide ou invalide`);
+            }
+            
+            // Vérifier si le fichier existe
+            const fileInfo = await FileSystem.getInfoAsync(page.uri);
+            console.log(`  📊 Page ${index + 1}: Fichier existe = ${fileInfo.exists}, Taille = ${fileInfo.exists ? fileInfo.size : 'N/A'}`);
+            
+            if (!fileInfo.exists) {
+              throw new Error(`Page ${index + 1}: Fichier introuvable à ${page.uri}`);
+            }
+            
             // Lire l'image en base64
             const base64 = await FileSystem.readAsStringAsync(page.uri, {
               encoding: 'base64',
             });
-            console.log(`  ✓ Page ${index + 1} convertie (${base64.length} bytes)`);
+            
+            if (!base64 || base64.length === 0) {
+              throw new Error(`Page ${index + 1}: Base64 vide après lecture`);
+            }
+            
+            console.log(`  ✅ Page ${index + 1} convertie (${base64.length} caractères)`);
             
             return `
               <div style="page-break-after: always; text-align: center; padding: 20px;">
                 <img src="data:image/jpeg;base64,${base64}" style="max-width: 100%; max-height: 95vh; height: auto;" />
               </div>
             `;
-          } catch (error) {
-            console.error(`  ✗ Erreur page ${index + 1}:`, error);
-            throw error;
+          } catch (error: any) {
+            console.error(`  ❌ Erreur page ${index + 1}:`, error.message);
+            throw new Error(`Page ${index + 1}: ${error.message}`);
           }
         })
       );
