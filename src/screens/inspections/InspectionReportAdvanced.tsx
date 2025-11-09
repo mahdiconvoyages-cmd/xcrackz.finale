@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState, useCallback } from 'react';
 import { 
   View, Text, TouchableOpacity, ActivityIndicator, 
-  StyleSheet, Dimensions, Alert, Image, ScrollView
+  StyleSheet, Dimensions, Alert, Image, ScrollView,
+  FlatList, RefreshControl, Platform
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -68,16 +69,6 @@ export default function InspectionReportAdvanced({ route }: Props) {
       try {
         setLoading(true);
         setError(null);
-        
-        // Try cache first
-        const cacheKey = `${departureId || ''}_${arrivalId || ''}`;
-        const cached = await cacheManager.get(cacheKey);
-        if (cached) {
-          setDeparture(cached.departure);
-          setArrival(cached.arrival);
-          setPdfUrl(cached.pdfUrl);
-          setLoading(false);
-        }
         
         // Fetch fresh data
         let freshDeparture = null;
@@ -202,13 +193,6 @@ export default function InspectionReportAdvanced({ route }: Props) {
             setPdfUrl(cached);
           }
         }
-        
-        // Update cache
-        await cacheManager.set(cacheKey, {
-          departure: freshDeparture,
-          arrival: freshArrival,
-          pdfUrl: freshPdfUrl
-        });
       } catch (err: any) {
         console.error('❌ Erreur chargement rapport:', err);
         setError(err.message || 'Erreur lors du chargement du rapport');
@@ -306,15 +290,13 @@ export default function InspectionReportAdvanced({ route }: Props) {
   // Memoized photo thumbnail component
   const PhotoThumbnail = React.memo(({ photo, onPress }: { photo: Photo; onPress: () => void }) => {
     const imageSource = { uri: photo.thumbnail_url || photo.photo_url };
-    const imageProps = FastImagePriority.normal 
-      ? { source: { ...imageSource, priority: FastImagePriority.normal }, resizeMode: FastImageResizeMode.cover }
-      : { source: imageSource, resizeMode: 'cover' };
     
     return (
       <TouchableOpacity activeOpacity={0.8} onPress={onPress}>
         <FastImage
-          {...imageProps}
+          source={imageSource}
           style={styles.thumb}
+          resizeMode="cover"
         />
       </TouchableOpacity>
     );
