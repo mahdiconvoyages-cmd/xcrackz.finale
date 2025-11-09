@@ -51,7 +51,7 @@ interface RecentMission {
   status: string;
   vehicle_brand: string;
   vehicle_model: string;
-  price: number;
+  reports_count?: number; // Nombre de rapports d'inspection disponibles
 }
 
 interface MonthlyData {
@@ -183,7 +183,7 @@ export default function DashboardScreenNew() {
         supabase.from('missions').select('status, price, created_at, company_commission, bonus_amount, distance_km').eq('user_id', user.id),
         supabase.from('contacts').select('id, type, is_driver, rating_average').eq('user_id', user.id),
         supabase.from('invoices').select('status, total, created_at').eq('user_id', user.id),
-        supabase.from('missions').select('id, reference, status, vehicle_brand, vehicle_model, price').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
+        supabase.from('missions').select('id, reference, status, vehicle_brand, vehicle_model, inspection_reports(id)').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
         supabase.from('subscriptions').select('plan_name, status, end_date').eq('user_id', user.id).eq('status', 'active').maybeSingle(),
       ]);
 
@@ -276,7 +276,18 @@ export default function DashboardScreenNew() {
       });
 
       setMonthlyData(last6Months);
-      setRecentMissions(recentMissionsRes.data || []);
+      
+      // Transformer les données pour ajouter reports_count
+      const formattedRecentMissions = (recentMissionsRes.data || []).map((mission: any) => ({
+        id: mission.id,
+        reference: mission.reference,
+        status: mission.status,
+        vehicle_brand: mission.vehicle_brand,
+        vehicle_model: mission.vehicle_model,
+        reports_count: mission.inspection_reports?.length || 0,
+      }));
+      
+      setRecentMissions(formattedRecentMissions);
     } catch (error) {
       console.error('[Dashboard] Error loading data:', error);
     } finally {
@@ -699,12 +710,12 @@ export default function DashboardScreenNew() {
                       {mission.vehicle_brand} {mission.vehicle_model}
                     </Text>
                     
-                    {mission.price > 0 && (
-                      <View style={styles.missionPriceRow}>
-                        <Ionicons name="cash-outline" size={16} color="#14b8a6" />
-                        <Text style={styles.missionPrice}>{mission.price}€</Text>
-                      </View>
-                    )}
+                    <View style={styles.missionPriceRow}>
+                      <Ionicons name="document-text-outline" size={16} color="#14b8a6" />
+                      <Text style={styles.missionPrice}>
+                        {mission.reports_count || 0} rapport{(mission.reports_count || 0) !== 1 ? 's' : ''}
+                      </Text>
+                    </View>
                   </TouchableOpacity>
                 ))}
               </View>

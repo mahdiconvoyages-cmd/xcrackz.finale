@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -11,11 +11,13 @@ import {
   Platform,
   Dimensions,
   Modal,
+  Animated,
+  Easing,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
 import { useTheme } from '../contexts/ThemeContext';
@@ -42,6 +44,34 @@ export default function ScannerProScreen({ navigation }: any) {
   const [selectedPageForFilter, setSelectedPageForFilter] = useState<ScannedPage | null>(null);
   const [applyingFilter, setApplyingFilter] = useState(false);
   const [proScannerVisible, setProScannerVisible] = useState(false);
+
+  // Animations
+  const fadeAnim = useRef(new Animated.Value(0)).current;
+  const slideAnim = useRef(new Animated.Value(30)).current;
+  const scaleAnim = useRef(new Animated.Value(0.95)).current;
+
+  React.useEffect(() => {
+    Animated.parallel([
+      Animated.timing(fadeAnim, {
+        toValue: 1,
+        duration: 600,
+        easing: Easing.ease,
+        useNativeDriver: true,
+      }),
+      Animated.spring(scaleAnim, {
+        toValue: 1,
+        tension: 50,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+      Animated.timing(slideAnim, {
+        toValue: 0,
+        duration: 500,
+        easing: Easing.ease,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [scannedPages.length]);
 
   const handleScanDocument = async () => {
     // Ouvrir le scanner professionnel
@@ -240,40 +270,83 @@ export default function ScannerProScreen({ navigation }: any) {
   };
 
   const renderEmptyState = () => (
-    <View style={styles.emptyState}>
+    <Animated.View 
+      style={[
+        styles.emptyState,
+        {
+          opacity: fadeAnim,
+          transform: [{ translateY: slideAnim }, { scale: scaleAnim }],
+        }
+      ]}
+    >
       <LinearGradient
-        colors={['#0d9488', '#14b8a6'] as any}
-        style={styles.emptyIcon}
+        colors={['#14b8a6', '#06b6d4', '#0891b2']}
+        style={styles.emptyIconModern}
         start={{ x: 0, y: 0 }}
         end={{ x: 1, y: 1 }}
       >
-        <MaterialCommunityIcons name="scanner" size={80} color="white" />
+        <MaterialCommunityIcons name="scanner" size={100} color="white" />
+        <View style={styles.pulseRing} />
       </LinearGradient>
-      <Text style={styles.emptyTitle}>Scanner de documents</Text>
-      <Text style={styles.emptyText}>
-        Scannez vos documents avec détection automatique{'\n'}
-        des bords et amélioration de l'image
+      
+      <Text style={styles.emptyTitleModern}>Scanner Professionnel</Text>
+      <Text style={styles.emptyTextModern}>
+        Numérisez vos documents avec intelligence artificielle{'\n'}
+        Détection automatique • Amélioration • Multi-format
       </Text>
 
-      <View style={styles.featuresContainer}>
-        <View style={styles.featureItem}>
-          <MaterialCommunityIcons name="crop" size={24} color="#14b8a6" />
-          <Text style={styles.featureText}>Recadrage auto</Text>
+      <View style={styles.featuresModern}>
+        <View style={styles.featureModernCard}>
+          <View style={styles.featureIconContainer}>
+            <LinearGradient colors={['#3b82f6', '#2563eb']} style={styles.featureIconBg}>
+              <MaterialCommunityIcons name="crop" size={28} color="#fff" />
+            </LinearGradient>
+          </View>
+          <Text style={styles.featureModernTitle}>Recadrage AI</Text>
+          <Text style={styles.featureModernDesc}>Détection automatique</Text>
         </View>
-        <View style={styles.featureItem}>
-          <MaterialCommunityIcons name="brightness-6" size={24} color="#14b8a6" />
-          <Text style={styles.featureText}>Amélioration</Text>
+
+        <View style={styles.featureModernCard}>
+          <View style={styles.featureIconContainer}>
+            <LinearGradient colors={['#8b5cf6', '#7c3aed']} style={styles.featureIconBg}>
+              <MaterialCommunityIcons name="brightness-6" size={28} color="#fff" />
+            </LinearGradient>
+          </View>
+          <Text style={styles.featureModernTitle}>Amélioration</Text>
+          <Text style={styles.featureModernDesc}>Qualité supérieure</Text>
         </View>
-        <View style={styles.featureItem}>
-          <MaterialCommunityIcons name="file-multiple" size={24} color="#14b8a6" />
-          <Text style={styles.featureText}>Multi-pages</Text>
+
+        <View style={styles.featureModernCard}>
+          <View style={styles.featureIconContainer}>
+            <LinearGradient colors={['#10b981', '#059669']} style={styles.featureIconBg}>
+              <MaterialCommunityIcons name="file-multiple" size={28} color="#fff" />
+            </LinearGradient>
+          </View>
+          <Text style={styles.featureModernTitle}>Multi-pages</Text>
+          <Text style={styles.featureModernDesc}>Sans limite</Text>
         </View>
-        <View style={styles.featureItem}>
-          <MaterialCommunityIcons name="file-pdf-box" size={24} color="#14b8a6" />
-          <Text style={styles.featureText}>Export PDF</Text>
+
+        <View style={styles.featureModernCard}>
+          <View style={styles.featureIconContainer}>
+            <LinearGradient colors={['#f59e0b', '#d97706']} style={styles.featureIconBg}>
+              <MaterialCommunityIcons name="file-pdf-box" size={28} color="#fff" />
+            </LinearGradient>
+          </View>
+          <Text style={styles.featureModernTitle}>Export PDF</Text>
+          <Text style={styles.featureModernDesc}>Haute résolution</Text>
         </View>
       </View>
-    </View>
+
+      <View style={styles.proTipCard}>
+        <Ionicons name="bulb" size={24} color="#fbbf24" />
+        <View style={styles.proTipContent}>
+          <Text style={styles.proTipTitle}>Astuce Pro</Text>
+          <Text style={styles.proTipText}>
+            Placez le document sur un fond contrasté pour une meilleure détection
+          </Text>
+        </View>
+      </View>
+    </Animated.View>
   );
 
   const renderPageCard = (page: ScannedPage, index: number) => (
@@ -502,13 +575,13 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    paddingVertical: 16,
+    paddingVertical: 20,
     paddingHorizontal: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 5,
+    shadowColor: '#14b8a6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
   headerContent: {
     flexDirection: 'row',
@@ -516,10 +589,10 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   backBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -527,32 +600,34 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 14,
   },
   headerIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 52,
+    height: 52,
+    borderRadius: 26,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
   headerTitle: {
-    fontSize: 20,
-    fontWeight: '800',
+    fontSize: 22,
+    fontWeight: '900',
     color: '#fff',
+    letterSpacing: 0.5,
   },
   headerSubtitle: {
-    fontSize: 13,
+    fontSize: 14,
     color: '#fff',
-    opacity: 0.9,
+    opacity: 0.95,
     marginTop: 2,
+    fontWeight: '600',
   },
   resetButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -560,15 +635,124 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: Platform.OS === 'android' ? 110 : 100,
+    paddingBottom: Platform.OS === 'android' ? 120 : 110,
   },
+  
+  // Empty State Modern
   emptyState: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 60,
-    paddingHorizontal: 40,
+    paddingTop: 40,
+    paddingHorizontal: 24,
   },
+  emptyIconModern: {
+    width: 200,
+    height: 200,
+    borderRadius: 100,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 32,
+    elevation: 12,
+    shadowColor: '#14b8a6',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+  },
+  pulseRing: {
+    position: 'absolute',
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    borderWidth: 3,
+    borderColor: 'rgba(20, 184, 166, 0.3)',
+  },
+  emptyTitleModern: {
+    fontSize: 28,
+    fontWeight: '900',
+    color: '#fff',
+    marginBottom: 12,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  emptyTextModern: {
+    fontSize: 16,
+    color: '#94a3b8',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 48,
+    maxWidth: 340,
+  },
+  featuresModern: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 16,
+    marginBottom: 32,
+  },
+  featureModernCard: {
+    width: (width - 80) / 2,
+    backgroundColor: 'rgba(30, 41, 59, 0.6)',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(148, 163, 184, 0.1)',
+  },
+  featureIconContainer: {
+    marginBottom: 12,
+  },
+  featureIconBg: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    justifyContent: 'center',
+    alignItems: 'center',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+  },
+  featureModernTitle: {
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#fff',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  featureModernDesc: {
+    fontSize: 12,
+    color: '#94a3b8',
+    textAlign: 'center',
+    fontWeight: '500',
+  },
+  proTipCard: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 12,
+    backgroundColor: 'rgba(251, 191, 36, 0.1)',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(251, 191, 36, 0.3)',
+    maxWidth: 340,
+  },
+  proTipContent: {
+    flex: 1,
+  },
+  proTipTitle: {
+    fontSize: 14,
+    fontWeight: '800',
+    color: '#fbbf24',
+    marginBottom: 4,
+  },
+  proTipText: {
+    fontSize: 13,
+    color: '#cbd5e1',
+    lineHeight: 18,
+  },
+  
   emptyIcon: {
     width: 160,
     height: 160,
@@ -676,58 +860,72 @@ const styles = StyleSheet.create({
   },
   footer: {
     padding: 20,
-    paddingBottom: 60, // Raised by 3cm (40px extra) for better button positioning
+    paddingBottom: 60,
     gap: 12,
     borderTopWidth: 1,
-    borderTopColor: '#1e293b',
-    backgroundColor: '#0b1220',
+    borderTopColor: 'rgba(30, 41, 59, 0.8)',
+    backgroundColor: 'rgba(11, 18, 32, 0.95)',
   },
   exportButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
+    elevation: 6,
+    shadowColor: '#3b82f6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
   },
   exportGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 16,
+    gap: 12,
+    paddingVertical: 18,
     position: 'relative',
   },
   exportText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '800',
     color: 'white',
+    letterSpacing: 0.5,
   },
   exportBadge: {
     position: 'absolute',
-    right: 20,
-    backgroundColor: 'rgba(255,255,255,0.2)',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    right: 24,
+    backgroundColor: 'rgba(255,255,255,0.25)',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 14,
   },
   exportBadgeText: {
-    fontSize: 14,
-    fontWeight: '800',
+    fontSize: 15,
+    fontWeight: '900',
     color: 'white',
   },
   scanButton: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
+    elevation: 6,
+    shadowColor: '#14b8a6',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
   },
-  scanButtonSecondary: {},
+  scanButtonSecondary: {
+    shadowColor: '#1e293b',
+  },
   scanGradient: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 10,
-    paddingVertical: 16,
+    gap: 12,
+    paddingVertical: 18,
   },
   scanText: {
-    fontSize: 16,
-    fontWeight: '700',
+    fontSize: 17,
+    fontWeight: '800',
     color: 'white',
+    letterSpacing: 0.5,
   },
   loadingContainer: {
     flex: 1,
@@ -815,7 +1013,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#94a3b8',
   },
-  // Nouveaux styles pour filtres
   pageCardActions: {
     flexDirection: 'row',
     alignItems: 'center',
