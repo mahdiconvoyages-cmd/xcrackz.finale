@@ -37,6 +37,41 @@ export default function InspectionShareScreen() {
   const [reports, setReports] = useState<InspectionReport[]>([]);
   const [loading, setLoading] = useState(true);
   const [generatingLink, setGeneratingLink] = useState<string | null>(null);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc'); // desc = plus récent en premier
+
+  // Fonction pour calculer le temps écoulé
+  const getTimeAgo = (dateString: string): string => {
+    const now = new Date();
+    const past = new Date(dateString);
+    const diffMs = now.getTime() - past.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+    const diffMonth = Math.floor(diffDay / 30);
+    const diffYear = Math.floor(diffDay / 365);
+
+    if (diffSec < 60) return `il y a ${diffSec}s`;
+    if (diffMin < 60) return `il y a ${diffMin}min`;
+    if (diffHour < 24) return `il y a ${diffHour}h`;
+    if (diffDay < 30) return `il y a ${diffDay}j`;
+    if (diffMonth < 12) return `il y a ${diffMonth}mois`;
+    return `il y a ${diffYear}an${diffYear > 1 ? 's' : ''}`;
+  };
+
+  const toggleSortOrder = () => {
+    const newOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+    setSortOrder(newOrder);
+    
+    // Trier les rapports
+    const sorted = [...reports].sort((a, b) => {
+      const dateA = new Date(a.pickup_date).getTime();
+      const dateB = new Date(b.pickup_date).getTime();
+      return newOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+    
+    setReports(sorted);
+  };
 
   useEffect(() => {
     loadReports();
@@ -249,13 +284,9 @@ export default function InspectionShareScreen() {
         </View>
 
         <View style={styles.dateSection}>
-          <Ionicons name="calendar-outline" size={14} color="#64748b" />
+          <Ionicons name="time-outline" size={14} color="#14b8a6" />
           <Text style={styles.dateText}>
-            {new Date(item.pickup_date).toLocaleDateString('fr-FR', {
-              day: 'numeric',
-              month: 'long',
-              year: 'numeric'
-            })}
+            Fait {getTimeAgo(item.pickup_date)}
           </Text>
         </View>
       </View>
@@ -333,6 +364,27 @@ export default function InspectionShareScreen() {
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
+      {/* Header avec bouton de tri */}
+      <View style={styles.header}>
+        <View style={styles.headerLeft}>
+          <Ionicons name="document-text" size={24} color="#14b8a6" />
+          <Text style={styles.headerTitle}>Rapports d'Inspection</Text>
+        </View>
+        <TouchableOpacity 
+          style={styles.sortButton}
+          onPress={toggleSortOrder}
+        >
+          <Ionicons 
+            name={sortOrder === 'desc' ? 'arrow-down' : 'arrow-up'} 
+            size={18} 
+            color="#14b8a6" 
+          />
+          <Text style={styles.sortButtonText}>
+            {sortOrder === 'desc' ? 'Plus récent' : 'Plus ancien'}
+          </Text>
+        </TouchableOpacity>
+      </View>
+
       <FlatList
         data={reports}
         renderItem={renderReportItem}
@@ -357,6 +409,46 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  header: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+  },
+  headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  headerTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1e293b',
+  },
+  sortButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#f0fdfa',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#99f6e4',
+  },
+  sortButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#14b8a6',
   },
   centerContainer: {
     flex: 1,
@@ -458,7 +550,8 @@ const styles = StyleSheet.create({
   },
   dateText: {
     fontSize: 12,
-    color: '#64748b',
+    color: '#14b8a6',
+    fontWeight: '600',
   },
   actionsContainer: {
     padding: 16,
