@@ -214,90 +214,106 @@ export default function InspectionShareScreen() {
   };
 
   const renderReportItem = ({ item }: { item: InspectionReport }) => (
-    <View style={[styles.reportCard, { backgroundColor: colors.surface }]}>
-      {/* En-tête */}
-      <View style={styles.reportHeader}>
-        <View style={styles.reportInfo}>
-          <Text style={[styles.missionNumber, { color: colors.text }]}>
-            Mission #{item.reference}
-          </Text>
-          <Text style={[styles.vehicleInfo, { color: colors.textSecondary }]}>
-            {item.vehicle_brand} {item.vehicle_model} - {item.vehicle_plate}
-          </Text>
-          <Text style={[styles.dateInfo, { color: colors.textSecondary }]}>
-            {new Date(item.pickup_date).toLocaleDateString('fr-FR')}
-          </Text>
+    <View style={styles.reportCard}>
+      {/* Gradient Header */}
+      <View style={styles.cardHeader}>
+        <View style={styles.headerTop}>
+          <View style={styles.missionBadge}>
+            <Ionicons name="document-text" size={16} color="#fff" />
+            <Text style={styles.missionRef}>#{item.reference}</Text>
+          </View>
+          <View style={styles.inspectionBadges}>
+            {item.has_departure && (
+              <View style={[styles.badge, styles.badgeDeparture]}>
+                <Ionicons name="arrow-up-circle" size={12} color="#fff" />
+                <Text style={styles.badgeText}>Départ</Text>
+              </View>
+            )}
+            {item.has_arrival && (
+              <View style={[styles.badge, styles.badgeArrival]}>
+                <Ionicons name="arrow-down-circle" size={12} color="#fff" />
+                <Text style={styles.badgeText}>Arrivée</Text>
+              </View>
+            )}
+          </View>
         </View>
-        <View style={styles.inspectionBadges}>
-          {item.has_departure && (
-            <View style={styles.badge}>
-              <Text style={styles.badgeText}>Départ</Text>
-            </View>
-          )}
-          {item.has_arrival && (
-            <View style={[styles.badge, styles.badgeArrival]}>
-              <Text style={styles.badgeText}>Arrivée</Text>
-            </View>
-          )}
+        
+        <View style={styles.vehicleSection}>
+          <Ionicons name="car-sport" size={20} color="#14b8a6" />
+          <View style={styles.vehicleInfo}>
+            <Text style={styles.vehicleName}>
+              {item.vehicle_brand} {item.vehicle_model}
+            </Text>
+            <Text style={styles.vehiclePlate}>{item.vehicle_plate}</Text>
+          </View>
+        </View>
+
+        <View style={styles.dateSection}>
+          <Ionicons name="calendar-outline" size={14} color="#64748b" />
+          <Text style={styles.dateText}>
+            {new Date(item.pickup_date).toLocaleDateString('fr-FR', {
+              day: 'numeric',
+              month: 'long',
+              year: 'numeric'
+            })}
+          </Text>
         </View>
       </View>
 
-      {/* Actions */}
+      {/* Actions principales */}
       <View style={styles.actionsContainer}>
         <TouchableOpacity
-          style={[styles.actionButton, styles.actionPrimary]}
+          style={styles.primaryButton}
           onPress={() => handleOpenWeb(item.mission_id)}
           disabled={generatingLink === item.mission_id}
         >
           {generatingLink === item.mission_id ? (
-            <ActivityIndicator size="small" color="#FFF" />
+            <ActivityIndicator size="small" color="#fff" />
           ) : (
             <>
-              <Ionicons name="globe-outline" size={20} color="#FFF" />
-              <Text style={styles.actionPrimaryText}>Ouvrir le Rapport</Text>
+              <Ionicons name="eye" size={20} color="#fff" />
+              <Text style={styles.primaryButtonText}>Voir le Rapport</Text>
             </>
           )}
         </TouchableOpacity>
 
-        <View style={styles.shareActions}>
+        {/* Actions de partage */}
+        <Text style={styles.shareTitle}>Partager via :</Text>
+        <View style={styles.shareGrid}>
           <TouchableOpacity
-            style={[styles.shareButton, { backgroundColor: colors.background }]}
+            style={[styles.shareButton, styles.shareButtonCopy]}
             onPress={() => handleCopyLink(item.mission_id)}
             disabled={generatingLink === item.mission_id}
           >
-            <Ionicons name="copy-outline" size={22} color={colors.primary} />
+            <Ionicons name="copy" size={20} color="#3b82f6" />
+            <Text style={[styles.shareButtonText, { color: '#3b82f6' }]}>Copier</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.shareButton, { backgroundColor: '#25D366' }]}
+            style={[styles.shareButton, styles.shareButtonWhatsApp]}
             onPress={() => handleShareWhatsApp(item.mission_id, item.reference)}
             disabled={generatingLink === item.mission_id}
           >
-            <Ionicons name="logo-whatsapp" size={22} color="#FFF" />
+            <Ionicons name="logo-whatsapp" size={20} color="#fff" />
+            <Text style={[styles.shareButtonText, { color: '#fff' }]}>WhatsApp</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.shareButton, { backgroundColor: colors.background }]}
+            style={[styles.shareButton, styles.shareButtonSMS]}
             onPress={() => handleShareSMS(item.mission_id, item.reference)}
             disabled={generatingLink === item.mission_id}
           >
-            <Ionicons name="chatbubble-outline" size={22} color={colors.primary} />
+            <Ionicons name="chatbubble" size={20} color="#fff" />
+            <Text style={[styles.shareButtonText, { color: '#fff' }]}>SMS</Text>
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={[styles.shareButton, { backgroundColor: colors.background }]}
+            style={[styles.shareButton, styles.shareButtonEmail]}
             onPress={() => handleShareEmail(item.mission_id, item.reference)}
             disabled={generatingLink === item.mission_id}
           >
-            <Ionicons name="mail-outline" size={22} color={colors.primary} />
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[styles.shareButton, { backgroundColor: colors.primary }]}
-            onPress={() => handleShareNative(item.mission_id, item.reference)}
-            disabled={generatingLink === item.mission_id}
-          >
-            <Ionicons name="share-social-outline" size={22} color="#FFF" />
+            <Ionicons name="mail" size={20} color="#fff" />
+            <Text style={[styles.shareButtonText, { color: '#fff' }]}>Email</Text>
           </TouchableOpacity>
         </View>
       </View>
@@ -340,6 +356,7 @@ export default function InspectionShareScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+    backgroundColor: '#f8fafc',
   },
   centerContainer: {
     flex: 1,
@@ -349,91 +366,157 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
+    color: '#64748b',
   },
   listContainer: {
-    padding: 15,
+    padding: 16,
   },
   reportCard: {
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 15,
-    elevation: 2,
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    marginBottom: 16,
+    elevation: 3,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowRadius: 8,
+    overflow: 'hidden',
   },
-  reportHeader: {
-    marginBottom: 15,
+  cardHeader: {
+    padding: 16,
+    backgroundColor: '#f8fafc',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
   },
-  reportInfo: {
-    marginBottom: 10,
+  headerTop: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
   },
-  missionNumber: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    marginBottom: 5,
+  missionBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#14b8a6',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+    gap: 6,
   },
-  vehicleInfo: {
+  missionRef: {
+    color: '#fff',
     fontSize: 14,
-    marginBottom: 3,
-  },
-  dateInfo: {
-    fontSize: 12,
+    fontWeight: '700',
   },
   inspectionBadges: {
     flexDirection: 'row',
-    gap: 8,
+    gap: 6,
   },
   badge: {
-    backgroundColor: '#10b981',
-    paddingHorizontal: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
     paddingVertical: 4,
     borderRadius: 12,
+    gap: 4,
+  },
+  badgeDeparture: {
+    backgroundColor: '#10b981',
   },
   badgeArrival: {
     backgroundColor: '#3b82f6',
   },
   badgeText: {
-    color: '#FFF',
-    fontSize: 11,
+    color: '#fff',
+    fontSize: 10,
     fontWeight: '600',
   },
-  actionsContainer: {
+  vehicleSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 10,
+    marginBottom: 8,
   },
-  actionButton: {
+  vehicleInfo: {
+    flex: 1,
+  },
+  vehicleName: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 2,
+  },
+  vehiclePlate: {
+    fontSize: 13,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  dateSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  dateText: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  actionsContainer: {
+    padding: 16,
+  },
+  primaryButton: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 12,
-    borderRadius: 8,
+    backgroundColor: '#14b8a6',
+    paddingVertical: 14,
+    borderRadius: 12,
     gap: 8,
+    marginBottom: 16,
   },
-  actionPrimary: {
-    backgroundColor: '#3b82f6',
-  },
-  actionPrimaryText: {
-    color: '#FFF',
+  primaryButtonText: {
+    color: '#fff',
     fontSize: 16,
     fontWeight: '600',
   },
-  shareActions: {
+  shareTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#64748b',
+    marginBottom: 10,
+  },
+  shareGrid: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    gap: 8,
+    flexWrap: 'wrap',
+    gap: 10,
   },
   shareButton: {
-    flex: 1,
-    aspectRatio: 1,
-    borderRadius: 8,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    elevation: 1,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    gap: 6,
+    flex: 1,
+    minWidth: '45%',
+  },
+  shareButtonCopy: {
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#3b82f6',
+  },
+  shareButtonWhatsApp: {
+    backgroundColor: '#25D366',
+  },
+  shareButtonSMS: {
+    backgroundColor: '#3b82f6',
+  },
+  shareButtonEmail: {
+    backgroundColor: '#8b5cf6',
+  },
+  shareButtonText: {
+    fontSize: 13,
+    fontWeight: '600',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -443,5 +526,6 @@ const styles = StyleSheet.create({
     marginTop: 15,
     fontSize: 16,
     textAlign: 'center',
+    color: '#64748b',
   },
 });

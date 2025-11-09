@@ -132,32 +132,47 @@ export default function ScannerProScreen({ navigation }: any) {
 
     try {
       setIsGeneratingPDF(true);
-      console.log('🔄 Génération PDF de', scannedPages.length, 'pages');
+      console.log('🔄 Début génération PDF de', scannedPages.length, 'pages');
 
       // Créer le HTML avec toutes les images
+      console.log('📄 Conversion des images en base64...');
       const imagesHtml = await Promise.all(
-        scannedPages.map(async (page) => {
-          // Lire l'image en base64
-          const base64 = await FileSystem.readAsStringAsync(page.uri, {
-            encoding: 'base64',
-          });
-          
-          return `
-            <div style="page-break-after: always; text-align: center;">
-              <img src="data:image/jpeg;base64,${base64}" style="max-width: 100%; height: auto;" />
-            </div>
-          `;
+        scannedPages.map(async (page, index) => {
+          try {
+            console.log(`  - Page ${index + 1}: ${page.uri}`);
+            // Lire l'image en base64
+            const base64 = await FileSystem.readAsStringAsync(page.uri, {
+              encoding: 'base64',
+            });
+            console.log(`  ✓ Page ${index + 1} convertie (${base64.length} bytes)`);
+            
+            return `
+              <div style="page-break-after: always; text-align: center; padding: 20px;">
+                <img src="data:image/jpeg;base64,${base64}" style="max-width: 100%; max-height: 95vh; height: auto;" />
+              </div>
+            `;
+          } catch (error) {
+            console.error(`  ✗ Erreur page ${index + 1}:`, error);
+            throw error;
+          }
         })
       );
 
+      console.log('📝 Génération du HTML...');
       const html = `
         <!DOCTYPE html>
         <html>
           <head>
             <meta charset="utf-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
+              * { margin: 0; padding: 0; box-sizing: border-box; }
               body { margin: 0; padding: 0; }
               img { display: block; margin: 0 auto; }
+              @media print {
+                body { margin: 0; }
+                div { page-break-after: always; }
+              }
             </style>
           </head>
           <body>
@@ -166,29 +181,39 @@ export default function ScannerProScreen({ navigation }: any) {
         </html>
       `;
 
+      console.log('🖨️ Appel expo-print...');
       // Générer le PDF avec expo-print
-      const { uri } = await Print.printToFileAsync({ html });
+      const { uri } = await Print.printToFileAsync({ 
+        html,
+        base64: false 
+      });
       
-      console.log('✅ PDF créé:', uri);
+      console.log('✅ PDF créé avec succès:', uri);
+      
       setIsGeneratingPDF(false);
 
       // Proposer le partage du PDF
       Alert.alert(
-        'PDF créé !',
+        '✅ PDF créé !',
         `${scannedPages.length} page(s) exportée(s)`,
         [
           {
             text: 'Partager',
             onPress: async () => {
-              const canShare = await Sharing.isAvailableAsync();
-              if (canShare) {
-                await Sharing.shareAsync(uri, {
-                  mimeType: 'application/pdf',
-                  dialogTitle: 'Partager le document scanné',
-                  UTI: 'com.adobe.pdf',
-                });
-              } else {
-                Alert.alert('Erreur', 'Le partage n\'est pas disponible sur cet appareil');
+              try {
+                const canShare = await Sharing.isAvailableAsync();
+                if (canShare) {
+                  await Sharing.shareAsync(uri, {
+                    mimeType: 'application/pdf',
+                    dialogTitle: 'Partager le document scanné',
+                    UTI: 'com.adobe.pdf',
+                  });
+                } else {
+                  Alert.alert('Erreur', 'Le partage n\'est pas disponible sur cet appareil');
+                }
+              } catch (shareError) {
+                console.error('Erreur partage:', shareError);
+                Alert.alert('Erreur', 'Impossible de partager le PDF');
               }
             },
           },
@@ -198,9 +223,17 @@ export default function ScannerProScreen({ navigation }: any) {
           },
         ]
       );
-    } catch (error) {
-      console.error('PDF generation error:', error);
-      Alert.alert('Erreur', 'Impossible de créer le PDF');
+    } catch (error: any) {
+      console.error('❌ PDF generation error:', error);
+      console.error('Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name
+      });
+      Alert.alert(
+        'Erreur génération PDF', 
+        error.message || 'Impossible de créer le PDF. Vérifiez les logs pour plus de détails.'
+      );
     } finally {
       setIsGeneratingPDF(false);
     }
