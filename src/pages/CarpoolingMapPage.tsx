@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { supabase } from '../lib/supabase';
-import { useAuth } from '../contexts/AuthContext';
 import { 
   Navigation, MapPin, Users, Car, Clock, DollarSign, 
   Maximize2, Minimize2, Filter, RefreshCw, Locate

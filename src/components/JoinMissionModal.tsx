@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { X, LogIn, AlertCircle, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { validateShareCodeInput, cleanShareCode } from '../lib/shareCode';
+import { validateShareCodeInput } from '../lib/shareCode';
 
 interface JoinMissionModalProps {
   isOpen: boolean;
