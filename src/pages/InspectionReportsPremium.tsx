@@ -38,6 +38,7 @@ export default function InspectionReportsPremium() {
   const [selectedReport, setSelectedReport] = useState<InspectionReportComplete | null>(null);
   const [viewType, setViewType] = useState<'departure' | 'arrival' | 'complete'>('complete');
   const [shareModalOpen, setShareModalOpen] = useState(false);
+  const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc');
   const [expandedSections, setExpandedSections] = useState<{ [key: string]: boolean }>({
     general: true,
     vehicle: true,
@@ -50,6 +51,36 @@ export default function InspectionReportsPremium() {
   const [galleryPhotos, setGalleryPhotos] = useState<string[]>([]);
   const [galleryOpen, setGalleryOpen] = useState(false);
   const [galleryIndex, setGalleryIndex] = useState(0);
+
+  const getTimeAgo = (dateString: string): string => {
+    const now = new Date();
+    const past = new Date(dateString);
+    const diffMs = now.getTime() - past.getTime();
+    const diffSec = Math.floor(diffMs / 1000);
+    const diffMin = Math.floor(diffSec / 60);
+    const diffHour = Math.floor(diffMin / 60);
+    const diffDay = Math.floor(diffHour / 24);
+    const diffMonth = Math.floor(diffDay / 30);
+    const diffYear = Math.floor(diffDay / 365);
+
+    if (diffSec < 60) return `il y a ${diffSec}s`;
+    if (diffMin < 60) return `il y a ${diffMin}min`;
+    if (diffHour < 24) return `il y a ${diffHour}h`;
+    if (diffDay < 30) return `il y a ${diffDay}j`;
+    if (diffMonth < 12) return `il y a ${diffMonth}mois`;
+    return `il y a ${diffYear}an${diffYear > 1 ? 's' : ''}`;
+  };
+
+  const toggleSortOrder = () => {
+    const newOrder = sortOrder === 'desc' ? 'asc' : 'desc';
+    setSortOrder(newOrder);
+    const sorted = [...reports].sort((a, b) => {
+      const dateA = new Date(a.mission.pickup_date || a.mission.created_at).getTime();
+      const dateB = new Date(b.mission.pickup_date || b.mission.created_at).getTime();
+      return newOrder === 'desc' ? dateB - dateA : dateA - dateB;
+    });
+    setReports(sorted);
+  };
 
   useEffect(() => {
     if (user) {
@@ -134,7 +165,7 @@ export default function InspectionReportsPremium() {
               <div className="flex items-center gap-4 text-sm">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-4 h-4" />
-                  {new Date(inspection.created_at).toLocaleDateString('fr-FR')}
+                  Fait {getTimeAgo(inspection.created_at)}
                 </div>
                 <div className="flex items-center gap-2">
                   <MapPin className="w-4 h-4" />
@@ -402,7 +433,22 @@ export default function InspectionReportsPremium() {
           <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
             {/* Liste des rapports */}
             <div className="lg:col-span-1 space-y-3">
-              <h3 className="font-semibold text-gray-900 mb-4">Mes Rapports ({reports.length})</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-gray-900">Mes Rapports ({reports.length})</h3>
+                <button
+                  onClick={toggleSortOrder}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-teal-50 border border-teal-200 rounded-lg hover:bg-teal-100 transition-colors"
+                >
+                  {sortOrder === 'desc' ? (
+                    <ChevronDown className="w-4 h-4 text-teal-600" />
+                  ) : (
+                    <ChevronUp className="w-4 h-4 text-teal-600" />
+                  )}
+                  <span className="text-xs font-medium text-teal-700">
+                    {sortOrder === 'desc' ? 'Plus récent' : 'Plus ancien'}
+                  </span>
+                </button>
+              </div>
               {reports.map(report => (
                 <button
                   key={report.mission.id}
@@ -455,7 +501,7 @@ export default function InspectionReportsPremium() {
                           </div>
                           <div className="flex items-center gap-2">
                             <Calendar className="w-4 h-4" />
-                            {new Date(selectedReport.mission.created_at).toLocaleDateString('fr-FR')}
+                            Fait {getTimeAgo(selectedReport.mission.created_at)}
                           </div>
                         </div>
                       </div>
