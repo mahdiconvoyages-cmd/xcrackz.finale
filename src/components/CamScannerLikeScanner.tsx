@@ -42,7 +42,7 @@ export default function CamScannerLikeScanner({ visible, onScanComplete, onCance
         // Options CamScanner-like  
         croppedImageQuality: 100,
         maxNumDocuments: 1,
-        responseType: 'imageFilePath',  // ✅ CHANGÉ: Retourne un chemin de fichier au lieu de base64
+        responseType: 'imageFilePath' as any,  // Type casting pour éviter erreur TypeScript
       });
 
       if (scannedImages && scannedImages.length > 0) {
