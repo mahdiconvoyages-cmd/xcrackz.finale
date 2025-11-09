@@ -305,14 +305,21 @@ async function generatePDF(inspection: InspectionData): Promise<Uint8Array> {
       const clientSigBytes = await fetch(inspection.client_signature).then(r => r.arrayBuffer())
       const clientSigImage = await pdfDoc.embedPng(clientSigBytes)
       
-      page.drawText('Client', { x: 50, y: yPosition + sigHeight + 5, size: 10, font: helveticaBold })
+      // Nom AVANT la signature
+      page.drawText(`Signature Client: ${inspection.client_name || '(Non spécifié)'}`, { 
+        x: 50, 
+        y: yPosition + sigHeight + 8, 
+        size: 10, 
+        font: helveticaBold,
+        color: rgb(0.2, 0.4, 0.6)
+      })
+      
       page.drawImage(clientSigImage, {
         x: 50,
         y: yPosition,
         width: sigWidth,
         height: sigHeight,
       })
-      page.drawText(inspection.client_name || '', { x: 50, y: yPosition - 15, size: 9, font: helveticaFont })
     }
 
     // Driver signature
@@ -321,14 +328,22 @@ async function generatePDF(inspection: InspectionData): Promise<Uint8Array> {
       const driverSigImage = await pdfDoc.embedPng(driverSigBytes)
       
       const driverX = 50 + sigWidth + sigSpacing
-      page.drawText('Convoyeur', { x: driverX, y: yPosition + sigHeight + 5, size: 10, font: helveticaBold })
+      
+      // Nom AVANT la signature
+      page.drawText(`Signature Convoyeur: ${inspection.driver_name || '(Non spécifié)'}`, { 
+        x: driverX, 
+        y: yPosition + sigHeight + 8, 
+        size: 10, 
+        font: helveticaBold,
+        color: rgb(0.2, 0.4, 0.6)
+      })
+      
       page.drawImage(driverSigImage, {
         x: driverX,
         y: yPosition,
         width: sigWidth,
         height: sigHeight,
       })
-      page.drawText(inspection.driver_name || '', { x: driverX, y: yPosition - 15, size: 9, font: helveticaFont })
     }
   } catch (sigError) {
     console.error('Error embedding signatures:', sigError)
@@ -929,7 +944,7 @@ async function generateCombinedPDFDocument(departure: InspectionData, arrival: I
   })
   yPosition -= 20
 
-  page.drawText(`Kilométrage: ${departure.mileage_km} km | Carburant: ${departure.fuel_level}/8`, {
+  page.drawText(`Kilométrage: ${departure.mileage_km} km | Carburant: ${departure.fuel_level}%`, {
     x: 50,
     y: yPosition,
     size: 11,
@@ -948,18 +963,93 @@ async function generateCombinedPDFDocument(departure: InspectionData, arrival: I
 
   // Documents DÉPART
   if (departure.scannedDocuments && departure.scannedDocuments.length > 0) {
-    if (yPosition < 100) {
+    if (yPosition < 150) {
       page = pdfDoc.addPage([595, 842])
       yPosition = height - 50
     }
-    page.drawText(`Documents scannés: ${departure.scannedDocuments.length}`, {
+    
+    yPosition -= 10
+    page.drawText('DOCUMENTS ANNEXES - DÉPART', {
       x: 50,
       y: yPosition,
-      size: 10,
-      font: helveticaFont,
-      color: rgb(0.4, 0.4, 0.4),
+      size: 12,
+      font: helveticaBold,
+      color: rgb(0.1, 0.6, 0.3),
     })
-    yPosition -= 20
+    yPosition -= 25
+
+    // Afficher chaque document
+    for (const doc of departure.scannedDocuments) {
+      try {
+        console.log(`📄 [DÉPART] Processing document: ${doc.document_title}`)
+        
+        if (yPosition < 400) {
+          page = pdfDoc.addPage([595, 842])
+          yPosition = height - 50
+        }
+
+        page.drawText(`📄 ${doc.document_title}`, {
+          x: 50,
+          y: yPosition,
+          size: 11,
+          font: helveticaBold,
+          color: rgb(0.1, 0.6, 0.3),
+        })
+        yPosition -= 18
+
+        // Télécharger et intégrer l'image
+        const response = await fetch(doc.document_url, { 
+          signal: AbortSignal.timeout(15000),
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PDF-Generator/1.0)' }
+        })
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        
+        const docBytes = await response.arrayBuffer()
+        const urlLower = doc.document_url.toLowerCase()
+        const contentType = response.headers.get('content-type') || ''
+        let docImage
+        
+        if (urlLower.includes('.png') || contentType.includes('png')) {
+          docImage = await pdfDoc.embedPng(docBytes)
+        } else {
+          docImage = await pdfDoc.embedJpg(docBytes)
+        }
+        
+        const maxWidth = 495
+        const maxHeight = 300
+        const scale = Math.min(maxWidth / docImage.width, maxHeight / docImage.height, 1)
+        const finalWidth = docImage.width * scale
+        const finalHeight = docImage.height * scale
+        
+        if (yPosition < finalHeight + 40) {
+          page = pdfDoc.addPage([595, 842])
+          yPosition = height - 50
+        }
+        
+        page.drawImage(docImage, {
+          x: 50,
+          y: yPosition - finalHeight,
+          width: finalWidth,
+          height: finalHeight,
+        })
+        
+        yPosition -= finalHeight + 25
+        console.log(`✅ [DÉPART] Document ${doc.document_title} embedded`)
+        
+      } catch (docError: any) {
+        console.error(`❌ [DÉPART] Error embedding document ${doc.document_title}:`, docError)
+        page.drawText(`⚠️ Document non disponible: ${doc.document_title}`, {
+          x: 60,
+          y: yPosition - 20,
+          size: 9,
+          font: helveticaFont,
+          color: rgb(0.8, 0.6, 0.2),
+        })
+        yPosition -= 35
+      }
+    }
+    yPosition -= 10
   }
 
   // Frais DÉPART
@@ -1008,7 +1098,7 @@ async function generateCombinedPDFDocument(departure: InspectionData, arrival: I
   })
   yPosition -= 20
 
-  page.drawText(`Kilométrage: ${arrival.mileage_km} km | Carburant: ${arrival.fuel_level}/8`, {
+  page.drawText(`Kilométrage: ${arrival.mileage_km} km | Carburant: ${arrival.fuel_level}%`, {
     x: 50,
     y: yPosition,
     size: 11,
@@ -1027,18 +1117,93 @@ async function generateCombinedPDFDocument(departure: InspectionData, arrival: I
 
   // Documents ARRIVÉE
   if (arrival.scannedDocuments && arrival.scannedDocuments.length > 0) {
-    if (yPosition < 100) {
+    if (yPosition < 150) {
       page = pdfDoc.addPage([595, 842])
       yPosition = height - 50
     }
-    page.drawText(`Documents scannés: ${arrival.scannedDocuments.length}`, {
+    
+    yPosition -= 10
+    page.drawText('DOCUMENTS ANNEXES - ARRIVÉE', {
       x: 50,
       y: yPosition,
-      size: 10,
-      font: helveticaFont,
-      color: rgb(0.4, 0.4, 0.4),
+      size: 12,
+      font: helveticaBold,
+      color: rgb(0.6, 0.2, 0.1),
     })
-    yPosition -= 20
+    yPosition -= 25
+
+    // Afficher chaque document
+    for (const doc of arrival.scannedDocuments) {
+      try {
+        console.log(`📄 [ARRIVÉE] Processing document: ${doc.document_title}`)
+        
+        if (yPosition < 400) {
+          page = pdfDoc.addPage([595, 842])
+          yPosition = height - 50
+        }
+
+        page.drawText(`📄 ${doc.document_title}`, {
+          x: 50,
+          y: yPosition,
+          size: 11,
+          font: helveticaBold,
+          color: rgb(0.6, 0.2, 0.1),
+        })
+        yPosition -= 18
+
+        // Télécharger et intégrer l'image
+        const response = await fetch(doc.document_url, { 
+          signal: AbortSignal.timeout(15000),
+          headers: { 'User-Agent': 'Mozilla/5.0 (compatible; PDF-Generator/1.0)' }
+        })
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`)
+        
+        const docBytes = await response.arrayBuffer()
+        const urlLower = doc.document_url.toLowerCase()
+        const contentType = response.headers.get('content-type') || ''
+        let docImage
+        
+        if (urlLower.includes('.png') || contentType.includes('png')) {
+          docImage = await pdfDoc.embedPng(docBytes)
+        } else {
+          docImage = await pdfDoc.embedJpg(docBytes)
+        }
+        
+        const maxWidth = 495
+        const maxHeight = 300
+        const scale = Math.min(maxWidth / docImage.width, maxHeight / docImage.height, 1)
+        const finalWidth = docImage.width * scale
+        const finalHeight = docImage.height * scale
+        
+        if (yPosition < finalHeight + 40) {
+          page = pdfDoc.addPage([595, 842])
+          yPosition = height - 50
+        }
+        
+        page.drawImage(docImage, {
+          x: 50,
+          y: yPosition - finalHeight,
+          width: finalWidth,
+          height: finalHeight,
+        })
+        
+        yPosition -= finalHeight + 25
+        console.log(`✅ [ARRIVÉE] Document ${doc.document_title} embedded`)
+        
+      } catch (docError: any) {
+        console.error(`❌ [ARRIVÉE] Error embedding document ${doc.document_title}:`, docError)
+        page.drawText(`⚠️ Document non disponible: ${doc.document_title}`, {
+          x: 60,
+          y: yPosition - 20,
+          size: 9,
+          font: helveticaFont,
+          color: rgb(0.8, 0.6, 0.2),
+        })
+        yPosition -= 35
+      }
+    }
+    yPosition -= 10
   }
 
   // Frais ARRIVÉE
