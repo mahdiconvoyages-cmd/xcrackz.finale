@@ -8,6 +8,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -369,8 +370,20 @@ export default function MissionCreateScreen({ navigation }: any) {
             mode="datetime"
             display="default"
             onChange={(event, date) => {
-              setShowPickupPicker(false);
-              if (date) updateField('pickup_date', date);
+              // Sur Android, fermer le picker d'abord
+              if (Platform.OS === 'android') {
+                setShowPickupPicker(false);
+              }
+              
+              // Mettre à jour la date uniquement si l'utilisateur a confirmé (event.type === 'set')
+              if (event.type === 'set' && date) {
+                updateField('pickup_date', date);
+              }
+              
+              // Sur iOS, fermer après sélection
+              if (Platform.OS === 'ios' && event.type === 'set') {
+                setShowPickupPicker(false);
+              }
             }}
           />
         )}
@@ -435,8 +448,20 @@ export default function MissionCreateScreen({ navigation }: any) {
             mode="datetime"
             display="default"
             onChange={(event, date) => {
-              setShowDeliveryPicker(false);
-              if (date) updateField('delivery_date', date);
+              // Sur Android, fermer le picker d'abord
+              if (Platform.OS === 'android') {
+                setShowDeliveryPicker(false);
+              }
+              
+              // Mettre à jour la date uniquement si l'utilisateur a confirmé (event.type === 'set')
+              if (event.type === 'set' && date) {
+                updateField('delivery_date', date);
+              }
+              
+              // Sur iOS, fermer après sélection
+              if (Platform.OS === 'ios' && event.type === 'set') {
+                setShowDeliveryPicker(false);
+              }
             }}
           />
         )}
