@@ -369,22 +369,22 @@ export default function MissionCreateScreen({ navigation }: any) {
             value={formData.pickup_date}
             mode="datetime"
             display="default"
-            onChange={(event, date) => {
-              // Sur Android, fermer le picker d'abord
+            onChange={(event, selectedDate) => {
+              const currentDate = selectedDate || formData.pickup_date;
+              
+              // Sur Android, fermer immédiatement
               if (Platform.OS === 'android') {
                 setShowPickupPicker(false);
-              }
-              
-              // Mettre à jour la date uniquement si l'utilisateur a confirmé (event.type === 'set')
-              if (event.type === 'set' && date) {
-                updateField('pickup_date', date);
-              }
-              
-              // Sur iOS, fermer après sélection
-              if (Platform.OS === 'ios' && event.type === 'set') {
-                setShowPickupPicker(false);
+                // Mettre à jour seulement si la date est valide
+                if (selectedDate) {
+                  updateField('pickup_date', currentDate);
+                }
+              } else {
+                // Sur iOS, mettre à jour directement
+                updateField('pickup_date', currentDate);
               }
             }}
+            onTouchCancel={() => setShowPickupPicker(false)}
           />
         )}
       </View>
@@ -447,22 +447,22 @@ export default function MissionCreateScreen({ navigation }: any) {
             value={formData.delivery_date}
             mode="datetime"
             display="default"
-            onChange={(event, date) => {
-              // Sur Android, fermer le picker d'abord
+            onChange={(event, selectedDate) => {
+              const currentDate = selectedDate || formData.delivery_date;
+              
+              // Sur Android, fermer immédiatement
               if (Platform.OS === 'android') {
                 setShowDeliveryPicker(false);
-              }
-              
-              // Mettre à jour la date uniquement si l'utilisateur a confirmé (event.type === 'set')
-              if (event.type === 'set' && date) {
-                updateField('delivery_date', date);
-              }
-              
-              // Sur iOS, fermer après sélection
-              if (Platform.OS === 'ios' && event.type === 'set') {
-                setShowDeliveryPicker(false);
+                // Mettre à jour seulement si la date est valide
+                if (selectedDate) {
+                  updateField('delivery_date', currentDate);
+                }
+              } else {
+                // Sur iOS, mettre à jour directement
+                updateField('delivery_date', currentDate);
               }
             }}
+            onTouchCancel={() => setShowDeliveryPicker(false)}
           />
         )}
       </View>

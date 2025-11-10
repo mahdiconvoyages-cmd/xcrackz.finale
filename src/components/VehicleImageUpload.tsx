@@ -68,18 +68,17 @@ export default function VehicleImageUpload({ value, onImageUploaded, label }: Pr
     try {
       let result;
       
+      const commonOptions = {
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,  // Permettre le recadrage pour un meilleur format
+        aspect: [4, 3] as [number, number],
+        quality: 0.8,  // Qualité légèrement réduite pour optimiser la taille
+      };
+
       if (source === 'camera') {
-        result = await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: false,  // Désactiver le recadrage
-          quality: 1,  // Qualité maximale, pas de redimensionnement
-        });
+        result = await ImagePicker.launchCameraAsync(commonOptions);
       } else {
-        result = await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          allowsEditing: false,  // Désactiver le recadrage
-          quality: 1,  // Qualité maximale, pas de redimensionnement
-        });
+        result = await ImagePicker.launchImageLibraryAsync(commonOptions);
       }
 
       if (!result.canceled && result.assets[0]) {
@@ -87,7 +86,7 @@ export default function VehicleImageUpload({ value, onImageUploaded, label }: Pr
       }
     } catch (error) {
       console.error('Erreur sélection image:', error);
-      Alert.alert('Erreur', 'Impossible de sélectionner l\'image');
+      Alert.alert('❌ Erreur', 'Impossible de sélectionner l\'image');
     }
   };
 
@@ -98,36 +97,43 @@ export default function VehicleImageUpload({ value, onImageUploaded, label }: Pr
       const timestamp = Date.now();
       const extension = uri.split('.').pop() || 'jpg';
       const fileName = `vehicle_${timestamp}.${extension}`;
-      const filePath = `vehicle-images/${fileName}`;
+      // Utiliser le même bucket que le web : vehicle-images
+      const filePath = fileName;
 
       // Convertir l'URI en Blob pour l'upload
       const response = await fetch(uri);
       const blob = await response.blob();
 
-      // Upload vers Supabase Storage (bucket 'missions' comme le web)
+      // Upload vers Supabase Storage (bucket 'vehicle-images' comme le web)
       const { data, error } = await supabase.storage
-        .from('missions')
+        .from('vehicle-images')
         .upload(filePath, blob, {
           contentType: `image/${extension}`,
           upsert: false,
         });
 
       if (error) {
+        console.error('Erreur upload Supabase:', error);
         throw error;
       }
 
-      // Obtenir l'URL publique (bucket 'missions' comme le web)
+      // Obtenir l'URL publique (bucket 'vehicle-images' comme le web)
       const { data: publicUrlData } = supabase.storage
-        .from('missions')
+        .from('vehicle-images')
         .getPublicUrl(filePath);
 
       if (publicUrlData?.publicUrl) {
         onImageUploaded(publicUrlData.publicUrl);
-        Alert.alert('Succès', 'Photo téléchargée avec succès');
+        Alert.alert('✅ Succès', 'Photo téléchargée avec succès');
+      } else {
+        throw new Error('Impossible d\'obtenir l\'URL publique');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur upload image:', error);
-      Alert.alert('Erreur', 'Impossible de télécharger l\'image');
+      Alert.alert(
+        '❌ Erreur',
+        error.message || 'Impossible de télécharger l\'image. Vérifiez vos permissions de stockage.'
+      );
     } finally {
       setUploading(false);
     }
