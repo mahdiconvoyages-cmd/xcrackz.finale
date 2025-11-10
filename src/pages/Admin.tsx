@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { Users, Truck, DollarSign, CreditCard, TrendingUp, Package, ShoppingCart, UserCheck, Search, Plus, Shield, Trash2, CheckCircle, XCircle, Gift, AlertTriangle, MapPin, Navigation, MessageCircle, Activity, BarChart3, PieChart, Clock, Zap, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import AdminShopRequests from '../components/AdminShopRequests';
 
 interface Statistics {
   total_users: number;
@@ -43,6 +44,7 @@ interface UserWithCredits extends User {
     status: string;
     plan: string;
     current_period_end: string;
+    auto_renew?: boolean;
   } | null;
 }
 
@@ -65,7 +67,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [subscriptionFilter, setSubscriptionFilter] = useState<'all' | 'starter' | 'basic' | 'pro' | 'business' | 'enterprise' | 'none'>('all');
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tracking' | 'analytics'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tracking' | 'analytics' | 'shop-requests'>('overview');
   const [trackingMissions, setTrackingMissions] = useState<any[]>([]);
   const [supportCount, setSupportCount] = useState(0);
   const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'client' | 'driver'>('all');
@@ -334,7 +336,7 @@ export default function Admin() {
         .select(`
           *,
           credits:user_credits(balance),
-          subscription:subscriptions!subscriptions_user_id_fkey(status, plan, current_period_end)
+          subscription:subscriptions!subscriptions_user_id_fkey(status, plan, current_period_end, auto_renew)
         `)
         .order('created_at', { ascending: false });
 
@@ -458,44 +460,69 @@ export default function Admin() {
       return;
     }
 
-    const { data: existingCredits } = await supabase
-      .from('user_credits')
-      .select('balance')
-      .eq('user_id', selectedUser.id)
-      .single();
+    try {
+      // Récupérer les crédits actuels depuis profiles
+      const { data: profile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('credits')
+        .eq('id', selectedUser.id)
+        .single();
 
-    if (existingCredits) {
-      const { error } = await supabase
-        .from('user_credits')
+      if (fetchError) {
+        alert('Erreur lors de la récupération du profil');
+        console.error(fetchError);
+        return;
+      }
+
+      const currentCredits = (profile as any)?.credits || 0;
+
+      // Mettre à jour profiles.credits (source unique de vérité)
+      const { error: updateError } = await supabase
+        .from('profiles')
         .update({
-          balance: existingCredits.balance + amount
+          credits: currentCredits + amount
         })
-        .eq('user_id', selectedUser.id);
+        .eq('id', selectedUser.id);
 
-      if (error) {
+      if (updateError) {
         alert('Erreur lors de l\'ajout des crédits');
+        console.error(updateError);
         return;
       }
-    } else {
-      const { error } = await supabase
+
+      // Optionnel : synchroniser user_credits pour compatibilité legacy
+      const { data: existingCredits } = await supabase
         .from('user_credits')
-        .insert([{
-          user_id: selectedUser.id,
-          balance: amount
-        }]);
+        .select('balance')
+        .eq('user_id', selectedUser.id)
+        .single();
 
-      if (error) {
-        alert('Erreur lors de la création des crédits');
-        return;
+      if (existingCredits) {
+        await supabase
+          .from('user_credits')
+          .update({
+            balance: existingCredits.balance + amount
+          })
+          .eq('user_id', selectedUser.id);
+      } else {
+        await supabase
+          .from('user_credits')
+          .insert([{
+            user_id: selectedUser.id,
+            balance: amount
+          }]);
       }
+
+      await loadAllUsers();
+      alert(`✅ ${amount} crédits ajoutés avec succès à ${selectedUser.email}!`);
+
+      setShowGrantModal(false);
+      setSelectedUser(null);
+      setGrantAmount('');
+    } catch (err) {
+      console.error('Erreur inattendue:', err);
+      alert('Erreur lors de l\'attribution des crédits');
     }
-
-    await loadAllUsers();
-    alert(`✅ ${amount} crédits ajoutés avec succès !`);
-
-    setShowGrantModal(false);
-    setSelectedUser(null);
-    setGrantAmount('');
   };
 
   const handleGrantSubscription = async () => {
@@ -514,21 +541,32 @@ export default function Admin() {
       const endDate = new Date();
       endDate.setDate(endDate.getDate() + days);
 
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser) {
-        alert('Session expirée');
-        return;
-      }
-
-      // Récupérer les crédits depuis shop_items (valeurs réelles de la boutique)
-      const selectedPlan = shopPlans.find(p => p.name === grantPlan);
-      const creditsToAdd = selectedPlan?.credits_amount || 0;
+      // Calculer les crédits selon le plan
+      // Plans réels: Basic (19.99€) = 25, Pro (49.99€) = 100, Business/Enterprise (79.99€) = 500
+      const planCredits: { [key: string]: number } = {
+        'free': 0,
+        'starter': 10,
+        'basic': 25,        // 19.99€/mois
+        'pro': 100,         // 49.99€/mois
+        'business': 500,    // 79.99€/mois
+        'enterprise': 500   // 79.99€/mois
+      };
+      
+      const creditsToAdd = planCredits[grantPlan] || 0;
+      
+      console.log('🎯 Attribution abonnement:', {
+        plan: grantPlan,
+        creditsToAdd,
+        user: selectedUser.email
+      });
 
       const { data: existingSub } = await supabase
         .from('subscriptions')
         .select('*')
         .eq('user_id', selectedUser.id)
         .maybeSingle();
+
+      const isNewSubscription = !existingSub;
 
       if (existingSub) {
         const { error } = await supabase
@@ -538,13 +576,12 @@ export default function Admin() {
             status: 'active',
             current_period_end: endDate.toISOString(),
             payment_method: 'manual',
-            assigned_by: currentUser.id,
             updated_at: new Date().toISOString()
           })
           .eq('user_id', selectedUser.id);
 
         if (error) {
-          alert(`Erreur: ${error.message}`);
+          alert(`Erreur mise à jour abonnement: ${error.message}`);
           return;
         }
       } else {
@@ -556,37 +593,202 @@ export default function Admin() {
             status: 'active',
             current_period_start: new Date().toISOString(),
             current_period_end: endDate.toISOString(),
-            payment_method: 'manual',
-            assigned_by: currentUser.id
+            payment_method: 'manual'
           });
 
         if (error) {
-          alert(`Erreur: ${error.message}`);
+          alert(`Erreur création abonnement: ${error.message}`);
           return;
         }
       }
 
-      // Ajouter les crédits automatiquement via RPC (selon shop_items)
+      // Ajouter les crédits SEULEMENT si c'est un nouvel abonnement
+      // OU demander confirmation si mise à jour
       if (creditsToAdd > 0) {
-        const { error: creditsError } = await supabase.rpc('add_credits', {
-          p_user_id: selectedUser.id,
-          p_amount: creditsToAdd,
-          p_description: `Abonnement ${grantPlan.toUpperCase()} - ${days} jours`,
-        });
+        let shouldAddCredits = isNewSubscription;
+        
+        if (!isNewSubscription) {
+          shouldAddCredits = confirm(
+            `Cet utilisateur a déjà un abonnement.\n\n` +
+            `Voulez-vous ajouter ${creditsToAdd} crédits en plus ?\n\n` +
+            `⚠️ Cliquez "OK" pour ajouter les crédits\n` +
+            `⚠️ Cliquez "Annuler" pour juste prolonger l'abonnement`
+          );
+        }
+        
+        if (shouldAddCredits) {
+          const { data: profile, error: fetchError } = await supabase
+            .from('profiles')
+            .select('credits')
+            .eq('id', selectedUser.id)
+            .single();
 
-        if (creditsError) {
-          console.error('Erreur ajout crédits:', creditsError);
-          alert(`⚠️ Abonnement accordé mais erreur lors de l'ajout des ${creditsToAdd} crédits`);
+          if (fetchError) {
+            console.error('❌ Erreur récupération profil:', fetchError);
+            alert(`⚠️ Abonnement accordé mais erreur récupération profil: ${fetchError.message}`);
+          } else {
+            const currentCredits = (profile as any)?.credits || 0;
+            
+            console.log('💰 Ajout crédits:', {
+              currentCredits,
+              creditsToAdd,
+              newTotal: currentCredits + creditsToAdd,
+              isNewSubscription
+            });
+            
+            const { error: updateError } = await supabase
+              .from('profiles')
+              .update({
+                credits: currentCredits + creditsToAdd
+              })
+              .eq('id', selectedUser.id);
+
+            if (updateError) {
+              console.error('❌ Erreur ajout crédits:', updateError);
+              alert(`⚠️ Abonnement accordé mais erreur lors de l'ajout des ${creditsToAdd} crédits: ${updateError.message}`);
+            } else {
+              console.log('✅ Crédits ajoutés avec succès');
+            }
+          }
         }
       }
 
       await loadAllUsers();
-      alert(`✅ Abonnement ${grantPlan.toUpperCase()} accordé !\n💳 ${creditsToAdd} crédits ajoutés automatiquement (selon boutique : ${selectedPlan?.price}€/mois)`);
+      
+      const creditsMessage = creditsToAdd > 0 && shouldAddCredits 
+        ? `\n💳 ${creditsToAdd} crédits ajoutés` 
+        : '';
+      
+      alert(`✅ Abonnement ${grantPlan.toUpperCase()} accordé pour ${days} jours !${creditsMessage}`);
 
       setShowGrantModal(false);
       setSelectedUser(null);
       setGrantPlan('pro');
       setGrantDuration('30');
+    } catch (err) {
+      console.error('Erreur attribution abonnement:', err);
+      alert(`Erreur: ${err instanceof Error ? err.message : 'Erreur inconnue'}`);
+    }
+  };
+
+  const handleRemoveCredits = async (user: UserWithCredits) => {
+    const amount = prompt(`Combien de crédits voulez-vous retirer à ${user.email} ?\n\nCrédits actuels: ${user.credits?.balance || 0}`);
+    
+    if (!amount) return;
+    
+    const creditsToRemove = parseInt(amount);
+    if (isNaN(creditsToRemove) || creditsToRemove <= 0) {
+      alert('Montant invalide');
+      return;
+    }
+
+    try {
+      const { data: profile, error: fetchError } = await supabase
+        .from('profiles')
+        .select('credits')
+        .eq('id', user.id)
+        .single();
+
+      if (fetchError) {
+        alert(`Erreur: ${fetchError.message}`);
+        return;
+      }
+
+      const currentCredits = (profile as any)?.credits || 0;
+      
+      if (currentCredits < creditsToRemove) {
+        const confirmNegative = confirm(
+          `⚠️ Attention !\n\n` +
+          `L'utilisateur a seulement ${currentCredits} crédits.\n` +
+          `Retirer ${creditsToRemove} crédits donnera un solde négatif de ${currentCredits - creditsToRemove}.\n\n` +
+          `Voulez-vous continuer ?`
+        );
+        
+        if (!confirmNegative) return;
+      }
+
+      const newBalance = currentCredits - creditsToRemove;
+
+      const { error: updateError } = await supabase
+        .from('profiles')
+        .update({ credits: newBalance })
+        .eq('id', user.id);
+
+      if (updateError) {
+        alert(`Erreur: ${updateError.message}`);
+        return;
+      }
+
+      await loadAllUsers();
+      alert(`✅ ${creditsToRemove} crédits retirés !\nNouveau solde: ${newBalance}`);
+    } catch (err) {
+      alert(`Erreur: ${err instanceof Error ? err.message : 'Erreur inconnue'}`);
+    }
+  };
+
+  const handleCancelSubscription = async (user: UserWithCredits) => {
+    if (!user.subscription) {
+      alert("Cet utilisateur n'a pas d'abonnement actif");
+      return;
+    }
+
+    const confirmCancel = confirm(
+      `⚠️ Annuler l'abonnement de ${user.email} ?\n\n` +
+      `Plan actuel: ${user.subscription.plan?.toUpperCase()}\n` +
+      `Expire le: ${new Date(user.subscription.current_period_end).toLocaleDateString('fr-FR')}\n\n` +
+      `L'abonnement sera marqué comme "cancelled".\n` +
+      `Les crédits ne seront PAS retirés.`
+    );
+
+    if (!confirmCancel) return;
+
+    try {
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({
+          status: 'cancelled',
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', user.id);
+
+      if (error) {
+        alert(`Erreur: ${error.message}`);
+        return;
+      }
+
+      await loadAllUsers();
+      alert(`✅ Abonnement annulé avec succès`);
+    } catch (err) {
+      alert(`Erreur: ${err instanceof Error ? err.message : 'Erreur inconnue'}`);
+    }
+  };
+
+  const handleToggleAutoRenew = async (userId: string, userEmail: string, currentAutoRenew: boolean) => {
+    const action = currentAutoRenew ? 'désactiver' : 'activer';
+    const confirmMessage = currentAutoRenew
+      ? `⏸️ Désactiver le renouvellement automatique pour ${userEmail} ?\n\nCet utilisateur ne recevra PLUS de crédits automatiquement chaque mois.`
+      : `✅ Activer le renouvellement automatique pour ${userEmail} ?\n\nCet utilisateur recevra des crédits automatiquement chaque mois selon son plan.`;
+
+    if (!confirm(confirmMessage)) return;
+
+    try {
+      const { error } = await supabase
+        .from('subscriptions')
+        .update({
+          auto_renew: !currentAutoRenew,
+          updated_at: new Date().toISOString()
+        })
+        .eq('user_id', userId)
+        .eq('status', 'active');
+
+      if (error) {
+        alert(`Erreur lors de la modification: ${error.message}`);
+        return;
+      }
+
+      await loadAllUsers();
+      const emoji = currentAutoRenew ? '⏸️' : '✅';
+      alert(`${emoji} Renouvellement automatique ${currentAutoRenew ? 'désactivé' : 'activé'} !`);
     } catch (err) {
       alert(`Erreur: ${err instanceof Error ? err.message : 'Erreur inconnue'}`);
     }
@@ -674,6 +876,7 @@ export default function Admin() {
             { id: 'users', label: `Utilisateurs (${allUsers.length})`, icon: Users },
             { id: 'tracking', label: `Missions GPS (${trackingMissions.length})`, icon: MapPin },
             { id: 'analytics', label: 'Analytics', icon: PieChart },
+            { id: 'shop-requests', label: 'Demandes Boutique', icon: ShoppingCart },
           ].map(tab => (
             <button
               key={tab.id}
@@ -918,6 +1121,13 @@ export default function Admin() {
                             >
                               <Plus className="w-5 h-5 text-amber-600" />
                             </button>
+                            <button
+                              onClick={() => handleRemoveCredits(user)}
+                              className="p-2 hover:bg-red-100 rounded-lg transition"
+                              title="Retirer crédits"
+                            >
+                              <Trash2 className="w-5 h-5 text-red-600" />
+                            </button>
                           </div>
                         </td>
                         <td className="py-4 px-6">
@@ -933,11 +1143,29 @@ export default function Admin() {
                                 {user.subscription.plan?.toUpperCase()}
                               </span>
                               <button
+                                onClick={() => handleToggleAutoRenew(user.id, user.email, user.subscription?.auto_renew || false)}
+                                className={`p-2 rounded-lg transition ${
+                                  user.subscription?.auto_renew 
+                                    ? 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200' 
+                                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                }`}
+                                title={user.subscription?.auto_renew ? 'Auto-renouvellement activé (cliquez pour désactiver)' : 'Auto-renouvellement désactivé (cliquez pour activer)'}
+                              >
+                                <Zap className={`w-5 h-5 ${user.subscription?.auto_renew ? 'fill-current' : ''}`} />
+                              </button>
+                              <button
                                 onClick={() => openGrantModal(user, 'subscription')}
                                 className="p-2 hover:bg-teal-100 rounded-lg transition"
-                                title="Gérer"
+                                title="Prolonger/Modifier"
                               >
                                 <Gift className="w-5 h-5 text-teal-600" />
+                              </button>
+                              <button
+                                onClick={() => handleCancelSubscription(user)}
+                                className="p-2 hover:bg-red-100 rounded-lg transition"
+                                title="Annuler abonnement"
+                              >
+                                <XCircle className="w-5 h-5 text-red-600" />
                               </button>
                             </div>
                           ) : (
@@ -1293,6 +1521,10 @@ export default function Admin() {
             </div>
           </div>
         </div>
+      )}
+
+      {activeTab === 'shop-requests' && (
+        <AdminShopRequests />
       )}
     </div>
   );

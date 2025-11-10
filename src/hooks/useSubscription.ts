@@ -38,13 +38,13 @@ export function useSubscription(): SubscriptionStatus {
 
   const loadSubscriptionStatus = async () => {
     try {
-      // Charger crédits ET abonnement en parallèle
+      // Charger crédits depuis profiles (source unique) ET abonnement en parallèle
       const [creditsResult, subscriptionResult] = await Promise.all([
         supabase
-          .from('user_credits')
-          .select('balance')
-          .eq('user_id', user!.id)
-          .maybeSingle(),
+          .from('profiles')
+          .select('credits')
+          .eq('id', user!.id)
+          .single(),
         supabase
           .from('subscriptions')
           .select('status, plan, current_period_end')
@@ -52,7 +52,7 @@ export function useSubscription(): SubscriptionStatus {
           .maybeSingle()
       ]);
 
-      if (creditsResult.error && creditsResult.error.code !== 'PGRST116') {
+      if (creditsResult.error) {
         console.error('Error fetching credits:', creditsResult.error);
       }
 
@@ -60,8 +60,8 @@ export function useSubscription(): SubscriptionStatus {
         console.error('Error fetching subscription:', subscriptionResult.error);
       }
 
-      const creditsBalance = creditsResult.data?.balance || 0;
-      const subscription = subscriptionResult.data;
+      const creditsBalance = (creditsResult.data as any)?.credits || 0;
+      const subscription = subscriptionResult.data as any;
 
       const now = new Date();
       const expiresAt = subscription?.current_period_end ? new Date(subscription.current_period_end) : null;

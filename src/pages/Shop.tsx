@@ -124,46 +124,36 @@ export default function ShopNew() {
 
   const handlePurchase = async (pkg: CreditPackage) => {
     if (!user) {
-      alert('Vous devez être connecté pour effectuer un achat.');
+      alert('Vous devez être connecté pour demander un abonnement.');
       return;
     }
 
     setProcessingPackageId(pkg.id);
 
     try {
-      const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/create-payment`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          package_id: pkg.id,
+      // Créer une demande d'abonnement/crédits
+      const { error } = await supabase
+        .from('shop_quote_requests')
+        .insert([{
           user_id: user.id,
-          amount: pkg.price,
-          credits: pkg.credits,
-        }),
-      });
+          company_name: user.email?.split('@')[0] || 'Utilisateur',
+          email: user.email,
+          phone: '',
+          expected_volume: `${pkg.name} - ${pkg.credits} crédits`,
+          message: `Demande d'achat : ${pkg.name}\nCrédits : ${pkg.credits}\nPrix : ${pkg.price}€\nPériode : ${pkg.billing_period === 'monthly' ? 'Mensuel' : 'Annuel'}`,
+          status: 'pending',
+          package_id: pkg.id
+        }]);
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        console.error('Payment error:', errorData);
-        throw new Error(errorData.error || 'Erreur lors de la création du paiement');
-      }
+      if (error) throw error;
 
-      const data = await response.json();
-
-      if (data.checkoutUrl) {
-        window.location.href = data.checkoutUrl;
-      } else if (data.error) {
-        throw new Error(data.error);
-      } else {
-        throw new Error('URL de paiement non reçue');
-      }
+      alert('✅ Demande envoyée !\n\nVotre demande a été transmise à l\'administrateur.\nVous serez contacté sous 24h pour finaliser votre commande.');
+      
+      // Recharger pour rafraîchir
+      await loadData();
     } catch (error) {
-      console.error('Error creating payment:', error);
-      const errorMessage = error instanceof Error ? error.message : 'Erreur inconnue';
-      alert(`Une erreur est survenue lors du paiement:\n${errorMessage}\n\nVeuillez vérifier la configuration Mollie ou contacter le support.`);
+      console.error('Error creating request:', error);
+      alert('❌ Erreur lors de l\'envoi de la demande.\nVeuillez réessayer ou contacter le support.');
     } finally {
       setProcessingPackageId(null);
     }
@@ -475,7 +465,7 @@ export default function ShopNew() {
                   </div>
                 </div>
 
-                {/* Purchase Button */}
+                {/* Contact Admin Button */}
                 <button
                   onClick={() => handlePurchase(pkg)}
                   disabled={processingPackageId === pkg.id}
@@ -484,15 +474,19 @@ export default function ShopNew() {
                   {processingPackageId === pkg.id ? (
                     <>
                       <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      Traitement...
+                      Envoi en cours...
                     </>
                   ) : (
                     <>
-                      <ShoppingCart className="w-5 h-5" />
-                      Acheter maintenant
+                      <Send className="w-5 h-5" />
+                      Contacter l'admin
                     </>
                   )}
                 </button>
+                
+                <p className="text-xs text-center text-slate-500 mt-2">
+                  💬 Votre demande sera traitée sous 24h
+                </p>
               </div>
             );
           })}

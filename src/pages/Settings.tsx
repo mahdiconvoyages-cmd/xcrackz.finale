@@ -1,8 +1,9 @@
 // @ts-nocheck - Supabase generated types are outdated, all operations work correctly at runtime
 import { useState, useEffect } from 'react';
-import { User, Building, Save, Shield, Download, Trash2, Mic } from 'lucide-react';
+import { User, Building, Save, Shield, Download, Trash2, Mic, Crown, Calendar } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useSubscription } from '../hooks/useSubscription';
 import { gdprService } from '../services/gdprService';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,12 +14,12 @@ interface Profile {
   phone: string;
   address: string;
   company_siret: string;
-  subscription_plan: string;
 }
 
 export default function Settings() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const subscription = useSubscription();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [profile, setProfile] = useState<Profile>({
@@ -28,7 +29,6 @@ export default function Settings() {
     phone: '',
     address: '',
     company_siret: '',
-    subscription_plan: 'free',
   });
 
   useEffect(() => {
@@ -54,7 +54,6 @@ export default function Settings() {
           phone: data.phone || '',
           address: data.address || '',
           company_siret: data.company_siret || '',
-          subscription_plan: data.subscription_plan || 'free',
         });
       }
     } catch (error) {
@@ -165,6 +164,65 @@ export default function Settings() {
                 <Mic className="w-10 h-10 text-white" />
               </div>
             </div>
+          </div>
+        </div>
+
+        {/* Section Abonnement & Crédits */}
+        <div className="backdrop-blur-xl bg-gradient-to-br from-yellow-500/10 via-amber-500/10 to-orange-500/10 border border-yellow-400/30 shadow-xl shadow-yellow-500/20 shadow-depth-lg rounded-2xl hover:shadow-depth-xl transition-all duration-300 p-6">
+          <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+            <Crown className="w-5 h-5 text-yellow-500" />
+            Abonnement & Crédits
+          </h2>
+
+          <div className="grid md:grid-cols-2 gap-4">
+            <div className="bg-white/50 backdrop-blur-sm border border-yellow-200 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-yellow-100 rounded-lg">
+                  <Crown className="w-5 h-5 text-yellow-600" />
+                </div>
+                <h3 className="font-semibold text-slate-800">Plan actuel</h3>
+              </div>
+              {subscription.loading ? (
+                <p className="text-slate-500">Chargement...</p>
+              ) : subscription.hasActiveSubscription ? (
+                <>
+                  <p className="text-2xl font-bold text-yellow-600 uppercase">{subscription.plan || 'Premium'}</p>
+                  <p className="text-sm text-slate-600 mt-1 flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    {subscription.daysRemaining} jours restants
+                  </p>
+                  <p className="text-xs text-slate-500 mt-2">
+                    Expire le {subscription.expiresAt ? new Date(subscription.expiresAt).toLocaleDateString('fr-FR') : '-'}
+                  </p>
+                </>
+              ) : (
+                <>
+                  <p className="text-2xl font-bold text-slate-600">Gratuit</p>
+                  <p className="text-sm text-slate-500 mt-1">Aucun abonnement actif</p>
+                </>
+              )}
+            </div>
+
+            <div className="bg-white/50 backdrop-blur-sm border border-blue-200 rounded-xl p-4">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-blue-100 rounded-lg">
+                  <Shield className="w-5 h-5 text-blue-600" />
+                </div>
+                <h3 className="font-semibold text-slate-800">Crédits disponibles</h3>
+              </div>
+              <p className="text-2xl font-bold text-blue-600">{subscription.creditsBalance}</p>
+              <p className="text-sm text-slate-500 mt-1">Utilisables à tout moment</p>
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <button
+              type="button"
+              onClick={() => navigate('/shop')}
+              className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
+            >
+              Gérer mon abonnement
+            </button>
           </div>
         </div>
 
