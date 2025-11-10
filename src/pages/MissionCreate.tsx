@@ -5,6 +5,7 @@ import { ArrowLeft, Save, Truck, Download, Eye, X, ChevronRight, ChevronLeft } f
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { useCredits } from '../hooks/useCredits';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import VehicleImageUpload from '../components/VehicleImageUpload';
 import ShareCodeDisplay from '../components/ShareCodeDisplay';
