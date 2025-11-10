@@ -9,6 +9,7 @@ import { useCredits } from '../hooks/useCredits';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import VehicleImageUpload from '../components/VehicleImageUpload';
 import ShareCodeDisplay from '../components/ShareCodeDisplay';
+import BuyCreditModal from '../components/BuyCreditModal';
 import { getVehicleImageUrl } from '../utils/vehicleDefaults';
 
 export default function MissionCreate() {
