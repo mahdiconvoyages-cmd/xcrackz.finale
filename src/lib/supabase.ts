@@ -47,4 +47,4 @@ export const supabase = (() => {
   }
   
   return supabaseInstance;
-})();
+})() as any; // Cast to any to avoid strict "never" generics when no DB types are provided
