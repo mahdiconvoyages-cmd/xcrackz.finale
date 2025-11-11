@@ -7,10 +7,11 @@ export default function MobileDownload() {
   // URLs de téléchargement
   // Utilise l'APK buildé par EAS (Expo Application Services)
   const ENV_APK_URL = import.meta.env.VITE_ANDROID_APK_URL as string | undefined;
-  const ENV_ANDROID_VERSION = (import.meta.env.VITE_ANDROID_VERSION as string | undefined) || '4.4.0';
+  const ENV_ANDROID_VERSION = (import.meta.env.VITE_ANDROID_VERSION as string | undefined) || '6.0.0';
 
-  // Lien direct de téléchargement APK (Build ID: 8ef092ab-d881-437a-8b12-1f1ce6c35706)
-  const ANDROID_APK_URL = ENV_APK_URL || 'https://expo.dev/artifacts/eas/8ef092ab-d881-437a-8b12-1f1ce6c35706.apk';
+  // Lien direct de téléchargement APK (Build ID: 46bc4df1-61f3-45ad-87a6-50f299ea2284)
+  // Version 6.0.0 - Inclut: système auto-renew, prix corrigés (25/100/500), unification crédits
+  const ANDROID_APK_URL = ENV_APK_URL || 'https://expo.dev/artifacts/eas/9JBCshijzEqxUXVbgZu7kf.apk';
 
   const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.finality.app'; // À publier
   const APP_STORE_URL = 'https://apps.apple.com/app/xcrackz/id123456789'; // À publier
