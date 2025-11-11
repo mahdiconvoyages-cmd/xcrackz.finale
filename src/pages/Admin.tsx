@@ -604,8 +604,9 @@ export default function Admin() {
 
       // Ajouter les crédits SEULEMENT si c'est un nouvel abonnement
       // OU demander confirmation si mise à jour
+      let shouldAddCredits = false;
       if (creditsToAdd > 0) {
-        let shouldAddCredits = isNewSubscription;
+        shouldAddCredits = isNewSubscription;
         
         if (!isNewSubscription) {
           shouldAddCredits = confirm(
@@ -746,7 +747,7 @@ export default function Admin() {
       const { error } = await supabase
         .from('subscriptions')
         .update({
-          status: 'cancelled',
+          status: 'canceled',
           updated_at: new Date().toISOString()
         })
         .eq('user_id', user.id);
