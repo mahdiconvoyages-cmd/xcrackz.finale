@@ -17,11 +17,15 @@ interface VehicleInspection {
   fuel_level: number;
   mileage_km: number;
   notes: string;
-  signature_url?: string | null | undefined;
+  signature_url?: string | null;
+  // Signatures client existantes
   signature_client_departure: string | null;
   signature_client_departure_name: string | null;
   signature_client_arrival: string | null;
   signature_client_arrival_name: string | null;
+  // Nouvelles propriétés: signatures convoyeur (driver)
+  driver_signature?: string | null;
+  driver_name?: string | null;
   keys_count?: number;
   has_vehicle_documents?: boolean;
   has_registration_card?: boolean;
@@ -81,8 +85,9 @@ export default function InspectionViewer({ missionId, onClose }: InspectionViewe
       if (inspError) throw inspError;
 
       if (inspections) {
-        const departure = inspections.find(i => i.inspection_type === 'departure');
-        const arrival = inspections.find(i => i.inspection_type === 'arrival');
+        const inspList = inspections as any[];
+        const departure = inspList.find(i => i.inspection_type === 'departure');
+        const arrival = inspList.find(i => i.inspection_type === 'arrival');
 
         setDepartureInspection(departure || null);
         setArrivalInspection(arrival || null);
@@ -91,7 +96,7 @@ export default function InspectionViewer({ missionId, onClose }: InspectionViewe
           const { data: photos } = await supabase
             .from('inspection_photos')
             .select('*')
-            .eq('inspection_id', departure.id)
+            .eq('inspection_id', (departure as any).id)
             .order('created_at', { ascending: true });
 
           setDeparturePhotos(photos || []);
@@ -101,7 +106,7 @@ export default function InspectionViewer({ missionId, onClose }: InspectionViewe
           const { data: photos } = await supabase
             .from('inspection_photos')
             .select('*')
-            .eq('inspection_id', arrival.id)
+            .eq('inspection_id', (arrival as any).id)
             .order('created_at', { ascending: true });
 
           setArrivalPhotos(photos || []);
@@ -155,11 +160,11 @@ export default function InspectionViewer({ missionId, onClose }: InspectionViewe
     setGeneratingPDF(true);
     try {
       await generateInspectionPDF(
-        mission,
-        departureInspection,
-        arrivalInspection,
-        departurePhotos,
-        arrivalPhotos
+        mission as any,
+        departureInspection as any,
+        arrivalInspection as any,
+        departurePhotos as any,
+        arrivalPhotos as any
       );
     } catch (error) {
       console.error('Error generating PDF:', error);
@@ -398,25 +403,46 @@ export default function InspectionViewer({ missionId, onClose }: InspectionViewe
                   )}
                 </div>
 
-                {((activeTab === 'departure' && currentInspection.signature_client_departure) ||
-                  (activeTab === 'arrival' && currentInspection.signature_client_arrival)) && (
-                  <div className="backdrop-blur-xl bg-slate-50 border border-slate-200 rounded-xl p-4">
-                    <p className="text-sm font-semibold text-slate-700 mb-3">
-                      Signature du client
-                      {activeTab === 'departure' && currentInspection.signature_client_departure_name &&
-                        ` - ${currentInspection.signature_client_departure_name}`}
-                      {activeTab === 'arrival' && currentInspection.signature_client_arrival_name &&
-                        ` - ${currentInspection.signature_client_arrival_name}`}
-                    </p>
-                    <div className="bg-white border-2 border-slate-300 rounded-lg p-4 inline-block">
-                      <img
-                        src={activeTab === 'departure' ?
-                          currentInspection.signature_client_departure! :
-                          currentInspection.signature_client_arrival!}
-                        alt="Signature"
-                        className="h-24"
-                      />
-                    </div>
+                {(currentInspection.driver_signature || currentInspection.signature_client_departure || currentInspection.signature_client_arrival) && (
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* Signature Convoyeur */}
+                    {currentInspection.driver_signature && (
+                      <div className="backdrop-blur-xl bg-slate-50 border border-slate-200 rounded-xl p-4">
+                        <p className="text-sm font-semibold text-slate-700 mb-3">
+                          Signature du convoyeur{currentInspection.driver_name ? ` - ${currentInspection.driver_name}` : ''}
+                        </p>
+                        <div className="bg-white border-2 border-slate-300 rounded-lg p-4 inline-block">
+                          <img
+                            src={currentInspection.driver_signature}
+                            alt="Signature convoyeur"
+                            className="h-24"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Signature Client */}
+                    {((activeTab === 'departure' && currentInspection.signature_client_departure) ||
+                      (activeTab === 'arrival' && currentInspection.signature_client_arrival)) && (
+                      <div className="backdrop-blur-xl bg-slate-50 border border-slate-200 rounded-xl p-4">
+                        <p className="text-sm font-semibold text-slate-700 mb-3">
+                          Signature du client
+                          {activeTab === 'departure' && currentInspection.signature_client_departure_name &&
+                            ` - ${currentInspection.signature_client_departure_name}`}
+                          {activeTab === 'arrival' && currentInspection.signature_client_arrival_name &&
+                            ` - ${currentInspection.signature_client_arrival_name}`}
+                        </p>
+                        <div className="bg-white border-2 border-slate-300 rounded-lg p-4 inline-block">
+                          <img
+                            src={activeTab === 'departure' ?
+                              currentInspection.signature_client_departure! :
+                              currentInspection.signature_client_arrival!}
+                            alt="Signature client"
+                            className="h-24"
+                          />
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

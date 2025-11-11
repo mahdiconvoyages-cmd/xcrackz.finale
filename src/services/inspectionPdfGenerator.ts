@@ -16,6 +16,11 @@ interface VehicleInspection {
   mileage_km: number;
   notes: string;
   signature_url: string | null;
+  // Signatures enrichies
+  driver_signature?: string | null;
+  driver_name?: string | null;
+  client_signature?: string | null;
+  client_name?: string | null;
   completed_at: string;
   created_at: string;
 }
@@ -129,11 +134,11 @@ export const generateInspectionPDF = async (
   let y = 0;
 
   // ========== HEADER ==========
-  doc.setFillColor(...colors.primary);
+  doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
   doc.rect(0, 0, pageWidth, 50, 'F');
 
   // Gradient effect
-  doc.setFillColor(...colors.secondary);
+  doc.setFillColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
   doc.setGState(doc.GState({ opacity: 0.4 }));
   doc.circle(pageWidth - 25, 25, 40, 'F');
   doc.circle(20, 25, 30, 'F');
@@ -141,7 +146,7 @@ export const generateInspectionPDF = async (
 
   // Icône
   doc.setFontSize(28);
-  doc.setTextColor(...colors.white);
+  doc.setTextColor(colors.white[0], colors.white[1], colors.white[2]);
   doc.text('📋', margin, 30);
 
   // Titre
@@ -163,24 +168,24 @@ export const generateInspectionPDF = async (
   y = 58;
 
   // ========== INFORMATIONS VÉHICULE ==========
-  doc.setFillColor(...colors.lightGray);
+  doc.setFillColor(colors.lightGray[0], colors.lightGray[1], colors.lightGray[2]);
   doc.roundedRect(margin, y, pageWidth - 2 * margin, 28, 3, 3, 'F');
 
   doc.setFontSize(11);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...colors.primary);
+  doc.setTextColor(colors.primary[0], colors.primary[1], colors.primary[2]);
   doc.text('INFORMATIONS VEHICULE', margin + 5, y + 8);
 
   y += 14;
   doc.setFontSize(13);
   doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...colors.dark);
+  doc.setTextColor(colors.dark[0], colors.dark[1], colors.dark[2]);
   doc.text(cleanText(`${mission.vehicle_brand} ${mission.vehicle_model}`), margin + 5, y);
 
   y += 8;
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...colors.gray);
+  doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
   doc.text(`Immatriculation: ${cleanText(mission.vehicle_plate)}`, margin + 5, y);
   
   if (mission.vehicle_vin) {
@@ -192,14 +197,14 @@ export const generateInspectionPDF = async (
   // ========== INSPECTION DE DÉPART ==========
   if (departureInspection) {
     y += 5;
-    doc.setDrawColor(...colors.success);
+  doc.setDrawColor(colors.success[0], colors.success[1], colors.success[2]);
     doc.setLineWidth(1);
     doc.line(margin, y, pageWidth - margin, y);
     y += 8;
 
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...colors.success);
+  doc.setTextColor(colors.success[0], colors.success[1], colors.success[2]);
     doc.text('📍 INSPECTION DE DEPART', margin, y);
 
     doc.setFontSize(8);
@@ -244,12 +249,12 @@ export const generateInspectionPDF = async (
     if (departureInspection.notes) {
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...colors.dark);
+  doc.setTextColor(colors.dark[0], colors.dark[1], colors.dark[2]);
       doc.text('Notes:', margin, y);
       y += 5;
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
-      doc.setTextColor(...colors.gray);
+  doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
       const notesLines = doc.splitTextToSize(cleanText(departureInspection.notes), pageWidth - 2 * margin);
       doc.text(notesLines, margin, y);
       y += notesLines.length * 4 + 3;
@@ -260,7 +265,7 @@ export const generateInspectionPDF = async (
       y += 5;
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...colors.success);
+  doc.setTextColor(colors.success[0], colors.success[1], colors.success[2]);
       doc.text(`Photos de depart (${departurePhotos.length})`, margin, y);
       y += 8;
 
@@ -287,20 +292,20 @@ export const generateInspectionPDF = async (
           const imageData = await loadImageAsDataURL(photo.photo_url);
           doc.addImage(imageData, 'JPEG', x, y, photoWidth, photoHeight);
           
-          doc.setDrawColor(...colors.lightGray);
+          doc.setDrawColor(colors.lightGray[0], colors.lightGray[1], colors.lightGray[2]);
           doc.setLineWidth(0.5);
           doc.rect(x, y, photoWidth, photoHeight);
 
           doc.setFontSize(7);
-          doc.setTextColor(...colors.gray);
+          doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
           const label = getPhotoTypeLabel(photo.photo_type);
           doc.text(label, x + photoWidth / 2, y + photoHeight + 4, { align: 'center' });
         } catch (error) {
           console.error('Error loading photo:', error);
-          doc.setFillColor(...colors.lightGray);
+          doc.setFillColor(colors.lightGray[0], colors.lightGray[1], colors.lightGray[2]);
           doc.rect(x, y, photoWidth, photoHeight, 'F');
           doc.setFontSize(8);
-          doc.setTextColor(...colors.gray);
+          doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
           doc.text('Image non disponible', x + photoWidth / 2, y + photoHeight / 2, { align: 'center' });
         }
       }
@@ -318,7 +323,7 @@ export const generateInspectionPDF = async (
 
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...colors.dark);
+  doc.setTextColor(colors.dark[0], colors.dark[1], colors.dark[2]);
       doc.text('Signature:', margin, y);
       y += 5;
 
@@ -326,7 +331,7 @@ export const generateInspectionPDF = async (
         const signatureData = await loadImageAsDataURL(departureInspection.signature_url);
         doc.addImage(signatureData, 'PNG', margin, y, 60, 20);
       } catch (error) {
-        doc.setTextColor(...colors.gray);
+  doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
         doc.setFontSize(8);
         doc.text('Signature non disponible', margin, y);
       }
@@ -343,7 +348,7 @@ export const generateInspectionPDF = async (
     }
 
     y += 8;
-    doc.setDrawColor(...colors.danger);
+  doc.setDrawColor(colors.danger[0], colors.danger[1], colors.danger[2]);
     doc.setLineWidth(1);
     doc.line(margin, y, pageWidth - margin, y);
     y += 8;
