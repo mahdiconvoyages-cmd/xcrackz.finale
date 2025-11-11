@@ -333,14 +333,24 @@ export default function InspectionArrivalNew() {
 
       console.log(`✅ ${uploadedCount} photos uploadées`);
 
-      // 5. Mettre à jour le statut de la mission
-      const { error: updateError } = await supabase
-        .from('missions')
-        // @ts-ignore - typage générique non configuré pour cette table dans ce fichier
-        .update({ status: 'completed' } as any)
-        .eq('id', missionId!);
-
-      if (updateError) console.warn('Erreur update mission:', updateError);
+      // 5. Mettre à jour le statut de la mission via RPC (sécurisée)
+      const { data: completeRes, error: completeErr } = await (supabase as any).rpc('complete_mission', { p_mission_id: missionId });
+      if (completeErr || ((completeRes as any) && (completeRes as any).ok === false)) {
+        console.warn('Erreur complete_mission RPC, tentative fallback update:', completeErr || completeRes);
+        // Fallback direct update (peut échouer si RLS) mais on tente pour ne pas bloquer le flux
+        try {
+          // @ts-ignore: typage générique non configuré, update simple
+          const { error: fallbackErr } = await (supabase as any)
+            .from('missions')
+            .update({ status: 'completed' })
+            .eq('id', missionId!);
+          if (fallbackErr) {
+            console.warn('Fallback update missions échoué:', fallbackErr);
+          }
+        } catch (e) {
+          console.warn('Exception fallback update missions:', e);
+        }
+      }
 
       showToast('success', 'Inspection complétée', `Mission terminée avec ${uploadedCount} photos`);
       
