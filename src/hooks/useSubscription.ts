@@ -34,6 +34,33 @@ export function useSubscription(): SubscriptionStatus {
     }
 
     loadSubscriptionStatus();
+
+    // Realtime updates on profile credits and subscription changes
+    const ch = supabase
+      .channel(`subscription_status_${user.id}`)
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` },
+        (payload) => {
+          const newCredits = (payload.new as any)?.credits;
+          if (newCredits !== undefined) {
+            setStatus((prev) => ({ ...prev, creditsBalance: newCredits }));
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'subscriptions', filter: `user_id=eq.${user.id}` },
+        async () => {
+          // Reload full subscription status when subscription row changes
+          await loadSubscriptionStatus();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      try { supabase.removeChannel(ch); } catch {}
+    };
   }, [user]);
 
   const loadSubscriptionStatus = async () => {

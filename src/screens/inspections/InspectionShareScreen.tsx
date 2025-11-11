@@ -81,8 +81,8 @@ export default function InspectionShareScreen() {
     try {
       setLoading(true);
 
-      // Récupérer les missions avec inspections complètes
-      const { data: missions, error } = await supabase
+      // Requête optimisée: un seul appel avec jointure sur vehicle_inspections (inner pour ne récupérer que les missions avec inspection)
+      const { data, error } = await supabase
         .from('missions')
         .select(`
           id,
@@ -92,36 +92,44 @@ export default function InspectionShareScreen() {
           vehicle_plate,
           pickup_date,
           pickup_address,
-          delivery_address
+          delivery_address,
+          vehicle_inspections!inner(inspection_type)
         `)
         .order('pickup_date', { ascending: false })
-        .limit(50);
+        .limit(100);
 
       if (error) throw error;
 
-      // Vérifier quelles missions ont des inspections
-      const reportsWithInspections: InspectionReport[] = [];
+      // Agréger par mission pour déterminer présence départ/arrivée
+      const map = new Map<string, InspectionReport>();
+      (data as any[] | null)?.forEach((row) => {
+        const insp = (row.vehicle_inspections || []) as Array<{ inspection_type: string }>;
+        const hasDeparture = insp.some(i => i.inspection_type === 'departure');
+        const hasArrival = insp.some(i => i.inspection_type === 'arrival');
 
-      for (const mission of missions || []) {
-        const { data: inspections } = await supabase
-          .from('vehicle_inspections')
-          .select('inspection_type')
-          .eq('mission_id', mission.id);
+        const existing = map.get(row.id);
+        const merged = {
+          id: row.id,
+          mission_id: row.id,
+          reference: row.reference,
+          vehicle_brand: row.vehicle_brand,
+          vehicle_model: row.vehicle_model,
+          vehicle_plate: row.vehicle_plate,
+          pickup_date: row.pickup_date,
+          pickup_address: row.pickup_address,
+          delivery_address: row.delivery_address,
+          has_departure: (existing?.has_departure ?? false) || hasDeparture,
+          has_arrival: (existing?.has_arrival ?? false) || hasArrival,
+        } as InspectionReport;
+        map.set(row.id, merged);
+      });
 
-        const hasDeparture = inspections?.some(i => i.inspection_type === 'departure');
-        const hasArrival = inspections?.some(i => i.inspection_type === 'arrival');
+      // Conversion + tri par date décroissante (sécurité)
+      const aggregated = Array.from(map.values()).sort((a, b) => {
+        return new Date(b.pickup_date).getTime() - new Date(a.pickup_date).getTime();
+      });
 
-        if (hasDeparture || hasArrival) {
-          reportsWithInspections.push({
-            ...mission,
-            mission_id: mission.id,
-            has_departure: hasDeparture || false,
-            has_arrival: hasArrival || false,
-          });
-        }
-      }
-
-      setReports(reportsWithInspections);
+      setReports(aggregated);
     } catch (error: any) {
       console.error('Erreur chargement rapports:', error);
       Alert.alert('Erreur', 'Impossible de charger les rapports');
