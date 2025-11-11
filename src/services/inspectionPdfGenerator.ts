@@ -207,9 +207,10 @@ export const generateInspectionPDF = async (
   doc.setTextColor(colors.success[0], colors.success[1], colors.success[2]);
     doc.text('📍 INSPECTION DE DEPART', margin, y);
 
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...colors.gray);
+  doc.setFontSize(8);
+  doc.setFont('helvetica', 'normal');
+  // TS2556 fix: replace spread with explicit RGB components
+  doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
     doc.text(new Date(departureInspection.completed_at).toLocaleString('fr-FR'), pageWidth - margin, y, { align: 'right' });
 
     y += 8;
