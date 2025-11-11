@@ -22,6 +22,33 @@ import { toast } from '../utils/toast';
 import JSZip from 'jszip';
 import { saveAs } from 'file-saver';
 
+// Helpers d'affichage (carburant % et propreté en texte)
+const CLEANLINESS_MAP: Record<number, string> = {
+  1: 'très sale',
+  2: 'sale',
+  3: 'correct',
+  4: 'propre',
+  5: 'très propre',
+};
+
+function formatFuelPercent(value: any): string {
+  const num = typeof value === 'number' ? value : parseInt(value);
+  return isNaN(num) ? 'N/A' : `${num}%`;
+}
+
+function formatCleanliness(inspection: any, type: 'internal' | 'external'): string {
+  const textValue = type === 'internal' ? inspection?.internal_cleanliness : inspection?.external_cleanliness;
+  if (textValue && typeof textValue === 'string') {
+    return textValue.charAt(0).toUpperCase() + textValue.slice(1);
+  }
+  const rating = type === 'internal' ? inspection?.cleanliness_interior : inspection?.cleanliness_exterior;
+  if (rating !== null && rating !== undefined) {
+    const mapped = CLEANLINESS_MAP[Number(rating) as 1|2|3|4|5];
+    return mapped || String(rating);
+  }
+  return 'N/A';
+}
+
 export default function PublicInspectionReportShared() {
   const { token } = useParams();
   const [loading, setLoading] = useState(true);
@@ -37,20 +64,60 @@ export default function PublicInspectionReportShared() {
 
   const loadReport = async () => {
     try {
-      const { data, error: rpcError } = await supabase.rpc('get_inspection_report_by_token', {
-        p_token: token
-      });
-
+      const { data, error: rpcError } = await supabase.rpc('get_inspection_report_by_token', { p_token: token });
       if (rpcError) throw rpcError;
       if (!data || data.error) throw new Error(data?.error || 'Rapport non trouvé');
 
-      console.log('📊 Données rapport reçues:', data);
-      console.log('📸 Photos départ:', data.inspection_departure?.photos);
-      console.log('📸 Photos arrivée:', data.inspection_arrival?.photos);
-      console.log('🔍 Inspection départ complète:', data.inspection_departure);
-      console.log('🔍 Inspection arrivée complète:', data.inspection_arrival);
+      // Enrichir avec documents scannés + frais par inspection
+      const departureId = data.inspection_departure?.id;
+      const arrivalId = data.inspection_arrival?.id;
+      let depDocs = [], arrDocs = [], depExpenses = [], arrExpenses = [];
 
-      setReportData(data);
+      if (departureId) {
+        const { data: docs } = await supabase
+          .from('inspection_documents')
+          .select('*')
+          .eq('inspection_id', departureId)
+          .order('created_at', { ascending: true });
+        depDocs = docs || [];
+        const { data: expenses } = await supabase
+          .from('inspection_expenses')
+          .select('*')
+          .eq('inspection_id', departureId)
+          .order('created_at', { ascending: true });
+        depExpenses = expenses || [];
+      }
+      if (arrivalId) {
+        const { data: docs } = await supabase
+          .from('inspection_documents')
+          .select('*')
+          .eq('inspection_id', arrivalId)
+          .order('created_at', { ascending: true });
+        arrDocs = docs || [];
+        const { data: expenses } = await supabase
+          .from('inspection_expenses')
+          .select('*')
+          .eq('inspection_id', arrivalId)
+          .order('created_at', { ascending: true });
+        arrExpenses = expenses || [];
+      }
+
+      const enriched = {
+        ...data,
+        inspection_departure: data.inspection_departure ? {
+          ...data.inspection_departure,
+          scanned_documents: depDocs,
+          expenses: depExpenses,
+        } : null,
+        inspection_arrival: data.inspection_arrival ? {
+          ...data.inspection_arrival,
+          scanned_documents: arrDocs,
+          expenses: arrExpenses,
+        } : null,
+      };
+
+      console.log('📊 Rapport enrichi:', enriched);
+      setReportData(enriched);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -356,15 +423,15 @@ function InspectionCard({ title, inspection, color, onOpenPhoto }: any) {
             />
             <StatItem 
               label="Carburant" 
-              value={inspection.fuel_level !== null && inspection.fuel_level !== undefined ? `${inspection.fuel_level}/8` : 'N/A'} 
+              value={formatFuelPercent(inspection.fuel_level)} 
             />
             <StatItem 
               label="Propreté Int." 
-              value={inspection.cleanliness_interior !== null && inspection.cleanliness_interior !== undefined ? `${inspection.cleanliness_interior}/5` : 'N/A'} 
+              value={formatCleanliness(inspection, 'internal')} 
             />
             <StatItem 
               label="Propreté Ext." 
-              value={inspection.cleanliness_exterior !== null && inspection.cleanliness_exterior !== undefined ? `${inspection.cleanliness_exterior}/5` : 'N/A'} 
+              value={formatCleanliness(inspection, 'external')} 
             />
           </div>
         </Section>
@@ -406,15 +473,78 @@ function InspectionCard({ title, inspection, color, onOpenPhoto }: any) {
         {/* Signatures */}
         <Section title="Signatures" icon={FileSignature}>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {inspection.driver_signature && (
-              <SignatureBox title="Signature Convoyeur" signature={inspection.driver_signature} />
-            )}
-            {inspection.client_signature && (
-              <SignatureBox title={title.includes('Départ') ? 'Signature Expéditeur' : 'Signature Réceptionnaire'} 
-                signature={inspection.client_signature} />
-            )}
+            <SignatureBox
+              title={title.includes('Départ') ? 'Convoyeur (Départ)' : 'Convoyeur (Arrivée)'}
+              signature={inspection.driver_signature}
+              name={inspection.driver_name || inspection.driverName}
+            />
+            <SignatureBox
+              title={title.includes('Départ') ? 'Expéditeur' : 'Réceptionnaire'}
+              signature={inspection.client_signature}
+              name={inspection.client_name || inspection.clientName}
+            />
           </div>
         </Section>
+
+        {/* Documents scannés */}
+        {inspection.scanned_documents && inspection.scanned_documents.length > 0 && (
+          <Section title={`Documents scannés (${inspection.scanned_documents.length})`} icon={FileText}>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {inspection.scanned_documents.map((doc: any) => (
+                <a
+                  key={doc.id}
+                  href={doc.file_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="group border border-gray-200 rounded-lg p-3 flex flex-col gap-2 hover:border-blue-500 hover:shadow-sm transition"
+                >
+                  <div className="flex items-center gap-2 text-sm">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                    <span className="font-medium text-gray-700 truncate" title={doc.title || 'Document'}>
+                      {doc.title || 'Document'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 flex justify-between">
+                    <span>{(doc.mime_type || '').split('/')[1] || 'fichier'}</span>
+                    {doc.created_at && (
+                      <span>{new Date(doc.created_at).toLocaleDateString('fr-FR')}</span>
+                    )}
+                  </div>
+                </a>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* Frais / Dépenses */}
+        {inspection.expenses && inspection.expenses.length > 0 && (
+          <Section title={`Frais & Dépenses (${inspection.expenses.length})`} icon={Package}>
+            <div className="overflow-x-auto">
+              <table className="min-w-full text-sm">
+                <thead>
+                  <tr className="bg-gray-100 text-gray-700">
+                    <th className="text-left font-semibold px-3 py-2">Libellé</th>
+                    <th className="text-left font-semibold px-3 py-2">Catégorie</th>
+                    <th className="text-right font-semibold px-3 py-2">Montant</th>
+                    <th className="text-left font-semibold px-3 py-2">Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {inspection.expenses.map((exp: any) => (
+                    <tr key={exp.id} className="border-b border-gray-100">
+                      <td className="px-3 py-2 text-gray-800">{exp.description || exp.label || 'Frais'}</td>
+                      <td className="px-3 py-2 text-gray-500">{exp.expense_type || exp.category || '—'}</td>
+                      <td className="px-3 py-2 text-right font-medium text-gray-900">{Number(exp.amount || 0).toFixed(2)} €</td>
+                      <td className="px-3 py-2 text-gray-500">
+                        {exp.created_at ? new Date(exp.created_at).toLocaleDateString('fr-FR') : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </Section>
+        )}
 
         {/* Observations */}
         {inspection.notes && (
@@ -460,7 +590,7 @@ function Badge({ label, checked }: any) {
   );
 }
 
-function SignatureBox({ title, signature }: any) {
+function SignatureBox({ title, signature, name }: any) {
   return (
     <div className="border border-gray-200 rounded-lg p-4">
       <h4 className="text-sm font-semibold text-gray-700 mb-3">{title}</h4>
@@ -471,6 +601,9 @@ function SignatureBox({ title, signature }: any) {
           <span className="text-gray-400 text-sm">Non signée</span>
         )}
       </div>
+      {name && (
+        <div className="mt-2 text-xs text-gray-500">Signé par: <span className="font-medium text-gray-700">{name}</span></div>
+      )}
     </div>
   );
 }
