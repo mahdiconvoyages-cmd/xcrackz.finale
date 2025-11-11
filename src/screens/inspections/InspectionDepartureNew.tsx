@@ -423,6 +423,8 @@ export default function InspectionDepartureNew({ route, navigation }: any) {
   };
 
   const handleSubmit = async () => {
+    console.log('🔍 [INSPECTION] Validation des champs...');
+    
     if (!clientName.trim()) {
       Alert.alert('Nom client requis', 'Veuillez saisir le nom du client');
       return;
@@ -443,6 +445,7 @@ export default function InspectionDepartureNew({ route, navigation }: any) {
       return;
     }
 
+    console.log('✅ [INSPECTION] Validation OK, début sauvegarde...');
     setSaving(true);
 
     try {

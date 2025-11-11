@@ -72,9 +72,7 @@ export default {
       enabled: true,
       checkAutomatically: "ON_LOAD"
     },
-    runtimeVersion: {
-      policy: "appVersion"
-    },
+    runtimeVersion: "4.6.0",
     owner: "xcrackz123"
   }
 };

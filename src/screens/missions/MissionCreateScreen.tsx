@@ -105,23 +105,34 @@ export default function MissionCreateScreen({ navigation }: any) {
 
     setLoading(true);
     try {
+      console.log('🔍 Vérification crédits/abonnement...');
+      console.log('💰 Crédits actuels:', credits);
+      
       // 1. Vérifier si l'utilisateur a un abonnement actif OU des crédits
-      const { data: subscription } = await supabase
+      const { data: subscription, error: subError } = await supabase
         .from('subscriptions')
-        .select('status, plan_name')
+        .select('status, plan')
         .eq('user_id', user.id)
         .eq('status', 'active')
         .maybeSingle();
 
+      if (subError) {
+        console.error('❌ Erreur vérification abonnement:', subError);
+      }
+
       const hasActiveSubscription = subscription && subscription.status === 'active';
+      console.log('📊 Abonnement actif:', hasActiveSubscription, subscription);
 
       // Si pas d'abonnement actif, vérifier les crédits
       if (!hasActiveSubscription) {
+        console.log('⚠️ Pas d\'abonnement actif, vérification des crédits...');
+        
         if (!hasEnoughCredits(1)) {
+          console.log('❌ Crédits insuffisants:', credits);
           setLoading(false);
           Alert.alert(
             '❌ Accès limité',
-            'Vous avez besoin d\'un abonnement actif ou d\'au moins 1 crédit pour créer une mission.',
+            `Vous avez besoin d'un abonnement actif ou d'au moins 1 crédit pour créer une mission.\n\nCrédits actuels: ${credits}`,
             [
               { text: 'Acheter des crédits', onPress: () => setShowBuyCreditModal(true) },
               { text: 'Annuler', style: 'cancel' }
@@ -130,15 +141,22 @@ export default function MissionCreateScreen({ navigation }: any) {
           return;
         }
 
+        console.log('✅ Crédits suffisants, déduction de 1 crédit...');
+        
         // Déduire 1 crédit si pas d'abonnement
         const deductResult = await deductCredits(1, `Création de mission ${formData.reference}`);
         
         if (!deductResult.success) {
+          console.error('❌ Échec déduction crédits:', deductResult.error);
           Alert.alert('Crédits insuffisants', deductResult.error || 'Impossible de déduire les crédits');
           setShowBuyCreditModal(true);
           setLoading(false);
           return;
         }
+        
+        console.log('✅ Crédit déduit avec succès');
+      } else {
+        console.log('✅ Abonnement actif, pas de déduction de crédits');
       }
 
       // 2. Générer un code de partage unique
@@ -190,7 +208,7 @@ export default function MissionCreateScreen({ navigation }: any) {
       if (error) throw error;
 
       const successMessage = hasActiveSubscription
-        ? `Mission ${formData.reference} créée avec succès\n\n✨ Abonnement ${subscription?.plan_name || 'actif'}`
+        ? `Mission ${formData.reference} créée avec succès\n\n✨ Abonnement ${subscription?.plan || 'actif'}`
         : `Mission ${formData.reference} créée avec succès\n\n💳 -1 crédit (Solde: ${credits - 1})`;
 
       Alert.alert(
@@ -370,21 +388,21 @@ export default function MissionCreateScreen({ navigation }: any) {
             mode="datetime"
             display="default"
             onChange={(event, selectedDate) => {
-              const currentDate = selectedDate || formData.pickup_date;
-              
-              // Sur Android, fermer immédiatement
+              // Fermer sur Android dans tous les cas
               if (Platform.OS === 'android') {
                 setShowPickupPicker(false);
-                // Mettre à jour seulement si la date est valide
-                if (selectedDate) {
-                  updateField('pickup_date', currentDate);
-                }
-              } else {
-                // Sur iOS, mettre à jour directement
-                updateField('pickup_date', currentDate);
+              }
+              
+              // Mettre à jour seulement si l'utilisateur a validé (pas dismissed)
+              if (event.type === 'set' && selectedDate) {
+                updateField('pickup_date', selectedDate);
+              }
+              
+              // Sur iOS, garder ouvert pour permettre les modifications
+              if (Platform.OS === 'ios' && event.type === 'set' && selectedDate) {
+                updateField('pickup_date', selectedDate);
               }
             }}
-            onTouchCancel={() => setShowPickupPicker(false)}
           />
         )}
       </View>
@@ -448,21 +466,21 @@ export default function MissionCreateScreen({ navigation }: any) {
             mode="datetime"
             display="default"
             onChange={(event, selectedDate) => {
-              const currentDate = selectedDate || formData.delivery_date;
-              
-              // Sur Android, fermer immédiatement
+              // Fermer sur Android dans tous les cas
               if (Platform.OS === 'android') {
                 setShowDeliveryPicker(false);
-                // Mettre à jour seulement si la date est valide
-                if (selectedDate) {
-                  updateField('delivery_date', currentDate);
-                }
-              } else {
-                // Sur iOS, mettre à jour directement
-                updateField('delivery_date', currentDate);
+              }
+              
+              // Mettre à jour seulement si l'utilisateur a validé (pas dismissed)
+              if (event.type === 'set' && selectedDate) {
+                updateField('delivery_date', selectedDate);
+              }
+              
+              // Sur iOS, garder ouvert pour permettre les modifications
+              if (Platform.OS === 'ios' && event.type === 'set' && selectedDate) {
+                updateField('delivery_date', selectedDate);
               }
             }}
-            onTouchCancel={() => setShowDeliveryPicker(false)}
           />
         )}
       </View>
