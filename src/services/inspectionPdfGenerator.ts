@@ -313,30 +313,62 @@ export const generateInspectionPDF = async (
       y += photoHeight + 15;
     }
 
-    // Signature
-    if (departureInspection.signature_url) {
+    // Signatures (convoyeur + client)
+    if (departureInspection.driver_signature || departureInspection.client_signature || departureInspection.signature_url) {
       y += 5;
-      if (y + 25 > pageHeight - 20) {
+      if (y + 30 > pageHeight - 20) {
         doc.addPage();
         y = margin;
       }
 
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-  doc.setTextColor(colors.dark[0], colors.dark[1], colors.dark[2]);
-      doc.text('Signature:', margin, y);
+      doc.setTextColor(colors.dark[0], colors.dark[1], colors.dark[2]);
+      doc.text('Signatures:', margin, y);
       y += 5;
 
-      try {
-        const signatureData = await loadImageAsDataURL(departureInspection.signature_url);
-        doc.addImage(signatureData, 'PNG', margin, y, 60, 20);
-      } catch (error) {
-  doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
+      const sigWidth = 60;
+      const sigHeight = 20;
+      const gap = 10;
+      let xPos = margin;
+
+      // Convoyeur
+      if (departureInspection.driver_signature) {
+        try {
+          const driverData = await loadImageAsDataURL(departureInspection.driver_signature);
+          doc.addImage(driverData, 'PNG', xPos, y, sigWidth, sigHeight);
+        } catch (e) {
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
+          doc.text('Signature convoyeur indisponible', xPos, y + 10);
+        }
         doc.setFontSize(8);
-        doc.text('Signature non disponible', margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
+        doc.text(`Convoyeur${departureInspection.driver_name ? ': ' + cleanText(departureInspection.driver_name) : ''}`, xPos, y + sigHeight + 5);
+        xPos += sigWidth + gap;
       }
 
-      y += 25;
+      // Client
+      const clientSig = departureInspection.client_signature || departureInspection.signature_url;
+      if (clientSig) {
+        try {
+          const clientData = await loadImageAsDataURL(clientSig);
+          doc.addImage(clientData, 'PNG', xPos, y, sigWidth, sigHeight);
+        } catch (e) {
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
+          doc.text('Signature client indisponible', xPos, y + 10);
+        }
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
+        doc.text(`Client${departureInspection.client_name ? ': ' + cleanText(departureInspection.client_name) : ''}`, xPos, y + sigHeight + 5);
+      }
+
+      y += sigHeight + 10;
     }
   }
 
@@ -355,12 +387,12 @@ export const generateInspectionPDF = async (
 
     doc.setFontSize(14);
     doc.setFont('helvetica', 'bold');
-    doc.setTextColor(...colors.danger);
+  doc.setTextColor(colors.danger[0], colors.danger[1], colors.danger[2]);
     doc.text('📍 INSPECTION D\'ARRIVEE', margin, y);
 
     doc.setFontSize(8);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...colors.gray);
+  doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
     doc.text(new Date(arrivalInspection.completed_at).toLocaleString('fr-FR'), pageWidth - margin, y, { align: 'right' });
 
     y += 8;
@@ -406,12 +438,12 @@ export const generateInspectionPDF = async (
     if (arrivalInspection.notes) {
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...colors.dark);
+  doc.setTextColor(colors.dark[0], colors.dark[1], colors.dark[2]);
       doc.text('Notes:', margin, y);
       y += 5;
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(8);
-      doc.setTextColor(...colors.gray);
+  doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
       const notesLines = doc.splitTextToSize(cleanText(arrivalInspection.notes), pageWidth - 2 * margin);
       doc.text(notesLines, margin, y);
       y += notesLines.length * 4 + 3;
@@ -427,7 +459,7 @@ export const generateInspectionPDF = async (
 
       doc.setFontSize(10);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...colors.danger);
+  doc.setTextColor(colors.danger[0], colors.danger[1], colors.danger[2]);
       doc.text(`Photos d'arrivee (${arrivalPhotos.length})`, margin, y);
       y += 8;
 
@@ -454,20 +486,20 @@ export const generateInspectionPDF = async (
           const imageData = await loadImageAsDataURL(photo.photo_url);
           doc.addImage(imageData, 'JPEG', x, y, photoWidth, photoHeight);
           
-          doc.setDrawColor(...colors.lightGray);
+          doc.setDrawColor(colors.lightGray[0], colors.lightGray[1], colors.lightGray[2]);
           doc.setLineWidth(0.5);
           doc.rect(x, y, photoWidth, photoHeight);
 
           doc.setFontSize(7);
-          doc.setTextColor(...colors.gray);
+          doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
           const label = getPhotoTypeLabel(photo.photo_type);
           doc.text(label, x + photoWidth / 2, y + photoHeight + 4, { align: 'center' });
         } catch (error) {
           console.error('Error loading photo:', error);
-          doc.setFillColor(...colors.lightGray);
+          doc.setFillColor(colors.lightGray[0], colors.lightGray[1], colors.lightGray[2]);
           doc.rect(x, y, photoWidth, photoHeight, 'F');
           doc.setFontSize(8);
-          doc.setTextColor(...colors.gray);
+          doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
           doc.text('Image non disponible', x + photoWidth / 2, y + photoHeight / 2, { align: 'center' });
         }
       }
@@ -475,27 +507,57 @@ export const generateInspectionPDF = async (
       y += photoHeight + 15;
     }
 
-    // Signature
-    if (arrivalInspection.signature_url) {
+    // Signatures (convoyeur + client) arrivée
+    if (arrivalInspection.driver_signature || arrivalInspection.client_signature || arrivalInspection.signature_url) {
       y += 5;
-      if (y + 25 > pageHeight - 20) {
+      if (y + 30 > pageHeight - 20) {
         doc.addPage();
         y = margin;
       }
 
       doc.setFontSize(9);
       doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...colors.dark);
-      doc.text('Signature:', margin, y);
+      doc.setTextColor(colors.dark[0], colors.dark[1], colors.dark[2]);
+      doc.text('Signatures:', margin, y);
       y += 5;
 
-      try {
-        const signatureData = await loadImageAsDataURL(arrivalInspection.signature_url);
-        doc.addImage(signatureData, 'PNG', margin, y, 60, 20);
-      } catch (error) {
-        doc.setTextColor(...colors.gray);
+      const sigWidthA = 60;
+      const sigHeightA = 20;
+      const gapA = 10;
+      let xPosA = margin;
+
+      if (arrivalInspection.driver_signature) {
+        try {
+          const driverDataA = await loadImageAsDataURL(arrivalInspection.driver_signature);
+          doc.addImage(driverDataA, 'PNG', xPosA, y, sigWidthA, sigHeightA);
+        } catch (e) {
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
+          doc.text('Signature convoyeur indisponible', xPosA, y + 10);
+        }
         doc.setFontSize(8);
-        doc.text('Signature non disponible', margin, y);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
+        doc.text(`Convoyeur${arrivalInspection.driver_name ? ': ' + cleanText(arrivalInspection.driver_name) : ''}`, xPosA, y + sigHeightA + 5);
+        xPosA += sigWidthA + gapA;
+      }
+
+      const clientSigA = arrivalInspection.client_signature || arrivalInspection.signature_url;
+      if (clientSigA) {
+        try {
+          const clientDataA = await loadImageAsDataURL(clientSigA);
+          doc.addImage(clientDataA, 'PNG', xPosA, y, sigWidthA, sigHeightA);
+        } catch (e) {
+          doc.setFontSize(8);
+          doc.setFont('helvetica', 'normal');
+          doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
+          doc.text('Signature client indisponible', xPosA, y + 10);
+        }
+        doc.setFontSize(8);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
+        doc.text(`Client${arrivalInspection.client_name ? ': ' + cleanText(arrivalInspection.client_name) : ''}`, xPosA, y + sigHeightA + 5);
       }
     }
   }
@@ -506,13 +568,13 @@ export const generateInspectionPDF = async (
     doc.setPage(i);
     const footerY = pageHeight - 15;
     
-    doc.setDrawColor(...colors.primary);
+  doc.setDrawColor(colors.primary[0], colors.primary[1], colors.primary[2]);
     doc.setLineWidth(0.5);
     doc.line(margin, footerY, pageWidth - margin, footerY);
 
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
-    doc.setTextColor(...colors.gray);
+  doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
     doc.text('XCRACKZ - Rapport d\'inspection vehicule', pageWidth / 2, footerY + 5, { align: 'center' });
     doc.text(`Page ${i}/${totalPages}`, pageWidth - margin, footerY + 5, { align: 'right' });
     doc.text(`Genere le ${new Date().toLocaleDateString('fr-FR')}`, margin, footerY + 5);
