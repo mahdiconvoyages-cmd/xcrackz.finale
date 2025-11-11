@@ -230,6 +230,19 @@ export default function InspectionArrivalNew() {
 
       console.log('✅ Inspection arrivée créée:', arrivalInspection.id);
 
+      // Helper: upload avec retry (réduit les erreurs 5xx/edge)
+      const uploadWithRetry = async (bucket: string, path: string, file: File, attempts = 3): Promise<void> => {
+        let lastErr: any = null;
+        for (let i = 0; i < attempts; i++) {
+          const { error } = await supabase.storage.from(bucket).upload(path, file, { upsert: false });
+          if (!error) return;
+          lastErr = error;
+          // 429/5xx -> attendre et réessayer
+          await new Promise(res => setTimeout(res, 300 * (i + 1)));
+        }
+        throw lastErr;
+      };
+
       // 2. Upload des photos obligatoires
       let uploadedCount = 0;
 
@@ -242,11 +255,7 @@ export default function InspectionArrivalNew() {
           const filePath = `inspections/${fileName}`;
 
           // Upload vers Storage
-          const { error: uploadError } = await supabase.storage
-            .from('inspection-photos')
-            .upload(filePath, photo.file);
-
-          if (uploadError) throw uploadError;
+          await uploadWithRetry('inspection-photos', filePath, photo.file);
 
           // Récupérer URL publique
           const { data: urlData } = supabase.storage
@@ -277,11 +286,7 @@ export default function InspectionArrivalNew() {
           const fileName = `${arrivalInspection.id}-${photo.type}-${Date.now()}.${fileExt}`;
           const filePath = `inspections/${fileName}`;
 
-          const { error: uploadError } = await supabase.storage
-            .from('inspection-photos')
-            .upload(filePath, photo.file);
-
-          if (uploadError) throw uploadError;
+          await uploadWithRetry('inspection-photos', filePath, photo.file);
 
           const { data: urlData } = supabase.storage
             .from('inspection-photos')
@@ -307,11 +312,7 @@ export default function InspectionArrivalNew() {
           const fileName = `${arrivalInspection.id}-optional-${Date.now()}.${fileExt}`;
           const filePath = `inspections/${fileName}`;
 
-          const { error: uploadError } = await supabase.storage
-            .from('inspection-photos')
-            .upload(filePath, optPhoto.file);
-
-          if (uploadError) throw uploadError;
+          await uploadWithRetry('inspection-photos', filePath, optPhoto.file);
 
           const { data: urlData } = supabase.storage
             .from('inspection-photos')
@@ -335,6 +336,7 @@ export default function InspectionArrivalNew() {
       // 5. Mettre à jour le statut de la mission
       const { error: updateError } = await supabase
         .from('missions')
+        // @ts-ignore - typage générique non configuré pour cette table dans ce fichier
         .update({ status: 'completed' } as any)
         .eq('id', missionId!);
 

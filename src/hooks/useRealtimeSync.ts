@@ -8,8 +8,8 @@
  * - Covoiturage
  */
 
-import { useEffect } from 'react';
-import { supabase } from '../config/supabase';
+import { useEffect, useRef } from 'react';
+import { supabase } from '../lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 type RealtimeTable = 'missions' | 'vehicle_inspections' | 'inspection_reports' | 'carpooling';
@@ -36,6 +36,10 @@ export function useRealtimeSync({
 }: RealtimeSyncOptions) {
   useEffect(() => {
     let channel: RealtimeChannel;
+    // Conserver des callbacks stables pour éviter les resubscriptions inutiles
+    const insertRef = { current: onInsert };
+    const updateRef = { current: onUpdate };
+    const deleteRef = { current: onDelete };
 
     const setupRealtime = async () => {
       // Créer le canal de synchronisation
@@ -51,7 +55,7 @@ export function useRealtimeSync({
           },
           (payload) => {
             console.log(`[Realtime] INSERT ${table}:`, payload.new);
-            onInsert?.(payload.new);
+            insertRef.current?.(payload.new);
           }
         )
         .on(
@@ -64,7 +68,7 @@ export function useRealtimeSync({
           },
           (payload) => {
             console.log(`[Realtime] UPDATE ${table}:`, payload.new);
-            onUpdate?.(payload.new);
+            updateRef.current?.(payload.new);
           }
         )
         .on(
@@ -77,7 +81,7 @@ export function useRealtimeSync({
           },
           (payload) => {
             console.log(`[Realtime] DELETE ${table}:`, payload.old);
-            onDelete?.(payload.old);
+            deleteRef.current?.(payload.old);
           }
         )
         .subscribe((status) => {
@@ -94,7 +98,7 @@ export function useRealtimeSync({
         console.log(`[Realtime] Unsubscribed from ${table}`);
       }
     };
-  }, [table, userId, filter, onInsert, onUpdate, onDelete]);
+  }, [table, userId, filter]);
 }
 
 /**
