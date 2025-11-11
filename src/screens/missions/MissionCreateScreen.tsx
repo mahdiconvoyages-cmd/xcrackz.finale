@@ -27,7 +27,7 @@ const TOTAL_STEPS = 4;
 export default function MissionCreateScreen({ navigation }: any) {
   const { colors } = useTheme();
   const { user } = useAuth();
-  const { credits, deductCredits, hasEnoughCredits } = useCredits();
+  const { credits, deductCredits, hasEnoughCredits, refreshCredits } = useCredits();
   
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -120,7 +120,9 @@ export default function MissionCreateScreen({ navigation }: any) {
         console.error('❌ Erreur vérification abonnement:', subError);
       }
 
-      const hasActiveSubscription = subscription && subscription.status === 'active';
+  // Abonnement actif uniquement si plan payant reconnu
+  const paidPlans = ['basic', 'pro', 'business', 'enterprise'];
+  const hasActiveSubscription = !!(subscription && subscription.status === 'active' && paidPlans.includes((subscription as any).plan));
       console.log('📊 Abonnement actif:', hasActiveSubscription, subscription);
 
       // Si pas d'abonnement actif, vérifier les crédits
@@ -144,7 +146,7 @@ export default function MissionCreateScreen({ navigation }: any) {
         console.log('✅ Crédits suffisants, déduction de 1 crédit...');
         
         // Déduire 1 crédit si pas d'abonnement
-        const deductResult = await deductCredits(1, `Création de mission ${formData.reference}`);
+  const deductResult = await deductCredits(1, `Création de mission ${formData.reference}`);
         
         if (!deductResult.success) {
           console.error('❌ Échec déduction crédits:', deductResult.error);
@@ -225,6 +227,15 @@ export default function MissionCreateScreen({ navigation }: any) {
           },
         ]
       );
+
+      // Rafraîchir les crédits après création (utile si déduits)
+      try {
+        if (!hasActiveSubscription && typeof refreshCredits === 'function') {
+          await refreshCredits();
+        }
+      } catch (e) {
+        console.log('ℹ️ refreshCredits post-mission: ignoré', e);
+      }
     } catch (error: any) {
       console.error('Erreur création mission:', error);
       Alert.alert('Erreur', error.message || 'Impossible de créer la mission');
@@ -386,7 +397,7 @@ export default function MissionCreateScreen({ navigation }: any) {
           <DateTimePicker
             value={formData.pickup_date}
             mode="datetime"
-            display="default"
+            display={Platform.OS === 'android' ? 'spinner' : 'default'}
             onChange={(event, selectedDate) => {
               // Fermer sur Android dans tous les cas
               if (Platform.OS === 'android') {
@@ -464,7 +475,7 @@ export default function MissionCreateScreen({ navigation }: any) {
           <DateTimePicker
             value={formData.delivery_date}
             mode="datetime"
-            display="default"
+            display={Platform.OS === 'android' ? 'spinner' : 'default'}
             onChange={(event, selectedDate) => {
               // Fermer sur Android dans tous les cas
               if (Platform.OS === 'android') {

@@ -11,6 +11,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+import { decode } from 'base64-arraybuffer';
 import { useTheme } from '../contexts/ThemeContext';
 import { supabase } from '../lib/supabase';
 
@@ -93,43 +94,66 @@ export default function VehicleImageUpload({ value, onImageUploaded, label }: Pr
   const uploadImage = async (uri: string) => {
     setUploading(true);
     try {
+      console.log('📤 [VEHICLE PHOTO] Début upload depuis:', uri.substring(0, 50) + '...');
+      
       // Créer un nom de fichier unique
       const timestamp = Date.now();
       const extension = uri.split('.').pop() || 'jpg';
       const fileName = `vehicle_${timestamp}.${extension}`;
-      // Utiliser le même bucket que le web : vehicle-images
       const filePath = fileName;
 
-      // Convertir l'URI en Blob pour l'upload
-      const response = await fetch(uri);
-      const blob = await response.blob();
+      console.log('📂 [VEHICLE PHOTO] Nom fichier:', fileName);
 
-      // Upload vers Supabase Storage (bucket 'vehicle-images' comme le web)
+      // Méthode optimisée pour React Native : fetch + arrayBuffer + base64
+      console.log('📥 [VEHICLE PHOTO] Lecture du fichier...');
+      const response = await fetch(uri);
+      
+      if (!response.ok) {
+        throw new Error(`Erreur lecture fichier: ${response.status}`);
+      }
+
+      const arrayBuffer = await response.arrayBuffer();
+      console.log(`📊 [VEHICLE PHOTO] Taille: ${(arrayBuffer.byteLength / 1024).toFixed(2)} KB`);
+
+      // Convertir ArrayBuffer en base64
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+
+      console.log('☁️ [VEHICLE PHOTO] Upload vers Supabase Storage...');
+
+      // Upload vers Supabase Storage (bucket 'vehicle-images')
       const { data, error } = await supabase.storage
         .from('vehicle-images')
-        .upload(filePath, blob, {
+        .upload(filePath, decode(base64), {
           contentType: `image/${extension}`,
           upsert: false,
         });
 
       if (error) {
-        console.error('Erreur upload Supabase:', error);
+        console.error('❌ [VEHICLE PHOTO] Erreur Storage:', error);
         throw error;
       }
 
-      // Obtenir l'URL publique (bucket 'vehicle-images' comme le web)
+      console.log('✅ [VEHICLE PHOTO] Fichier uploadé:', data?.path || filePath);
+
+      // Obtenir l'URL publique
       const { data: publicUrlData } = supabase.storage
         .from('vehicle-images')
         .getPublicUrl(filePath);
 
       if (publicUrlData?.publicUrl) {
+        console.log('🔗 [VEHICLE PHOTO] URL publique obtenue');
         onImageUploaded(publicUrlData.publicUrl);
         Alert.alert('✅ Succès', 'Photo téléchargée avec succès');
       } else {
         throw new Error('Impossible d\'obtenir l\'URL publique');
       }
     } catch (error: any) {
-      console.error('Erreur upload image:', error);
+      console.error('❌ [VEHICLE PHOTO] Erreur complète:', error);
       Alert.alert(
         '❌ Erreur',
         error.message || 'Impossible de télécharger l\'image. Vérifiez vos permissions de stockage.'

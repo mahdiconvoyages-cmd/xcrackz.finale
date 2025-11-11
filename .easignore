@@ -1,3 +1,18 @@
+# Exclude nested mobile projects and heavy build artifacts
+mobile/
+mobile/**
+*/android/
+*/android/**
+*/node_modules/
+mobile/mobile/
+mobile/mobile/**
+mobile/mobile/mobile/
+mobile/mobile/mobile/**
+dist/
+*.apk
+*.aab
+*.ipa
+.expo/
 # Gradle
 android/.gradle
 android/build
