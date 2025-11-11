@@ -1,0 +1,189 @@
+-- ================================================
+-- RPC: get_full_inspection_report(token)
+-- Objectif: Retourner un rapport complet web identique au mobile
+-- - Inclut mission/vehicule
+-- - Départ + Arrivée avec: photos, signatures, noms signataires
+-- - Documents scannés (inspection_documents)
+-- - Frais/Dépenses (inspection_expenses)
+-- Sûr à exécuter plusieurs fois (idempotent)
+-- ================================================
+
+DROP FUNCTION IF EXISTS get_full_inspection_report(TEXT);
+CREATE OR REPLACE FUNCTION get_full_inspection_report(
+  p_token TEXT
+)
+RETURNS JSONB AS $$
+DECLARE
+  v_share_record RECORD;
+  v_result JSONB;
+BEGIN
+  SELECT * INTO v_share_record
+  FROM public.inspection_report_shares
+  WHERE share_token = p_token
+    AND is_active = TRUE
+    AND (expires_at IS NULL OR expires_at > NOW())
+  LIMIT 1;
+
+  IF NOT FOUND THEN
+    RETURN jsonb_build_object('error', 'Token invalide ou expiré');
+  END IF;
+
+  UPDATE public.inspection_report_shares
+  SET access_count = access_count + 1,
+      last_accessed_at = NOW()
+  WHERE share_token = p_token;
+
+  SELECT jsonb_build_object(
+    'mission_data', jsonb_build_object(
+      'id', m.id,
+      'reference', m.reference,
+      'status', m.status,
+      'created_at', m.created_at,
+      'pickup_date', m.pickup_date,
+      'delivery_date', m.delivery_date,
+      'pickup_address', m.pickup_address,
+      'delivery_address', m.delivery_address,
+      'vehicle_type', m.vehicle_type,
+      'driver_name', COALESCE(
+        (
+          SELECT vi.driver_name
+          FROM vehicle_inspections vi
+          WHERE vi.mission_id = m.id AND vi.inspection_type = 'departure'
+          ORDER BY vi.created_at DESC
+          LIMIT 1
+        ),
+        (
+          SELECT vi.driver_name
+          FROM vehicle_inspections vi
+          WHERE vi.mission_id = m.id AND vi.inspection_type = 'arrival'
+          ORDER BY vi.created_at DESC
+          LIMIT 1
+        )
+      )
+    ),
+    'vehicle_data', jsonb_build_object(
+      'brand', m.vehicle_brand,
+      'model', m.vehicle_model,
+      'plate', m.vehicle_plate,
+      'vin', m.vehicle_vin,
+      'year', m.vehicle_year,
+      'color', m.vehicle_color
+    ),
+    'inspection_departure', (
+      SELECT jsonb_build_object(
+        'id', vi.id,
+        'created_at', vi.created_at,
+        'completed_at', vi.completed_at,
+        'mileage_km', vi.mileage_km,
+        'fuel_level', vi.fuel_level,
+        'cleanliness_interior', vi.internal_cleanliness,
+        'cleanliness_exterior', vi.external_cleanliness,
+        'notes', vi.notes,
+        'driver_signature', vi.driver_signature,
+        'client_signature', vi.client_signature,
+        'driver_name', vi.driver_name,
+        'client_name', vi.client_name,
+        'latitude', vi.latitude,
+        'longitude', vi.longitude,
+        'photos', (
+          SELECT jsonb_agg(jsonb_build_object(
+            'id', ip.id,
+            'photo_url', ip.full_url,
+            'thumbnail_url', ip.thumbnail_url,
+            'photo_type', ip.photo_type,
+            'taken_at', ip.taken_at
+          ) ORDER BY ip.taken_at)
+          FROM inspection_photos_v2 ip
+          WHERE ip.inspection_id = vi.id
+        ),
+        'scanned_documents', (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'id', d.id,
+            'title', d.title,
+            'file_url', d.file_url,
+            'mime_type', d.mime_type,
+            'created_at', d.created_at
+          ) ORDER BY d.created_at), '[]'::jsonb)
+          FROM inspection_documents d
+          WHERE d.inspection_id = vi.id
+        ),
+        'expenses', (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'id', e.id,
+            'description', e.description,
+            'expense_type', e.expense_type,
+            'amount', e.amount,
+            'created_at', e.created_at
+          ) ORDER BY e.created_at), '[]'::jsonb)
+          FROM inspection_expenses e
+          WHERE e.inspection_id = vi.id
+        )
+      )
+      FROM vehicle_inspections vi
+      WHERE vi.mission_id = m.id AND vi.inspection_type = 'departure'
+      LIMIT 1
+    ),
+    'inspection_arrival', (
+      SELECT jsonb_build_object(
+        'id', vi.id,
+        'created_at', vi.created_at,
+        'completed_at', vi.completed_at,
+        'mileage_km', vi.mileage_km,
+        'fuel_level', vi.fuel_level,
+        'cleanliness_interior', vi.internal_cleanliness,
+        'cleanliness_exterior', vi.external_cleanliness,
+        'notes', vi.notes,
+        'driver_signature', vi.driver_signature,
+        'client_signature', vi.client_signature,
+        'driver_name', vi.driver_name,
+        'client_name', vi.client_name,
+        'latitude', vi.latitude,
+        'longitude', vi.longitude,
+        'photos', (
+          SELECT jsonb_agg(jsonb_build_object(
+            'id', ip.id,
+            'photo_url', ip.full_url,
+            'thumbnail_url', ip.thumbnail_url,
+            'photo_type', ip.photo_type,
+            'taken_at', ip.taken_at
+          ) ORDER BY ip.taken_at)
+          FROM inspection_photos_v2 ip
+          WHERE ip.inspection_id = vi.id
+        ),
+        'scanned_documents', (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'id', d.id,
+            'title', d.title,
+            'file_url', d.file_url,
+            'mime_type', d.mime_type,
+            'created_at', d.created_at
+          ) ORDER BY d.created_at), '[]'::jsonb)
+          FROM inspection_documents d
+          WHERE d.inspection_id = vi.id
+        ),
+        'expenses', (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'id', e.id,
+            'description', e.description,
+            'expense_type', e.expense_type,
+            'amount', e.amount,
+            'created_at', e.created_at
+          ) ORDER BY e.created_at), '[]'::jsonb)
+          FROM inspection_expenses e
+          WHERE e.inspection_id = vi.id
+        )
+      )
+      FROM vehicle_inspections vi
+      WHERE vi.mission_id = m.id AND vi.inspection_type = 'arrival'
+      LIMIT 1
+    ),
+    'report_type', v_share_record.report_type
+  ) INTO v_result
+  FROM missions m
+  WHERE m.id = v_share_record.mission_id;
+
+  RETURN v_result;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION get_full_inspection_report(TEXT) TO anon, authenticated;

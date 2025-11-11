@@ -64,60 +64,11 @@ export default function PublicInspectionReportShared() {
 
   const loadReport = async () => {
     try {
-      const { data, error: rpcError } = await supabase.rpc('get_inspection_report_by_token', { p_token: token });
+      const { data, error: rpcError } = await supabase.rpc('get_full_inspection_report', { p_token: token });
       if (rpcError) throw rpcError;
       if (!data || data.error) throw new Error(data?.error || 'Rapport non trouvé');
 
-      // Enrichir avec documents scannés + frais par inspection
-      const departureId = data.inspection_departure?.id;
-      const arrivalId = data.inspection_arrival?.id;
-      let depDocs = [], arrDocs = [], depExpenses = [], arrExpenses = [];
-
-      if (departureId) {
-        const { data: docs } = await supabase
-          .from('inspection_documents')
-          .select('*')
-          .eq('inspection_id', departureId)
-          .order('created_at', { ascending: true });
-        depDocs = docs || [];
-        const { data: expenses } = await supabase
-          .from('inspection_expenses')
-          .select('*')
-          .eq('inspection_id', departureId)
-          .order('created_at', { ascending: true });
-        depExpenses = expenses || [];
-      }
-      if (arrivalId) {
-        const { data: docs } = await supabase
-          .from('inspection_documents')
-          .select('*')
-          .eq('inspection_id', arrivalId)
-          .order('created_at', { ascending: true });
-        arrDocs = docs || [];
-        const { data: expenses } = await supabase
-          .from('inspection_expenses')
-          .select('*')
-          .eq('inspection_id', arrivalId)
-          .order('created_at', { ascending: true });
-        arrExpenses = expenses || [];
-      }
-
-      const enriched = {
-        ...data,
-        inspection_departure: data.inspection_departure ? {
-          ...data.inspection_departure,
-          scanned_documents: depDocs,
-          expenses: depExpenses,
-        } : null,
-        inspection_arrival: data.inspection_arrival ? {
-          ...data.inspection_arrival,
-          scanned_documents: arrDocs,
-          expenses: arrExpenses,
-        } : null,
-      };
-
-      console.log('📊 Rapport enrichi:', enriched);
-      setReportData(enriched);
+      setReportData(data);
     } catch (err: any) {
       setError(err.message);
     } finally {
