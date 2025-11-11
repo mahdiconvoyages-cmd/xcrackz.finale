@@ -9,9 +9,9 @@ export default function MobileDownload() {
   const ENV_APK_URL = import.meta.env.VITE_ANDROID_APK_URL as string | undefined;
   const ENV_ANDROID_VERSION = (import.meta.env.VITE_ANDROID_VERSION as string | undefined) || '6.0.0';
 
-  // Lien direct de téléchargement APK (Build ID: 08c0a9b4-8a12-4b46-aaf8-61283a6ed94a)
+  // Lien direct de téléchargement APK (Build ID: 08f1765b-a0ff-4220-a535-e8a229135756)
   // Version 6.0.0 (versionCode: 2) - Build incluant correctifs TimePicker Android (séparation date/heure), upload photos, auto-renew, crédits refresh
-  const ANDROID_APK_URL = ENV_APK_URL || 'https://expo.dev/artifacts/eas/25FQqQdgtyJ2UuS3iHWEEW.apk';
+  const ANDROID_APK_URL = ENV_APK_URL || 'https://expo.dev/artifacts/eas/27429PbsmShZEVDMJTmwES.apk';
 
   const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.finality.app'; // À publier
   const APP_STORE_URL = 'https://apps.apple.com/app/xcrackz/id123456789'; // À publier
