@@ -236,11 +236,18 @@ async function addSignatures(
   const sigW = (W - 50) / 2;
   const sigH = 32;
   
+  // Bloc Signatures - titre global
+  pdf.setTextColor(...C.dark);
+  pdf.setFontSize(10);
+  pdf.setFont('helvetica', 'bold');
+  pdf.text('✍️ Signatures', 20, y);
+  y += 6;
+
   // Signature Convoyeur
   pdf.setTextColor(...C.dark);
   pdf.setFontSize(9);
   pdf.setFont('helvetica', 'bold');
-  pdf.text('✍️ Signature Convoyeur', 20, y);
+  pdf.text('Convoyeur', 20, y);
   
   // Nom du convoyeur
   if (driverName) {
@@ -275,7 +282,7 @@ async function addSignatures(
   pdf.setTextColor(...C.dark);
   pdf.setFontSize(9);
   pdf.setFont('helvetica', 'bold');
-  pdf.text('✍️ Signature Client', rightX, y);
+  pdf.text('Client', rightX, y);
   
   // Nom du client
   if (clientName) {
