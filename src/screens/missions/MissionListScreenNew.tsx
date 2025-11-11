@@ -264,7 +264,7 @@ export default function MissionListScreenNew({ navigation }: any) {
         break;
       case 'completed':
         navigation.navigate('Inspections', {
-          screen: 'InspectionReports',
+          screen: 'InspectionShare', // Harmonise avec InspectionsNavigator
         });
         break;
       default:

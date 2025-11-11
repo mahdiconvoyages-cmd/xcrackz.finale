@@ -31,8 +31,11 @@ export default function MissionCreateScreen({ navigation }: any) {
   
   const [currentStep, setCurrentStep] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [showPickupPicker, setShowPickupPicker] = useState(false);
-  const [showDeliveryPicker, setShowDeliveryPicker] = useState(false);
+  // Pickers (Android nécessite séparation date / heure, le mode 'datetime' provoque écran noir)
+  const [showPickupDatePicker, setShowPickupDatePicker] = useState(false);
+  const [showPickupTimePicker, setShowPickupTimePicker] = useState(false);
+  const [showDeliveryDatePicker, setShowDeliveryDatePicker] = useState(false);
+  const [showDeliveryTimePicker, setShowDeliveryTimePicker] = useState(false);
   const [showBuyCreditModal, setShowBuyCreditModal] = useState(false);
 
   const [formData, setFormData] = useState({
@@ -143,10 +146,10 @@ export default function MissionCreateScreen({ navigation }: any) {
           return;
         }
 
-        console.log('✅ Crédits suffisants, déduction de 1 crédit...');
+    console.log('✅ Crédits suffisants, déduction de 1 crédit...');
         
-        // Déduire 1 crédit si pas d'abonnement
-  const deductResult = await deductCredits(1, `Création de mission ${formData.reference}`);
+    // Déduire 1 crédit si pas d'abonnement
+    const deductResult = await deductCredits(1, `Création de mission ${formData.reference}`);
         
         if (!deductResult.success) {
           console.error('❌ Échec déduction crédits:', deductResult.error);
@@ -156,7 +159,9 @@ export default function MissionCreateScreen({ navigation }: any) {
           return;
         }
         
-        console.log('✅ Crédit déduit avec succès');
+  console.log('✅ Crédit déduit avec succès');
+  // Rafraîchir tout de suite pour refléter le solde sur les écrans actifs
+  try { await refreshCredits(); } catch {}
       } else {
         console.log('✅ Abonnement actif, pas de déduction de crédits');
       }
@@ -228,9 +233,10 @@ export default function MissionCreateScreen({ navigation }: any) {
         ]
       );
 
-      // Rafraîchir les crédits après création (utile si déduits)
+      // Rafraîchir les crédits après création (utile si déduits) avec un léger délai pour laisser le backend appliquer l'update
       try {
         if (!hasActiveSubscription && typeof refreshCredits === 'function') {
+          await new Promise((r) => setTimeout(r, 300));
           await refreshCredits();
         }
       } catch (e) {
@@ -386,33 +392,70 @@ export default function MissionCreateScreen({ navigation }: any) {
         <Text style={[styles.label, { color: colors.text }]}>Date d'enlèvement</Text>
         <TouchableOpacity
           style={[styles.dateButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={() => setShowPickupPicker(true)}
+          onPress={() => {
+            if (Platform.OS === 'android') {
+              setShowPickupDatePicker(true);
+            } else {
+              // iOS peut utiliser un seul picker datetime
+              setShowPickupDatePicker(true);
+            }
+          }}
         >
           <Ionicons name="calendar" size={20} color={colors.primary} />
           <Text style={[styles.dateText, { color: colors.text }]}>
             {formData.pickup_date.toLocaleDateString('fr-FR')} {formData.pickup_date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
           </Text>
         </TouchableOpacity>
-        {showPickupPicker && (
+        {/* iOS: picker combiné datetime */}
+        {Platform.OS === 'ios' && showPickupDatePicker && (
           <DateTimePicker
             value={formData.pickup_date}
             mode="datetime"
-            display={Platform.OS === 'android' ? 'spinner' : 'default'}
+            display="inline"
             onChange={(event, selectedDate) => {
-              // Fermer sur Android dans tous les cas
-              if (Platform.OS === 'android') {
-                setShowPickupPicker(false);
-              }
-              
-              // Mettre à jour seulement si l'utilisateur a validé (pas dismissed)
               if (event.type === 'set' && selectedDate) {
                 updateField('pickup_date', selectedDate);
               }
-              
-              // Sur iOS, garder ouvert pour permettre les modifications
-              if (Platform.OS === 'ios' && event.type === 'set' && selectedDate) {
-                updateField('pickup_date', selectedDate);
+            }}
+          />
+        )}
+        {/* Android: séparer date puis heure pour éviter le bug écran noir */}
+        {Platform.OS === 'android' && showPickupDatePicker && (
+          <DateTimePicker
+            value={formData.pickup_date}
+            mode="date"
+            display="spinner"
+            onChange={(event, selectedDate) => {
+              if (event.type === 'set' && selectedDate) {
+                // Conserver l'heure existante
+                const existing = formData.pickup_date;
+                const merged = new Date(selectedDate);
+                merged.setHours(existing.getHours());
+                merged.setMinutes(existing.getMinutes());
+                updateField('pickup_date', merged);
+                // Ouvrir ensuite le time picker
+                setShowPickupDatePicker(false);
+                setShowPickupTimePicker(true);
+              } else {
+                setShowPickupDatePicker(false);
               }
+            }}
+          />
+        )}
+        {Platform.OS === 'android' && showPickupTimePicker && (
+          <DateTimePicker
+            value={formData.pickup_date}
+            mode="time"
+            display="spinner"
+            onChange={(event, selectedDate) => {
+              if (event.type === 'set' && selectedDate) {
+                const existing = formData.pickup_date;
+                const merged = new Date(existing);
+                merged.setHours(selectedDate.getHours());
+                merged.setMinutes(selectedDate.getMinutes());
+                updateField('pickup_date', merged);
+              }
+              setShowPickupTimePicker(false);
             }}
           />
         )}
@@ -464,33 +507,65 @@ export default function MissionCreateScreen({ navigation }: any) {
         <Text style={[styles.label, { color: colors.text }]}>Date de livraison</Text>
         <TouchableOpacity
           style={[styles.dateButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-          onPress={() => setShowDeliveryPicker(true)}
+          onPress={() => {
+            if (Platform.OS === 'android') {
+              setShowDeliveryDatePicker(true);
+            } else {
+              setShowDeliveryDatePicker(true);
+            }
+          }}
         >
           <Ionicons name="calendar" size={20} color={colors.primary} />
           <Text style={[styles.dateText, { color: colors.text }]}>
             {formData.delivery_date.toLocaleDateString('fr-FR')} {formData.delivery_date.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
           </Text>
         </TouchableOpacity>
-        {showDeliveryPicker && (
+        {Platform.OS === 'ios' && showDeliveryDatePicker && (
           <DateTimePicker
             value={formData.delivery_date}
             mode="datetime"
-            display={Platform.OS === 'android' ? 'spinner' : 'default'}
+            display="inline"
             onChange={(event, selectedDate) => {
-              // Fermer sur Android dans tous les cas
-              if (Platform.OS === 'android') {
-                setShowDeliveryPicker(false);
-              }
-              
-              // Mettre à jour seulement si l'utilisateur a validé (pas dismissed)
               if (event.type === 'set' && selectedDate) {
                 updateField('delivery_date', selectedDate);
               }
-              
-              // Sur iOS, garder ouvert pour permettre les modifications
-              if (Platform.OS === 'ios' && event.type === 'set' && selectedDate) {
-                updateField('delivery_date', selectedDate);
+            }}
+          />
+        )}
+        {Platform.OS === 'android' && showDeliveryDatePicker && (
+          <DateTimePicker
+            value={formData.delivery_date}
+            mode="date"
+            display="spinner"
+            onChange={(event, selectedDate) => {
+              if (event.type === 'set' && selectedDate) {
+                const existing = formData.delivery_date;
+                const merged = new Date(selectedDate);
+                merged.setHours(existing.getHours());
+                merged.setMinutes(existing.getMinutes());
+                updateField('delivery_date', merged);
+                setShowDeliveryDatePicker(false);
+                setShowDeliveryTimePicker(true);
+              } else {
+                setShowDeliveryDatePicker(false);
               }
+            }}
+          />
+        )}
+        {Platform.OS === 'android' && showDeliveryTimePicker && (
+          <DateTimePicker
+            value={formData.delivery_date}
+            mode="time"
+            display="spinner"
+            onChange={(event, selectedDate) => {
+              if (event.type === 'set' && selectedDate) {
+                const existing = formData.delivery_date;
+                const merged = new Date(existing);
+                merged.setHours(selectedDate.getHours());
+                merged.setMinutes(selectedDate.getMinutes());
+                updateField('delivery_date', merged);
+              }
+              setShowDeliveryTimePicker(false);
             }}
           />
         )}
