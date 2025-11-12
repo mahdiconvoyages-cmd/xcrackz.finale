@@ -10,7 +10,6 @@ import AddressAutocomplete from '../components/AddressAutocomplete';
 import VehicleImageUpload from '../components/VehicleImageUpload';
 import BuyCreditModal from '../components/BuyCreditModal';
 import { getVehicleImageUrl } from '../utils/vehicleDefaults';
-import { getMissionWebLink, getMissionDeeplink } from '../lib/shareCode';
 
 export default function MissionCreate() {
   const { user } = useAuth();
@@ -21,7 +20,7 @@ export default function MissionCreate() {
   const [showPreview, setShowPreview] = useState(false);
   const [showBuyCreditModal, setShowBuyCreditModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const [createdMission, setCreatedMission] = useState<{ id: string } | null>(null);
+  const [createdMission, setCreatedMission] = useState<{ id: string; share_code?: string } | null>(null);
   const [copied, setCopied] = useState(false);
   const totalSteps = 5; // Ajout d'une étape finale de récapitulatif & PDF
 
@@ -156,9 +155,12 @@ export default function MissionCreate() {
 
       if (error) throw error;
 
-      // Afficher le modal de succès avec lien de partage
+      // Afficher le modal de succès avec code de partage
       if (data && data.id) {
-        setCreatedMission({ id: data.id });
+        setCreatedMission({ 
+          id: data.id,
+          share_code: data.share_code 
+        });
       } else {
         // Si pas d'ID, rediriger directement
         navigate('/team-missions');
@@ -836,7 +838,7 @@ export default function MissionCreate() {
         </div>
       )}
 
-      {/* Modal Success avec Lien de Partage */}
+      {/* Modal Success avec Code de Partage */}
       {createdMission && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
@@ -859,20 +861,17 @@ export default function MissionCreate() {
               </div>
               
               <div className="space-y-3">
-                <div className="bg-white rounded-lg p-3 border border-blue-200">
-                  <div className="text-xs text-gray-600 mb-1">Lien de partage</div>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="text"
-                      value={getMissionWebLink(createdMission.id)}
-                      readOnly
-                      className="flex-1 text-sm bg-transparent border-none focus:outline-none text-gray-700 font-mono"
-                    />
+                <div className="bg-white rounded-lg p-4 border border-blue-200">
+                  <div className="text-xs text-gray-600 mb-2">Code de partage</div>
+                  <div className="flex items-center gap-2 justify-center">
+                    <div className="text-2xl font-bold text-blue-600 tracking-wider font-mono">
+                      {createdMission.share_code || 'XZ-XXX-XXX'}
+                    </div>
                     <button
                       onClick={async () => {
-                        const link = getMissionWebLink(createdMission.id);
+                        const code = createdMission.share_code || '';
                         try {
-                          await navigator.clipboard.writeText(link);
+                          await navigator.clipboard.writeText(code);
                           setCopied(true);
                           setTimeout(() => setCopied(false), 2000);
                         } catch (err) {
@@ -888,12 +887,15 @@ export default function MissionCreate() {
                       )}
                     </button>
                   </div>
+                  <div className="text-xs text-gray-500 mt-2 text-center">
+                    Le destinataire devra entrer ce code dans l'app mobile
+                  </div>
                 </div>
 
                 <button
                   onClick={async () => {
-                    const link = getMissionWebLink(createdMission.id);
-                    const text = `Rejoins ma mission de convoyage !\n\n${formData.vehicle_brand} ${formData.vehicle_model}\n\n${link}`;
+                    const code = createdMission.share_code || '';
+                    const text = `🚗 Mission de convoyage\n\n${formData.vehicle_brand} ${formData.vehicle_model}\n\nCode: ${code}\n\nPour rejoindre cette mission:\n1. Ouvre l'app xCrackz\n2. Va dans Missions > Rejoindre\n3. Entre le code: ${code}`;
                     
                     if (navigator.share) {
                       try {
