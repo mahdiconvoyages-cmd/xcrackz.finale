@@ -486,67 +486,6 @@ export default function MissionViewScreenNew({ route, navigation }: any) {
             </Animated.View>
           )}
 
-          {/* Code de partage */}
-          {mission.share_code && mission.user_id === user?.id && (
-            <Animated.View
-              style={[
-                styles.card,
-                {
-                  opacity: fadeAnim,
-                  transform: [{ scale: scaleAnim }],
-                },
-              ]}
-            >
-              <LinearGradient
-                colors={['#1e293b', '#0f172a'] as any}
-                style={styles.cardGradient}
-              >
-                <View style={styles.cardHeader}>
-                  <Ionicons name="share-social" size={24} color="#14b8a6" />
-                  <Text style={styles.cardTitle}>Code de partage</Text>
-                </View>
-
-                <View style={styles.shareCodeContainer}>
-                  <View style={styles.shareCodeBox}>
-                    <Text style={styles.shareCodeText}>
-                      {mission.share_code}
-                    </Text>
-                  </View>
-
-                  <View style={styles.shareActions}>
-                    <TouchableOpacity
-                      style={styles.shareButton}
-                      onPress={async () => {
-                        await Clipboard.setStringAsync(mission.share_code);
-                        Alert.alert('✅ Copié', 'Code de partage copié dans le presse-papiers');
-                      }}
-                    >
-                      <Ionicons name="copy" size={18} color="#fff" />
-                      <Text style={styles.shareButtonText}>Copier</Text>
-                    </TouchableOpacity>
-
-                    <TouchableOpacity
-                      style={styles.shareButton}
-                      onPress={async () => {
-                        try {
-                          await Share.share({
-                            message: `Rejoignez ma mission de convoyage !\n\nCode: ${mission.share_code}\n\nOuvrez l'app FleetCheck et utilisez "Rejoindre mission" pour accepter.`,
-                            title: 'Partager mission',
-                          });
-                        } catch (error: any) {
-                          Alert.alert('Erreur', error.message);
-                        }
-                      }}
-                    >
-                      <Ionicons name="share" size={18} color="#fff" />
-                      <Text style={styles.shareButtonText}>Partager</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-              </LinearGradient>
-            </Animated.View>
-          )}
-
           {/* Action Buttons */}
           <Animated.View
             style={[
