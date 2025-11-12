@@ -144,8 +144,6 @@ ORDER BY schemaname, tablename;
 -- Vérifier que la réplication est bien activée
 SELECT 
   CASE 
-    WHEN wal_level = 'logical' THEN '✅ WAL level correct (logical)'
-    ELSE '⚠️ WAL level incorrect: ' || wal_level
-  END as wal_status
-FROM pg_settings
-WHERE name = 'wal_level';
+    WHEN current_setting('wal_level') = 'logical' THEN '✅ WAL level correct (logical)'
+    ELSE '⚠️ WAL level incorrect: ' || current_setting('wal_level')
+  END as wal_status;
