@@ -3,6 +3,24 @@
 -- Crée la table inspection_damages pour gérer les dommages détectés
 -- ============================================
 
+-- Vérifier si la table existe et a toutes les colonnes nécessaires
+DO $$
+BEGIN
+  -- Si la table existe mais est incomplète, la supprimer
+  IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'inspection_damages') THEN
+    -- Vérifier si la colonne damage_type existe
+    IF NOT EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_schema = 'public' 
+      AND table_name = 'inspection_damages' 
+      AND column_name = 'damage_type'
+    ) THEN
+      RAISE NOTICE 'Table inspection_damages incomplète, suppression...';
+      DROP TABLE public.inspection_damages CASCADE;
+    END IF;
+  END IF;
+END $$;
+
 -- Créer la table si elle n'existe pas
 CREATE TABLE IF NOT EXISTS public.inspection_damages (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
