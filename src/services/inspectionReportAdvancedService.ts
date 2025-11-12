@@ -158,12 +158,34 @@ export async function getCompleteInspectionReport(
     const processedInspections: { [key: string]: InspectionDetails } = {};
     
     for (const inspection of inspections || []) {
-      // Photos (v2 schema) - higher fidelity with thumbnails & typed category
-      const { data: photos } = await supabase
-        .from('inspection_photos_v2')
-        .select('id, full_url, thumbnail_url, photo_type, taken_at, note')
-        .eq('inspection_id', inspection.id)
-        .order('taken_at', { ascending: true });
+      // Photos - try v2 schema first, fallback to inspection_photos
+      let photos = [];
+      try {
+        const { data: photosV2, error: v2Error } = await supabase
+          .from('inspection_photos_v2')
+          .select('id, full_url, thumbnail_url, photo_type, taken_at, note')
+          .eq('inspection_id', inspection.id)
+          .order('created_at', { ascending: true });
+        
+        if (v2Error) throw v2Error;
+        photos = photosV2 || [];
+      } catch (error) {
+        // Fallback to inspection_photos table
+        console.log('Using inspection_photos fallback:', error);
+        const { data: photosLegacy } = await supabase
+          .from('inspection_photos')
+          .select('id, photo_url, photo_type, created_at')
+          .eq('inspection_id', inspection.id)
+          .order('created_at', { ascending: true });
+        photos = (photosLegacy || []).map(p => ({
+          id: p.id,
+          full_url: p.photo_url,
+          thumbnail_url: p.photo_url,
+          photo_type: p.photo_type,
+          taken_at: p.created_at,
+          note: null
+        }));
+      }
 
       // Récupérer les dommages pour cette inspection (optionnel - table peut ne pas exister)
       let damages = [];
