@@ -91,20 +91,29 @@ export function useCredits(): CreditInfo & {
       return { success: false, error: 'Non connecté' };
     }
 
+    console.log(`💳 Déduction de ${amount} crédit(s) pour: ${reason}`);
+
     try {
       const { data, error } = await supabase.rpc('deduct_credits', {
         p_user_id: user.id,
         p_amount: amount,
-        p_reason: reason,
+        p_description: reason, // ✅ Corrigé: utiliser p_description au lieu de p_reason
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ RPC deduct_credits erreur:', error);
+        throw error;
+      }
+
+      console.log('📊 Réponse RPC deduct_credits:', data);
 
       if (!data.success) {
+        console.error('❌ Déduction refusée:', data.error);
         return { success: false, error: data.error };
       }
 
       // Mettre à jour localement (realtime fera le reste)
+      console.log(`✅ Déduction réussie! Nouveau solde: ${data.new_balance}`);
       setCredits(data.new_balance);
       return { success: true };
     } catch (error: any) {
