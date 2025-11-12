@@ -1,0 +1,252 @@
+import { useEffect, useState } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import { getMissionDeeplink } from '../lib/shareCode';
+
+interface Mission {
+  id: string;
+  title?: string;
+  description?: string;
+  pickup_address?: string;
+  delivery_address?: string;
+  scheduled_date?: string;
+  status?: string;
+  [key: string]: any;
+}
+
+export default function MissionDetail() {
+  const { missionId } = useParams<{ missionId: string }>();
+  const navigate = useNavigate();
+  const [mission, setMission] = useState<Mission | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Détection mobile pour redirection automatique
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
+  useEffect(() => {
+    if (!missionId) {
+      setError('ID de mission manquant');
+      setLoading(false);
+      return;
+    }
+
+    loadMission();
+
+    // Si mobile, tenter d'ouvrir l'app automatiquement
+    if (isMobile) {
+      const deeplink = getMissionDeeplink(missionId);
+      window.location.href = deeplink;
+      
+      // Timeout: si l'app ne s'ouvre pas, afficher la page web
+      setTimeout(() => {
+        setLoading(false);
+      }, 2500);
+    } else {
+      setLoading(false);
+    }
+  }, [missionId]);
+
+  const loadMission = async () => {
+    try {
+      const { data, error: err } = await supabase
+        .from('missions')
+        .select('*')
+        .eq('id', missionId!)
+        .single();
+
+      if (err) throw err;
+      setMission(data);
+    } catch (err) {
+      console.error('❌ Erreur chargement mission:', err);
+      setError('Mission introuvable ou inaccessible');
+    }
+  };
+
+  const handleOpenInApp = () => {
+    if (missionId) {
+      window.location.href = getMissionDeeplink(missionId);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
+          <p className="text-gray-600">
+            {isMobile ? 'Ouverture dans l\'application...' : 'Chargement...'}
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error || !mission) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </div>
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Mission introuvable</h1>
+          <p className="text-gray-600 mb-6">{error || 'Cette mission n\'existe pas ou n\'est plus accessible.'}</p>
+          <button
+            onClick={() => navigate('/')}
+            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            Retour à l'accueil
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-gray-50 p-4">
+      <div className="max-w-2xl mx-auto">
+        {/* Header avec logo xCrackz */}
+        <div className="bg-white rounded-lg shadow-lg p-8 mb-4">
+          <div className="text-center mb-6">
+            <h1 className="text-3xl font-bold text-blue-600 mb-2">xCrackz</h1>
+            <p className="text-gray-600">Gestion de missions professionnelle</p>
+          </div>
+
+          {/* Informations mission */}
+          <div className="border-t pt-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold text-gray-900">
+                📦 {mission.title || 'Mission'}
+              </h2>
+              {mission.status && (
+                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                  mission.status === 'completed' ? 'bg-green-100 text-green-800' :
+                  mission.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
+                  mission.status === 'cancelled' ? 'bg-red-100 text-red-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {mission.status === 'completed' ? '✅ Terminée' :
+                   mission.status === 'in_progress' ? '🚗 En cours' :
+                   mission.status === 'cancelled' ? '❌ Annulée' :
+                   '⏳ En attente'}
+                </span>
+              )}
+            </div>
+
+            {mission.reference && (
+              <div className="bg-gray-50 rounded-lg px-4 py-3 mb-4">
+                <p className="text-sm text-gray-600">Référence</p>
+                <p className="font-mono font-semibold text-gray-900">{mission.reference}</p>
+              </div>
+            )}
+
+            {(mission.vehicle_brand || mission.vehicle_model) && (
+              <div className="flex items-center gap-2 mb-4 p-3 bg-blue-50 rounded-lg">
+                <span className="text-2xl">🚗</span>
+                <div>
+                  <p className="text-sm text-gray-600">Véhicule</p>
+                  <p className="font-semibold text-gray-900">
+                    {mission.vehicle_brand} {mission.vehicle_model}
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            {mission.description && (
+              <p className="text-gray-700 mb-4 p-3 bg-gray-50 rounded-lg">{mission.description}</p>
+            )}
+
+            <div className="space-y-3 text-sm">
+              {mission.pickup_address && (
+                <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
+                  <span className="text-xl">📍</span>
+                  <div>
+                    <p className="font-medium text-gray-900">Départ</p>
+                    <p className="text-gray-700">{mission.pickup_address}</p>
+                  </div>
+                </div>
+              )}
+              {mission.delivery_address && (
+                <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg">
+                  <span className="text-xl">🏁</span>
+                  <div>
+                    <p className="font-medium text-gray-900">Arrivée</p>
+                    <p className="text-gray-700">{mission.delivery_address}</p>
+                  </div>
+                </div>
+              )}
+              {mission.scheduled_date && (
+                <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg">
+                  <span className="text-xl">📅</span>
+                  <div>
+                    <p className="font-medium text-gray-900">Date prévue</p>
+                    <p className="text-gray-700">
+                      {new Date(mission.scheduled_date).toLocaleDateString('fr-FR', {
+                        weekday: 'long',
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric'
+                      })}
+                    </p>
+                  </div>
+                </div>
+              )}
+              {mission.price && (
+                <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
+                  <span className="text-xl">💰</span>
+                  <div>
+                    <p className="font-medium text-gray-900">Prix</p>
+                    <p className="text-2xl font-bold text-gray-900">{mission.price}€</p>
+                  </div>
+                </div>
+              )}
+              {mission.distance_km && (
+                <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-lg">
+                  <span className="text-xl">📏</span>
+                  <div>
+                    <p className="font-medium text-gray-900">Distance</p>
+                    <p className="text-gray-700">{mission.distance_km} km</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        {/* CTA Ouvrir dans l'app */}
+        <div className="bg-white rounded-lg shadow-lg p-6">
+          <button
+            onClick={handleOpenInApp}
+            className="w-full px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg flex items-center justify-center gap-2"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
+            </svg>
+            Ouvrir dans l'application xCrackz
+          </button>
+
+          <p className="text-center text-gray-500 text-sm mt-4">
+            {isMobile
+              ? 'L\'application xCrackz va s\'ouvrir automatiquement'
+              : 'Scannez ce lien avec votre téléphone pour ouvrir l\'application'}
+          </p>
+
+          {/* Lien de téléchargement si app pas installée */}
+          <div className="mt-6 pt-6 border-t text-center">
+            <p className="text-sm text-gray-600 mb-3">Application non installée ?</p>
+            <a
+              href="https://play.google.com/store"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-block px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+            >
+              📥 Télécharger xCrackz
+            </a>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

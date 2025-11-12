@@ -55,6 +55,7 @@ import CookiePolicy from './pages/legal/CookiePolicy';
 import VoiceSettings from './pages/VoiceSettings';
 import MobileDownload from './pages/MobileDownload';
 import ResetPassword from './pages/ResetPassword';
+import MissionDetail from './pages/MissionDetail';
 
 function AppContent() {
   return (
@@ -76,6 +77,7 @@ function AppContent() {
         <Route path="/rapport/:token" element={<PublicInspectionReport />} />
         <Route path="/rapport-inspection/:token" element={<PublicInspectionReportShared />} />
         <Route path="/inspection/report/:inspectionId" element={<PublicInspectionReport />} />
+        <Route path="/mission/:missionId" element={<MissionDetail />} />
 
           <Route
             path="/dashboard"

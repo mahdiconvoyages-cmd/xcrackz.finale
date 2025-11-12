@@ -181,6 +181,74 @@ export interface ShareCodeValidation {
 }
 
 /**
+ * Génère un lien deeplink pour ouvrir une mission
+ * @param missionId ID de la mission
+ * @returns finality://mission/open/{missionId}
+ */
+export function getMissionDeeplink(missionId: string): string {
+  return `finality://mission/open/${missionId}`;
+}
+
+/**
+ * Génère un lien web pour ouvrir une mission
+ * @param missionId ID de la mission
+ * @returns /mission/{missionId}
+ */
+export function getMissionWebLink(missionId: string): string {
+  return `${window.location.origin}/mission/${missionId}`;
+}
+
+/**
+ * Copie le lien de la mission dans le presse-papier
+ * @param missionId ID de la mission
+ * @param useDeeplink Si true, copie le deeplink, sinon le lien web
+ */
+export async function copyMissionLink(missionId: string, useDeeplink: boolean = false): Promise<boolean> {
+  try {
+    const link = useDeeplink ? getMissionDeeplink(missionId) : getMissionWebLink(missionId);
+    await navigator.clipboard.writeText(link);
+    return true;
+  } catch (error) {
+    console.error('❌ Erreur copie lien:', error);
+    return false;
+  }
+}
+
+/**
+ * Partage une mission via l'API Web Share (si disponible)
+ * @param missionId ID de la mission
+ * @param missionTitle Titre de la mission (optionnel)
+ */
+export async function shareMissionLink(
+  missionId: string,
+  missionTitle?: string
+): Promise<boolean> {
+  try {
+    const webLink = getMissionWebLink(missionId);
+    const deeplink = getMissionDeeplink(missionId);
+    
+    const title = missionTitle || 'Mission xCrackz';
+    const text = `📦 ${title}\n\nOuvre cette mission:\n${deeplink}\n\nOu sur le web: ${webLink}`;
+
+    if (navigator.share) {
+      await navigator.share({
+        title,
+        text,
+        url: webLink,
+      });
+      return true;
+    } else {
+      // Fallback: copier dans le presse-papier
+      await copyMissionLink(missionId, false);
+      return true;
+    }
+  } catch (error) {
+    console.error('❌ Erreur partage mission:', error);
+    return false;
+  }
+}
+
+/**
  * Valide un code entré par l'utilisateur avec retour détaillé
  * @param input Code entré par l'utilisateur
  * @returns Résultat de validation avec message d'erreur si invalide
