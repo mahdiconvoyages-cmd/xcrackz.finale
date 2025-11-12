@@ -105,7 +105,7 @@ export default function MissionListScreen({ navigation }: any) {
       let assignedQuery = supabase
         .from('missions')
         .select('*')
-        .eq('assigned_to_user_id', user!.id);
+        .eq('assigned_user_id', user!.id);
 
       if (statusFilter !== 'all') {
         createdQuery = createdQuery.eq('status', statusFilter);
