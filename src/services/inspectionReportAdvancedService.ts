@@ -158,12 +158,12 @@ export async function getCompleteInspectionReport(
     const processedInspections: { [key: string]: InspectionDetails } = {};
     
     for (const inspection of inspections || []) {
-      // Photos
+      // Photos (v2 schema) - higher fidelity with thumbnails & typed category
       const { data: photos } = await supabase
-        .from('inspection_photos')
-        .select('*')
+        .from('inspection_photos_v2')
+        .select('id, full_url, thumbnail_url, photo_type, taken_at, note')
         .eq('inspection_id', inspection.id)
-        .order('created_at', { ascending: true });
+        .order('taken_at', { ascending: true });
 
       // Récupérer les dommages pour cette inspection (optionnel - table peut ne pas exister)
       let damages = [];
@@ -182,10 +182,11 @@ export async function getCompleteInspectionReport(
         ...inspection,
         photos: (photos || []).map(p => ({
           id: p.id,
-          url: p.photo_url,
-          category: p.category || 'general',
+          url: p.full_url,
+          thumbnail_url: p.thumbnail_url,
+          category: p.photo_type || 'general',
           note: p.note,
-          created_at: p.created_at
+          created_at: p.taken_at
         })),
         damages: damages
       };

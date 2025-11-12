@@ -59,7 +59,7 @@ WHERE email = 'mahdiconvoyages@gmail.com' -- CHANGEZ CETTE VALEUR SI NÉCESSAIRE
 LIMIT 1;
 
 -- 6. Log dans credit_transactions
-INSERT INTO credit_transactions (user_id, amount, type, reason, created_at)
+INSERT INTO credit_transactions (user_id, amount, transaction_type, description, created_at)
 SELECT 
     id,
     1400,
@@ -84,6 +84,6 @@ WHERE credits > 0;
 SELECT 
     'Transactions crédits' as table_name,
     COUNT(*) as total_transactions,
-    SUM(CASE WHEN type = 'addition' THEN amount ELSE 0 END) as total_additions,
-    SUM(CASE WHEN type = 'deduction' THEN ABS(amount) ELSE 0 END) as total_deductions
+    SUM(CASE WHEN transaction_type = 'addition' THEN amount ELSE 0 END) as total_additions,
+    SUM(CASE WHEN transaction_type = 'deduction' THEN ABS(amount) ELSE 0 END) as total_deductions
 FROM credit_transactions;

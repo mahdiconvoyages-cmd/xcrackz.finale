@@ -42,10 +42,12 @@ BEGIN
 END $$;
 
 -- 4. Créer fonction pour déduire des crédits
-CREATE OR REPLACE FUNCTION deduct_credits(
+-- Drop & recreate to avoid parameter rename conflict
+DROP FUNCTION IF EXISTS deduct_credits(UUID, INTEGER, TEXT);
+CREATE FUNCTION deduct_credits(
     p_user_id UUID,
     p_amount INTEGER,
-    p_reason TEXT
+    p_description TEXT
 )
 RETURNS JSON
 LANGUAGE plpgsql
@@ -54,14 +56,13 @@ SET search_path = public
 AS $$
 DECLARE
     v_current_credits INTEGER;
+    v_new_balance INTEGER;
 BEGIN
-    -- Récupérer crédits actuels avec verrou
     SELECT credits INTO v_current_credits
     FROM profiles
     WHERE id = p_user_id
     FOR UPDATE;
-    
-    -- Vérifier si suffisant
+
     IF v_current_credits < p_amount THEN
         RETURN json_build_object(
             'success', false,
@@ -70,21 +71,20 @@ BEGIN
             'required', p_amount
         );
     END IF;
-    
-    -- Déduire
+
     UPDATE profiles
     SET credits = credits - p_amount
-    WHERE id = p_user_id;
-    
-    -- Log transaction (si table existe)
+    WHERE id = p_user_id
+    RETURNING credits INTO v_new_balance;
+
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'credit_transactions') THEN
-        INSERT INTO credit_transactions (user_id, amount, type, reason, created_at)
-        VALUES (p_user_id, -p_amount, 'deduction', p_reason, NOW());
+        INSERT INTO credit_transactions (user_id, transaction_type, amount, balance_after, description, reference_id, reference_type, created_at)
+        VALUES (p_user_id, 'deduction', -p_amount, v_new_balance, p_description, NULL, NULL, NOW());
     END IF;
-    
+
     RETURN json_build_object(
         'success', true,
-        'new_balance', v_current_credits - p_amount,
+        'new_balance', v_new_balance,
         'deducted', p_amount
     );
 END;
@@ -93,10 +93,11 @@ $$;
 GRANT EXECUTE ON FUNCTION deduct_credits(UUID, INTEGER, TEXT) TO authenticated;
 
 -- 5. Créer fonction pour ajouter des crédits (recharge)
-CREATE OR REPLACE FUNCTION add_credits(
+DROP FUNCTION IF EXISTS add_credits(UUID, INTEGER, TEXT);
+CREATE FUNCTION add_credits(
     p_user_id UUID,
     p_amount INTEGER,
-    p_reason TEXT
+    p_description TEXT
 )
 RETURNS JSON
 LANGUAGE plpgsql
@@ -106,18 +107,16 @@ AS $$
 DECLARE
     v_new_balance INTEGER;
 BEGIN
-    -- Ajouter crédits
     UPDATE profiles
     SET credits = credits + p_amount
     WHERE id = p_user_id
     RETURNING credits INTO v_new_balance;
-    
-    -- Log transaction
+
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'credit_transactions') THEN
-        INSERT INTO credit_transactions (user_id, amount, type, reason, created_at)
-        VALUES (p_user_id, p_amount, 'addition', p_reason, NOW());
+        INSERT INTO credit_transactions (user_id, transaction_type, amount, balance_after, description, reference_id, reference_type, created_at)
+        VALUES (p_user_id, 'addition', p_amount, v_new_balance, p_description, NULL, NULL, NOW());
     END IF;
-    
+
     RETURN json_build_object(
         'success', true,
         'new_balance', v_new_balance,
@@ -140,11 +139,18 @@ GRANT EXECUTE ON FUNCTION add_credits(UUID, INTEGER, TEXT) TO authenticated;
 CREATE TABLE IF NOT EXISTS credit_transactions (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id UUID REFERENCES profiles(id) ON DELETE CASCADE,
+    transaction_type TEXT NOT NULL CHECK (transaction_type IN ('addition','deduction')),
     amount INTEGER NOT NULL,
-    type TEXT NOT NULL CHECK (type IN ('addition', 'deduction')),
-    reason TEXT NOT NULL,
+    balance_after INTEGER,
+    description TEXT NOT NULL,
+    reference_id UUID,
+    reference_type TEXT,
     created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE credit_transactions ADD COLUMN IF NOT EXISTS balance_after INTEGER;
+ALTER TABLE credit_transactions ADD COLUMN IF NOT EXISTS reference_id UUID;
+ALTER TABLE credit_transactions ADD COLUMN IF NOT EXISTS reference_type TEXT;
 
 CREATE INDEX IF NOT EXISTS idx_credit_transactions_user ON credit_transactions(user_id);
 CREATE INDEX IF NOT EXISTS idx_credit_transactions_date ON credit_transactions(created_at DESC);
@@ -153,10 +159,56 @@ CREATE INDEX IF NOT EXISTS idx_credit_transactions_date ON credit_transactions(c
 ALTER TABLE credit_transactions ENABLE ROW LEVEL SECURITY;
 
 -- Policy: utilisateur peut voir ses propres transactions
+DROP POLICY IF EXISTS "Users can view own credit transactions" ON credit_transactions;
 CREATE POLICY "Users can view own credit transactions"
 ON credit_transactions FOR SELECT
 TO authenticated
 USING (user_id = auth.uid());
+
+-- Fonction admin: ajustement par email et delta
+DROP FUNCTION IF EXISTS admin_adjust_credits(TEXT, INTEGER, TEXT, UUID, TEXT);
+CREATE FUNCTION admin_adjust_credits(
+    p_email TEXT,
+    p_delta INTEGER,
+    p_description TEXT,
+    p_reference_id UUID DEFAULT NULL,
+    p_reference_type TEXT DEFAULT NULL
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_user_id UUID;
+    v_current INTEGER;
+    v_new INTEGER;
+    v_type TEXT;
+BEGIN
+    SELECT id INTO v_user_id FROM profiles WHERE email = p_email LIMIT 1;
+    IF v_user_id IS NULL THEN
+        RETURN json_build_object('success', false, 'error', 'Utilisateur introuvable');
+    END IF;
+
+    SELECT credits INTO v_current FROM profiles WHERE id = v_user_id FOR UPDATE;
+    v_new := v_current + p_delta;
+    IF v_new < 0 THEN
+        RETURN json_build_object('success', false, 'error', 'Crédits insuffisants', 'current', v_current, 'delta', p_delta);
+    END IF;
+
+    UPDATE profiles SET credits = v_new WHERE id = v_user_id;
+    v_type := CASE WHEN p_delta >= 0 THEN 'addition' ELSE 'deduction' END;
+
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'credit_transactions') THEN
+        INSERT INTO credit_transactions (user_id, transaction_type, amount, balance_after, description, reference_id, reference_type, created_at)
+        VALUES (v_user_id, v_type, p_delta, v_new, p_description, p_reference_id, p_reference_type, NOW());
+    END IF;
+
+    RETURN json_build_object('success', true, 'email', p_email, 'new_balance', v_new, 'delta', p_delta, 'transaction_type', v_type);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION admin_adjust_credits(TEXT, INTEGER, TEXT, UUID, TEXT) TO authenticated;
 
 -- ============================================
 -- TESTS

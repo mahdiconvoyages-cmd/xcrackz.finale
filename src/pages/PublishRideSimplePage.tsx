@@ -75,18 +75,24 @@ export default function PublishRideSimplePage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: profile } = await supabase
+      const { data: profile, error } = await supabase
         .from('driver_profiles')
         .select('vehicles')
         .eq('user_id', user.id)
-        .single();
+        .maybeSingle();
 
-      if ((profile as any)?.vehicles) {
+      if (error && error.code !== 'PGRST116') {
+        console.warn('Erreur chargement profil conducteur:', error);
+      }
+      if (profile && (profile as any).vehicles) {
         const vehiclesList = (profile as any).vehicles as Vehicle[];
         setVehicles(vehiclesList);
         if (vehiclesList.length > 0) {
           setSelectedVehicle(vehiclesList[0]);
         }
+      } else {
+        // Pas encore de profil: laisser liste vide sans erreur
+        setVehicles([]);
       }
     } catch (err) {
       console.error('Error loading vehicles:', err);
@@ -129,7 +135,7 @@ export default function PublishRideSimplePage() {
       }
 
       // Créer le trajet
-      const { data: ride, error: rideError } = await supabase
+        const { error: rideError } = await supabase
         .from('carpooling_rides_pro')
         .insert({
           driver_id: user.id,

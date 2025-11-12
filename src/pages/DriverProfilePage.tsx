@@ -92,10 +92,18 @@ const DriverProfilePage: React.FC = () => {
         .from('driver_profiles')
         .select('*')
         .eq('user_id', userId)
-        .single();
+        .maybeSingle();
 
-      if (error) throw error;
-      setProfile(data);
+      // 406 Not Acceptable previously triggered when .single() found no row; maybeSingle() avoids throwing.
+      if (error && error.code !== 'PGRST116') { // PGRST116: No rows found for single() - should not occur now
+        throw error;
+      }
+      if (!data) {
+        // Profil non créé encore: état neutre
+        setProfile(null);
+      } else {
+        setProfile(data);
+      }
     } catch (error) {
       console.error('Erreur chargement profil:', error);
     } finally {

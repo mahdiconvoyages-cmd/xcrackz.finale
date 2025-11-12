@@ -105,7 +105,7 @@ const CarpoolingMapPage: React.FC = () => {
       .channel('rides-map-changes')
       .on('postgres_changes', 
         { event: '*', schema: 'public', table: 'carpooling_rides_pro' },
-        (payload) => {
+        (payload: any) => {
           console.log('Ride updated:', payload);
           fetchRides();
         }
@@ -179,16 +179,19 @@ const CarpoolingMapPage: React.FC = () => {
       // Fetch driver profiles
       const ridesWithDrivers = await Promise.all(
         (data || []).map(async (ride: any) => {
-          const { data: driver } = await supabase
+          const { data: driver, error } = await supabase
             .from('driver_profiles')
             .select('full_name, photo_url, average_rating')
             .eq('user_id', ride.driver_id)
-            .single();
+            .maybeSingle();
 
+          if (error && error.code !== 'PGRST116') {
+            console.warn('Erreur profil conducteur (carte):', error);
+          }
           return {
             ...ride,
             driver: driver || { full_name: 'Inconnu', photo_url: '', average_rating: 0 }
-          };
+          } as Ride & { driver: { full_name: string; photo_url: string; average_rating: number } };
         })
       );
 
