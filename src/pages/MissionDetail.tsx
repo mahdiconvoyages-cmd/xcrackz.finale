@@ -219,7 +219,7 @@ export default function MissionDetail() {
         <div className="bg-white rounded-lg shadow-lg p-6">
           <button
             onClick={handleOpenInApp}
-            className="w-full px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg flex items-center justify-center gap-2"
+            className="w-full px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg flex items-center justify-center gap-2 mb-4"
           >
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -227,22 +227,58 @@ export default function MissionDetail() {
             Ouvrir dans l'application xCrackz
           </button>
 
-          <p className="text-center text-gray-500 text-sm mt-4">
+          <p className="text-center text-gray-500 text-sm mb-4">
             {isMobile
-              ? 'L\'application xCrackz va s\'ouvrir automatiquement'
+              ? 'Touchez le bouton pour ouvrir l\'application'
               : 'Scannez ce lien avec votre téléphone pour ouvrir l\'application'}
           </p>
 
-          {/* Lien de téléchargement si app pas installée */}
-          <div className="mt-6 pt-6 border-t text-center">
-            <p className="text-sm text-gray-600 mb-3">Application non installée ?</p>
+          {/* Avantages de rejoindre */}
+          <div className="mt-6 pt-6 border-t">
+            <h3 className="font-semibold text-gray-900 mb-3 text-center">
+              Pourquoi rejoindre cette mission ?
+            </h3>
+            <div className="space-y-2 mb-6">
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+                <span className="text-gray-700">Gagnez de l'argent en convoyant des véhicules</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+                <span className="text-gray-700">Inspections professionnelles avec photos</span>
+              </div>
+              <div className="flex items-center gap-3 text-sm">
+                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                </div>
+                <span className="text-gray-700">Suivi GPS en temps réel</span>
+              </div>
+            </div>
+
+            <p className="text-center text-gray-600 text-sm mb-4">
+              Téléchargez l'application pour accepter cette mission
+            </p>
             <a
-              href="https://play.google.com/store"
+              href="https://play.google.com/store/apps/details?id=com.finality.app"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-block px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 transition-colors text-sm"
+              className="block w-full px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all text-center font-semibold flex items-center justify-center gap-2"
             >
-              📥 Télécharger xCrackz
+              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
+                <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z" />
+              </svg>
+              Télécharger sur Google Play
             </a>
           </div>
         </div>
