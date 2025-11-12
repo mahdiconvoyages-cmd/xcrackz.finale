@@ -363,13 +363,25 @@ function InspectionSection({ title, inspection, color, onOpenGallery }: any) {
               <StatBox label="Kilométrage" value={`${inspection.mileage.toLocaleString()} km`} icon={Car} />
             )}
             {inspection.fuel_level !== undefined && (
-              <StatBox label="Carburant" value={`${inspection.fuel_level}/8`} icon={Package} />
+              <StatBox label="Carburant" value={`${inspection.fuel_level}%`} icon={Package} />
             )}
-            {inspection.cleanliness_interior !== undefined && (
-              <StatBox label="Propreté Int." value={`${inspection.cleanliness_interior}/5`} icon={CheckCircle} />
+            {(inspection.internal_cleanliness !== undefined || inspection.cleanliness_interior !== undefined) && (
+              <StatBox label="Propreté Int." value={
+                inspection.internal_cleanliness
+                  ? inspection.internal_cleanliness
+                  : (inspection.cleanliness_interior !== undefined
+                      ? ( {1:'très sale',2:'sale',3:'correct',4:'propre',5:'très propre'} as any)[Number(inspection.cleanliness_interior)] || `${inspection.cleanliness_interior}`
+                      : 'N/A')
+              } icon={CheckCircle} />
             )}
-            {inspection.cleanliness_exterior !== undefined && (
-              <StatBox label="Propreté Ext." value={`${inspection.cleanliness_exterior}/5`} icon={CheckCircle} />
+            {(inspection.external_cleanliness !== undefined || inspection.cleanliness_exterior !== undefined) && (
+              <StatBox label="Propreté Ext." value={
+                inspection.external_cleanliness
+                  ? inspection.external_cleanliness
+                  : (inspection.cleanliness_exterior !== undefined
+                      ? ( {1:'très sale',2:'sale',3:'correct',4:'propre',5:'très propre'} as any)[Number(inspection.cleanliness_exterior)] || `${inspection.cleanliness_exterior}`
+                      : 'N/A')
+              } icon={CheckCircle} />
             )}
           </div>
         </CollapsibleSection>

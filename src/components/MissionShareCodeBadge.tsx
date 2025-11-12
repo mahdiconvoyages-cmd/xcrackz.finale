@@ -1,6 +1,6 @@
 import { Copy, Share2, Check } from 'lucide-react';
 import { useState } from 'react';
-import { copyShareCode, shareMission } from '../lib/shareCode';
+import { copyShareCode, shareMission, normalizeShareCodeForDisplay } from '../lib/shareCode';
 
 interface MissionShareCodeBadgeProps {
   code: string;
@@ -51,8 +51,8 @@ export default function MissionShareCodeBadge({
       
       <div className="flex items-center gap-1 bg-cyan-50 border border-cyan-200 rounded-lg overflow-hidden">
         {/* Code Display */}
-        <div className={`font-mono font-bold text-cyan-700 ${sizeClasses[size]}`}>
-          {code}
+        <div className={`font-mono font-bold text-cyan-700 ${sizeClasses[size]} select-all`}>
+          {normalizeShareCodeForDisplay(code)}
         </div>
 
         {/* Copy Button */}

@@ -12,6 +12,17 @@ export interface AIMessage {
   content: string;
 }
 
+// Align with cassa-temp DamageDetectionResult used by inspection screens
+export interface DamageDetectionResult {
+  hasDamage: boolean;
+  damageType?: string;
+  severity?: 'minor' | 'moderate' | 'severe';
+  location?: string;
+  description?: string;
+  confidence?: number;
+  suggestions?: string[];
+}
+
 export interface AIResponse {
   success: boolean;
   message?: string;
@@ -383,6 +394,58 @@ Le résumé doit inclure:
 }
 
 // Détecter des anomalies dans les données
+
+// === AI Damage Analysis / Suggestions (exposed API parity) ===
+export async function analyzeDamage(
+  imageBase64: string,
+  photoType: string,
+  timeoutMs: number = 5000
+): Promise<DamageDetectionResult> {
+  // Placeholder lightweight implementation (web fallback) - mobile uses advanced version in cassa-temp
+  try {
+    if (!imageBase64) {
+      return { hasDamage: false, description: 'Image vide', confidence: 0 };
+    }
+    // Simple heuristic: if photoType includes damage keywords (debug/dev usage)
+    const lowered = photoType.toLowerCase();
+    const possibleDamage = /(damage|scratch|bosse|dent|casse)/.test(lowered);
+    return possibleDamage ? {
+      hasDamage: true,
+      damageType: 'rayure',
+      severity: 'minor',
+      location: 'surface visible',
+      description: 'Dommage potentiel détecté (heuristique). Vérification manuelle requise.',
+      confidence: 0.3,
+      suggestions: ['Inspecter manuellement', 'Prendre une photo rapprochée']
+    } : {
+      hasDamage: false,
+      description: 'Aucun dommage évident (heuristique).',
+      confidence: 0.2
+    };
+  } catch {
+    return { hasDamage: false, description: 'Erreur analyse', confidence: 0 };
+  }
+}
+
+export async function generatePhotoDescription(
+  imageBase64: string,
+  photoType: string
+): Promise<string> {
+  if (!imageBase64) return 'Photo non disponible';
+  return `Vue ${photoType} du véhicule (description simplifiée).`;
+}
+
+export function getDamageActionSuggestions(damage: DamageDetectionResult): string[] {
+  if (!damage.hasDamage) return ['Aucune action requise'];
+  const out: string[] = [];
+  switch (damage.severity) {
+    case 'severe': out.push('Intervention urgente', 'Documenter avec photos supplémentaires'); break;
+    case 'moderate': out.push('Planifier une réparation'); break;
+    case 'minor': out.push('Surveiller - dommage mineur'); break;
+  }
+  if (damage.suggestions) out.push(...damage.suggestions);
+  return out;
+}
 export async function detectAnomalies(data: {
   missions?: any[];
   expenses?: any[];

@@ -137,12 +137,10 @@ export const generateInspectionPDF = async (
   doc.setFillColor(colors.primary[0], colors.primary[1], colors.primary[2]);
   doc.rect(0, 0, pageWidth, 50, 'F');
 
-  // Gradient effect
+  // Gradient effect removed (no setGState typings); keep simple decorative circles
   doc.setFillColor(colors.secondary[0], colors.secondary[1], colors.secondary[2]);
-  doc.setGState(doc.GState({ opacity: 0.4 }));
   doc.circle(pageWidth - 25, 25, 40, 'F');
   doc.circle(20, 25, 30, 'F');
-  doc.setGState(doc.GState({ opacity: 1 }));
 
   // Icône
   doc.setFontSize(28);

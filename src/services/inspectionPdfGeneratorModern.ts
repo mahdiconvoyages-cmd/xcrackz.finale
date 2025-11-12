@@ -56,11 +56,15 @@ interface VehicleInspection {
   notes?: string;
   client_name?: string;
   client_signature?: string;
+  driver_name?: string;
+  driver_signature?: string;
   keys_count?: number;
   has_vehicle_documents?: boolean;
   has_registration_card?: boolean;
   vehicle_is_full?: boolean;
   windshield_condition?: string;
+  external_cleanliness?: string;
+  internal_cleanliness?: string;
   completed_at: string;
   created_at: string;
 }
@@ -269,9 +273,10 @@ export async function generateInspectionPDFModern(
 
       doc.setTextColor(...hexToRgb(COLORS.text));
 
-      // Informations inspection
-      await addInspectionDetails(doc, departureInspection, margin, yPos, pageWidth);
-      yPos += 40;
+  // Informations inspection
+  await addInspectionDetails(doc, departureInspection, margin, yPos, pageWidth);
+  // Bloc propreté (si présent)
+  yPos = addCleanlinessBlock(doc, departureInspection, margin, yPos + 40, pageWidth);
 
       // Photos départ
       if (departurePhotos.length > 0) {
@@ -285,6 +290,9 @@ export async function generateInspectionPDFModern(
           pageHeight
         );
       }
+
+      // Signatures (si présentes)
+  yPos = await addSignaturesBlock(doc, departureInspection, margin, yPos);
     }
 
     // ==========================================
@@ -307,9 +315,10 @@ export async function generateInspectionPDFModern(
 
       doc.setTextColor(...hexToRgb(COLORS.text));
 
-      // Informations inspection
-      await addInspectionDetails(doc, arrivalInspection, margin, yPos, pageWidth);
-      yPos += 40;
+  // Informations inspection
+  await addInspectionDetails(doc, arrivalInspection, margin, yPos, pageWidth);
+  // Bloc propreté (si présent)
+  yPos = addCleanlinessBlock(doc, arrivalInspection, margin, yPos + 40, pageWidth);
 
       // Photos arrivée
       if (arrivalPhotos.length > 0) {
@@ -323,6 +332,9 @@ export async function generateInspectionPDFModern(
           pageHeight
         );
       }
+
+      // Signatures (si présentes)
+  yPos = await addSignaturesBlock(doc, arrivalInspection, margin, yPos);
     }
 
     // ==========================================
@@ -349,15 +361,27 @@ export async function generateInspectionPDFModern(
         ],
         [
           'Niveau carburant',
-          `${departureInspection.fuel_level || 0}/8`,
-          `${arrivalInspection.fuel_level || 0}/8`,
-          `${(arrivalInspection.fuel_level || 0) - (departureInspection.fuel_level || 0) >= 0 ? '+' : ''}${(arrivalInspection.fuel_level || 0) - (departureInspection.fuel_level || 0)}/8`,
+          `${departureInspection.fuel_level !== undefined ? `${departureInspection.fuel_level}%` : 'N/A'}`,
+          `${arrivalInspection.fuel_level !== undefined ? `${arrivalInspection.fuel_level}%` : 'N/A'}`,
+          `${(arrivalInspection.fuel_level || 0) - (departureInspection.fuel_level || 0) >= 0 ? '+' : ''}${(arrivalInspection.fuel_level || 0) - (departureInspection.fuel_level || 0)}%`,
         ],
         [
           'État général',
           getConditionLabel(departureInspection.overall_condition),
           getConditionLabel(arrivalInspection.overall_condition),
           departureInspection.overall_condition === arrivalInspection.overall_condition ? '=' : '≠',
+        ],
+        [
+          'Propreté extérieure',
+          departureInspection.external_cleanliness || 'Non renseigné',
+          arrivalInspection.external_cleanliness || 'Non renseigné',
+          '-',
+        ],
+        [
+          'Propreté intérieure',
+          departureInspection.internal_cleanliness || 'Non renseigné',
+          arrivalInspection.internal_cleanliness || 'Non renseigné',
+          '-',
         ],
       ];
 
@@ -450,9 +474,17 @@ async function addInspectionDetails(
   const details = [
     [`Date:`, formatDate(inspection.completed_at)],
     [`Kilométrage:`, `${inspection.mileage_km || 'N/A'} km`],
-    [`Carburant:`, `${inspection.fuel_level || 0}/8`],
+    [
+      `Carburant:`,
+      `$${''}` // placeholder to preserve array shape below
+    ],
     [`État général:`, getConditionLabel(inspection.overall_condition)],
   ];
+
+  // Remplacer la valeur carburant avec un format pourcentage ou N/A
+  const fuelValue =
+    inspection.fuel_level !== undefined ? `${inspection.fuel_level}%` : 'N/A';
+  details[2][1] = fuelValue;
 
   // Colonne gauche
   details.slice(0, 2).forEach(([label, value], index) => {
@@ -500,6 +532,43 @@ async function addInspectionDetails(
     const splitNotes = doc.splitTextToSize(inspection.notes, boxWidth - 10);
     doc.text(splitNotes, x + 5, y + 35);
   }
+}
+
+// Bloc additionnel pour afficher propreté extérieure/intérieure en texte simple
+function addCleanlinessBlock(
+  doc: jsPDF,
+  inspection: VehicleInspection,
+  x: number,
+  y: number,
+  pageWidth: number
+): number {
+  const hasExternal = !!inspection.external_cleanliness;
+  const hasInternal = !!inspection.internal_cleanliness;
+  if (!hasExternal && !hasInternal) return y; // rien à faire
+
+  const boxWidth = pageWidth - 2 * x;
+  const [bgR, bgG, bgB] = hexToRgb(COLORS.background);
+  doc.setFillColor(bgR, bgG, bgB);
+  const height = hasExternal && hasInternal ? 18 : 12;
+  doc.roundedRect(x, y, boxWidth, height, 3, 3, 'F');
+
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(FONTS.body);
+  doc.setTextColor(...hexToRgb(COLORS.text));
+  doc.text('Propreté', x + 5, y + 6);
+
+  doc.setFont('helvetica', 'normal');
+  if (hasExternal) {
+    doc.text('Extérieure:', x + 35, y + 6);
+    doc.text(inspection.external_cleanliness as string, x + 70, y + 6);
+  }
+  if (hasInternal) {
+    const lineY = hasExternal ? y + 12 : y + 6;
+    doc.text('Intérieure:', x + 35, lineY);
+    doc.text(inspection.internal_cleanliness as string, x + 70, lineY);
+  }
+
+  return y + height + 8; // retourner le nouveau y après le bloc
 }
 
 async function addPhotoGrid(
@@ -581,6 +650,63 @@ async function addPhotoGrid(
   }
 
   return currentY + 5;
+}
+
+// Ajoute les signatures client/conducteur avec affichage du nom sous l'image
+async function addSignaturesBlock(
+  doc: jsPDF,
+  inspection: VehicleInspection,
+  x: number,
+  y: number
+): Promise<number> {
+  const hasClient = !!inspection.client_signature;
+  const hasDriver = !!inspection.driver_signature;
+  if (!hasClient && !hasDriver) return y;
+
+  const blockTop = y + 8;
+  doc.setFontSize(FONTS.body);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(...hexToRgb(COLORS.text));
+  doc.text('✍️ Signatures', x, y + 5);
+
+  let usedHeight = 0;
+
+  // Client signature on the left
+  if (hasClient) {
+    try {
+      const sig = await loadImageAsBase64(inspection.client_signature as string);
+      if (sig) {
+        doc.setFont('helvetica', 'bold');
+        doc.text('Client:', x, blockTop);
+        doc.addImage(sig, 'PNG', x, blockTop + 3, 60, 20);
+        doc.setFont('helvetica', 'normal');
+        doc.text(inspection.client_name || 'Signataire', x, blockTop + 27);
+        usedHeight = Math.max(usedHeight, 30);
+      }
+    } catch (e) {
+      console.error('Erreur chargement signature client:', e);
+    }
+  }
+
+  // Driver signature on the right
+  if (hasDriver) {
+    try {
+      const sig = await loadImageAsBase64(inspection.driver_signature as string);
+      if (sig) {
+        const xRight = x + 80;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Conducteur:', xRight, blockTop);
+        doc.addImage(sig, 'PNG', xRight, blockTop + 3, 60, 20);
+        doc.setFont('helvetica', 'normal');
+        doc.text(inspection.driver_name || 'Conducteur', xRight, blockTop + 27);
+        usedHeight = Math.max(usedHeight, 30);
+      }
+    } catch (e) {
+      console.error('Erreur chargement signature conducteur:', e);
+    }
+  }
+
+  return blockTop + usedHeight + 5;
 }
 
 // ==========================================

@@ -399,14 +399,14 @@ export const generateInspectionPDF = async (
 
     // Notes
     if (arrivalInspection.notes) {
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...colors.dark);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(colors.dark[0], colors.dark[1], colors.dark[2]);
       doc.text('Notes:', margin, y);
       y += 5;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(...colors.gray);
+  doc.setFont('helvetica', 'normal');
+  doc.setFontSize(8);
+  doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
       const notesLines = doc.splitTextToSize(cleanText(arrivalInspection.notes), pageWidth - 2 * margin);
       doc.text(notesLines, margin, y);
       y += notesLines.length * 4 + 3;
@@ -420,9 +420,9 @@ export const generateInspectionPDF = async (
         y = margin;
       }
 
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...colors.danger);
+  doc.setFontSize(10);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(colors.danger[0], colors.danger[1], colors.danger[2]);
       doc.text(`Photos d'arrivee (${arrivalPhotos.length})`, margin, y);
       y += 8;
 

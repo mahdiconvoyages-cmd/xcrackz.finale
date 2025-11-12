@@ -99,9 +99,17 @@ BEGIN
         'scanned_documents', (
           SELECT COALESCE(jsonb_agg(jsonb_build_object(
             'id', d.id,
-            'title', d.title,
-            'file_url', d.file_url,
-            'mime_type', d.mime_type,
+            -- Map new schema columns to legacy API keys expected by frontend/PDF
+            'title', d.document_title,
+            'file_url', d.document_url,
+            -- Infer basic mime type from file extension when possible; else null
+            'mime_type', CASE
+              WHEN lower(d.document_url) LIKE '%.pdf' THEN 'application/pdf'
+              WHEN lower(d.document_url) LIKE '%.png' THEN 'image/png'
+              WHEN lower(d.document_url) LIKE '%.jpg' OR lower(d.document_url) LIKE '%.jpeg' THEN 'image/jpeg'
+              WHEN lower(d.document_url) LIKE '%.webp' THEN 'image/webp'
+              ELSE NULL
+            END,
             'created_at', d.created_at
           ) ORDER BY d.created_at), '[]'::jsonb)
           FROM inspection_documents d
@@ -153,9 +161,15 @@ BEGIN
         'scanned_documents', (
           SELECT COALESCE(jsonb_agg(jsonb_build_object(
             'id', d.id,
-            'title', d.title,
-            'file_url', d.file_url,
-            'mime_type', d.mime_type,
+            'title', d.document_title,
+            'file_url', d.document_url,
+            'mime_type', CASE
+              WHEN lower(d.document_url) LIKE '%.pdf' THEN 'application/pdf'
+              WHEN lower(d.document_url) LIKE '%.png' THEN 'image/png'
+              WHEN lower(d.document_url) LIKE '%.jpg' OR lower(d.document_url) LIKE '%.jpeg' THEN 'image/jpeg'
+              WHEN lower(d.document_url) LIKE '%.webp' THEN 'image/webp'
+              ELSE NULL
+            END,
             'created_at', d.created_at
           ) ORDER BY d.created_at), '[]'::jsonb)
           FROM inspection_documents d

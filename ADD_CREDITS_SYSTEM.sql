@@ -185,12 +185,22 @@ DECLARE
     v_new INTEGER;
     v_type TEXT;
 BEGIN
-    SELECT id INTO v_user_id FROM profiles WHERE email = p_email LIMIT 1;
+    -- Recherche case-insensitive dans profiles, puis fallback sur auth.users
+    SELECT id INTO v_user_id FROM profiles WHERE lower(email) = lower(trim(p_email)) LIMIT 1;
+    IF v_user_id IS NULL THEN
+        SELECT id INTO v_user_id FROM auth.users WHERE lower(email) = lower(trim(p_email)) LIMIT 1;
+    END IF;
+
     IF v_user_id IS NULL THEN
         RETURN json_build_object('success', false, 'error', 'Utilisateur introuvable');
     END IF;
 
+    -- Verrouiller la ligne profil; si absente, renvoyer erreur explicite
     SELECT credits INTO v_current FROM profiles WHERE id = v_user_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN json_build_object('success', false, 'error', 'Profil inexistant pour cet utilisateur');
+    END IF;
+
     v_new := v_current + p_delta;
     IF v_new < 0 THEN
         RETURN json_build_object('success', false, 'error', 'Crédits insuffisants', 'current', v_current, 'delta', p_delta);
@@ -204,11 +214,54 @@ BEGIN
         VALUES (v_user_id, v_type, p_delta, v_new, p_description, p_reference_id, p_reference_type, NOW());
     END IF;
 
-    RETURN json_build_object('success', true, 'email', p_email, 'new_balance', v_new, 'delta', p_delta, 'transaction_type', v_type);
+    RETURN json_build_object('success', true, 'email', trim(p_email), 'new_balance', v_new, 'delta', p_delta, 'transaction_type', v_type);
 END;
 $$;
 
 GRANT EXECUTE ON FUNCTION admin_adjust_credits(TEXT, INTEGER, TEXT, UUID, TEXT) TO authenticated;
+
+-- Variante par user_id (évite la recherche par email)
+DROP FUNCTION IF EXISTS admin_adjust_credits_by_user_id(UUID, INTEGER, TEXT, UUID, TEXT);
+CREATE FUNCTION admin_adjust_credits_by_user_id(
+    p_user_id UUID,
+    p_delta INTEGER,
+    p_description TEXT,
+    p_reference_id UUID DEFAULT NULL,
+    p_reference_type TEXT DEFAULT NULL
+)
+RETURNS JSON
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+    v_current INTEGER;
+    v_new INTEGER;
+    v_type TEXT;
+BEGIN
+    SELECT credits INTO v_current FROM profiles WHERE id = p_user_id FOR UPDATE;
+    IF NOT FOUND THEN
+        RETURN json_build_object('success', false, 'error', 'Profil inexistant pour cet utilisateur');
+    END IF;
+
+    v_new := v_current + p_delta;
+    IF v_new < 0 THEN
+        RETURN json_build_object('success', false, 'error', 'Crédits insuffisants', 'current', v_current, 'delta', p_delta);
+    END IF;
+
+    UPDATE profiles SET credits = v_new WHERE id = p_user_id;
+    v_type := CASE WHEN p_delta >= 0 THEN 'addition' ELSE 'deduction' END;
+
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'credit_transactions') THEN
+        INSERT INTO credit_transactions (user_id, transaction_type, amount, balance_after, description, reference_id, reference_type, created_at)
+        VALUES (p_user_id, v_type, p_delta, v_new, p_description, p_reference_id, p_reference_type, NOW());
+    END IF;
+
+    RETURN json_build_object('success', true, 'user_id', p_user_id, 'new_balance', v_new, 'delta', p_delta, 'transaction_type', v_type);
+END;
+$$;
+
+GRANT EXECUTE ON FUNCTION admin_adjust_credits_by_user_id(UUID, INTEGER, TEXT, UUID, TEXT) TO authenticated;
 
 -- ============================================
 -- TESTS

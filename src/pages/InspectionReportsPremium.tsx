@@ -31,6 +31,30 @@ import OptimizedImage from '../components/OptimizedImage';
 import PhotoGallery from '../components/PhotoGallery';
 import ShareInspectionModal from '../components/ShareInspectionModal';
 
+// Helpers d'affichage propre pour carburant et propreté
+const CLEANLINESS_MAP: Record<number, string> = {
+  1: 'très sale',
+  2: 'sale',
+  3: 'correct',
+  4: 'propre',
+  5: 'très propre',
+};
+
+function formatFuelPercent(value: any): string {
+  const num = typeof value === 'number' ? value : parseInt(value);
+  return isNaN(num) ? 'N/A' : `${num}%`;
+}
+
+function formatCleanlinessValue(inspection: any, type: 'internal' | 'external'): string {
+  const text = type === 'internal' ? inspection?.internal_cleanliness : inspection?.external_cleanliness;
+  if (text && typeof text === 'string') return text.charAt(0).toUpperCase() + text.slice(1);
+  const rating = type === 'internal' ? inspection?.cleanliness_interior : inspection?.cleanliness_exterior;
+  if (rating !== null && rating !== undefined) {
+    return CLEANLINESS_MAP[Number(rating) as 1|2|3|4|5] || String(rating);
+  }
+  return 'N/A';
+}
+
 export default function InspectionReportsPremium() {
   const { user } = useAuth();
   const [reports, setReports] = useState<InspectionReportComplete[]>([]);
@@ -217,31 +241,31 @@ export default function InspectionReportsPremium() {
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Carburant</p>
-                    <p className="font-semibold">{inspection.fuel_level}/8</p>
+                    <p className="font-semibold">{formatFuelPercent(inspection.fuel_level)}</p>
                   </div>
                 </div>
               )}
               
-              {inspection.cleanliness_interior !== undefined && (
+              {(inspection.internal_cleanliness !== undefined || inspection.cleanliness_interior !== undefined) && (
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                     <CheckCircle className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Propreté Int.</p>
-                    <p className="font-semibold">{inspection.cleanliness_interior}/5</p>
+                    <p className="font-semibold">{formatCleanlinessValue(inspection, 'internal')}</p>
                   </div>
                 </div>
               )}
               
-              {inspection.cleanliness_exterior !== undefined && (
+              {(inspection.external_cleanliness !== undefined || inspection.cleanliness_exterior !== undefined) && (
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center">
                     <CheckCircle className="w-5 h-5 text-green-600" />
                   </div>
                   <div>
                     <p className="text-sm text-gray-500">Propreté Ext.</p>
-                    <p className="font-semibold">{inspection.cleanliness_exterior}/5</p>
+                    <p className="font-semibold">{formatCleanlinessValue(inspection, 'external')}</p>
                   </div>
                 </div>
               )}

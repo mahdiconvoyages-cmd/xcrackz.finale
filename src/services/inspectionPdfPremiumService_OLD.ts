@@ -564,13 +564,17 @@ async function generateInspectionPages(
     yPos = addField(pdf, yPos, 'Kilométrage', `${inspection.mileage} km`, 0);
   }
   if (inspection.fuel_level !== undefined) {
-    yPos = addField(pdf, yPos, 'Niveau carburant', `${inspection.fuel_level}/8`, 1);
+    yPos = addField(pdf, yPos, 'Niveau carburant', `${inspection.fuel_level}%`, 1);
   }
-  if (inspection.cleanliness_interior !== undefined) {
-    yPos = addField(pdf, yPos, 'Propreté intérieure', `${inspection.cleanliness_interior}/5`, 0);
+  if (inspection.internal_cleanliness !== undefined || inspection.cleanliness_interior !== undefined) {
+    const map: any = {1:'très sale',2:'sale',3:'correct',4:'propre',5:'très propre'};
+    const val = inspection.internal_cleanliness ?? (map[Number(inspection.cleanliness_interior)] || `${inspection.cleanliness_interior}`);
+    yPos = addField(pdf, yPos, 'Propreté intérieure', val, 0);
   }
-  if (inspection.cleanliness_exterior !== undefined) {
-    yPos = addField(pdf, yPos, 'Propreté extérieure', `${inspection.cleanliness_exterior}/5`, 1);
+  if (inspection.external_cleanliness !== undefined || inspection.cleanliness_exterior !== undefined) {
+    const map: any = {1:'très sale',2:'sale',3:'correct',4:'propre',5:'très propre'};
+    const val = inspection.external_cleanliness ?? (map[Number(inspection.cleanliness_exterior)] || `${inspection.cleanliness_exterior}`);
+    yPos = addField(pdf, yPos, 'Propreté extérieure', val, 1);
   }
   yPos += 10;
   

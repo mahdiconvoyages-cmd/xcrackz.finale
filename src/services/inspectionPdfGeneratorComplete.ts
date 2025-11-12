@@ -51,6 +51,8 @@ interface VehicleInspection {
   driver_signature?: string;
   keys_count?: number;
   has_vehicle_documents?: boolean;
+  external_cleanliness?: string;
+  internal_cleanliness?: string;
   created_at: string;
 }
 
@@ -69,6 +71,25 @@ interface CompletePDFOptions {
   includePhotos: boolean;
   includeSignatures: boolean;
   includeAIDescriptions: boolean;
+}
+
+// Documents scannés liés à la mission/inspection
+interface ScannedDocument {
+  id: string;
+  title?: string;
+  file_url: string;
+  mime_type?: string; // image/png, image/jpeg, application/pdf...
+  created_at?: string;
+}
+
+// Frais/Dépenses liés à la mission
+interface ExpenseItem {
+  id: string;
+  label: string;
+  amount: number;
+  currency?: string; // par défaut EUR
+  category?: string;
+  date?: string; // ISO
 }
 
 // ==========================================
@@ -143,6 +164,8 @@ export async function generateCompletePDF(
   arrivalInspection: VehicleInspection | null,
   departurePhotos: InspectionPhoto[] = [],
   arrivalPhotos: InspectionPhoto[] = [],
+  scannedDocuments: ScannedDocument[] = [],
+  expenses: ExpenseItem[] = [],
   options: CompletePDFOptions = {
     includePhotos: true,
     includeSignatures: true,
@@ -274,13 +297,23 @@ export async function generateCompletePDF(
       ],
       [
         'Niveau carburant',
-        departureInspection?.fuel_level ? `${departureInspection.fuel_level}/8` : 'N/A',
-        arrivalInspection?.fuel_level ? `${arrivalInspection.fuel_level}/8` : 'N/A',
+        departureInspection?.fuel_level !== undefined ? `${departureInspection.fuel_level}%` : 'N/A',
+        arrivalInspection?.fuel_level !== undefined ? `${arrivalInspection.fuel_level}%` : 'N/A',
       ],
       [
         'État général',
         departureInspection?.overall_condition || 'N/A',
         arrivalInspection?.overall_condition || 'N/A',
+      ],
+      [
+        'Propreté extérieure',
+        departureInspection?.external_cleanliness || 'Non renseigné',
+        arrivalInspection?.external_cleanliness || 'Non renseigné',
+      ],
+      [
+        'Propreté intérieure',
+        departureInspection?.internal_cleanliness || 'Non renseigné',
+        arrivalInspection?.internal_cleanliness || 'Non renseigné',
       ],
       [
         'Signataire',
@@ -315,6 +348,39 @@ export async function generateCompletePDF(
     });
 
     currentY = (doc as any).lastAutoTable.finalY + 20;
+
+    // ==========================================
+    // DOCUMENTS SCANNÉS (si présents)
+    // ==========================================
+    if (scannedDocuments.length > 0) {
+      doc.addPage();
+      currentY = margin;
+      currentY = await addScannedDocumentsSection(
+        doc,
+        scannedDocuments,
+        currentY,
+        pageWidth,
+        pageHeight,
+        margin
+      );
+    }
+
+    // ==========================================
+    // FRAIS & DÉPENSES (si présents)
+    // ==========================================
+    if (expenses.length > 0) {
+      if (currentY > pageHeight - 80) {
+        doc.addPage();
+        currentY = margin;
+      }
+      currentY = addExpensesSection(
+        doc,
+        expenses,
+        currentY,
+        pageWidth,
+        margin
+      );
+    }
 
     // Distance parcourue
     if (departureInspection?.mileage_km && arrivalInspection?.mileage_km) {
@@ -405,7 +471,7 @@ async function addInspectionSection(
   const inspectionInfo = [
     ['Date/Heure:', formatDate(inspection.created_at)],
     ['Kilométrage:', `${inspection.mileage_km || 'N/A'} km`],
-    ['Niveau carburant:', `${inspection.fuel_level || 0}/8`],
+    ['Niveau carburant:', inspection.fuel_level !== undefined ? `${inspection.fuel_level}%` : 'N/A'],
     ['État général:', inspection.overall_condition || 'Non renseigné'],
     ['Nombre de clés:', `${inspection.keys_count || 0}`],
     ['Documents bord:', inspection.has_vehicle_documents ? 'Oui' : 'Non'],
@@ -429,6 +495,19 @@ async function addInspectionSection(
     currentY += 7;
   }
 
+  // Propreté (si présents)
+  if (inspection.external_cleanliness || inspection.internal_cleanliness) {
+    currentY += 5;
+    doc.setFont('helvetica', 'bold');
+    doc.text('Propreté:', margin, currentY);
+    doc.setFont('helvetica', 'normal');
+    const ext = inspection.external_cleanliness ? `Extérieure: ${inspection.external_cleanliness}` : '';
+    const intl = inspection.internal_cleanliness ? `Intérieure: ${inspection.internal_cleanliness}` : '';
+    const line = [ext, intl].filter(Boolean).join('  |  ');
+    doc.text(line || 'Non renseigné', margin + 50, currentY);
+    currentY += 7;
+  }
+
   // Notes
   if (inspection.notes) {
     currentY += 5;
@@ -441,22 +520,53 @@ async function addInspectionSection(
     currentY += notes.length * 5 + 5;
   }
 
-  // Signature
-  if (options.includeSignatures && inspection.client_signature) {
+  // Signatures (client et conducteur) avec noms
+  if (options.includeSignatures && (inspection.client_signature || inspection.driver_signature)) {
     currentY += 10;
-    
-    try {
-      const signatureBase64 = await loadImageAsBase64(inspection.client_signature);
-      if (signatureBase64) {
-        doc.setFont('helvetica', 'bold');
-        doc.text('Signature:', margin, currentY);
-        currentY += 5;
-        
-        doc.addImage(signatureBase64, 'PNG', margin, currentY, 60, 20);
-        currentY += 25;
+    const blockTop = currentY;
+    let usedHeight = 0;
+
+    // Signature client
+    if (inspection.client_signature) {
+      try {
+        const signatureBase64 = await loadImageAsBase64(inspection.client_signature);
+        if (signatureBase64) {
+          doc.setFont('helvetica', 'bold');
+          doc.text('Signature client:', margin, blockTop);
+          doc.addImage(signatureBase64, 'PNG', margin, blockTop + 3, 60, 20);
+          // Nom sous la signature
+          doc.setFont('helvetica', 'normal');
+          const cname = inspection.client_name || 'Signataire';
+          doc.text(cname, margin, blockTop + 27);
+          usedHeight = Math.max(usedHeight, 30);
+        }
+      } catch (error) {
+        console.error('Erreur chargement signature client:', error);
       }
-    } catch (error) {
-      console.error('Erreur chargement signature:', error);
+    }
+
+    // Signature conducteur
+    if (inspection.driver_signature) {
+      try {
+        const signatureBase64 = await loadImageAsBase64(inspection.driver_signature);
+        if (signatureBase64) {
+          const xRight = margin + 80; // à droite du bloc client
+          doc.setFont('helvetica', 'bold');
+          doc.text('Signature conducteur:', xRight, blockTop);
+          doc.addImage(signatureBase64, 'PNG', xRight, blockTop + 3, 60, 20);
+          // Nom sous la signature
+          doc.setFont('helvetica', 'normal');
+          const dname = inspection.driver_name || 'Conducteur';
+          doc.text(dname, xRight, blockTop + 27);
+          usedHeight = Math.max(usedHeight, 30);
+        }
+      } catch (error) {
+        console.error('Erreur chargement signature conducteur:', error);
+      }
+    }
+
+    if (usedHeight > 0) {
+      currentY = blockTop + usedHeight + 5;
     }
   }
 
@@ -524,6 +634,129 @@ async function addInspectionSection(
   }
 
   return currentY;
+}
+
+// ==========================================
+// SECTIONS SUPPLÉMENTAIRES: DOCUMENTS + FRAIS
+// ==========================================
+
+async function addScannedDocumentsSection(
+  doc: jsPDF,
+  docs: ScannedDocument[],
+  startY: number,
+  pageWidth: number,
+  pageHeight: number,
+  margin: number
+): Promise<number> {
+  if (docs.length === 0) return startY;
+
+  let y = startY;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(COLORS.text);
+  doc.text('📎 Documents scannés', margin, y);
+  y += 8;
+
+  // grille 2 colonnes
+  const perRow = 2;
+  const cellWidth = (pageWidth - 2 * margin - 10) / perRow;
+  const cellHeight = cellWidth * 0.75;
+  const gap = 10;
+
+  for (let i = 0; i < docs.length; i++) {
+    const col = i % perRow;
+    const row = Math.floor(i / perRow);
+    const x = margin + col * (cellWidth + gap);
+    const yCell = y + row * (cellHeight + 22);
+
+    if (yCell + cellHeight + 22 > pageHeight - 30) {
+      doc.addPage();
+      y = margin;
+    }
+
+    const d = docs[i];
+    const isImage = (d.mime_type || '').startsWith('image/');
+
+    // cadre
+    doc.setDrawColor(COLORS.border);
+    doc.rect(x, yCell, cellWidth, cellHeight);
+
+    if (isImage) {
+      try {
+        const base64 = await loadImageAsBase64(d.file_url);
+        if (base64) {
+          doc.addImage(base64, 'JPEG', x + 1, yCell + 1, cellWidth - 2, cellHeight - 2);
+        } else {
+          doc.setFont('helvetica', 'normal');
+          doc.setFontSize(8);
+          doc.setTextColor(COLORS.textLight);
+          doc.text('Aperçu indisponible', x + cellWidth / 2, yCell + cellHeight / 2, { align: 'center' });
+        }
+      } catch (e) {
+        console.error('Erreur chargement document:', d.file_url, e);
+      }
+    } else {
+      // Icône/placeholder texte
+      doc.setFont('helvetica', 'normal');
+      doc.setFontSize(10);
+      doc.setTextColor(COLORS.textLight);
+      const label = (d.mime_type || '').toUpperCase().includes('PDF') ? 'PDF' : 'Document';
+      doc.text(label, x + cellWidth / 2, yCell + cellHeight / 2, { align: 'center' });
+    }
+
+    // titre/nom
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(9);
+    doc.setTextColor(COLORS.text);
+    const title = d.title || d.file_url.split('/').pop() || 'Document';
+    const lines = doc.splitTextToSize(title, cellWidth);
+    doc.text(lines.slice(0, 2), x, yCell + cellHeight + 6);
+  }
+
+  const totalRows = Math.ceil(docs.length / perRow);
+  return y + totalRows * (cellHeight + 22) + 10;
+}
+
+function addExpensesSection(
+  doc: jsPDF,
+  expenses: ExpenseItem[],
+  startY: number,
+  pageWidth: number,
+  margin: number
+): number {
+  if (expenses.length === 0) return startY;
+
+  let y = startY;
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(14);
+  doc.setTextColor(COLORS.text);
+  doc.text('💶 Frais & Dépenses', margin, y);
+  y += 6;
+
+  const head = [['Date', 'Libellé', 'Catégorie', 'Montant']];
+  const body = expenses.map(e => [
+    e.date ? formatDate(e.date) : '-',
+    e.label,
+    e.category || '-',
+    `${e.amount.toFixed(2)} ${e.currency || 'EUR'}`,
+  ]);
+
+  autoTable(doc, {
+    startY: y,
+    head,
+    body,
+    theme: 'striped',
+    headStyles: { fillColor: COLORS.secondary, textColor: [255, 255, 255], fontStyle: 'bold' },
+    styles: { fontSize: 10, cellPadding: 4 },
+    margin: { left: margin, right: margin },
+  });
+
+  const total = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+  const finalY = (doc as any).lastAutoTable.finalY + 8;
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(COLORS.text);
+  doc.text(`Total: ${total.toFixed(2)} ${expenses[0]?.currency || 'EUR'}`, pageWidth - margin, finalY, { align: 'right' });
+  return finalY + 6;
 }
 
 // ==========================================

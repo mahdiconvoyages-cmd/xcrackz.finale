@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -16,8 +16,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather, MaterialCommunityIcons, MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useNavigation, useFocusEffect, NavigationProp } from '@react-navigation/native';
-import { supabase } from '../config/supabase';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
+// Use direct lib import to leverage existing TypeScript types (avoids JS re-export declaration issue)
+import { supabase } from '../lib/supabase';
 import { formatRelativeDate } from '../utils/dateFormat';
 
 interface Mission {
@@ -62,12 +63,9 @@ interface Assignment {
   assigner?: Profile;
 }
 
-type RootStackParamList = {
-  MissionDetail: { missionId: string };
-};
 
 export default function TeamMissionsScreen() {
-  const navigation = useNavigation<NavigationProp<RootStackParamList>>();
+  const navigation = useNavigation(); // kept untyped to avoid generic inference error until nav types centralized
   const [missions, setMissions] = useState<Mission[]>([]);
   const [receivedAssignments, setReceivedAssignments] = useState<Assignment[]>([]);
   const [profiles, setProfiles] = useState<Profile[]>([]);
@@ -419,23 +417,39 @@ export default function TeamMissionsScreen() {
       )}
 
       {/* List */}
-      <FlatList
-        data={activeTab === 'missions' ? filteredMissions : receivedAssignments}
-        renderItem={activeTab === 'missions' ? renderMissionCard : renderReceivedCard}
-        keyExtractor={(item) => 'id' in item ? item.id : item.mission_id}
-        contentContainerStyle={styles.listContent}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3B82F6']} />
-        }
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <Feather name="inbox" size={64} color="#CBD5E1" />
-            <Text style={styles.emptyText}>
-              {activeTab === 'missions' ? 'Aucune mission' : 'Aucune mission reçue'}
-            </Text>
-          </View>
-        }
-      />
+      {activeTab === 'missions' ? (
+        <FlatList<Mission>
+          data={filteredMissions}
+          renderItem={renderMissionCard}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3B82F6']} />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Feather name="inbox" size={64} color="#CBD5E1" />
+              <Text style={styles.emptyText}>Aucune mission</Text>
+            </View>
+          }
+        />
+      ) : (
+        <FlatList<Assignment>
+          data={receivedAssignments}
+          renderItem={renderReceivedCard}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={['#3B82F6']} />
+          }
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <Feather name="inbox" size={64} color="#CBD5E1" />
+              <Text style={styles.emptyText}>Aucune mission reçue</Text>
+            </View>
+          }
+        />
+      )}
 
       {/* Assignment Modal */}
       <Modal

@@ -478,7 +478,7 @@ export async function sendDepartureInspectionEmail(
     console.log('📧 Envoi email inspection départ...', inspectionId);
 
     // 1. Charger les données de l'inspection
-    const { data: inspection, error: inspError } = await supabase
+    const { data: inspectionRaw, error: inspError } = await supabase
       .from('vehicle_inspections')
       .select(`
         *,
@@ -495,9 +495,11 @@ export async function sendDepartureInspectionEmail(
       .eq('inspection_type', 'departure')
       .single();
 
-    if (inspError || !inspection) {
+    if (inspError || !inspectionRaw) {
       throw new Error('Inspection non trouvée');
     }
+
+    const inspection: any = inspectionRaw; // assouplir le typage pour accéder aux champs dynamiques
 
     // Vérifier qu'il y a un email
     if (!inspection.client_email) {
@@ -515,11 +517,13 @@ export async function sendDepartureInspectionEmail(
       .eq('inspection_id', inspectionId)
       .order('created_at', { ascending: true });
 
-    // 3. Générer le PDF de l'inspection départ
-    const pdfResult = await generateInspectionPDF(
+    // 3. Générer le PDF moderne (section départ seule)
+    const pdfResult = await generateInspectionPDFModern(
+      inspection.mission,
       inspection,
+      null, // pas d'arrivée
       photos || [],
-      { includePhotos: true, includeSignatures: true }
+      []
     );
 
     if (!pdfResult.success) {
@@ -585,7 +589,7 @@ export async function sendArrivalCompleteEmail(
     console.log('📧 Envoi email rapport complet...', arrivalInspectionId);
 
     // 1. Charger l'inspection d'arrivée
-    const { data: arrivalInspection, error: arrivalError } = await supabase
+    const { data: arrivalInspectionRaw, error: arrivalError } = await supabase
       .from('vehicle_inspections')
       .select(`
         *,
@@ -605,9 +609,11 @@ export async function sendArrivalCompleteEmail(
       .eq('inspection_type', 'arrival')
       .single();
 
-    if (arrivalError || !arrivalInspection) {
+    if (arrivalError || !arrivalInspectionRaw) {
       throw new Error('Inspection d\'arrivée non trouvée');
     }
+
+    const arrivalInspection: any = arrivalInspectionRaw;
 
     // Vérifier qu'il y a un email
     if (!arrivalInspection.client_email) {
@@ -619,22 +625,37 @@ export async function sendArrivalCompleteEmail(
     }
 
     // 2. Charger l'inspection de départ (même mission)
-    const { data: departureInspection } = await supabase
+    const { data: departureInspectionRaw } = await supabase
       .from('vehicle_inspections')
       .select('*')
       .eq('mission_id', arrivalInspection.mission_id)
       .eq('inspection_type', 'departure')
       .single();
 
+    const departureInspection: any = departureInspectionRaw || null;
+
     // 3. Charger toutes les photos (départ + arrivée)
     const { data: departurePhotos } = await supabase
       .from('inspection_photos')
       .select('*')
-      .eq('inspection_id', departureInspection?.id || '')
+  .eq('inspection_id', departureInspection?.id || '')
       .order('created_at', { ascending: true });
 
     const { data: arrivalPhotos } = await supabase
       .from('inspection_photos')
+      .select('*')
+      .eq('inspection_id', arrivalInspectionId)
+      .order('created_at', { ascending: true });
+
+    // 3bis. Charger documents scannés et frais liés à l'inspection d'arrivée
+    const { data: scannedDocuments } = await supabase
+      .from('inspection_documents')
+      .select('*')
+      .eq('inspection_id', arrivalInspectionId)
+      .order('created_at', { ascending: true });
+
+    const { data: expenses } = await supabase
+      .from('inspection_expenses')
       .select('*')
       .eq('inspection_id', arrivalInspectionId)
       .order('created_at', { ascending: true });
@@ -645,7 +666,16 @@ export async function sendArrivalCompleteEmail(
       departureInspection || null,
       arrivalInspection,
       departurePhotos || [],
-      arrivalPhotos || []
+      arrivalPhotos || [],
+      scannedDocuments || [],
+      (expenses || []).map((e: any) => ({
+        id: e.id,
+        label: e.description || e.expense_type || 'Frais',
+        amount: Number(e.amount || 0),
+        currency: 'EUR',
+        category: e.expense_type,
+        date: e.created_at,
+      }))
     );
 
     if (!pdfResult.success) {

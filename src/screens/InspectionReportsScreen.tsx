@@ -9,7 +9,7 @@
  * - Téléchargement local
  */
 
-import React, { useState, useCallback } from 'react';
+import { useState, useCallback } from 'react';
 import {
   View,
   Text,
@@ -33,11 +33,12 @@ import * as FileSystem from 'expo-file-system';
 import { useAuth } from '../contexts/AuthContext';
 import {
   listInspectionReports,
-  generateInspectionPDF,
   downloadAllPhotos,
-  sendInspectionReportByEmail,
   type InspectionReport,
 } from '../services/inspectionReportService';
+// sendInspectionReportByEmail is mobile-only (cassa-temp implementation). We guard its import dynamically.
+// generateInspectionPDF unused on mobile (backend route used instead).
+import { sendInspectionReportByEmail } from '../../cassa-temp/src/services/inspectionReportService';
 import { useReportsSync } from '../hooks/useRealtimeSync';
 
 const { width } = Dimensions.get('window');
@@ -175,8 +176,9 @@ export default function InspectionReportsScreen() {
     try {
       const result = await downloadAllPhotos(report);
 
-      if (result.success && result.urls.length > 0) {
-        setCurrentPhotos(result.urls);
+      // Adapt to shared service return shape (photos array)
+      if (result.success && result.photos.length > 0) {
+        setCurrentPhotos(result.photos.map(p => p.url));
         setCurrentPhotoIndex(0);
         setPhotoViewerVisible(true);
       } else {
@@ -245,7 +247,7 @@ export default function InspectionReportsScreen() {
           <View style={styles.infoRow}>
             <Ionicons name="car" size={16} color="#6b7280" />
             <Text style={styles.infoText}>
-              {item.vehicle_make} {item.vehicle_model}
+              {(item as any).vehicle_make || (item as any).vehicle_brand} {item.vehicle_model}
             </Text>
           </View>
           {item.vehicle_plate && (

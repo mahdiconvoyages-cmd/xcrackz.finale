@@ -30,23 +30,37 @@ DECLARE
     v_creator_id UUID;
     v_current_assigned_id UUID;
     v_status TEXT;
+    v_clean_input TEXT := UPPER(REGEXP_REPLACE(p_share_code, '[^A-Za-z0-9]', '', 'g'));
+    v_clean_db TEXT;
+    v_share_code TEXT;
 BEGIN
-    -- Trouver la mission avec assigned_user_id
+    /*
+        Normalisation unique:
+        - On retire tout sauf alphanumérique
+        - Uppercase
+        Cela permet d'accepter anciens formats (8 chars) et nouveau (10 chars) sans erreur.
+        Améliorations:
+        - Lock FOR UPDATE pour éviter la course entre deux utilisateurs rejoignant simultanément.
+        - Retour anticipé si déjà assignée au même utilisateur.
+        - Statut 'canceled' (orthographe corrigée) au lieu de 'cancelled'.
+    */
+
     SELECT 
         id, 
         user_id,
-        assigned_user_id,  -- ⚠️ UTILISE assigned_user_id
-        status
+        assigned_user_id,
+        status,
+        share_code
     INTO 
         v_mission_id,
         v_creator_id,
         v_current_assigned_id,
-        v_status
+        v_status,
+        v_share_code
     FROM missions 
-    WHERE UPPER(TRIM(REPLACE(share_code, '-', ''))) = UPPER(TRIM(REPLACE(p_share_code, '-', '')))
-    LIMIT 1;
+    WHERE UPPER(REGEXP_REPLACE(share_code, '[^A-Za-z0-9]', '', 'g')) = v_clean_input
+    FOR UPDATE;
     
-    -- Mission non trouvée
     IF v_mission_id IS NULL THEN
         RETURN json_build_object(
             'success', false,
@@ -54,8 +68,7 @@ BEGIN
             'message', 'Aucune mission trouvée avec ce code'
         );
     END IF;
-    
-    -- Vérifier que ce n'est pas le créateur
+
     IF v_creator_id = p_user_id THEN
         RETURN json_build_object(
             'success', false,
@@ -63,8 +76,8 @@ BEGIN
             'message', 'Vous ne pouvez pas rejoindre votre propre mission'
         );
     END IF;
-    
-    -- Vérifier si déjà assignée
+
+    -- Déjà assignée à un autre utilisateur
     IF v_current_assigned_id IS NOT NULL AND v_current_assigned_id != p_user_id THEN
         RETURN json_build_object(
             'success', false,
@@ -72,17 +85,27 @@ BEGIN
             'message', 'Cette mission a déjà été assignée à un autre utilisateur'
         );
     END IF;
-    
-    -- Vérifier le statut
-    IF v_status IN ('cancelled', 'completed') THEN
+
+    -- Déjà assignée à ce même utilisateur: retour succès immédiat (idempotence)
+    IF v_current_assigned_id = p_user_id THEN
+        RETURN json_build_object(
+            'success', true,
+            'mission_id', v_mission_id,
+            'alreadyJoined', true,
+            'share_code', v_share_code,
+            'status', v_status,
+            'message', 'Mission déjà présente dans votre liste'
+        );
+    END IF;
+
+    IF v_status IN ('canceled', 'completed') THEN
         RETURN json_build_object(
             'success', false,
             'error', 'Mission terminée',
             'message', 'Cette mission est déjà terminée ou annulée'
         );
     END IF;
-    
-    -- ⚠️ ASSIGNER avec assigned_user_id (PAS assigned_to_user_id)
+
     UPDATE missions 
     SET 
         assigned_user_id = p_user_id,
@@ -91,12 +114,14 @@ BEGIN
             ELSE status
         END,
         updated_at = NOW()
-    WHERE id = v_mission_id;
-    
-    -- Retourner succès
+    WHERE id = v_mission_id
+    RETURNING status INTO v_status;
+
     RETURN json_build_object(
         'success', true,
         'mission_id', v_mission_id,
+        'share_code', v_share_code,
+        'status', v_status,
         'message', 'Mission ajoutée avec succès à votre liste'
     );
     

@@ -126,10 +126,11 @@ DECLARE
     v_mission missions%ROWTYPE;
     v_result JSON;
 BEGIN
-    -- Chercher la mission par code (insensible à la casse et aux espaces)
+    -- Chercher la mission par code (insensible à la casse et à toute ponctuation)
+    -- Normalisation: retirer tout sauf alphanumérique puis majuscules
     SELECT * INTO v_mission 
     FROM missions 
-    WHERE UPPER(REPLACE(share_code, ' ', '')) = UPPER(REPLACE(p_share_code, ' ', ''));
+    WHERE UPPER(REGEXP_REPLACE(share_code, '[^A-Za-z0-9]', '', 'g')) = UPPER(REGEXP_REPLACE(p_share_code, '[^A-Za-z0-9]', '', 'g'));
     
     -- Vérifier si la mission existe
     IF NOT FOUND THEN
@@ -189,6 +190,22 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 COMMENT ON FUNCTION join_mission_with_code IS 'Permet à un utilisateur de rejoindre une mission via un code de partage';
+
+-- Droits d'exécution pour clients web/mobile
+DO $$
+BEGIN
+    BEGIN
+        GRANT EXECUTE ON FUNCTION join_mission_with_code(TEXT, UUID) TO authenticated;
+    EXCEPTION WHEN undefined_object THEN
+        -- Rôle peut ne pas exister dans certains environnements, ignorer
+        NULL;
+    END;
+    BEGIN
+        GRANT EXECUTE ON FUNCTION join_mission_with_code(TEXT, UUID) TO anon;
+    EXCEPTION WHEN undefined_object THEN
+        NULL;
+    END;
+END $$;
 
 -- ============================================
 -- ÉTAPE 5: Générer des codes pour missions existantes

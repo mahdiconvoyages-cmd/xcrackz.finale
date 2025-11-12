@@ -6,7 +6,7 @@
  */
 
 import { supabase } from '../lib/supabase';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 interface MissionPayload {
   eventType: 'INSERT' | 'UPDATE' | 'DELETE';
@@ -32,12 +32,12 @@ class RealtimeSync {
           schema: 'public',
           table: 'missions',
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<any>) => {
           console.log('🔄 Mission changed:', payload.eventType, payload.new?.reference);
           callback(payload as MissionPayload);
         }
       )
-      .subscribe((status) => {
+      .subscribe((status: any) => {
         console.log('🔄 Missions subscription status:', status);
       });
 
@@ -61,7 +61,7 @@ class RealtimeSync {
           table: 'mission_assignments',
           filter: `user_id=eq.${userId}`,
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<any>) => {
           console.log('🔔 Assignment changed:', payload.eventType);
           callback(payload as MissionPayload);
           
@@ -76,7 +76,7 @@ class RealtimeSync {
           }
         }
       )
-      .subscribe((status) => {
+      .subscribe((status: any) => {
         console.log('🔄 Assignments subscription status:', status);
       });
 
@@ -104,7 +104,7 @@ class RealtimeSync {
           schema: 'public',
           table: 'mission_locations',
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<any>) => {
           // Filtrer uniquement les missions qui nous intéressent
           if (payload.new && missionIds.includes(payload.new.mission_id)) {
             console.log('📍 New location for tracked mission:', payload.new.mission_id);
@@ -112,7 +112,7 @@ class RealtimeSync {
           }
         }
       )
-      .subscribe((status) => {
+      .subscribe((status: any) => {
         console.log('🔄 Locations subscription status:', status);
       });
 
@@ -135,12 +135,12 @@ class RealtimeSync {
           schema: 'public',
           table: 'profiles',
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<any>) => {
           console.log('👤 Profile updated:', payload.new?.id);
           callback(payload as MissionPayload);
         }
       )
-      .subscribe((status) => {
+      .subscribe((status: any) => {
         console.log('🔄 Profiles subscription status:', status);
       });
 
@@ -163,7 +163,7 @@ class RealtimeSync {
           schema: 'public',
           table: 'mission_assignments',
         },
-        (payload) => {
+        (payload: RealtimePostgresChangesPayload<any>) => {
           console.log('🔔 Assignment status changed:', payload.eventType, payload.new?.status);
           callback(payload as MissionPayload);
           
@@ -185,7 +185,7 @@ class RealtimeSync {
           }
         }
       )
-      .subscribe((status) => {
+      .subscribe((status: any) => {
         console.log('🔄 All assignments subscription status:', status);
       });
 

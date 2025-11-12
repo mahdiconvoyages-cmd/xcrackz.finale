@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Check, Copy, Share2, X } from 'lucide-react';
-import { copyShareCode, shareMission, getShareMessage } from '../lib/shareCode';
+import { copyShareCode, shareMission, getShareMessage, normalizeShareCodeForDisplay } from '../lib/shareCode';
 
 interface ShareCodeDisplayProps {
   code: string;
@@ -61,8 +61,8 @@ export default function ShareCodeDisplay({
           <p className="text-xs text-gray-500 uppercase tracking-wide mb-2">
             Code de mission
           </p>
-          <p className="text-3xl font-bold text-cyan-600 tracking-widest font-mono">
-            {code}
+          <p className="text-3xl font-bold text-cyan-600 font-mono select-all">
+            {normalizeShareCodeForDisplay(code)}
           </p>
         </div>
       </div>
@@ -123,7 +123,7 @@ export default function ShareCodeDisplay({
           <li>1. Ouvre l'app xCrackz</li>
           <li>2. Va dans "Missions"</li>
           <li>3. Clique "Rejoindre une mission"</li>
-          <li>4. Entre le code: <span className="font-mono font-bold">{code}</span></li>
+          <li>4. Entre le code: <span className="font-mono font-bold">{normalizeShareCodeForDisplay(code)}</span></li>
         </ol>
       </div>
 

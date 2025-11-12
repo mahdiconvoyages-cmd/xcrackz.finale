@@ -33,9 +33,9 @@ export function generateShareCode(): string {
  * @returns true si le format est valide
  */
 export function isValidShareCode(code: string): boolean {
-  // Format attendu: XZ-ABC-123 (10 caractères avec tirets)
-  const regex = /^XZ-[A-Z2-9]{3}-[A-Z2-9]{3}$/;
-  return regex.test(code.toUpperCase().replace(/\s/g, ''));
+  // Format attendu: XZ-ABC-123
+  // Tolère les entrées avec espaces, tirets manquants ou autres séparateurs
+  return cleanShareCode(code) !== null;
 }
 
 /**
@@ -44,25 +44,21 @@ export function isValidShareCode(code: string): boolean {
  * @returns Code formaté ou null si invalide
  */
 export function cleanShareCode(code: string): string | null {
-  // Retirer les espaces et mettre en majuscules
-  const cleaned = code.toUpperCase().replace(/\s/g, '');
-  
-  // Ajouter les tirets manquants si nécessaire
-  let formatted = cleaned;
-  
-  // Si le code n'a pas de tirets, les ajouter
-  if (!cleaned.includes('-')) {
-    if (cleaned.length === 8) {
-      // Format: XZABC123 -> XZ-ABC-123
-      formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2, 5)}-${cleaned.slice(5, 8)}`;
-    }
-  }
-  
-  // Vérifier le format final
-  if (!isValidShareCode(formatted)) {
-    return null;
-  }
-  
+  if (!code) return null;
+  // 1) Normaliser: mettre en majuscules et retirer tous les caractères non alphanumériques
+  //    (aligné avec mobile et la RPC SQL qui fait REGEXP_REPLACE('[^A-Za-z0-9]', '', 'g'))
+  const cleaned = code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+  // Doit faire exactement 8 caractères (XZ + 6 caractères)
+  if (cleaned.length !== 8) return null;
+
+  // 2) Reconstituer le format XZ-ABC-123
+  const formatted = `${cleaned.slice(0, 2)}-${cleaned.slice(2, 5)}-${cleaned.slice(5, 8)}`;
+
+  // 3) Vérifier le format final (exclut I/O et 0/1 via classe [A-Z2-9])
+  const regex = /^XZ-[A-Z2-9]{3}-[A-Z2-9]{3}$/;
+  if (!regex.test(formatted)) return null;
+
   return formatted;
 }
 
@@ -119,6 +115,31 @@ Pour accepter:
 4. Entrez le code: ${code}
 
 Téléchargez l'app: https://expo.dev/artifacts/eas/8ef092ab-d881-437a-8b12-1f1ce6c35706.apk`;
+}
+
+/**
+ * Normalise l'affichage d'un code potentiellement mal formé (ex: "XZ--ABC--123")
+ * - Supprime caractères non autorisés
+ * - Réduit les séquences de tirets multiples à un seul '-'
+ * - Recalcule le format XZ-ABC-123 si longueur brute = 8 sans tirets
+ * - Évite d'afficher des tirets doublés qui peuvent visuellement masquer le code
+ */
+export function normalizeShareCodeForDisplay(raw: string | undefined | null): string {
+  if (!raw) return '';
+  // Garder uniquement A-Z 0-9 et tirets
+  const cleaned = raw.toUpperCase().replace(/[^A-Z0-9\-]/g, '');
+  // Réduire séquences --- -> -
+  const collapsed = cleaned.replace(/-+/g, '-').replace(/^-|-$/g, '');
+  // Enlever les tirets pour tester la forme brute
+  const bare = collapsed.replace(/-/g, '');
+  if (bare.length === 8 && bare.startsWith('XZ')) {
+    return `${bare.slice(0,2)}-${bare.slice(2,5)}-${bare.slice(5,8)}`;
+  }
+  // Si déjà conforme à la regex finale, retourner tel quel
+  if (/^XZ-[A-Z2-9]{3}-[A-Z2-9]{3}$/.test(collapsed)) {
+    return collapsed;
+  }
+  return collapsed;
 }
 
 /**

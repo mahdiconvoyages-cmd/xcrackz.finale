@@ -10,7 +10,7 @@
 
 import { useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { RealtimeChannel } from '@supabase/supabase-js';
+import type { RealtimeChannel, RealtimePostgresChangesPayload } from '@supabase/supabase-js';
 
 type RealtimeTable = 'missions' | 'vehicle_inspections' | 'inspection_reports' | 'carpooling';
 
@@ -53,7 +53,7 @@ export function useRealtimeSync({
             table: table,
             filter: filter,
           },
-          (payload) => {
+          (payload: RealtimePostgresChangesPayload<any>) => {
             console.log(`[Realtime] INSERT ${table}:`, payload.new);
             insertRef.current?.(payload.new);
           }
@@ -66,7 +66,7 @@ export function useRealtimeSync({
             table: table,
             filter: filter,
           },
-          (payload) => {
+          (payload: RealtimePostgresChangesPayload<any>) => {
             console.log(`[Realtime] UPDATE ${table}:`, payload.new);
             updateRef.current?.(payload.new);
           }
@@ -79,12 +79,12 @@ export function useRealtimeSync({
             table: table,
             filter: filter,
           },
-          (payload) => {
+          (payload: RealtimePostgresChangesPayload<any>) => {
             console.log(`[Realtime] DELETE ${table}:`, payload.old);
             deleteRef.current?.(payload.old);
           }
         )
-        .subscribe((status) => {
+        .subscribe((status: any) => {
           console.log(`[Realtime] ${table} subscription status:`, status);
         });
     };
