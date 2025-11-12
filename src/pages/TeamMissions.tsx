@@ -40,7 +40,7 @@ interface Mission {
   user_id?: string;
   archived?: boolean;
   share_code?: string;
-  assigned_to_user_id?: string;
+  assigned_user_id?: string;
 }
 
 interface Contact {
@@ -197,7 +197,7 @@ export default function TeamMissions() {
     let receivedQuery = supabase
       .from('missions')
       .select('*')
-      .eq('assigned_to_user_id' as any, user.id);
+      .eq('assigned_user_id' as any, user.id);
 
     if (!showArchived) {
       receivedQuery = receivedQuery.or('archived.is.null,archived.eq.false');
@@ -210,7 +210,7 @@ export default function TeamMissions() {
     if (receivedError) {
       console.error('Error loading received missions:', receivedError);
       // Ne pas bloquer si la colonne n'existe pas encore
-      if (!receivedError.message?.includes('assigned_to_user_id')) {
+      if (!receivedError.message?.includes('assigned_user_id')) {
         throw receivedError;
       }
     }

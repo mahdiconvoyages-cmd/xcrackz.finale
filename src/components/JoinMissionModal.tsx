@@ -81,8 +81,8 @@ export default function JoinMissionModal({ isOpen, onClose, onSuccess }: JoinMis
       console.log('✅ Mission rejointe avec succès!', data);
 
       // Succès!
-  setSuccess(true);
-  const already = !!data.alreadyJoined;
+      const already = !!data.alreadyJoined;
+      setSuccess(true);
       
       // Attendre un peu avant de fermer
       setTimeout(() => {
