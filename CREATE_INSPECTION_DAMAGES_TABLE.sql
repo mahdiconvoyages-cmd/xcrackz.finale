@@ -87,7 +87,7 @@ USING (
     SELECT 1 FROM public.vehicle_inspections vi
     JOIN public.missions m ON vi.mission_id = m.id
     WHERE vi.id = inspection_damages.inspection_id
-    AND (m.user_id = auth.uid() OR m.assigned_to_user_id = auth.uid() OR m.assigned_user_id = auth.uid())
+    AND (m.user_id = auth.uid() OR m.assigned_to_user_id = auth.uid())
   )
 );
 
@@ -101,7 +101,7 @@ WITH CHECK (
     SELECT 1 FROM public.vehicle_inspections vi
     JOIN public.missions m ON vi.mission_id = m.id
     WHERE vi.id = inspection_damages.inspection_id
-    AND (m.user_id = auth.uid() OR m.assigned_to_user_id = auth.uid() OR m.assigned_user_id = auth.uid())
+    AND (m.user_id = auth.uid() OR m.assigned_to_user_id = auth.uid())
   )
 );
 
@@ -115,7 +115,7 @@ USING (
     SELECT 1 FROM public.vehicle_inspections vi
     JOIN public.missions m ON vi.mission_id = m.id
     WHERE vi.id = inspection_damages.inspection_id
-    AND (m.user_id = auth.uid() OR m.assigned_to_user_id = auth.uid() OR m.assigned_user_id = auth.uid())
+    AND (m.user_id = auth.uid() OR m.assigned_to_user_id = auth.uid())
   )
 );
 
@@ -128,7 +128,7 @@ USING (
     SELECT 1 FROM public.vehicle_inspections vi
     JOIN public.missions m ON vi.mission_id = m.id
     WHERE vi.id = inspection_damages.inspection_id
-    AND (m.user_id = auth.uid() OR m.assigned_to_user_id = auth.uid() OR m.assigned_user_id = auth.uid())
+    AND (m.user_id = auth.uid() OR m.assigned_to_user_id = auth.uid())
   )
 );
 
