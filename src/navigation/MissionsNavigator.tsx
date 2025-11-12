@@ -3,7 +3,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTheme } from '../contexts/ThemeContext';
 import MenuButton from '../components/MenuButton';
 
-import MissionListScreen from '../screens/missions/MissionListScreenNew';
+import MissionListScreen from '../screens/missions/MissionListScreen';
 import MissionCreateScreen from '../screens/missions/MissionCreateScreen';
 import MissionViewScreen from '../screens/missions/MissionViewScreenNew';
 import MissionTrackingScreen from '../screens/missions/MissionTrackingScreen';
