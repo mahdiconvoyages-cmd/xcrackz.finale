@@ -12,12 +12,15 @@ import {
   Dimensions,
 } from 'react-native';
 import { Ionicons, MaterialIcons, MaterialCommunityIcons } from '@expo/vector-icons';
+import { Image } from 'react-native';
+import { getVehicleImageSource } from '../../utils/vehicleDefaults';
 import { LinearGradient } from 'expo-linear-gradient';
 import * as Clipboard from 'expo-clipboard';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
+import { shareMissionLink } from '../../lib/shareCode';
 import LocationSharing from '../../components/LocationSharing';
 
 const { width, height } = Dimensions.get('window');
@@ -197,11 +200,21 @@ export default function MissionViewScreenNew({ route, navigation }: any) {
 
   const handleShareMission = async () => {
     try {
-      await Share.share({
-        message: `Mission ${mission.reference}\nDe: ${mission.pickup_address}\nÀ: ${mission.delivery_address}\nPrix: ${mission.price}€`,
-      });
+      // Utilise le nouveau système de deeplink
+      const success = await shareMissionLink(
+        missionId,
+        mission.title || `Mission ${mission.reference}`
+      );
+      
+      if (!success) {
+        // Fallback si erreur
+        await Share.share({
+          message: `Mission ${mission.reference}\nDe: ${mission.pickup_address}\nÀ: ${mission.delivery_address}\nPrix: ${mission.price}€`,
+        });
+      }
     } catch (error) {
       console.error('Erreur partage:', error);
+      Alert.alert('Erreur', 'Impossible de partager la mission');
     }
   };
 
@@ -309,6 +322,17 @@ export default function MissionViewScreenNew({ route, navigation }: any) {
             >
               <Ionicons name="arrow-back" size={24} color="#fff" />
             </TouchableOpacity>
+
+            {/* Vehicle Image (hero) */}
+            {mission?.vehicle_image_url && (
+              <View style={styles.heroImageWrapper}>
+                <Image
+                  source={getVehicleImageSource(mission.vehicle_image_url, mission.vehicle_type)}
+                  style={styles.heroImage}
+                  resizeMode="cover"
+                />
+              </View>
+            )}
 
             <View style={styles.heroContent}>
               <View style={styles.statusIconContainer}>
@@ -667,7 +691,7 @@ export default function MissionViewScreenNew({ route, navigation }: any) {
           </Animated.View>
 
           {/* Vehicle Info */}
-          {(mission.vehicle_brand || mission.vehicle_model) && (
+          {(mission.vehicle_brand || mission.vehicle_model || mission.title || mission.description) && (
             <Animated.View
               style={[
                 styles.card,
@@ -683,8 +707,42 @@ export default function MissionViewScreenNew({ route, navigation }: any) {
               >
                 <View style={styles.cardHeader}>
                   <MaterialCommunityIcons name="car-info" size={24} color="#14b8a6" />
-                  <Text style={styles.cardTitle}>Informations véhicule</Text>
+                  <Text style={styles.cardTitle}>Informations de la mission</Text>
                 </View>
+
+                {/* Titre et description */}
+                {mission.title && (
+                  <View style={[styles.infoGrid, { marginBottom: 12 }]}>
+                    <View style={[styles.infoItem, { width: '100%' }]}>
+                      <Text style={styles.infoLabel}>Titre</Text>
+                      <Text style={[styles.infoValue, { fontSize: 16, fontWeight: '600' }]}>
+                        {mission.title}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {mission.description && (
+                  <View style={[styles.infoGrid, { marginBottom: 12 }]}>
+                    <View style={[styles.infoItem, { width: '100%' }]}>
+                      <Text style={styles.infoLabel}>Description</Text>
+                      <Text style={[styles.infoValue, { fontSize: 14 }]}>
+                        {mission.description}
+                      </Text>
+                    </View>
+                  </View>
+                )}
+
+                {/* Image véhicule (miniature) */}
+                {mission.vehicle_image_url && (
+                  <View style={styles.vehicleImageContainer}>
+                    <Image
+                      source={getVehicleImageSource(mission.vehicle_image_url, mission.vehicle_type)}
+                      style={styles.vehicleImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+                )}
 
                 <View style={styles.infoGrid}>
                   {mission.vehicle_brand && (
@@ -709,6 +767,18 @@ export default function MissionViewScreenNew({ route, navigation }: any) {
                     <View style={styles.infoItem}>
                       <Text style={styles.infoLabel}>Distance</Text>
                       <Text style={styles.infoValue}>{mission.distance_km} km</Text>
+                    </View>
+                  )}
+                  {mission.scheduled_date && (
+                    <View style={styles.infoItem}>
+                      <Text style={styles.infoLabel}>Date prévue</Text>
+                      <Text style={styles.infoValue}>
+                        {new Date(mission.scheduled_date).toLocaleDateString('fr-FR', {
+                          day: '2-digit',
+                          month: 'short',
+                          year: 'numeric'
+                        })}
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -980,6 +1050,18 @@ const styles = StyleSheet.create({
     fontWeight: '800',
     color: '#fff',
   },
+  heroImageWrapper: {
+    width: '100%',
+    height: 160,
+    borderRadius: 20,
+    overflow: 'hidden',
+    marginBottom: 16,
+    backgroundColor: 'rgba(255,255,255,0.15)',
+  },
+  heroImage: {
+    width: '100%',
+    height: '100%',
+  },
   content: {
     paddingHorizontal: 20,
     paddingTop: 20,
@@ -1130,6 +1212,17 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#fff',
     fontWeight: '600',
+  },
+  vehicleImageContainer: {
+    marginBottom: 16,
+    borderRadius: 16,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#14b8a6',
+  },
+  vehicleImage: {
+    width: '100%',
+    height: 160,
   },
   locationCard: {
     flexDirection: 'row',

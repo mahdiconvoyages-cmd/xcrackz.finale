@@ -1,10 +1,15 @@
 /**
  * Génération et gestion de codes de partage pour les missions (Mobile)
  * Format: XZ-ABC-123 (facile à lire et à partager)
+ * Deeplinks: finality://mission/open/{id} ou finality://mission/join/{code}
  */
 
 import * as Clipboard from 'expo-clipboard';
 import { Share, Alert } from 'react-native';
+
+// Configuration des URLs
+const WEB_BASE_URL = 'https://www.xcrackz.com';
+const DEEPLINK_SCHEME = 'finality';
 
 // Caractères utilisés (sans I, O, 0, 1 pour éviter confusion)
 const CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
@@ -92,6 +97,30 @@ Téléchargez l'app: https://expo.dev/artifacts/eas/8ef092ab-d881-437a-8b12-1f1c
 }
 
 /**
+ * Retourne le code nu (sans tirets) utilisé pour deeplink
+ */
+export function getBareShareCode(code: string): string {
+  if (!code) return '';
+  return code.toUpperCase().replace(/[^A-Z0-9]/g, '');
+}
+
+/**
+ * URL web publique pour rejoindre directement (future page join)
+ */
+export function getJoinLink(code: string): string {
+  const bare = getBareShareCode(code);
+  return `https://www.xcrackz.com/join/${bare}`;
+}
+
+/**
+ * Deeplink interne (ouvre l'app et déclenche l'assignation auto)
+ */
+export function getDeeplinkJoinUrl(code: string): string {
+  const bare = getBareShareCode(code);
+  return `finality://mission/join/${bare}`;
+}
+
+/**
  * Partage une mission via l'API native Share (Mobile)
  */
 export async function shareMission(code: string, missionTitle?: string): Promise<boolean> {
@@ -143,6 +172,84 @@ export function validateShareCodeInput(input: string): ShareCodeValidation {
     valid: true,
     code: cleaned,
   };
+}
+
+/**
+ * Génère un lien deeplink pour ouvrir une mission
+ * @param missionId ID de la mission
+ * @returns finality://mission/open/{missionId}
+ */
+export function getMissionDeeplink(missionId: string): string {
+  return `${DEEPLINK_SCHEME}://mission/open/${missionId}`;
+}
+
+/**
+ * Génère un lien web pour ouvrir une mission
+ * @param missionId ID de la mission
+ * @returns https://www.xcrackz.com/mission/{missionId}
+ */
+export function getMissionWebLink(missionId: string): string {
+  return `${WEB_BASE_URL}/mission/${missionId}`;
+}
+
+/**
+ * Partage une mission via deeplink
+ * @param missionId ID de la mission
+ * @param missionTitle Titre de la mission (optionnel)
+ */
+export async function shareMissionLink(
+  missionId: string,
+  missionTitle?: string
+): Promise<boolean> {
+  try {
+    const webLink = getMissionWebLink(missionId);
+    const deeplink = getMissionDeeplink(missionId);
+    
+    const title = missionTitle || 'Mission xCrackz';
+    const message = `📦 ${title}\n\n` +
+      `Ouvre cette mission dans l'app xCrackz:\n${deeplink}\n\n` +
+      `Ou sur le web: ${webLink}`;
+
+    const result = await Share.share({
+      message,
+      title,
+      url: webLink, // iOS utilise url
+    });
+
+    if (result.action === Share.sharedAction) {
+      console.log('✅ Mission partagée');
+      return true;
+    }
+
+    return false;
+  } catch (error) {
+    console.error('❌ Erreur partage mission:', error);
+    Alert.alert('Erreur', 'Impossible de partager la mission');
+    return false;
+  }
+}
+
+/**
+ * Copie le lien de la mission dans le presse-papier
+ * @param missionId ID de la mission
+ */
+export async function copyMissionLink(missionId: string): Promise<boolean> {
+  try {
+    const deeplink = getMissionDeeplink(missionId);
+    await Clipboard.setStringAsync(deeplink);
+    
+    Alert.alert(
+      '✅ Lien copié!',
+      'Le lien de la mission a été copié dans le presse-papier',
+      [{ text: 'OK' }]
+    );
+    
+    return true;
+  } catch (error) {
+    console.error('❌ Erreur copie lien:', error);
+    Alert.alert('Erreur', 'Impossible de copier le lien');
+    return false;
+  }
 }
 
 /**

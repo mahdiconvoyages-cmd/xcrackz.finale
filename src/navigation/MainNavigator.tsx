@@ -14,6 +14,8 @@ import NewMissionsScreen from '../screens/NewMissionsScreen';
 import CarpoolingNavigator from './CarpoolingNavigator';
 import ProfileScreen from '../screens/ProfileScreen';
 import ScannerProScreen from '../screens/ScannerProScreen';
+import { useDeeplinkJoinMission } from '../hooks/useDeeplinkJoinMission';
+import { useDeeplinkMission } from '../hooks/useDeeplinkMission';
 
 // Composant pour les raccourcis rapides
 function CustomDrawerContent(props: any) {
@@ -116,6 +118,14 @@ const Drawer = createDrawerNavigator();
 
 export default function MainNavigator() {
   const { colors, isDark } = useTheme();
+  
+  // Écoute deeplink pour assignation auto (simple feedback console)
+  useDeeplinkJoinMission((missionId) => {
+    console.log('✅ Mission assignée via deeplink:', missionId);
+  });
+
+  // Écoute deeplink pour ouvrir une mission directement
+  useDeeplinkMission();
 
   return (
     <Drawer.Navigator
