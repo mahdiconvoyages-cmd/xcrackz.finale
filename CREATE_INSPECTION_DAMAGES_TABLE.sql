@@ -22,13 +22,39 @@ CREATE TABLE IF NOT EXISTS public.inspection_damages (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Indexes for performance
-CREATE INDEX IF NOT EXISTS idx_inspection_damages_inspection_id 
-  ON public.inspection_damages(inspection_id);
-CREATE INDEX IF NOT EXISTS idx_inspection_damages_severity 
-  ON public.inspection_damages(severity);
-CREATE INDEX IF NOT EXISTS idx_inspection_damages_damage_type 
-  ON public.inspection_damages(damage_type);
+-- Indexes for performance (uniquement si la table vient d'être créée)
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes 
+    WHERE schemaname = 'public' 
+    AND tablename = 'inspection_damages' 
+    AND indexname = 'idx_inspection_damages_inspection_id'
+  ) THEN
+    CREATE INDEX idx_inspection_damages_inspection_id 
+      ON public.inspection_damages(inspection_id);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes 
+    WHERE schemaname = 'public' 
+    AND tablename = 'inspection_damages' 
+    AND indexname = 'idx_inspection_damages_severity'
+  ) THEN
+    CREATE INDEX idx_inspection_damages_severity 
+      ON public.inspection_damages(severity);
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes 
+    WHERE schemaname = 'public' 
+    AND tablename = 'inspection_damages' 
+    AND indexname = 'idx_inspection_damages_damage_type'
+  ) THEN
+    CREATE INDEX idx_inspection_damages_damage_type 
+      ON public.inspection_damages(damage_type);
+  END IF;
+END $$;
 
 -- RLS policies
 ALTER TABLE public.inspection_damages ENABLE ROW LEVEL SECURITY;
