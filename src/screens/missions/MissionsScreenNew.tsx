@@ -48,6 +48,7 @@ export default function MissionsScreenNew({ navigation }: any) {
   const [showJoinModal, setShowJoinModal] = useState(false);
 
   useEffect(() => {
+    console.log('🆕🆕🆕 NOUVEAU MissionsScreenNew chargé! 🆕🆕🆕');
     loadMissions();
   }, []);
 
@@ -235,7 +236,7 @@ export default function MissionsScreenNew({ navigation }: any) {
     <View style={[styles.container, { backgroundColor: colors.background }]}>
       {/* Header */}
       <View style={[styles.header, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-        <Text style={[styles.title, { color: colors.text }]}>Mes Missions</Text>
+        <Text style={[styles.title, { color: colors.text }]}>🆕 Missions V2</Text>
         
         <View style={styles.headerActions}>
           {activeTab === 'received' && (
