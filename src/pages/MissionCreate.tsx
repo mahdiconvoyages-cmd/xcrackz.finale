@@ -1,16 +1,16 @@
 // @ts-nocheck - Supabase generated types are outdated, all operations work correctly at runtime
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Save, Truck, Download, Eye, X, ChevronRight, ChevronLeft } from 'lucide-react';
+import { ArrowLeft, Save, Truck, Download, Eye, X, ChevronRight, ChevronLeft, Share2, Copy, Check } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useCredits } from '../hooks/useCredits';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import VehicleImageUpload from '../components/VehicleImageUpload';
-import ShareCodeDisplay from '../components/ShareCodeDisplay';
 import BuyCreditModal from '../components/BuyCreditModal';
 import { getVehicleImageUrl } from '../utils/vehicleDefaults';
+import { getMissionWebLink, getMissionDeeplink } from '../lib/shareCode';
 
 export default function MissionCreate() {
   const { user } = useAuth();
@@ -21,7 +21,8 @@ export default function MissionCreate() {
   const [showPreview, setShowPreview] = useState(false);
   const [showBuyCreditModal, setShowBuyCreditModal] = useState(false);
   const [currentStep, setCurrentStep] = useState(1);
-  const [createdMission, setCreatedMission] = useState<{ id: string; share_code: string } | null>(null);
+  const [createdMission, setCreatedMission] = useState<{ id: string } | null>(null);
+  const [copied, setCopied] = useState(false);
   const totalSteps = 5; // Ajout d'une étape finale de récapitulatif & PDF
 
   const [formData, setFormData] = useState({
@@ -155,11 +156,11 @@ export default function MissionCreate() {
 
       if (error) throw error;
 
-      // Afficher le code de partage
-      if (data && data.share_code) {
-        setCreatedMission({ id: data.id, share_code: data.share_code });
+      // Afficher le modal de succès avec lien de partage
+      if (data && data.id) {
+        setCreatedMission({ id: data.id });
       } else {
-        // Si pas de code (migration pas encore appliquée), rediriger directement
+        // Si pas d'ID, rediriger directement
         navigate('/team-missions');
       }
     } catch (error: any) {
@@ -835,17 +836,99 @@ export default function MissionCreate() {
         </div>
       )}
 
-      {/* Modal Success avec Code de Partage */}
+      {/* Modal Success avec Lien de Partage */}
       {createdMission && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6">
-            <ShareCodeDisplay 
-              code={createdMission.share_code}
-              missionTitle={`${formData.vehicle_brand} ${formData.vehicle_model}`}
-              onClose={() => navigate('/team-missions')}
-              showCloseButton
-            />
-            <div className="mt-6 flex gap-3">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-8">
+            <div className="text-center mb-6">
+              <div className="mx-auto w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mb-4">
+                <Check className="w-8 h-8 text-green-600" />
+              </div>
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Mission créée avec succès !</h2>
+              <p className="text-gray-600">
+                {`${formData.vehicle_brand} ${formData.vehicle_model}`}
+              </p>
+            </div>
+
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Share2 className="w-5 h-5 text-blue-600" />
+                  <span className="font-semibold text-blue-900">Partager cette mission</span>
+                </div>
+              </div>
+              
+              <div className="space-y-3">
+                <div className="bg-white rounded-lg p-3 border border-blue-200">
+                  <div className="text-xs text-gray-600 mb-1">Lien de partage</div>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={getMissionWebLink(createdMission.id)}
+                      readOnly
+                      className="flex-1 text-sm bg-transparent border-none focus:outline-none text-gray-700 font-mono"
+                    />
+                    <button
+                      onClick={async () => {
+                        const link = getMissionWebLink(createdMission.id);
+                        try {
+                          await navigator.clipboard.writeText(link);
+                          setCopied(true);
+                          setTimeout(() => setCopied(false), 2000);
+                        } catch (err) {
+                          console.error('Failed to copy:', err);
+                        }
+                      }}
+                      className="p-2 hover:bg-blue-100 rounded-lg transition-colors"
+                    >
+                      {copied ? (
+                        <Check className="w-4 h-4 text-green-600" />
+                      ) : (
+                        <Copy className="w-4 h-4 text-blue-600" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+
+                <button
+                  onClick={async () => {
+                    const link = getMissionWebLink(createdMission.id);
+                    const text = `Rejoins ma mission de convoyage !\n\n${formData.vehicle_brand} ${formData.vehicle_model}\n\n${link}`;
+                    
+                    if (navigator.share) {
+                      try {
+                        await navigator.share({
+                          title: 'Mission de convoyage',
+                          text: text,
+                        });
+                      } catch (err) {
+                        console.log('Share cancelled or failed:', err);
+                      }
+                    } else {
+                      // Fallback: copier dans le presse-papiers
+                      try {
+                        await navigator.clipboard.writeText(text);
+                        alert('Message copié dans le presse-papiers !');
+                      } catch (err) {
+                        console.error('Failed to copy:', err);
+                      }
+                    }
+                  }}
+                  className="w-full py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center justify-center gap-2 transition-colors"
+                >
+                  <Share2 className="w-4 h-4" />
+                  Partager par message
+                </button>
+              </div>
+
+              <div className="mt-4 pt-4 border-t border-blue-200">
+                <p className="text-xs text-blue-800 leading-relaxed">
+                  💡 <strong>Astuce :</strong> Partagez ce lien avec un convoyeur. En cliquant dessus depuis son mobile, il pourra rejoindre directement la mission dans l'app FleetCheck.
+                </p>
+              </div>
+            </div>
+
+            <div className="flex gap-3">
               <button
                 onClick={() => navigate('/team-missions')}
                 className="flex-1 px-6 py-3 bg-cyan-600 text-white rounded-xl hover:bg-cyan-700 transition-all font-semibold"
