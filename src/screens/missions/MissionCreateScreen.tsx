@@ -1,4 +1,6 @@
 import React, { useState } from 'react';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import type { InspectionsStackParamList } from '../../types/navigation';
 import {
   View,
   Text,
@@ -24,7 +26,9 @@ import BuyCreditModal from '../../components/BuyCreditModal';
 
 const TOTAL_STEPS = 4;
 
-export default function MissionCreateScreen({ navigation }: any) {
+type MissionCreateNav = NativeStackNavigationProp<InspectionsStackParamList>;
+
+export default function MissionCreateScreen({ navigation }: { navigation: MissionCreateNav }) {
   const { colors } = useTheme();
   const { user } = useAuth();
   const { credits, deductCredits, hasEnoughCredits, refreshCredits } = useCredits();
@@ -38,7 +42,30 @@ export default function MissionCreateScreen({ navigation }: any) {
   const [showDeliveryTimePicker, setShowDeliveryTimePicker] = useState(false);
   const [showBuyCreditModal, setShowBuyCreditModal] = useState(false);
 
-  const [formData, setFormData] = useState({
+  type FormData = {
+    reference: string;
+    vehicle_brand: string;
+    vehicle_model: string;
+    vehicle_type: 'VL' | 'VU' | 'PL';
+    vehicle_plate: string;
+    vehicle_vin: string;
+    vehicle_image_url: string;
+    pickup_address: string;
+    pickup_lat: number | null;
+    pickup_lng: number | null;
+    pickup_date: Date;
+    pickup_contact_name: string;
+    pickup_contact_phone: string;
+    delivery_address: string;
+    delivery_lat: number | null;
+    delivery_lng: number | null;
+    delivery_date: Date;
+    delivery_contact_name: string;
+    delivery_contact_phone: string;
+    notes: string;
+  };
+
+  const [formData, setFormData] = useState<FormData>({
     reference: `MISSION-${Date.now()}`,
     // Step 1: Véhicule
     vehicle_brand: '',
@@ -65,7 +92,7 @@ export default function MissionCreateScreen({ navigation }: any) {
     notes: '',
   });
 
-  const updateField = (field: string, value: any) => {
+  const updateField = <K extends keyof FormData>(field: K, value: FormData[K]) => {
     setFormData(prev => ({ ...prev, [field]: value }));
   };
 
@@ -166,24 +193,16 @@ export default function MissionCreateScreen({ navigation }: any) {
         console.log('✅ Abonnement actif, pas de déduction de crédits');
       }
 
-      // 2. Générer un code de partage unique
-      const generateShareCode = () => {
-        const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-        let code = '';
-        for (let i = 0; i < 9; i++) {
-          if (i === 2 || i === 5) code += '-';
-          else code += chars[Math.floor(Math.random() * chars.length)];
-        }
-        return code; // Format: XX-XXX-XXX
-      };
-
-      // 3. Créer la mission
+      // 2. Créer la mission
+      // NOTE: Ne pas générer le code côté client.
+      // Le trigger Postgres auto_generate_share_code applique le format officiel "XZ-ABC-123"
+      // et garantit l'unicité avec retries. (Voir MIGRATION_SHARE_CODE_SYSTEM.sql)
       const { data, error } = await supabase
         .from('missions')
         .insert({
           reference: formData.reference,
           user_id: user.id,
-          share_code: generateShareCode(),
+          // share_code: (laissée NULL volontairement pour que le trigger la génère)
           status: 'pending',
           // Véhicule
           vehicle_brand: formData.vehicle_brand,
@@ -224,7 +243,7 @@ export default function MissionCreateScreen({ navigation }: any) {
         [
           {
             text: 'Voir la mission',
-            onPress: () => navigation.replace('MissionView', { missionId: data.id }),
+            onPress: () => navigation.replace('MissionDetail', { missionId: data.id as string }),
           },
           {
             text: 'Retour',

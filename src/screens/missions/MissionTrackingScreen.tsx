@@ -20,15 +20,43 @@ import {
   getLocationHistory,
   getTrackingStats,
 } from '../../services/gpsTrackingService';
+import { MissionStackParamList, MissionRouteProp } from '../../types/navigation';
 
-export default function MissionTrackingScreen({ route, navigation }: any) {
-  const { missionId } = route.params;
+// Data interfaces
+interface Mission {
+  id: string;
+  reference: string;
+  pickup_address: string;
+  delivery_address: string;
+  public_tracking_link?: string;
+}
+
+interface LocationPoint {
+  latitude: number;
+  longitude: number;
+  recorded_at?: string | null;
+}
+
+interface TrackingStats {
+  totalDistance: number; // km
+  totalDuration: number; // minutes
+  averageSpeed: number; // km/h
+  maxSpeed: number; // km/h
+  pointsCount: number;
+}
+
+interface MissionTrackingScreenProps {
+  route: MissionRouteProp<'MissionTracking'>;
+  navigation: any; // to refine later with proper stack typings
+}
+export default function MissionTrackingScreen({ route, navigation }: MissionTrackingScreenProps) {
+  const { missionId } = route.params as { missionId: string };
   const { colors, isDark } = useTheme();
-  const [currentLocation, setCurrentLocation] = useState<any>(null);
-  const [tracking, setTracking] = useState(false);
-  const [locationHistory, setLocationHistory] = useState<any[]>([]);
-  const [mission, setMission] = useState<any>(null);
-  const [stats, setStats] = useState<any>(null);
+  const [currentLocation, setCurrentLocation] = useState<LocationPoint | null>(null);
+  const [tracking, setTracking] = useState<boolean>(false);
+  const [locationHistory, setLocationHistory] = useState<LocationPoint[]>([]);
+  const [mission, setMission] = useState<Mission | null>(null);
+  const [stats, setStats] = useState<TrackingStats | null>(null);
   const [loading, setLoading] = useState(true);
   const mapRef = useRef<MapView>(null);
   const locationSubscription = useRef<any>(null);
@@ -54,25 +82,25 @@ export default function MissionTrackingScreen({ route, navigation }: any) {
   const loadMission = async () => {
     const { data } = await supabase
       .from('missions')
-      .select('*')
+      .select('id, reference, pickup_address, delivery_address, public_tracking_link')
       .eq('id', missionId)
       .single();
-    if (data) setMission(data);
+    if (data) setMission(data as Mission);
   };
 
   const loadLocationHistory = async () => {
-    const history = await getLocationHistory(missionId);
+    const history = await getLocationHistory(missionId) as LocationPoint[];
     setLocationHistory(history);
-    
+
     // Charger les statistiques
-    const trackingStats = await getTrackingStats(missionId);
+    const trackingStats = await getTrackingStats(missionId) as TrackingStats;
     setStats(trackingStats);
   };
 
   const checkTrackingStatus = async () => {
     const isActive = await isTrackingActive();
     setTracking(isActive);
-    
+
     if (isActive) {
       startRealtimeUpdates();
     }

@@ -1,3 +1,24 @@
+// Centralized navigation param lists for mission-related screens
+// Incremental typing: add more screens as they are converted
+export type MissionStackParamList = {
+  MissionList: undefined;
+  MissionDetail: { missionId: string }; // existing route renamed earlier from MissionView
+  MissionView: { missionId: string }; // legacy naming used in some older screens
+  MissionTracking: { missionId: string };
+  InspectionDeparture: { missionId: string };
+  InspectionArrival: { missionId: string };
+  MissionCreate: undefined;
+  ShareMission: { mission: any }; // New: Share mission via code
+  // Nested navigator bridge: allow passing through to Inspections navigator without over-constraining now
+  Inspections: any;
+};
+
+// Generic route prop helper (avoids importing react-navigation types everywhere initially)
+export interface MissionRouteProp<S extends keyof MissionStackParamList> {
+  key?: string;
+  name: S;
+  params: MissionStackParamList[S];
+}
 import type { NavigatorScreenParams } from '@react-navigation/native';
 
 export type RootStackParamList = {

@@ -300,8 +300,21 @@ export default function DashboardScreenNew() {
 
   useFocusEffect(
     useCallback(() => {
-      loadUserProfile();
-      loadDashboardData();
+      let mounted = true;
+      (async () => {
+        try {
+          await Promise.all([
+            loadUserProfile(),
+            (async () => { try { await refreshCredits(); } catch {} })(),
+          ]);
+          if (mounted) {
+            await loadDashboardData();
+          }
+        } catch (e) {
+          console.log('Dashboard focus refresh error', e);
+        }
+      })();
+      return () => { mounted = false; };
     }, [user?.id])
   );
 

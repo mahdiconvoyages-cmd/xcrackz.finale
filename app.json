@@ -36,7 +36,7 @@
     },
     "android": {
       "package": "com.finality.app",
-      "versionCode": 3,
+      "versionCode": 2,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0b1220"
@@ -52,6 +52,26 @@
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.CAMERA",
         "android.permission.RECORD_AUDIO"
+      ],
+      "intentFilters": [
+        {
+          "action": "VIEW",
+          "autoVerify": true,
+          "data": [
+            {
+              "scheme": "finality"
+            },
+            {
+              "scheme": "https",
+              "host": "finality.app",
+              "pathPrefix": "/mission"
+            }
+          ],
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
+        }
       ]
     },
     "plugins": [

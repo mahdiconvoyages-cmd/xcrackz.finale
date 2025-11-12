@@ -15,13 +15,45 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import LocationSharing from '../../components/LocationSharing';
+import { MissionStackParamList, MissionRouteProp } from '../../types/navigation';
 
-export default function MissionViewScreen({ route, navigation }: any) {
-  const { missionId } = route.params;
+// Data shapes used in this screen
+interface Mission {
+  id: string;
+  reference: string;
+  price?: number;
+  status: 'pending' | 'in_progress' | 'completed' | 'cancelled' | 'assigned' | string;
+  pickup_address: string;
+  pickup_contact_name?: string;
+  pickup_date: string;
+  delivery_address: string;
+  delivery_contact_name?: string;
+  delivery_date: string;
+  vehicle_brand?: string;
+  vehicle_model?: string;
+  vehicle_plate?: string;
+  notes?: string;
+  share_code?: string;
+  user_id: string;
+}
+
+interface VehicleInspection {
+  id: string;
+  mission_id: string;
+  inspection_type: 'departure' | 'arrival' | string;
+  completed_at: string | null;
+}
+
+interface MissionViewScreenProps {
+  route: MissionRouteProp<'MissionDetail'> | MissionRouteProp<'MissionView'>;
+  navigation: any; // Will be tightened once navigation stack types are fully integrated
+}
+export default function MissionViewScreen({ route, navigation }: MissionViewScreenProps) {
+  const { missionId } = route.params as { missionId: string };
   const { colors } = useTheme();
   const { user } = useAuth();
-  const [mission, setMission] = useState<any>(null);
-  const [inspections, setInspections] = useState<any[]>([]);
+  const [mission, setMission] = useState<Mission | null>(null);
+  const [inspections, setInspections] = useState<VehicleInspection[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -106,7 +138,7 @@ export default function MissionViewScreen({ route, navigation }: any) {
       }
 
       console.log('✅ Mission chargée:', missionData.reference);
-      setMission(missionData);
+  setMission(missionData as Mission);
 
       // Charger les inspections
       const { data: inspectionsData } = await supabase
@@ -123,10 +155,11 @@ export default function MissionViewScreen({ route, navigation }: any) {
       }
 
       // Force le re-render en créant un nouveau array
-      setInspections([...(inspectionsData || [])]);
-    } catch (error: any) {
+      setInspections([...(inspectionsData as VehicleInspection[] || [])]);
+    } catch (error: unknown) {
       console.error('❌ Erreur chargement mission:', error);
-      Alert.alert('Erreur', error.message);
+      const message = error instanceof Error ? error.message : 'Erreur inconnue';
+      Alert.alert('Erreur', message);
       navigation.goBack();
     } finally {
       setLoading(false);
@@ -165,26 +198,28 @@ export default function MissionViewScreen({ route, navigation }: any) {
       // Navigation vers l'inspection
       const screenName = type === 'departure' ? 'InspectionDeparture' : 'InspectionArrival';
       navigation.navigate(screenName, { missionId });
-    } catch (error: any) {
-      Alert.alert('Erreur', error.message);
+    } catch (error: unknown) {
+      Alert.alert('Erreur', error instanceof Error ? error.message : 'Erreur inconnue');
     }
   };
 
   const handleCompleteMission = async () => {
     try {
-      const { error } = await supabase
-        .from('missions')
-        .update({ status: 'completed' })
-        .eq('id', missionId);
+      // Prefer secure RPC to bypass RLS and record audit fields when available
+      const { data, error } = await supabase.rpc('complete_mission', {
+        p_mission_id: missionId,
+        p_reason: 'mobile_action',
+        p_completed_via: 'mobile',
+      });
 
       if (error) throw error;
 
       Alert.alert(
         'Mission terminée',
-        'La mission a été marquée comme terminée.'
+        data?.alreadyCompleted ? "Cette mission était déjà marquée terminée." : 'La mission a été marquée comme terminée.'
       );
-    } catch (error: any) {
-      Alert.alert('Erreur', error.message);
+    } catch (error: unknown) {
+      Alert.alert('Erreur', error instanceof Error ? error.message : 'Erreur inconnue');
     }
   };
 
@@ -219,7 +254,7 @@ export default function MissionViewScreen({ route, navigation }: any) {
     );
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: Mission['status']) => {
     switch (status) {
       case 'pending': return '#f59e0b';
       case 'in_progress': return '#3b82f6';
@@ -230,7 +265,7 @@ export default function MissionViewScreen({ route, navigation }: any) {
     }
   };
 
-  const getStatusLabel = (status: string) => {
+  const getStatusLabel = (status: Mission['status']) => {
     switch (status) {
       case 'pending': return 'En attente';
       case 'in_progress': return 'En cours';
@@ -241,7 +276,7 @@ export default function MissionViewScreen({ route, navigation }: any) {
     }
   };
 
-  const getStatusIcon = (status: string) => {
+  const getStatusIcon = (status: Mission['status']) => {
     switch (status) {
       case 'pending': return 'time-outline';
       case 'in_progress': return 'play-circle-outline';

@@ -9,6 +9,7 @@ import MissionViewScreen from '../screens/missions/MissionViewScreenNew';
 import MissionTrackingScreen from '../screens/missions/MissionTrackingScreen';
 import InspectionDepartureNew from '../screens/inspections/InspectionDepartureNew';
 import InspectionArrivalNew from '../screens/inspections/InspectionArrivalNew';
+import ShareMissionScreen from '../screens/missions/ShareMissionScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -35,6 +36,11 @@ export default function MissionsNavigator() {
         name="MissionCreate"
         component={MissionCreateScreen}
         options={{ title: 'Nouvelle mission' }}
+      />
+      <Stack.Screen
+        name="ShareMission"
+        component={ShareMissionScreen}
+        options={{ title: 'Partager une mission' }}
       />
       <Stack.Screen
         name="MissionView"

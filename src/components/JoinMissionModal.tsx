@@ -32,6 +32,7 @@ export default function JoinMissionModal({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [alreadyJoined, setAlreadyJoined] = useState(false);
 
   const handleClose = () => {
     setCode('');
@@ -59,8 +60,9 @@ export default function JoinMissionModal({
       const cleanedCode = validation.code!;
 
       // Appeler la fonction SQL pour rejoindre la mission
-      const { data, error: rpcError } = await supabase.rpc('join_mission_with_code', {
-        p_share_code: cleanedCode,
+      const bare = cleanedCode.replace(/[^A-Z0-9]/g, '');
+      const { data, error: rpcError } = await supabase.rpc('claim_mission', {
+        p_code: bare,
         p_user_id: userId,
       });
 
@@ -68,13 +70,14 @@ export default function JoinMissionModal({
 
       // Vérifier le résultat
       if (!data.success) {
-        setError(data.message || 'Impossible de rejoindre la mission');
+        setError(data.error || data.message || 'Impossible de rejoindre la mission');
         setLoading(false);
         return;
       }
 
       // Succès!
-      setSuccess(true);
+  setSuccess(true);
+  setAlreadyJoined(!!data.alreadyJoined);
 
       // Attendre un peu avant de fermer
       setTimeout(() => {
@@ -131,9 +134,9 @@ export default function JoinMissionModal({
                 <View style={styles.successIcon}>
                   <Ionicons name="checkmark-circle" size={64} color="#10b981" />
                 </View>
-                <Text style={styles.successTitle}>Mission ajoutée!</Text>
+                <Text style={styles.successTitle}>{alreadyJoined ? 'Déjà présente' : 'Mission ajoutée!'}</Text>
                 <Text style={styles.successMessage}>
-                  La mission a été ajoutée à votre liste avec succès.
+                  {alreadyJoined ? 'Cette mission était déjà dans votre liste.' : 'La mission a été ajoutée à votre liste avec succès.'}
                 </Text>
               </View>
             ) : (

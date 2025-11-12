@@ -17,6 +17,16 @@ import { useTheme } from '../../contexts/ThemeContext';
 import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { realtimeSync } from '../../services/realtimeSync';
+import { MissionStackParamList } from '../../types/navigation';
+
+interface MissionListScreenNewProps {
+  navigation: {
+    navigate: <T extends keyof MissionStackParamList>(
+      screen: T,
+      params?: MissionStackParamList[T]
+    ) => void;
+  } & Record<string, any>; // incremental typing; more methods can be added
+}
 
 interface Mission {
   id: string;
@@ -32,8 +42,15 @@ interface Mission {
   price: number;
   created_at: string;
   user_id?: string;
+  assigned_to_user_id?: string;
+  share_code?: string;
   archived?: boolean;
   distance_km?: number;
+  // Audit fields (migration applied)
+  completed_at?: string | null;
+  completed_by?: string | null;
+  completed_via?: string | null;
+  completed_reason?: string | null;
 }
 
 interface Assignment {
@@ -52,7 +69,7 @@ type TabType = 'my_missions' | 'received';
 
 const { width } = Dimensions.get('window');
 
-export default function MissionListScreenNew({ navigation }: any) {
+export default function MissionListScreenNew({ navigation }: MissionListScreenNewProps) {
   const { colors } = useTheme();
   const { user } = useAuth();
 
@@ -139,14 +156,29 @@ export default function MissionListScreenNew({ navigation }: any) {
 
   const loadReceivedAssignments = async () => {
     try {
-      const { data: assignments, error } = await supabase
-        .from('mission_assignments')
-        .select(`*, mission:missions(*)`)
-        .eq('contact_id', user!.id)
+      // ✅ NOUVEAU SYSTÈME: Utiliser assigned_to_user_id dans missions
+      const { data: missions, error } = await supabase
+        .from('missions')
+        .select('*')
+        .eq('assigned_to_user_id', user!.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setReceivedAssignments((assignments as any) || []);
+
+      // Convertir en format Assignment pour compatibilité UI
+      const assignments: Assignment[] = (missions || []).map((m) => ({
+        id: m.id,
+        mission_id: m.id,
+        contact_id: '',
+        user_id: m.assigned_to_user_id || '',
+        payment_ht: 0,
+        commission: 0,
+        status: m.status,
+        assigned_at: m.created_at,
+        mission: m,
+      }));
+
+      setReceivedAssignments(assignments);
     } catch (error: any) {
       console.error('Error loading assignments:', error);
       setReceivedAssignments([]);
@@ -299,7 +331,7 @@ export default function MissionListScreenNew({ navigation }: any) {
         { backgroundColor: colors.card, borderColor: getStatusColor(item.status) + '40' },
         item.archived && styles.archivedCard,
       ]}
-      onPress={() => navigation.navigate('MissionView', { missionId: item.id })}
+  onPress={() => navigation.navigate('MissionDetail', { missionId: item.id })}
       onLongPress={() => confirmArchive(item)}
     >
       {/* Bande de couleur selon statut */}
@@ -326,6 +358,15 @@ export default function MissionListScreenNew({ navigation }: any) {
                 {getStatusLabel(item.status)}
               </Text>
             </View>
+            {item.status === 'completed' && item.completed_at && (
+              <View style={[styles.auditChip, { backgroundColor: '#10b98115', borderColor: '#10b981' }]}>
+                <Ionicons name="checkmark" size={12} color="#10b981" />
+                <Text style={styles.auditChipText}>
+                  Terminé le {new Date(item.completed_at).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                  {item.completed_via ? ` • ${item.completed_via}` : ''}
+                </Text>
+              </View>
+            )}
           </View>
 
           <View style={styles.priceContainer}>
@@ -411,6 +452,20 @@ export default function MissionListScreenNew({ navigation }: any) {
               </Text>
             </TouchableOpacity>
 
+            {/* Bouton Partager - Nouveau système d'assignation */}
+            {item.status === 'pending' && item.share_code && (
+              <TouchableOpacity
+                style={[styles.actionButton, { backgroundColor: '#3B82F6' }]}
+                onPress={(e) => {
+                  e.stopPropagation();
+                  navigation.navigate('ShareMission', { mission: item });
+                }}
+              >
+                <Ionicons name="share-social" size={18} color="#fff" />
+                <Text style={styles.actionButtonText}>Partager</Text>
+              </TouchableOpacity>
+            )}
+
             {(item.status === 'completed' || item.status === 'cancelled') && (
               <TouchableOpacity
                 style={[styles.actionButton, styles.archiveButton]}
@@ -442,7 +497,7 @@ export default function MissionListScreenNew({ navigation }: any) {
     return (
       <TouchableOpacity
         style={[styles.missionCard, styles.receivedCard, { backgroundColor: colors.card, borderColor: '#8b5cf6' }]}
-        onPress={() => navigation.navigate('MissionView', { missionId: mission.id })}
+  onPress={() => navigation.navigate('MissionDetail', { missionId: mission.id })}
       >
         <LinearGradient colors={['#8b5cf6', '#a855f7']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.statusBar} />
 
@@ -528,9 +583,23 @@ export default function MissionListScreenNew({ navigation }: any) {
             <MaterialCommunityIcons name="truck-fast" size={32} color="#fff" />
             <Text style={styles.headerTitle}>Mes Missions</Text>
           </View>
-          <TouchableOpacity onPress={() => navigation.navigate('MissionCreate')} style={styles.addButton}>
-            <Ionicons name="add-circle" size={32} color="#fff" />
-          </TouchableOpacity>
+          <View style={styles.headerActions}>
+            <TouchableOpacity 
+              onPress={() => navigation.navigate('ShareMission', { 
+                mission: { 
+                  id: 'join', 
+                  reference: 'Rejoindre',
+                  share_code: '' 
+                } 
+              })} 
+              style={styles.joinButton}
+            >
+              <Ionicons name="enter" size={24} color="#fff" />
+            </TouchableOpacity>
+            <TouchableOpacity onPress={() => navigation.navigate('MissionCreate')} style={styles.addButton}>
+              <Ionicons name="add-circle" size={32} color="#fff" />
+            </TouchableOpacity>
+          </View>
         </View>
       </LinearGradient>
 
@@ -638,21 +707,39 @@ export default function MissionListScreenNew({ navigation }: any) {
       </View>
 
       {/* Liste */}
-      <FlatList
-        data={activeTab === 'my_missions' ? filteredMissions : filteredReceivedAssignments}
-        renderItem={activeTab === 'my_missions' ? renderMission : renderAssignment}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
-        ListEmptyComponent={
-          <View style={styles.emptyState}>
-            <Ionicons name="car-sport-outline" size={64} color={colors.textSecondary} />
-            <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
-              {searchTerm ? 'Aucune mission trouvée' : 'Aucune mission'}
-            </Text>
-          </View>
-        }
-      />
+      {activeTab === 'my_missions' ? (
+        <FlatList
+          data={filteredMissions}
+          renderItem={renderMission}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="car-sport-outline" size={64} color={colors.textSecondary} />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                {searchTerm ? 'Aucune mission trouvée' : 'Aucune mission'}
+              </Text>
+            </View>
+          }
+        />
+      ) : (
+        <FlatList
+          data={filteredReceivedAssignments}
+          renderItem={renderAssignment}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={colors.primary} />}
+          ListEmptyComponent={
+            <View style={styles.emptyState}>
+              <Ionicons name="car-sport-outline" size={64} color={colors.textSecondary} />
+              <Text style={[styles.emptyText, { color: colors.textSecondary }]}>
+                {searchTerm ? 'Aucune mission reçue trouvée' : 'Aucune mission reçue'}
+              </Text>
+            </View>
+          }
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -686,6 +773,14 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   addButton: {
+    padding: 4,
+  },
+  headerActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  joinButton: {
     padding: 4,
   },
 
@@ -842,6 +937,21 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 2,
     alignSelf: 'flex-start',
+  },
+  auditChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 6,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 8,
+    borderWidth: 1,
+  },
+  auditChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#10b981',
   },
   statusText: {
     fontSize: 12,

@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
+import { validateShareCodeInput } from '../lib/shareCode';
 
 interface JoinMissionByCodeProps {
   visible: boolean;
@@ -50,19 +51,21 @@ export default function JoinMissionByCode({
       Alert.alert('Erreur', 'Vous devez être connecté');
       return;
     }
-
-    if (code.replace(/[^A-Z0-9]/g, '').length !== 8) {
-      Alert.alert('Code invalide', 'Le code doit contenir 8 caractères (format: XX-XXX-XXX)');
+    const validation = validateShareCodeInput(code);
+    if (!validation.valid || !validation.code) {
+      Alert.alert('Code invalide', validation.error || 'Format incorrect (XZ-ABC-123)');
       return;
     }
+    const cleanedBare = validation.code.replace(/[^A-Z0-9]/g, '');
 
     setLoading(true);
     try {
       console.log('🔍 Tentative de rejoindre mission avec code:', code);
 
       // Appeler la fonction RPC Supabase
-      const { data, error } = await supabase.rpc('join_mission_with_code', {
-        p_share_code: code,
+      // Appel nouvelle fonction unifiée (wrapper possible)
+      const { data, error } = await supabase.rpc('claim_mission', {
+        p_code: cleanedBare,
         p_user_id: user.id,
       });
 
@@ -71,14 +74,24 @@ export default function JoinMissionByCode({
         throw error;
       }
 
-      console.log('📦 Réponse RPC:', data);
+      console.log('📦 Réponse RPC brut:', data);
+
+      // Normaliser la réponse (peut être un objet, un tableau, un booléen, ou une chaîne JSON)
+      let result: any = data;
+      if (typeof result === 'string') {
+        try { result = JSON.parse(result); } catch {}
+      }
+      if (Array.isArray(result)) {
+        result = result[0] || {};
+      }
 
       // Vérifier le résultat
-      if (data && typeof data === 'object') {
-        if (data.success) {
+      if (result && typeof result === 'object') {
+        if (result.success) {
+          const already = !!result.alreadyJoined;
           Alert.alert(
-            '✅ Mission ajoutée',
-            data.message || 'La mission a été ajoutée à votre liste avec succès',
+            already ? 'ℹ️ Déjà présente' : '✅ Mission ajoutée',
+            result.message || (already ? 'Cette mission est déjà dans votre liste' : 'La mission a été ajoutée avec succès'),
             [
               {
                 text: 'OK',
@@ -91,8 +104,12 @@ export default function JoinMissionByCode({
             ]
           );
         } else {
-          Alert.alert('Erreur', data.message || data.error || 'Impossible de rejoindre la mission');
+          Alert.alert('Erreur', result.message || result.error || 'Impossible de rejoindre la mission');
         }
+      } else if (result === true) {
+        Alert.alert('✅ Mission ajoutée', 'La mission a été ajoutée à votre liste avec succès', [
+          { text: 'OK', onPress: () => { setCode(''); onClose(); onSuccess(); } }
+        ]);
       } else {
         throw new Error('Réponse invalide du serveur');
       }
@@ -125,7 +142,7 @@ export default function JoinMissionByCode({
           <View style={[styles.infoBox, { backgroundColor: colors.primary + '20' }]}>
             <Ionicons name="information-circle" size={20} color={colors.primary} />
             <Text style={[styles.infoText, { color: colors.text }]}>
-              Entrez le code de partage à 8 caractères pour rejoindre une mission
+              Entrez le code de partage au format XZ-ABC-123 (8 caractères)
             </Text>
           </View>
 
@@ -140,7 +157,7 @@ export default function JoinMissionByCode({
                 style={[styles.input, { color: colors.text }]}
                 value={code}
                 onChangeText={handleCodeChange}
-                placeholder="XX-XXX-XXX"
+                placeholder="XZ-ABC-123"
                 placeholderTextColor={colors.textSecondary}
                 maxLength={10}
                 autoCapitalize="characters"

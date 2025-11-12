@@ -28,12 +28,16 @@ import { LoadingScreen } from './src/components/LoadingScreen';
 // Services
 import { notificationService } from './src/services/notificationService';
 import { setupAutoStopTracking } from './src/services/gpsTrackingService';
+import { useDeepLinking } from './src/hooks/useDeepLinking';
 
 const Stack = createNativeStackNavigator();
 
 function RootNavigator({ navigationRef }: { navigationRef: any }) {
   const { user, loading } = useAuth();
   const { isDark } = useTheme();
+
+  // Activer la gestion des deep links
+  useDeepLinking();
 
   // Initialiser les notifications et le tracking automatique quand l'utilisateur est connecté
   useEffect(() => {
