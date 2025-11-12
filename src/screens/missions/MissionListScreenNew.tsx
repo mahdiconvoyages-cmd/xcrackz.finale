@@ -494,10 +494,55 @@ export default function MissionListScreenNew({ navigation }: MissionListScreenNe
     const mission = item.mission;
     if (!mission) return null;
 
+    const handleAcceptMission = async () => {
+      if (!user) {
+        Alert.alert('Erreur', 'Vous devez être connecté');
+        return;
+      }
+
+      Alert.alert(
+        '✅ Accepter cette mission',
+        `Voulez-vous accepter la mission ${mission.reference} ?\n\nCette mission vous sera assignée.`,
+        [
+          { text: 'Annuler', style: 'cancel' },
+          {
+            text: 'Accepter',
+            style: 'default',
+            onPress: async () => {
+              try {
+                setLoading(true);
+                
+                // La mission est déjà assignée via assigned_to_user_id
+                // On confirme juste qu'on l'accepte
+                Alert.alert(
+                  '✅ Mission acceptée !',
+                  `La mission ${mission.reference} est maintenant dans vos missions actives.`,
+                  [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        setActiveTab('my_missions');
+                        loadData();
+                      },
+                    },
+                  ]
+                );
+              } catch (error: any) {
+                console.error('Error accepting mission:', error);
+                Alert.alert('❌ Erreur', error.message || 'Impossible d\'accepter la mission');
+              } finally {
+                setLoading(false);
+              }
+            },
+          },
+        ]
+      );
+    };
+
     return (
       <TouchableOpacity
         style={[styles.missionCard, styles.receivedCard, { backgroundColor: colors.card, borderColor: '#8b5cf6' }]}
-  onPress={() => navigation.navigate('MissionDetail', { missionId: mission.id })}
+        onPress={() => navigation.navigate('MissionDetail', { missionId: mission.id })}
       >
         <LinearGradient colors={['#8b5cf6', '#a855f7']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 0 }} style={styles.statusBar} />
 
@@ -511,12 +556,10 @@ export default function MissionListScreenNew({ navigation }: MissionListScreenNe
               </View>
             </View>
 
-            {item.payment_ht && (
-              <View style={styles.priceContainer}>
-                <Ionicons name="cash" size={18} color="#10b981" />
-                <Text style={styles.price}>{item.payment_ht}€ HT</Text>
-              </View>
-            )}
+            <View style={styles.priceContainer}>
+              <Ionicons name="cash" size={18} color="#10b981" />
+              <Text style={styles.price}>{mission.price?.toFixed(2)}€</Text>
+            </View>
           </View>
 
           <View style={styles.routeContainer}>
@@ -569,6 +612,18 @@ export default function MissionListScreenNew({ navigation }: MissionListScreenNe
               </Text>
             </View>
           </View>
+
+          {/* Bouton Accepter */}
+          <TouchableOpacity
+            style={[styles.acceptButton, { backgroundColor: '#8b5cf6' }]}
+            onPress={(e) => {
+              e.stopPropagation();
+              handleAcceptMission();
+            }}
+          >
+            <Ionicons name="checkmark-circle" size={20} color="#fff" />
+            <Text style={styles.acceptButtonText}>Accepter cette mission</Text>
+          </TouchableOpacity>
         </View>
       </TouchableOpacity>
     );
@@ -583,23 +638,9 @@ export default function MissionListScreenNew({ navigation }: MissionListScreenNe
             <MaterialCommunityIcons name="truck-fast" size={32} color="#fff" />
             <Text style={styles.headerTitle}>Mes Missions</Text>
           </View>
-          <View style={styles.headerActions}>
-            <TouchableOpacity 
-              onPress={() => navigation.navigate('ShareMission', { 
-                mission: { 
-                  id: 'join', 
-                  reference: 'Rejoindre',
-                  share_code: '' 
-                } 
-              })} 
-              style={styles.joinButton}
-            >
-              <Ionicons name="enter" size={24} color="#fff" />
-            </TouchableOpacity>
-            <TouchableOpacity onPress={() => navigation.navigate('MissionCreate')} style={styles.addButton}>
-              <Ionicons name="add-circle" size={32} color="#fff" />
-            </TouchableOpacity>
-          </View>
+          <TouchableOpacity onPress={() => navigation.navigate('MissionCreate')} style={styles.addButton}>
+            <Ionicons name="add-circle" size={32} color="#fff" />
+          </TouchableOpacity>
         </View>
       </LinearGradient>
 
@@ -773,14 +814,6 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   addButton: {
-    padding: 4,
-  },
-  headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  joinButton: {
     padding: 4,
   },
 
@@ -1134,6 +1167,25 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 2,
     alignSelf: 'flex-start',
+  },
+  acceptButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 14,
+    borderRadius: 12,
+    marginTop: 12,
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+  },
+  acceptButtonText: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: '700',
   },
 
   // Empty state
