@@ -37,22 +37,8 @@ BEGIN
   END IF;
 END $$;
 
--- Vérifier et ajouter inspection_photos
-DO $$
-BEGIN
-  IF NOT EXISTS (
-    SELECT 1
-    FROM pg_publication_tables
-    WHERE pubname = 'supabase_realtime'
-    AND schemaname = 'public'
-    AND tablename = 'inspection_photos'
-  ) THEN
-    ALTER PUBLICATION supabase_realtime ADD TABLE public.inspection_photos;
-    RAISE NOTICE 'Table inspection_photos ajoutée à supabase_realtime';
-  ELSE
-    RAISE NOTICE 'Table inspection_photos déjà dans supabase_realtime';
-  END IF;
-END $$;
+-- Note: inspection_photos est une VIEW, pas une table - ne peut pas être ajoutée à realtime
+-- Si vous avez besoin de realtime sur les photos, activez-le sur la table sous-jacente
 
 -- Vérifier et ajouter profiles (pour synchronisation crédits/statuts)
 DO $$
