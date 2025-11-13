@@ -691,6 +691,26 @@ export default function TeamMissions() {
                     </div>
                   </div>
 
+                  {/* Progression visuelle */}
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
+                      <span>Progression</span>
+                      <span className="font-semibold">
+                        {mission.status === 'completed' ? '100%' : 
+                         mission.status === 'in_progress' ? '50%' : '0%'}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-500 ${
+                          mission.status === 'completed' ? 'bg-gradient-to-r from-green-500 to-emerald-500 w-full' :
+                          mission.status === 'in_progress' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 w-1/2' :
+                          'bg-gradient-to-r from-amber-500 to-orange-500 w-0'
+                        }`}
+                      />
+                    </div>
+                  </div>
+
                   {/* Mission Details */}
                   <div className="space-y-2 mb-4">
                     <div className="flex items-start gap-2 text-sm">
@@ -714,18 +734,51 @@ export default function TeamMissions() {
                     </div>
                   </div>
 
-                  {/* Actions */}
-                  <div className="flex flex-wrap gap-2 pt-4 border-t border-slate-200">
+                  {/* Actions Principales */}
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {/* Bouton principal selon statut */}
                     {getActionButton(mission)}
                     
+                    {/* Voir Détails */}
+                    <button
+                      onClick={() => {
+                        setSelectedMission(mission);
+                        setShowDetailsModal(true);
+                      }}
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Détails
+                    </button>
+
+                    {/* Télécharger PDF */}
+                    <button
+                      onClick={async () => {
+                        try {
+                          await generateMissionPDF(mission);
+                          alert('✅ PDF généré avec succès !');
+                        } catch (error) {
+                          console.error('Erreur PDF:', error);
+                          alert('❌ Erreur lors de la génération du PDF');
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                    >
+                      <FileText className="w-4 h-4" />
+                      PDF
+                    </button>
+                  </div>
+
+                  {/* Actions Secondaires */}
+                  <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200">
                     <button
                       onClick={() => {
                         setSelectedMission(mission);
                         setShowShareCodeModal(true);
                       }}
-                      className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                      className="inline-flex items-center gap-2 bg-white border-2 border-teal-300 text-teal-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-teal-50 hover:shadow-md transition-all duration-300 text-xs"
                     >
-                      <UserPlus className="w-4 h-4" />
+                      <UserPlus className="w-3.5 h-3.5" />
                       Partager
                     </button>
 
@@ -734,34 +787,42 @@ export default function TeamMissions() {
                         setEditingMission(mission);
                         setShowEditModal(true);
                       }}
-                      className="inline-flex items-center gap-2 bg-white border border-slate-300 text-slate-700 px-4 py-2 rounded-lg font-semibold hover:bg-slate-50 hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                      className="inline-flex items-center gap-2 bg-white border-2 border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-slate-50 hover:shadow-md transition-all duration-300 text-xs"
                     >
-                      <Edit className="w-4 h-4" />
+                      <Edit className="w-3.5 h-3.5" />
+                      Modifier
                     </button>
 
                     {(mission.status === 'completed' || mission.status === 'cancelled') && (
                       <button
                         onClick={() => handleArchiveMission(mission)}
-                        className={`inline-flex items-center gap-2 border px-4 py-2 rounded-lg font-semibold hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 text-sm ${
+                        className={`inline-flex items-center gap-2 border-2 px-3 py-1.5 rounded-lg font-semibold hover:shadow-md transition-all duration-300 text-xs ${
                           mission.archived
-                            ? 'bg-amber-50 border-amber-300 text-amber-700 hover:bg-amber-100'
+                            ? 'bg-amber-50 border-amber-400 text-amber-700 hover:bg-amber-100'
                             : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
                         }`}
                         title={mission.archived ? 'Désarchiver' : 'Archiver'}
                       >
                         {mission.archived ? (
-                          <ArchiveRestore className="w-4 h-4" />
+                          <>
+                            <ArchiveRestore className="w-3.5 h-3.5" />
+                            Restaurer
+                          </>
                         ) : (
-                          <Archive className="w-4 h-4" />
+                          <>
+                            <Archive className="w-3.5 h-3.5" />
+                            Archiver
+                          </>
                         )}
                       </button>
                     )}
 
                     <button
                       onClick={() => handleDeleteMission(mission.id)}
-                      className="inline-flex items-center gap-2 bg-white border border-red-300 text-red-600 px-4 py-2 rounded-lg font-semibold hover:bg-red-50 hover:shadow-lg transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                      className="inline-flex items-center gap-2 bg-white border-2 border-red-300 text-red-600 px-3 py-1.5 rounded-lg font-semibold hover:bg-red-50 hover:shadow-md transition-all duration-300 text-xs ml-auto"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-3.5 h-3.5" />
+                      Supprimer
                     </button>
                   </div>
                 </div>
@@ -792,115 +853,148 @@ export default function TeamMissions() {
                 >
                   {/* Header */}
                   <div className="flex items-start justify-between mb-4">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="text-xl font-bold text-slate-900">
-                          {mission.reference}
-                        </h3>
-                        <span className="px-3 py-1 bg-orange-100 text-orange-800 rounded-full text-sm font-bold">
-                          🎯 Mission partagée
-                        </span>
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={getVehicleImageUrl(mission.vehicle_image_url, mission.vehicle_type)}
+                        alt={`Véhicule ${mission.vehicle_type || 'VL'}`}
+                        className="w-14 h-14 rounded-xl object-cover border-2 border-orange-500/50 group-hover:scale-110 transition-transform duration-300"
+                      />
+                      <div className="flex-1">
+                        <div className="flex items-center gap-2 mb-1">
+                          <h3 className="font-bold text-lg text-slate-900">
+                            {mission.reference}
+                          </h3>
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 text-xs font-semibold rounded-lg border border-orange-300">
+                            🎯 Reçue
+                          </span>
+                        </div>
+                        <p className="text-slate-600 text-sm">
+                          {mission.vehicle_brand} {mission.vehicle_model}
+                          {mission.vehicle_plate && <span className="text-slate-400"> • {mission.vehicle_plate}</span>}
+                        </p>
                       </div>
-                      <p className="text-slate-600 mb-2">
-                        {mission.vehicle_brand} {mission.vehicle_model}
-                      </p>
                     </div>
                     <div className="text-right">
-                      <p className="text-2xl font-bold text-teal-600">
-                        {mission.price?.toFixed(2)}€
-                      </p>
-                      <p className="text-sm text-slate-500">HT</p>
+                      <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${getStatusColor(mission.status)}`}>
+                        {getStatusLabel(mission.status)}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Progression visuelle */}
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
+                      <span>Progression</span>
+                      <span className="font-semibold">
+                        {mission.status === 'completed' ? '100%' : 
+                         mission.status === 'in_progress' ? '50%' : '0%'}
+                      </span>
+                    </div>
+                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                      <div 
+                        className={`h-full transition-all duration-500 ${
+                          mission.status === 'completed' ? 'bg-gradient-to-r from-green-500 to-emerald-500 w-full' :
+                          mission.status === 'in_progress' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 w-1/2' :
+                          'bg-gradient-to-r from-amber-500 to-orange-500 w-0'
+                        }`}
+                      />
                     </div>
                   </div>
 
                   {/* Itinéraire */}
-                  <div className="grid md:grid-cols-2 gap-4 mb-4">
-                    <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
-                      <MapPin className="w-5 h-5 text-green-600 mt-1 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-green-900">Départ</p>
-                        <p className="text-sm text-green-700 truncate">
-                          {mission.pickup_address || 'Adresse non renseignée'}
-                        </p>
-                        <p className="text-xs text-green-600 mt-1">
-                          {mission.pickup_date 
-                            ? new Date(mission.pickup_date).toLocaleDateString('fr-FR')
-                            : 'Date non renseignée'}
-                        </p>
+                  <div className="space-y-2 mb-4">
+                    <div className="flex items-start gap-2 text-sm">
+                      <MapPin className="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0" />
+                      <div className="flex-1">
+                        <span className="text-slate-600">{mission.pickup_address}</span>
                         {mission.pickup_contact_name && (
-                          <div className="mt-2 pt-2 border-t border-green-200">
-                            <p className="text-xs font-bold text-green-900">📞 Contact:</p>
-                            <p className="text-xs text-green-700">{mission.pickup_contact_name}</p>
-                            {mission.pickup_contact_phone && (
-                              <a 
-                                href={`tel:${mission.pickup_contact_phone}`}
-                                className="text-xs text-green-600 hover:underline font-bold"
-                              >
-                                {mission.pickup_contact_phone}
-                              </a>
-                            )}
+                          <div className="text-xs text-slate-500 mt-1">
+                            📞 {mission.pickup_contact_name}
+                            {mission.pickup_contact_phone && ` • ${mission.pickup_contact_phone}`}
                           </div>
                         )}
                       </div>
                     </div>
-
-                    <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg">
-                      <MapPin className="w-5 h-5 text-red-600 mt-1 flex-shrink-0" />
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-bold text-red-900">Arrivée</p>
-                        <p className="text-sm text-red-700 truncate">
-                          {mission.delivery_address || 'Adresse non renseignée'}
-                        </p>
-                        <p className="text-xs text-red-600 mt-1">
-                          {mission.delivery_date 
-                            ? new Date(mission.delivery_date).toLocaleDateString('fr-FR')
-                            : 'Date non renseignée'}
-                        </p>
+                    <div className="flex items-start gap-2 text-sm">
+                      <MapPin className="w-4 h-4 mt-0.5 text-red-500 flex-shrink-0" />
+                      <div className="flex-1">
+                        <span className="text-slate-600">{mission.delivery_address}</span>
                         {mission.delivery_contact_name && (
-                          <div className="mt-2 pt-2 border-t border-red-200">
-                            <p className="text-xs font-bold text-red-900">📞 Contact:</p>
-                            <p className="text-xs text-red-700">{mission.delivery_contact_name}</p>
-                            {mission.delivery_contact_phone && (
-                              <a 
-                                href={`tel:${mission.delivery_contact_phone}`}
-                                className="text-xs text-red-600 hover:underline font-bold"
-                              >
-                                {mission.delivery_contact_phone}
-                              </a>
-                            )}
+                          <div className="text-xs text-slate-500 mt-1">
+                            📞 {mission.delivery_contact_name}
+                            {mission.delivery_contact_phone && ` • ${mission.delivery_contact_phone}`}
                           </div>
                         )}
                       </div>
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-slate-600">
+                        <Calendar className="w-4 h-4" />
+                        {new Date(mission.pickup_date).toLocaleDateString('fr-FR')}
+                      </div>
+                      {mission.price > 0 && (
+                        <span className="text-xl font-black bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
+                          {mission.price.toLocaleString('fr-FR')}€
+                        </span>
+                      )}
                     </div>
                   </div>
 
                   {/* Notes */}
                   {mission.notes && (
-                    <div className="mb-4 p-3 bg-blue-50 rounded-lg">
-                      <p className="text-sm font-bold text-blue-900 mb-1">📝 Notes :</p>
+                    <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
+                      <p className="text-xs font-bold text-blue-900 mb-1">� Notes</p>
                       <p className="text-sm text-blue-700">{mission.notes}</p>
                     </div>
                   )}
 
-                  {/* Actions */}
-                  <div className="flex items-center justify-between pt-4 border-t border-slate-200">
+                  {/* Actions Principales */}
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {/* Bouton principal selon statut */}
+                    {getActionButton(mission)}
+                    
+                    {/* Voir Détails */}
+                    <button
+                      onClick={() => {
+                        setSelectedMission(mission);
+                        setShowDetailsModal(true);
+                      }}
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                    >
+                      <Eye className="w-4 h-4" />
+                      Détails
+                    </button>
+
+                    {/* Télécharger PDF */}
+                    <button
+                      onClick={async () => {
+                        try {
+                          await generateMissionPDF(mission);
+                          alert('✅ PDF généré avec succès !');
+                        } catch (error) {
+                          console.error('Erreur PDF:', error);
+                          alert('❌ Erreur lors de la génération du PDF');
+                        }
+                      }}
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                    >
+                      <FileText className="w-4 h-4" />
+                      PDF
+                    </button>
+                  </div>
+
+                  {/* Actions Secondaires */}
+                  <div className="flex items-center justify-between pt-3 border-t border-slate-200">
                     <div className="flex items-center gap-3 text-sm text-slate-600">
                       {mission.distance && (
-                        <span>📏 {mission.distance} km</span>
+                        <span className="flex items-center gap-1">
+                          <MapPin className="w-3.5 h-3.5" />
+                          {mission.distance} km
+                        </span>
                       )}
                       <span className="px-2 py-1 bg-slate-100 rounded-full text-xs">
                         Statut: <strong>{getStatusLabel(mission.status)}</strong>
                       </span>
-                    </div>
-                    
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleStartInspection(mission)}
-                        className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-                      >
-                        <Play className="w-5 h-5" />
-                        Commencer Inspection
-                      </button>
                     </div>
                   </div>
                 </div>
