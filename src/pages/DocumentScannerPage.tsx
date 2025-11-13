@@ -10,9 +10,10 @@
  * - Identique à l'expérience mobile
  */
 
-import { useState, useRef } from 'react';
-import { Camera, RotateCw, Download, X, Sparkles, Palette, Contrast, Image as ImageIcon } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
+import { Camera, RotateCw, Download, X, Sparkles, Palette, Contrast, Image as ImageIcon, Loader } from 'lucide-react';
 import { applyDocumentFilter, rotateImage, FilterType, dataURLtoFile } from '../utils/imageProcessing';
+import { detectDocumentCorners, cropAndCorrectPerspective, loadOpenCV } from '../utils/documentDetection';
 
 export default function DocumentScannerPage() {
   const [step, setStep] = useState<'intro' | 'edit'>('intro');
@@ -21,11 +22,28 @@ export default function DocumentScannerPage() {
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('magic');
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileName, setFileName] = useState('document');
+  const [isLoadingOpenCV, setIsLoadingOpenCV] = useState(false);
+  const [autoDetectEnabled, setAutoDetectEnabled] = useState(true);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const webcamVideoRef = useRef<HTMLVideoElement>(null);
   const [isWebcamActive, setIsWebcamActive] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
+
+  // Précharger OpenCV au chargement de la page
+  useEffect(() => {
+    if (autoDetectEnabled) {
+      setIsLoadingOpenCV(true);
+      loadOpenCV()
+        .then(() => {
+          setIsLoadingOpenCV(false);
+        })
+        .catch(() => {
+          setIsLoadingOpenCV(false);
+          setAutoDetectEnabled(false);
+        });
+    }
+  }, [autoDetectEnabled]);
 
   const filters = [
     { id: 'magic' as FilterType, name: 'Auto', icon: Sparkles, color: '#14b8a6' },
@@ -39,15 +57,39 @@ export default function DocumentScannerPage() {
     if (!file) return;
 
     setFileName(file.name.replace(/\.[^/.]+$/, ''));
+    setIsProcessing(true);
     
     const reader = new FileReader();
     reader.onload = async (event) => {
       const imageUrl = event.target?.result as string;
-      setOriginalImage(imageUrl);
-      setStep('edit');
       
-      // Appliquer le filtre magic automatiquement
-      await applyFilter('magic', imageUrl);
+      try {
+        // Étape 1: Détection automatique des bords si activé
+        if (autoDetectEnabled) {
+          const corners = await detectDocumentCorners(imageUrl);
+          
+          // Étape 2: Recadrage et correction de perspective
+          const croppedImage = await cropAndCorrectPerspective(imageUrl, corners);
+          setOriginalImage(croppedImage);
+          
+          // Étape 3: Appliquer le filtre magic automatiquement
+          await applyFilter('magic', croppedImage);
+        } else {
+          // Mode manuel: juste appliquer le filtre
+          setOriginalImage(imageUrl);
+          await applyFilter('magic', imageUrl);
+        }
+        
+        setStep('edit');
+      } catch (error) {
+        console.error('Erreur traitement:', error);
+        // Fallback: utiliser l'image originale
+        setOriginalImage(imageUrl);
+        await applyFilter('magic', imageUrl);
+        setStep('edit');
+      } finally {
+        setIsProcessing(false);
+      }
     };
     reader.readAsDataURL(file);
   };
@@ -72,7 +114,7 @@ export default function DocumentScannerPage() {
     }
   };
 
-  const captureFromWebcam = () => {
+  const captureFromWebcam = async () => {
     if (!webcamVideoRef.current) return;
 
     const video = webcamVideoRef.current;
@@ -86,11 +128,30 @@ export default function DocumentScannerPage() {
     ctx.drawImage(video, 0, 0);
     const imageUrl = canvas.toDataURL('image/jpeg', 0.95);
     
-    setOriginalImage(imageUrl);
+    setIsProcessing(true);
     stopWebcam();
-    setStep('edit');
     
-    applyFilter('magic', imageUrl);
+    try {
+      // Détection automatique et recadrage
+      if (autoDetectEnabled) {
+        const corners = await detectDocumentCorners(imageUrl);
+        const croppedImage = await cropAndCorrectPerspective(imageUrl, corners);
+        setOriginalImage(croppedImage);
+        await applyFilter('magic', croppedImage);
+      } else {
+        setOriginalImage(imageUrl);
+        await applyFilter('magic', imageUrl);
+      }
+      
+      setStep('edit');
+    } catch (error) {
+      console.error('Erreur traitement webcam:', error);
+      setOriginalImage(imageUrl);
+      await applyFilter('magic', imageUrl);
+      setStep('edit');
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   const stopWebcam = () => {
@@ -159,6 +220,25 @@ export default function DocumentScannerPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Loader OpenCV */}
+      {isLoadingOpenCV && (
+        <div className="fixed top-4 right-4 bg-teal-600 text-white px-4 py-2 rounded-lg shadow-lg flex items-center gap-2 z-50">
+          <Loader className="w-4 h-4 animate-spin" />
+          <span className="text-sm">Chargement IA...</span>
+        </div>
+      )}
+
+      {/* Loader Traitement */}
+      {isProcessing && step === 'intro' && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="bg-slate-800 rounded-2xl p-8 text-center">
+            <Loader className="w-12 h-12 text-teal-400 mx-auto mb-4 animate-spin" />
+            <p className="text-white font-semibold text-lg">Détection du document...</p>
+            <p className="text-slate-400 text-sm mt-2">Analyse intelligente en cours</p>
+          </div>
+        </div>
+      )}
+
       {/* Header */}
       <div className="bg-slate-900/80 backdrop-blur-sm border-b border-slate-700">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
@@ -169,7 +249,7 @@ export default function DocumentScannerPage() {
               </div>
               <div>
                 <h1 className="text-xl font-bold text-white">Scanner de Documents</h1>
-                <p className="text-sm text-slate-400">Numérisez et améliorez vos documents</p>
+                <p className="text-sm text-slate-400">Détection automatique • IA intégrée</p>
               </div>
             </div>
             
@@ -197,25 +277,33 @@ export default function DocumentScannerPage() {
             </div>
 
             {/* Titre */}
-            <div className="text-center mb-12">
+            <div className="text-center mb-8">
               <h2 className="text-3xl font-bold text-white mb-3">Scanner un document</h2>
               <p className="text-lg text-slate-400">
-                Prenez une photo ou sélectionnez un fichier à améliorer
+                Détection automatique • Recadrage intelligent • Amélioration IA
               </p>
             </div>
 
+            {/* Badge IA */}
+            <div className="flex justify-center mb-8">
+              <div className="bg-gradient-to-r from-teal-500/20 to-blue-500/20 border border-teal-500/30 rounded-full px-6 py-2 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-teal-400" />
+                <span className="text-sm font-semibold text-white">Détection automatique activée</span>
+              </div>
+            </div>
+
             {/* Features grid */}
-            <div className="grid grid-cols-2 gap-4 mb-12">
+            <div className="grid grid-cols-2 gap-4 mb-8">
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 text-center">
                 <Sparkles className="w-8 h-8 text-teal-400 mx-auto mb-3" />
-                <h3 className="text-white font-semibold mb-2">Recadrage auto</h3>
-                <p className="text-sm text-slate-400">Détection intelligente</p>
+                <h3 className="text-white font-semibold mb-2">Détection auto</h3>
+                <p className="text-sm text-slate-400">Bords intelligents</p>
               </div>
               
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 text-center">
                 <Contrast className="w-8 h-8 text-teal-400 mx-auto mb-3" />
-                <h3 className="text-white font-semibold mb-2">Amélioration auto</h3>
-                <p className="text-sm text-slate-400">Contraste optimisé</p>
+                <h3 className="text-white font-semibold mb-2">Recadrage IA</h3>
+                <p className="text-sm text-slate-400">Perspective corrigée</p>
               </div>
               
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 text-center">
@@ -226,8 +314,8 @@ export default function DocumentScannerPage() {
               
               <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl p-6 text-center">
                 <Palette className="w-8 h-8 text-teal-400 mx-auto mb-3" />
-                <h3 className="text-white font-semibold mb-2">Filtres intelligents</h3>
-                <p className="text-sm text-slate-400">4 modes disponibles</p>
+                <h3 className="text-white font-semibold mb-2">4 filtres pro</h3>
+                <p className="text-sm text-slate-400">Qualité scanner</p>
               </div>
             </div>
 
