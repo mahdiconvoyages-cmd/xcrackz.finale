@@ -6,6 +6,7 @@ import Layout from './components/Layout';
 import ErrorBoundary from './components/ErrorBoundary';
 import ToastContainer from './components/Toast';
 import AccessibilityZoom from './components/AccessibilityZoom';
+import PWAInstallPrompt from './components/PWAInstallPrompt';
 
 import Home from './pages/Home';
 import Legal from './pages/Legal';
@@ -484,6 +485,7 @@ function App() {
         <AuthProvider>
           <AppContent />
           <AccessibilityZoom />
+          <PWAInstallPrompt />
         </AuthProvider>
       </Router>
     </ErrorBoundary>
