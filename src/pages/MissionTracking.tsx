@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { MapPin, Truck, Clock, Navigation, Share2, Gauge, TrendingUp, Activity, Copy, Check } from 'lucide-react';
+import { MapPin, Clock, Navigation, Share2, Gauge, TrendingUp, Activity, Copy, Check, Layers } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import L from 'leaflet';
@@ -64,6 +64,9 @@ export default function MissionTracking() {
   const [copied, setCopied] = useState(false);
   const [eta, setEta] = useState<number>(0);
   const [distanceRemaining, setDistanceRemaining] = useState<number>(0);
+  const [mapLayer, setMapLayer] = useState<'street' | 'satellite'>('street');
+  const [timelineIndex, setTimelineIndex] = useState<number>(0);
+  const [isReplaying, setIsReplaying] = useState(false);
 
   useEffect(() => {
     if (missionId) {
@@ -97,8 +100,40 @@ export default function MissionTracking() {
           table: 'gps_location_points',
           filter: `session_id=eq.${missionId}`,
         },
-        (payload) => {
+        (payload: any) => {
           const newPosition = payload.new as TrackingPosition;
+          
+          // ✅ FILTRAGE PRÉCISION GPS
+          // Ignorer les positions imprécises (> 50m) ou vitesses aberrantes
+          if (newPosition.accuracy && newPosition.accuracy > 50) {
+            console.log('Position GPS imprécise ignorée (accuracy:', newPosition.accuracy, 'm)');
+            return;
+          }
+          
+          if (newPosition.speed_kmh && newPosition.speed_kmh > 200) {
+            console.log('Vitesse aberrante ignorée:', newPosition.speed_kmh, 'km/h');
+            return;
+          }
+          
+          // ✅ DÉTECTION ARRÊT VÉHICULE
+          // Si vitesse < 5 km/h et proche du dernier point, update au lieu de créer nouveau
+          if (positions.length > 0) {
+            const lastPos = positions[positions.length - 1];
+            const distance = calculateDistance(
+              lastPos.latitude,
+              lastPos.longitude,
+              newPosition.latitude,
+              newPosition.longitude
+            );
+            
+            // Si arrêté (vitesse < 5 km/h) et déplacement < 10m, on skip
+            if (newPosition.speed_kmh < 5 && distance < 0.01) {
+              console.log('Véhicule à l\'arrêt, position similaire ignorée');
+              return;
+            }
+          }
+          
+          // ✅ OPTIMISATION: Utiliser payload direct sans requête
           setCurrentPosition(newPosition);
           setPositions((prev) => [...prev, newPosition]);
         }
@@ -108,7 +143,7 @@ export default function MissionTracking() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [missionId]);
+  }, [missionId, positions]);
 
   const loadMissionData = async () => {
     if (!user || !missionId) return;
@@ -181,8 +216,21 @@ export default function MissionTracking() {
 
     setDistanceRemaining(dist);
 
-    const speed = currentPosition.speed_kmh || 50;
-    const timeInHours = dist / speed;
+    // ✅ ETA INTELLIGENT basé sur vitesse récente
+    // Analyser les 20 dernières positions (environ 40 secondes à 2s/point)
+    const recentPositions = positions.slice(-20);
+    const recentSpeed = recentPositions.length > 0
+      ? recentPositions.reduce((sum, p) => sum + (p.speed_kmh || 0), 0) / recentPositions.length
+      : currentPosition.speed_kmh || 50;
+
+    // Facteur heure de pointe (17h-19h = +30% temps)
+    const currentHour = new Date().getHours();
+    const rushFactor = (currentHour >= 17 && currentHour <= 19) ? 1.3 : 1.0;
+    
+    // Vitesse minimale réaliste
+    const effectiveSpeed = Math.max(recentSpeed, 20); // Min 20 km/h
+    
+    const timeInHours = (dist / effectiveSpeed) * rushFactor;
     setEta(Math.round(timeInHours * 60));
   };
 
@@ -195,11 +243,26 @@ export default function MissionTracking() {
       12
     );
 
-    // Ajouter les tuiles OpenStreetMap
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    // ✅ SUPPORT MULTI-COUCHES (Street / Satellite)
+    const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       attribution: '© OpenStreetMap contributors',
       maxZoom: 19,
-    }).addTo(map.current);
+    });
+
+    const satelliteLayer = L.tileLayer(
+      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+      {
+        attribution: '© Esri',
+        maxZoom: 19,
+      }
+    );
+
+    // Ajouter la couche par défaut
+    streetLayer.addTo(map.current);
+
+    // Stocker les couches pour switch ultérieur
+    (map.current as any)._streetLayer = streetLayer;
+    (map.current as any)._satelliteLayer = satelliteLayer;
 
     // Marqueur de départ (vert)
     const pickupIcon = L.divIcon({
@@ -302,21 +365,38 @@ export default function MissionTracking() {
   const updateRouteLine = () => {
     if (!map.current || positions.length < 2) return;
 
-    // Convertir les positions en coordonnées Leaflet [lat, lng]
-    const coordinates: [number, number][] = positions.map((p) => [p.latitude, p.longitude]);
-
     // Supprimer l'ancienne ligne si elle existe
     if (routeLine.current) {
       map.current.removeLayer(routeLine.current);
     }
 
-    // Créer une nouvelle polyline
-    routeLine.current = L.polyline(coordinates, {
-      color: '#3b82f6',
-      weight: 4,
-      opacity: 0.8,
-      smoothFactor: 1,
-    }).addTo(map.current);
+    // ✅ HEATMAP VITESSE: Créer plusieurs segments colorés selon vitesse
+    // Au lieu d'une seule polyline, créer des segments colorés
+    for (let i = 0; i < positions.length - 1; i++) {
+      const pos1 = positions[i];
+      const pos2 = positions[i + 1];
+      
+      // Couleur selon vitesse moyenne du segment
+      const avgSpeed = ((pos1.speed_kmh || 0) + (pos2.speed_kmh || 0)) / 2;
+      const color = getSpeedColor(avgSpeed);
+      
+      L.polyline(
+        [[pos1.latitude, pos1.longitude], [pos2.latitude, pos2.longitude]],
+        {
+          color: color,
+          weight: 4,
+          opacity: 0.8,
+        }
+      ).addTo(map.current);
+    }
+  };
+
+  // Fonction helper pour couleur selon vitesse
+  const getSpeedColor = (speed: number): string => {
+    if (speed < 30) return '#10b981'; // Vert - lent
+    if (speed < 70) return '#f59e0b'; // Orange - moyen
+    if (speed < 110) return '#3b82f6'; // Bleu - rapide
+    return '#ef4444'; // Rouge - très rapide
   };
 
   const copyPublicLink = () => {
@@ -325,6 +405,59 @@ export default function MissionTracking() {
     navigator.clipboard.writeText(url);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  };
+
+  // ✅ SWITCH COUCHE CARTE
+  const toggleMapLayer = () => {
+    if (!map.current) return;
+    
+    const currentLayer = mapLayer === 'street' ? 'street' : 'satellite';
+    const newLayer = currentLayer === 'street' ? 'satellite' : 'street';
+    
+    if (currentLayer === 'street') {
+      map.current.removeLayer((map.current as any)._streetLayer);
+      (map.current as any)._satelliteLayer.addTo(map.current);
+    } else {
+      map.current.removeLayer((map.current as any)._satelliteLayer);
+      (map.current as any)._streetLayer.addTo(map.current);
+    }
+    
+    setMapLayer(newLayer);
+  };
+
+  // ✅ TIMELINE NAVIGATION
+  const handleTimelineChange = (index: number) => {
+    if (positions.length === 0) return;
+    
+    const position = positions[index];
+    setTimelineIndex(index);
+    
+    // Afficher cette position historique
+    if (map.current) {
+      map.current.flyTo([position.latitude, position.longitude], 16, {
+        duration: 0.5,
+      });
+    }
+  };
+
+  // ✅ REPLAY TRAJET
+  const replayRoute = () => {
+    if (positions.length === 0 || isReplaying) return;
+    
+    setIsReplaying(true);
+    let index = 0;
+    
+    const interval = setInterval(() => {
+      if (index >= positions.length) {
+        clearInterval(interval);
+        setIsReplaying(false);
+        setTimelineIndex(positions.length - 1);
+        return;
+      }
+      
+      handleTimelineChange(index);
+      index += 2; // Vitesse x2
+    }, 100);
   };
 
   if (loading) {
@@ -423,6 +556,65 @@ export default function MissionTracking() {
       <div className="flex-1 flex flex-col md:flex-row">
         <div className="flex-1 relative">
           <div ref={mapContainer} className="absolute inset-0" />
+          
+          {/* ✅ CONTRÔLES CARTE FLOTTANTS */}
+          <div className="absolute top-4 right-4 flex flex-col gap-2 z-[1000]">
+            {/* Toggle Satellite/Street */}
+            <button
+              onClick={toggleMapLayer}
+              className="bg-white shadow-lg rounded-lg p-3 hover:bg-slate-50 transition"
+              title={mapLayer === 'street' ? 'Vue satellite' : 'Vue carte'}
+            >
+              <Layers className="w-5 h-5 text-slate-700" />
+            </button>
+            
+            {/* Replay Route */}
+            {positions.length > 10 && (
+              <button
+                onClick={replayRoute}
+                disabled={isReplaying}
+                className={`bg-white shadow-lg rounded-lg p-3 transition ${
+                  isReplaying 
+                    ? 'opacity-50 cursor-not-allowed' 
+                    : 'hover:bg-slate-50'
+                }`}
+                title="Rejouer le trajet"
+              >
+                <Activity className={`w-5 h-5 ${isReplaying ? 'text-blue-600 animate-pulse' : 'text-slate-700'}`} />
+              </button>
+            )}
+          </div>
+
+          {/* ✅ TIMELINE TRAJET */}
+          {positions.length > 1 && (
+            <div className="absolute bottom-4 left-4 right-4 bg-white shadow-lg rounded-xl p-4 z-[1000]">
+              <div className="flex items-center gap-4">
+                <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">
+                  {timelineIndex === 0 ? 'Départ' : timelineIndex === positions.length - 1 ? 'Arrivée' : 'En cours'}
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max={positions.length - 1}
+                  value={timelineIndex}
+                  onChange={(e) => handleTimelineChange(parseInt(e.target.value))}
+                  className="flex-1 h-2 bg-gradient-to-r from-green-500 via-blue-500 to-red-500 rounded-full appearance-none cursor-pointer"
+                  style={{
+                    background: `linear-gradient(to right, #10b981 0%, #3b82f6 50%, #ef4444 100%)`,
+                  }}
+                />
+                <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">
+                  {positions[timelineIndex] ? new Date(positions[timelineIndex].recorded_at).toLocaleTimeString('fr-FR') : ''}
+                </span>
+              </div>
+              <div className="mt-2 flex justify-between text-xs text-slate-500">
+                <span>{positions.length} points GPS</span>
+                <span>
+                  {positions[timelineIndex]?.speed_kmh?.toFixed(0) || 0} km/h
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="w-full md:w-96 bg-white border-t md:border-l md:border-t-0 border-slate-200 overflow-y-auto">
