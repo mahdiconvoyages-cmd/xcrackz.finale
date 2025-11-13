@@ -8,13 +8,16 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    sourcemap: false,
+    sourcemap: true, // Garder les sourcemaps pour debug mobile
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: true, // Retire tous les console.log en production
+        drop_console: false, // Garder console.error pour debug mobile
         drop_debugger: true,
-        pure_funcs: ['console.info', 'console.debug', 'console.warn']
+        pure_funcs: ['console.debug', 'console.trace']
+      },
+      format: {
+        comments: false
       }
     },
     rollupOptions: {
@@ -26,16 +29,30 @@ export default defineConfig({
           'pdf-vendor': ['jspdf', 'jspdf-autotable'],
         },
       },
+      onwarn(warning, warn) {
+        // Ignorer les warnings de chunk size pour le build
+        if (warning.code === 'MODULE_LEVEL_DIRECTIVE') {
+          return;
+        }
+        warn(warning);
+      }
     },
     chunkSizeWarningLimit: 1000,
+    // Améliorer la compatibilité mobile
+    target: ['es2015', 'edge88', 'firefox78', 'chrome87', 'safari13'],
   },
   publicDir: 'public',
   optimizeDeps: {
     exclude: ['lucide-react'],
     include: ['jspdf', 'jspdf-autotable'],
+    esbuildOptions: {
+      target: 'es2015'
+    }
   },
   server: {
     port: 5173,
     strictPort: false,
   },
+  // Améliorer la gestion des erreurs
+  logLevel: 'info',
 });
