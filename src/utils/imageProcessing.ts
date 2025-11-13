@@ -12,11 +12,6 @@
 export type FilterType = 'bw' | 'grayscale' | 'color' | 'magic';
 
 /**
- * Type de filtre disponible
- */
-export type FilterType = 'bw' | 'grayscale' | 'color' | 'magic';
-
-/**
  * Applique un filtre à une image via Canvas
  */
 export async function applyDocumentFilter(
