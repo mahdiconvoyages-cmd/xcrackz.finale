@@ -13,6 +13,7 @@ html {
   overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
   -webkit-overflow-scrolling: touch;
+  position: relative;
 }
 
 body {
@@ -20,12 +21,23 @@ body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
+  position: relative;
 }
 
 /* Container principal */
 #root {
   width: 100%;
   overflow-x: hidden;
+  position: relative;
+}
+
+/* Empêcher TOUT débordement horizontal */
+* {
+  box-sizing: border-box;
+}
+
+*:not(html):not(body):not(#root) {
+  max-width: 100%;
 }
 
 /* ============================================
