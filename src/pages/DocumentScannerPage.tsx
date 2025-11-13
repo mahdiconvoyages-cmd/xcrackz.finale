@@ -11,12 +11,17 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { Camera, RotateCw, Download, X, Sparkles, Palette, Contrast, Image as ImageIcon, Loader } from 'lucide-react';
+import { Camera, RotateCw, Download, X, Sparkles, Palette, Contrast, Image as ImageIcon, Loader, Move, Check } from 'lucide-react';
 import { applyDocumentFilter, rotateImage, FilterType, dataURLtoFile } from '../utils/imageProcessing';
 import { detectDocumentCorners, cropAndCorrectPerspective, loadOpenCV } from '../utils/documentDetection';
 
+interface Corner {
+  x: number;
+  y: number;
+}
+
 export default function DocumentScannerPage() {
-  const [step, setStep] = useState<'intro' | 'edit'>('intro');
+  const [step, setStep] = useState<'intro' | 'crop' | 'edit'>('intro');
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('magic');
@@ -24,6 +29,14 @@ export default function DocumentScannerPage() {
   const [fileName, setFileName] = useState('document');
   const [isLoadingOpenCV, setIsLoadingOpenCV] = useState(false);
   const [openCVReady, setOpenCVReady] = useState(false);
+  
+  // Manuel crop state
+  const [cropMode, setCropMode] = useState(false);
+  const [corners, setCorners] = useState<Corner[]>([]);
+  const [draggingCorner, setDraggingCorner] = useState<number | null>(null);
+  const [rawImage, setRawImage] = useState<string | null>(null);
+  const cropCanvasRef = useRef<HTMLCanvasElement>(null);
+  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const webcamVideoRef = useRef<HTMLVideoElement>(null);
@@ -64,19 +77,30 @@ export default function DocumentScannerPage() {
       const imageUrl = event.target?.result as string;
       
       try {
-        // Utiliser la détection automatique si OpenCV est prêt
+        // Stocker l'image brute
+        setRawImage(imageUrl);
+        
+        // Détecter les coins automatiquement
         if (openCVReady) {
-          const corners = await detectDocumentCorners(imageUrl);
-          const croppedImage = await cropAndCorrectPerspective(imageUrl, corners);
-          setOriginalImage(croppedImage);
-          await applyFilter('magic', croppedImage);
+          const detectedCorners = await detectDocumentCorners(imageUrl);
+          setCorners(detectedCorners);
         } else {
-          // Fallback: mode manuel
-          setOriginalImage(imageUrl);
-          await applyFilter('magic', imageUrl);
+          // Coins par défaut (bordures de l'image)
+          const img = new Image();
+          img.src = imageUrl;
+          await new Promise(resolve => { img.onload = resolve; });
+          const margin = Math.min(img.width, img.height) * 0.05;
+          setCorners([
+            { x: margin, y: margin },
+            { x: img.width - margin, y: margin },
+            { x: img.width - margin, y: img.height - margin },
+            { x: margin, y: img.height - margin }
+          ]);
+          setImageDimensions({ width: img.width, height: img.height });
         }
         
-        setStep('edit');
+        // Passer en mode crop manuel
+        setStep('crop');
       } catch (error) {
         console.error('Erreur traitement:', error);
         setOriginalImage(imageUrl);
@@ -126,18 +150,29 @@ export default function DocumentScannerPage() {
     setIsProcessing(true);
     stopWebcam();
     
-    try {
+      try {
+      // Stocker l'image brute
+      setRawImage(imageUrl);
+      
+      // Détecter les coins automatiquement
       if (openCVReady) {
-        const corners = await detectDocumentCorners(imageUrl);
-        const croppedImage = await cropAndCorrectPerspective(imageUrl, corners);
-        setOriginalImage(croppedImage);
-        await applyFilter('magic', croppedImage);
+        const detectedCorners = await detectDocumentCorners(imageUrl);
+        setCorners(detectedCorners);
       } else {
-        setOriginalImage(imageUrl);
-        await applyFilter('magic', imageUrl);
+        const img = new Image();
+        img.src = imageUrl;
+        await new Promise(resolve => { img.onload = resolve; });
+        const margin = Math.min(img.width, img.height) * 0.05;
+        setCorners([
+          { x: margin, y: margin },
+          { x: img.width - margin, y: margin },
+          { x: img.width - margin, y: img.height - margin },
+          { x: margin, y: img.height - margin }
+        ]);
+        setImageDimensions({ width: img.width, height: img.height });
       }
       
-      setStep('edit');
+      setStep('crop');
     } catch (error) {
       console.error('Erreur traitement webcam:', error);
       setOriginalImage(imageUrl);
@@ -206,11 +241,155 @@ export default function DocumentScannerPage() {
   const handleReset = () => {
     setOriginalImage(null);
     setProcessedImage(null);
+    setRawImage(null);
+    setCorners([]);
     setStep('intro');
     setSelectedFilter('magic');
     setFileName('document');
+    setCropMode(false);
     stopWebcam();
   };
+
+  // Manuel crop functions
+  const handleApplyCrop = async () => {
+    if (!rawImage || corners.length !== 4) return;
+    
+    setIsProcessing(true);
+    try {
+      const croppedImage = await cropAndCorrectPerspective(rawImage, corners);
+      setOriginalImage(croppedImage);
+      await applyFilter('magic', croppedImage);
+      setStep('edit');
+    } catch (error) {
+      console.error('Erreur recadrage:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleSkipCrop = async () => {
+    if (!rawImage) return;
+    
+    setIsProcessing(true);
+    try {
+      setOriginalImage(rawImage);
+      await applyFilter('magic', rawImage);
+      setStep('edit');
+    } catch (error) {
+      console.error('Erreur:', error);
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!cropCanvasRef.current) return;
+    
+    const canvas = cropCanvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const x = (e.clientX - rect.left) * scaleX;
+    const y = (e.clientY - rect.top) * scaleY;
+    
+    // Trouver le coin le plus proche
+    const TOUCH_RADIUS = 40;
+    for (let i = 0; i < corners.length; i++) {
+      const dx = corners[i].x - x;
+      const dy = corners[i].y - y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance < TOUCH_RADIUS) {
+        setDraggingCorner(i);
+        break;
+      }
+    }
+  };
+
+  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (draggingCorner === null || !cropCanvasRef.current) return;
+    
+    const canvas = cropCanvasRef.current;
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    
+    const x = Math.max(0, Math.min(canvas.width, (e.clientX - rect.left) * scaleX));
+    const y = Math.max(0, Math.min(canvas.height, (e.clientY - rect.top) * scaleY));
+    
+    const newCorners = [...corners];
+    newCorners[draggingCorner] = { x, y };
+    setCorners(newCorners);
+  };
+
+  const handleCanvasMouseUp = () => {
+    setDraggingCorner(null);
+  };
+
+  // Dessiner l'overlay de crop
+  useEffect(() => {
+    if (step !== 'crop' || !cropCanvasRef.current || !rawImage || corners.length !== 4) return;
+    
+    const canvas = cropCanvasRef.current;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    const img = new Image();
+    img.src = rawImage;
+    img.onload = () => {
+      canvas.width = img.width;
+      canvas.height = img.height;
+      
+      // Dessiner l'image
+      ctx.drawImage(img, 0, 0);
+      
+      // Overlay semi-transparent
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      
+      // Zone sélectionnée (clear overlay)
+      ctx.save();
+      ctx.globalCompositeOperation = 'destination-out';
+      ctx.beginPath();
+      ctx.moveTo(corners[0].x, corners[0].y);
+      for (let i = 1; i < corners.length; i++) {
+        ctx.lineTo(corners[i].x, corners[i].y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+      
+      // Bordures du document
+      ctx.strokeStyle = '#14b8a6';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(corners[0].x, corners[0].y);
+      for (let i = 1; i < corners.length; i++) {
+        ctx.lineTo(corners[i].x, corners[i].y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      
+      // Coins déplaçables
+      corners.forEach((corner, index) => {
+        ctx.beginPath();
+        ctx.arc(corner.x, corner.y, 15, 0, Math.PI * 2);
+        ctx.fillStyle = '#14b8a6';
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 3;
+        ctx.stroke();
+        
+        // Numéro du coin
+        ctx.fillStyle = '#fff';
+        ctx.font = 'bold 12px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText((index + 1).toString(), corner.x, corner.y);
+      });
+    };
+  }, [step, rawImage, corners]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -407,6 +586,126 @@ export default function DocumentScannerPage() {
                   <Camera className="w-5 h-5" />
                   Capturer
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Crop Mode */}
+        {step === 'crop' && rawImage && (
+          <div className="max-w-5xl mx-auto">
+            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl overflow-hidden">
+              {/* Header */}
+              <div className="border-b border-slate-700 p-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h2 className="text-xl font-bold text-white mb-1">Recadrage manuel</h2>
+                    <p className="text-sm text-slate-400">Déplacez les coins pour ajuster la zone à scanner</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Move className="w-5 h-5 text-teal-400" />
+                    <span className="text-sm text-slate-300">Glissez les points</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Canvas interactif */}
+              <div className="relative bg-black">
+                <canvas
+                  ref={cropCanvasRef}
+                  onMouseDown={handleCanvasMouseDown}
+                  onMouseMove={handleCanvasMouseMove}
+                  onMouseUp={handleCanvasMouseUp}
+                  onMouseLeave={handleCanvasMouseUp}
+                  onTouchStart={(e) => {
+                    const touch = e.touches[0];
+                    const mouseEvent = new MouseEvent('mousedown', {
+                      clientX: touch.clientX,
+                      clientY: touch.clientY
+                    });
+                    handleCanvasMouseDown(mouseEvent as any);
+                  }}
+                  onTouchMove={(e) => {
+                    e.preventDefault();
+                    const touch = e.touches[0];
+                    const mouseEvent = new MouseEvent('mousemove', {
+                      clientX: touch.clientX,
+                      clientY: touch.clientY
+                    });
+                    handleCanvasMouseMove(mouseEvent as any);
+                  }}
+                  onTouchEnd={handleCanvasMouseUp}
+                  className="w-full cursor-move"
+                  style={{ maxHeight: '70vh', objectFit: 'contain' }}
+                />
+                
+                {/* Instructions overlay */}
+                <div className="absolute top-4 left-4 right-4 pointer-events-none">
+                  <div className="bg-black/70 backdrop-blur-sm text-white px-4 py-3 rounded-lg inline-block">
+                    <div className="flex items-center gap-2">
+                      <Sparkles className="w-4 h-4 text-teal-400" />
+                      <span className="text-sm font-medium">
+                        {openCVReady ? 'Coins détectés automatiquement' : 'Ajustez les coins du document'}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Actions */}
+              <div className="border-t border-slate-700 p-6">
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleReset}
+                    className="px-6 py-3 bg-slate-700 text-white rounded-lg font-semibold hover:bg-slate-600 transition-colors"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    onClick={handleSkipCrop}
+                    disabled={isProcessing}
+                    className="px-6 py-3 bg-slate-600 text-white rounded-lg font-semibold hover:bg-slate-500 transition-colors disabled:opacity-50"
+                  >
+                    Sans recadrage
+                  </button>
+                  <button
+                    onClick={handleApplyCrop}
+                    disabled={isProcessing || corners.length !== 4}
+                    className="flex-1 bg-gradient-to-r from-teal-500 to-teal-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-teal-600 hover:to-teal-700 transition-all shadow-lg shadow-teal-500/30 flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isProcessing ? (
+                      <>
+                        <Loader className="w-5 h-5 animate-spin" />
+                        Traitement...
+                      </>
+                    ) : (
+                      <>
+                        <Check className="w-5 h-5" />
+                        Appliquer le recadrage
+                      </>
+                    )}
+                  </button>
+                </div>
+                
+                {/* Légende coins */}
+                <div className="mt-4 flex items-center gap-4 text-xs text-slate-400">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white font-bold">1</div>
+                    <span>Haut gauche</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white font-bold">2</div>
+                    <span>Haut droit</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white font-bold">3</div>
+                    <span>Bas droit</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white font-bold">4</div>
+                    <span>Bas gauche</span>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
