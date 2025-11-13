@@ -1,12 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Loader } from 'lucide-react';
+import { ArrowLeft, Loader, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import SignatureCanvas from '../components/inspection/SignatureCanvas';
 import PhotoCard from '../components/inspection/PhotoCard';
 import StepNavigation from '../components/inspection/StepNavigation';
 import OptionalPhotos from '../components/inspection/OptionalPhotos';
+import DocumentScanner from '../components/inspection/DocumentScanner';
 import { showToast } from '../components/Toast';
 
 interface Mission {
@@ -76,16 +77,23 @@ export default function InspectionDepartureNew() {
   const [internalCleanliness, setInternalCleanliness] = useState('propre');
   const [hasSpareWheel, setHasSpareWheel] = useState(false);
   const [hasRepairKit, setHasRepairKit] = useState(false);
-  const [photoConditions, setPhotoConditions] = useState({
-    time: 'jour',
-    location: 'parking',
-    weather: 'beau-temps'
-  });
+  
+  // Conditions photos (séparées comme mobile)
+  const [photoTime, setPhotoTime] = useState('jour');
+  const [photoLocation, setPhotoLocation] = useState('parking');
+  const [photoWeather, setPhotoWeather] = useState('beau-temps');
 
-  // Formulaire étape 3
+  // Formulaire étape 3 - Signatures
   const [notes, setNotes] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientSignature, setClientSignature] = useState('');
+  const [driverName, setDriverName] = useState('');
+  const [driverSignature, setDriverSignature] = useState('');
+
+  // Scanner de documents
+  const [showDocScanner, setShowDocScanner] = useState(false);
+  const [scannerDocType, setScannerDocType] = useState<'registration' | 'insurance' | 'generic'>('registration');
+  const [scannedDocs, setScannedDocs] = useState<{ type: string; file: File; preview: string }[]>([]);
 
   useEffect(() => {
     loadMission();
@@ -176,6 +184,33 @@ export default function InspectionDepartureNew() {
     }
   };
 
+  const openDocScanner = (docType: 'registration' | 'insurance' | 'generic') => {
+    setScannerDocType(docType);
+    setShowDocScanner(true);
+  };
+
+  const handleDocScan = async (file: File) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setScannedDocs(prev => [
+        ...prev,
+        { 
+          type: scannerDocType, 
+          file, 
+          preview: reader.result as string 
+        }
+      ]);
+      showToast('success', 'Document scanné', `Document ${scannerDocType === 'registration' ? 'carte grise' : scannerDocType === 'insurance' ? 'd\'assurance' : ''} enregistré`);
+    };
+    reader.readAsDataURL(file);
+    setShowDocScanner(false);
+  };
+
+  const removeScannedDoc = (index: number) => {
+    setScannedDocs(prev => prev.filter((_, i) => i !== index));
+    showToast('info', 'Document supprimé', 'Le document a été retiré');
+  };
+
   const handleComplete = async () => {
     if (!mission || !user) return;
 
@@ -191,8 +226,8 @@ export default function InspectionDepartureNew() {
       return;
     }
 
-    if (currentStep === 3 && (!clientName || !clientSignature)) {
-      showToast('error', 'Signature requise', 'Veuillez renseigner le nom et la signature du client');
+    if (currentStep === 3 && (!clientName || !clientSignature || !driverName || !driverSignature)) {
+      showToast('error', 'Signatures requises', 'Veuillez renseigner les noms et signatures du client ET du convoyeur');
       return;
     }
 
@@ -227,11 +262,13 @@ export default function InspectionDepartureNew() {
           internal_cleanliness: internalCleanliness,
           has_spare_wheel: hasSpareWheel,
           has_repair_kit: hasRepairKit,
-          photo_time: photoConditions.time,
-          photo_location: photoConditions.location,
-          photo_weather: photoConditions.weather,
+          photo_time: photoTime,
+          photo_location: photoLocation,
+          photo_weather: photoWeather,
           client_name: clientName,
           client_signature: clientSignature,
+          driver_name: driverName,
+          driver_signature: driverSignature,
           status: 'completed',
           completed_at: new Date().toISOString()
         } as any)
@@ -597,6 +634,54 @@ export default function InspectionDepartureNew() {
                 </label>
               </div>
 
+              {/* Scanner de documents */}
+              <div className="bg-gradient-to-r from-[#F0FDFA] to-[#ECFDF5] rounded-lg p-4 border-2 border-[#CCFBF1]">
+                <h4 className="font-semibold text-[#2D2A3E] mb-3 flex items-center gap-2">
+                  📸 Scanner les documents
+                  <span className="text-xs font-normal text-gray-500">(optionnel)</span>
+                </h4>
+                
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    type="button"
+                    onClick={() => openDocScanner('registration')}
+                    className="bg-white hover:bg-[#F0FDFA] border-2 border-[#14B8A6] text-[#2D2A3E] px-4 py-3 rounded-lg font-medium transition-colors text-sm"
+                  >
+                    📄 Carte Grise
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => openDocScanner('insurance')}
+                    className="bg-white hover:bg-[#F0FDFA] border-2 border-[#14B8A6] text-[#2D2A3E] px-4 py-3 rounded-lg font-medium transition-colors text-sm"
+                  >
+                    🛡️ Assurance
+                  </button>
+                </div>
+
+                {/* Documents scannés */}
+                {scannedDocs.length > 0 && (
+                  <div className="mt-3 space-y-2">
+                    <p className="text-xs font-medium text-gray-600">Documents scannés:</p>
+                    {scannedDocs.map((doc, index) => (
+                      <div key={index} className="flex items-center gap-2 bg-white p-2 rounded-lg border border-[#CCFBF1]">
+                        <img src={doc.preview} alt="Document" className="w-12 h-12 object-cover rounded" />
+                        <span className="text-xs flex-1">
+                          {doc.type === 'registration' ? '📄 Carte Grise' : 
+                           doc.type === 'insurance' ? '🛡️ Assurance' : '📝 Document'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeScannedDoc(index)}
+                          className="text-red-500 hover:bg-red-50 p-1 rounded"
+                        >
+                          <X className="w-4 h-4" />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
               {/* Propreté externe */}
               <div>
                 <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
@@ -643,8 +728,8 @@ export default function InspectionDepartureNew() {
                       Moment
                     </label>
                     <select
-                      value={photoConditions.time}
-                      onChange={(e) => setPhotoConditions({...photoConditions, time: e.target.value})}
+                      value={photoTime}
+                      onChange={(e) => setPhotoTime(e.target.value)}
                       className="w-full px-3 py-2 rounded-lg border-2 border-[#CCFBF1] focus:border-[#14B8A6] focus:outline-none text-sm"
                     >
                       <option value="jour">Jour</option>
@@ -658,8 +743,8 @@ export default function InspectionDepartureNew() {
                       Lieu
                     </label>
                     <select
-                      value={photoConditions.location}
-                      onChange={(e) => setPhotoConditions({...photoConditions, location: e.target.value})}
+                      value={photoLocation}
+                      onChange={(e) => setPhotoLocation(e.target.value)}
                       className="w-full px-3 py-2 rounded-lg border-2 border-[#CCFBF1] focus:border-[#14B8A6] focus:outline-none text-sm"
                     >
                       <option value="parking">Parking</option>
@@ -673,8 +758,8 @@ export default function InspectionDepartureNew() {
                       Météo
                     </label>
                     <select
-                      value={photoConditions.weather}
-                      onChange={(e) => setPhotoConditions({...photoConditions, weather: e.target.value})}
+                      value={photoWeather}
+                      onChange={(e) => setPhotoWeather(e.target.value)}
                       className="w-full px-3 py-2 rounded-lg border-2 border-[#CCFBF1] focus:border-[#14B8A6] focus:outline-none text-sm"
                     >
                       <option value="beau-temps">Beau temps</option>
@@ -705,16 +790,20 @@ export default function InspectionDepartureNew() {
           </div>
         )}
 
-        {/* ÉTAPE 3: Signature */}
+        {/* ÉTAPE 3: Signatures */}
         {currentStep === 3 && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">Signature du client</h2>
-              <p className="text-sm text-gray-600">Validation et finalisation</p>
+              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">Signatures</h2>
+              <p className="text-sm text-gray-600">Validation client et convoyeur</p>
             </div>
 
+            {/* Signature Client */}
             <div className="bg-white rounded-xl p-6 space-y-4 shadow-sm border border-[#CCFBF1]">
-              {/* Nom du client */}
+              <h3 className="font-semibold text-[#2D2A3E] flex items-center gap-2">
+                <span className="text-lg">👤</span> Client
+              </h3>
+              
               <div>
                 <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
                   Nom du client <span className="text-red-500">*</span>
@@ -728,7 +817,6 @@ export default function InspectionDepartureNew() {
                 />
               </div>
 
-              {/* Signature */}
               <div>
                 <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
                   Signature <span className="text-red-500">*</span>
@@ -738,8 +826,40 @@ export default function InspectionDepartureNew() {
                   value={clientSignature}
                 />
               </div>
+            </div>
 
-              {/* Notes */}
+            {/* Signature Convoyeur */}
+            <div className="bg-white rounded-xl p-6 space-y-4 shadow-sm border border-[#CCFBF1]">
+              <h3 className="font-semibold text-[#2D2A3E] flex items-center gap-2">
+                <span className="text-lg">🚗</span> Convoyeur
+              </h3>
+              
+              <div>
+                <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
+                  Nom du convoyeur <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={driverName}
+                  onChange={(e) => setDriverName(e.target.value)}
+                  placeholder="Nom complet"
+                  className="w-full px-4 py-3 rounded-lg border-2 border-[#CCFBF1] focus:border-[#14B8A6] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
+                  Signature <span className="text-red-500">*</span>
+                </label>
+                <SignatureCanvas
+                  onChange={setDriverSignature}
+                  value={driverSignature}
+                />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="bg-white rounded-xl p-6 space-y-4 shadow-sm border border-[#CCFBF1]">
               <div>
                 <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
                   Notes supplémentaires (optionnel)
@@ -796,6 +916,15 @@ export default function InspectionDepartureNew() {
         onChange={handlePhotoCapture}
         className="hidden"
       />
+      {/* Scanner de documents modal */}
+      {showDocScanner && (
+        <DocumentScanner
+          onCapture={handleDocScan}
+          onCancel={() => setShowDocScanner(false)}
+          documentType={scannerDocType}
+          title={`Scanner ${scannerDocType === 'registration' ? 'la Carte Grise' : scannerDocType === 'insurance' ? 'l\'Assurance' : 'le Document'}`}
+        />
+      )}
     </div>
   );
 }

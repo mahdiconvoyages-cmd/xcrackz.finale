@@ -68,6 +68,8 @@ export default function InspectionArrivalNew() {
   const [notes, setNotes] = useState('');
   const [clientName, setClientName] = useState('');
   const [clientSignature, setClientSignature] = useState('');
+  const [driverName, setDriverName] = useState('');
+  const [driverSignature, setDriverSignature] = useState('');
 
   useEffect(() => {
     loadData();
@@ -186,8 +188,8 @@ export default function InspectionArrivalNew() {
       return;
     }
 
-    if (currentStep === 3 && (!clientName || !clientSignature)) {
-      showToast('error', 'Signature requise', 'Veuillez renseigner le nom et la signature du destinataire');
+    if (currentStep === 3 && (!clientName || !clientSignature || !driverName || !driverSignature)) {
+      showToast('error', 'Signatures requises', 'Veuillez renseigner les noms et signatures du client ET du convoyeur');
       return;
     }
 
@@ -214,6 +216,8 @@ export default function InspectionArrivalNew() {
           notes: notes,
           client_name: clientName,
           client_signature: clientSignature,
+          driver_name: driverName,
+          driver_signature: driverSignature,
           status: 'completed',
           completed_at: new Date().toISOString()
         } as any)
@@ -541,16 +545,20 @@ export default function InspectionArrivalNew() {
           </div>
         )}
 
-        {/* ÉTAPE 3: Signature */}
+        {/* ÉTAPE 3: Signatures */}
         {currentStep === 3 && (
           <div className="space-y-6">
             <div>
-              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">Signature du destinataire</h2>
-              <p className="text-sm text-gray-600">Validation et finalisation de la livraison</p>
+              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">Signatures</h2>
+              <p className="text-sm text-gray-600">Validation destinataire et convoyeur</p>
             </div>
 
+            {/* Signature Destinataire */}
             <div className="bg-white rounded-xl p-6 space-y-4 shadow-sm border border-[#CCFBF1]">
-              {/* Nom du destinataire */}
+              <h3 className="font-semibold text-[#2D2A3E] flex items-center gap-2">
+                <span className="text-lg">📦</span> Destinataire
+              </h3>
+              
               <div>
                 <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
                   Nom du destinataire <span className="text-red-500">*</span>
@@ -564,18 +572,49 @@ export default function InspectionArrivalNew() {
                 />
               </div>
 
-              {/* Signature */}
               <div>
                 <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
-                  Signature du destinataire <span className="text-red-500">*</span>
+                  Signature <span className="text-red-500">*</span>
                 </label>
                 <SignatureCanvas
                   onChange={setClientSignature}
                   value={clientSignature}
                 />
               </div>
+            </div>
 
-              {/* Notes */}
+            {/* Signature Convoyeur */}
+            <div className="bg-white rounded-xl p-6 space-y-4 shadow-sm border border-[#CCFBF1]">
+              <h3 className="font-semibold text-[#2D2A3E] flex items-center gap-2">
+                <span className="text-lg">🚗</span> Convoyeur
+              </h3>
+              
+              <div>
+                <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
+                  Nom du convoyeur <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={driverName}
+                  onChange={(e) => setDriverName(e.target.value)}
+                  placeholder="Nom complet"
+                  className="w-full px-4 py-3 rounded-lg border-2 border-[#CCFBF1] focus:border-[#14B8A6] focus:outline-none"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
+                  Signature <span className="text-red-500">*</span>
+                </label>
+                <SignatureCanvas
+                  onChange={setDriverSignature}
+                  value={driverSignature}
+                />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div className="bg-white rounded-xl p-6 space-y-4 shadow-sm border border-[#CCFBF1]">
               <div>
                 <label className="block text-sm font-medium text-[#2D2A3E] mb-2">
                   Notes supplémentaires (optionnel)

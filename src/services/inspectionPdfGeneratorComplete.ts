@@ -117,6 +117,28 @@ async function loadImageAsBase64(url: string): Promise<string | null> {
 }
 
 /**
+ * Déterminer le format image attendu par jsPDF à partir du mime/type
+ */
+function detectImageFormat(mimeType?: string, dataUrl?: string): 'JPEG' | 'PNG' | 'WEBP' {
+  const normalizedMime = mimeType?.toLowerCase() || '';
+
+  if (normalizedMime.includes('png')) return 'PNG';
+  if (normalizedMime.includes('webp')) return 'WEBP';
+  if (normalizedMime.includes('jp')) return 'JPEG';
+
+  if (dataUrl?.startsWith('data:image/')) {
+    const separatorIndex = dataUrl.indexOf(';');
+    const type = separatorIndex > -1
+      ? dataUrl.slice('data:image/'.length, separatorIndex).toLowerCase()
+      : dataUrl.slice('data:image/'.length).toLowerCase();
+    if (type.includes('png')) return 'PNG';
+    if (type.includes('webp')) return 'WEBP';
+  }
+
+  return 'JPEG';
+}
+
+/**
  * Traduire le type de photo
  */
 function getPhotoLabel(type: string): string {
@@ -685,7 +707,16 @@ async function addScannedDocumentsSection(
       try {
         const base64 = await loadImageAsBase64(d.file_url);
         if (base64) {
-          doc.addImage(base64, 'JPEG', x + 1, yCell + 1, cellWidth - 2, cellHeight - 2);
+          try {
+            const format = detectImageFormat(d.mime_type, base64);
+            doc.addImage(base64, format, x + 1, yCell + 1, cellWidth - 2, cellHeight - 2);
+          } catch (imageError) {
+            console.error('Impossible d\'ajouter l\'image au PDF:', d.file_url, imageError);
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(8);
+            doc.setTextColor(COLORS.textLight);
+            doc.text('Aperçu indisponible', x + cellWidth / 2, yCell + cellHeight / 2, { align: 'center' });
+          }
         } else {
           doc.setFont('helvetica', 'normal');
           doc.setFontSize(8);

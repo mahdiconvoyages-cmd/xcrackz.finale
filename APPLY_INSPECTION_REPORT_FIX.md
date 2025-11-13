@@ -1,11 +1,107 @@
+# 🔧 Correction du Rapport d'Inspection Public
+
+## Problèmes identifiés
+- ❌ Contact départ (nom + téléphone) manquant
+- ❌ Contact arrivée (nom + téléphone) manquant  
+- ❌ Numéro du convoyeur manquant
+- ❌ Colonnes manquantes dans la table `missions`
+
+## Solution
+
+### Étape 1: Ajouter les colonnes manquantes à la table missions
+
+Copie et colle ce code dans le **SQL Editor** de Supabase:
+
+```sql
+-- ================================================
+-- MIGRATION: Ajout des champs de contact dans missions
+-- ================================================
+
+DO $$ 
+BEGIN
+    -- Contact départ (nom)
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'missions' AND column_name = 'pickup_contact_name'
+    ) THEN
+        ALTER TABLE missions ADD COLUMN pickup_contact_name TEXT;
+    END IF;
+
+    -- Contact départ (téléphone)
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'missions' AND column_name = 'pickup_contact_phone'
+    ) THEN
+        ALTER TABLE missions ADD COLUMN pickup_contact_phone TEXT;
+    END IF;
+
+    -- Contact arrivée (nom)
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'missions' AND column_name = 'delivery_contact_name'
+    ) THEN
+        ALTER TABLE missions ADD COLUMN delivery_contact_name TEXT;
+    END IF;
+
+    -- Contact arrivée (téléphone)
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'missions' AND column_name = 'delivery_contact_phone'
+    ) THEN
+        ALTER TABLE missions ADD COLUMN delivery_contact_phone TEXT;
+    END IF;
+
+    -- Téléphone du convoyeur
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'missions' AND column_name = 'driver_phone'
+    ) THEN
+        ALTER TABLE missions ADD COLUMN driver_phone TEXT;
+    END IF;
+
+    -- Nom du convoyeur
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_name = 'missions' AND column_name = 'driver_name'
+    ) THEN
+        ALTER TABLE missions ADD COLUMN driver_name TEXT;
+    END IF;
+END $$;
+
+-- Synchroniser les données existantes
+UPDATE missions m
+SET 
+    pickup_contact_name = c.name,
+    pickup_contact_phone = c.phone
+FROM contacts c
+WHERE m.pickup_contact_id = c.id 
+  AND m.pickup_contact_name IS NULL;
+
+UPDATE missions m
+SET 
+    delivery_contact_name = c.name,
+    delivery_contact_phone = c.phone
+FROM contacts c
+WHERE m.delivery_contact_id = c.id 
+  AND m.delivery_contact_name IS NULL;
+
+UPDATE missions m
+SET 
+    driver_name = c.name,
+    driver_phone = c.phone
+FROM contacts c
+WHERE m.driver_id = c.id 
+  AND m.driver_name IS NULL;
+```
+
+### Étape 2: Mettre à jour la fonction RPC
+
+Copie et colle ce code dans le **SQL Editor** de Supabase:
+
+```sql
 -- ================================================
 -- RPC: get_full_inspection_report(token)
--- Objectif: Retourner un rapport complet web identique au mobile
--- - Inclut mission/vehicule
--- - Départ + Arrivée avec: photos, signatures, noms signataires
--- - Documents scannés (inspection_documents)
--- - Frais/Dépenses (inspection_expenses)
--- Sûr à exécuter plusieurs fois (idempotent)
+-- CORRECTION: Ajout des contacts manquants
 -- ================================================
 
 DROP FUNCTION IF EXISTS get_full_inspection_report(TEXT);
@@ -104,10 +200,8 @@ BEGIN
         'scanned_documents', (
           SELECT COALESCE(jsonb_agg(jsonb_build_object(
             'id', d.id,
-            -- Map new schema columns to legacy API keys expected by frontend/PDF
             'title', d.document_title,
             'file_url', d.document_url,
-            -- Infer basic mime type from file extension when possible; else null
             'mime_type', CASE
               WHEN lower(d.document_url) LIKE '%.pdf' THEN 'application/pdf'
               WHEN lower(d.document_url) LIKE '%.png' THEN 'image/png'
@@ -206,3 +300,14 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION get_full_inspection_report(TEXT) TO anon, authenticated;
+```
+
+### Étape 2: Vérification (après application)
+
+Teste un lien de rapport public pour vérifier que les contacts s'affichent correctement.
+
+✅ Doit maintenant afficher:
+- Contact départ (nom + téléphone)
+- Contact arrivée (nom + téléphone) 
+- Numéro du convoyeur
+
