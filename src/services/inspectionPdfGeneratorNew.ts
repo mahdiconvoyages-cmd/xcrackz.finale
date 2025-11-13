@@ -14,7 +14,7 @@ import autoTable from 'jspdf-autotable';
 // ==========================================
 // GEMINI API CONFIG
 // ==========================================
-const GEMINI_API_KEY = 'AIzaSyAsIK3J6NSmvEG478oOHbIkRNp4xy4S_50';
+const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY || '';
 const GEMINI_API_URL = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash-exp:generateContent';
 
 // ==========================================
