@@ -3,16 +3,25 @@ import { ZoomIn, ZoomOut, Maximize2 } from 'lucide-react';
 
 /**
  * Bouton flottant d'accessibilité pour ajuster le zoom sur mobile
- * Visible uniquement sur écrans < 1024px
+ * Désactivé par défaut - Zoom fixe à 90% sur mobile
  */
 export default function AccessibilityZoom() {
-  const [zoomLevel, setZoomLevel] = useState(1);
+  const [zoomLevel, setZoomLevel] = useState(0.9);
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
-    // Afficher uniquement sur mobile/tablette
+    // Définir le zoom par défaut à 90% sur mobile
     const checkMobile = () => {
-      setIsVisible(window.innerWidth < 1024);
+      const isMobile = window.innerWidth < 1024;
+      setIsVisible(false); // Désactivé - ne pas afficher les boutons
+      
+      if (isMobile) {
+        document.body.style.zoom = '0.9';
+        setZoomLevel(0.9);
+      } else {
+        document.body.style.zoom = '1';
+        setZoomLevel(1);
+      }
     };
     
     checkMobile();
