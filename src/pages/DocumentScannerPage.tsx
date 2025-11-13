@@ -11,7 +11,7 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { Camera, RotateCw, Download, X, Sparkles, Palette, Contrast, Image as ImageIcon, Loader, Move, Check } from 'lucide-react';
+import { Camera, RotateCw, Download, X, Sparkles, Palette, Contrast, Image as ImageIcon, Loader, Move, Check, FileText, Trash2 } from 'lucide-react';
 import { applyDocumentFilter, rotateImage, FilterType, dataURLtoFile } from '../utils/imageProcessing';
 import { detectDocumentCorners, cropAndCorrectPerspective, loadOpenCV } from '../utils/documentDetection';
 
@@ -20,14 +20,24 @@ interface Corner {
   y: number;
 }
 
+interface ScannedDocument {
+  id: string;
+  name: string;
+  imageUrl: string;
+  timestamp: number;
+  filter: FilterType;
+}
+
 export default function DocumentScannerPage() {
-  const [step, setStep] = useState<'intro' | 'crop' | 'edit'>('intro');
+  const [step, setStep] = useState<'intro' | 'crop' | 'edit' | 'gallery'>('intro');
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('magic');
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileName, setFileName] = useState('document');
   const [isLoadingOpenCV, setIsLoadingOpenCV] = useState(false);
+  const [scannedDocuments, setScannedDocuments] = useState<ScannedDocument[]>([]);
+  const [selectedDoc, setSelectedDoc] = useState<ScannedDocument | null>(null);
   const [openCVReady, setOpenCVReady] = useState(false);
   
   // Manuel crop state
@@ -57,6 +67,28 @@ export default function DocumentScannerPage() {
         setIsLoadingOpenCV(false);
       });
   }, []);
+
+  // Charger les documents scannés depuis localStorage
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('scannedDocuments');
+      if (stored) {
+        setScannedDocuments(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.error('Erreur chargement documents:', error);
+    }
+  }, []);
+
+  // Sauvegarder les documents dans localStorage
+  const saveDocuments = (docs: ScannedDocument[]) => {
+    try {
+      localStorage.setItem('scannedDocuments', JSON.stringify(docs));
+      setScannedDocuments(docs);
+    } catch (error) {
+      console.error('Erreur sauvegarde documents:', error);
+    }
+  };
 
   const filters = [
     { id: 'magic' as FilterType, name: 'Auto', icon: Sparkles, color: '#14b8a6' },
@@ -226,6 +258,19 @@ export default function DocumentScannerPage() {
     if (!processedImage) return;
 
     try {
+      // Sauvegarder dans l'historique
+      const newDoc: ScannedDocument = {
+        id: Date.now().toString(),
+        name: fileName,
+        imageUrl: processedImage,
+        timestamp: Date.now(),
+        filter: selectedFilter
+      };
+      
+      const updatedDocs = [newDoc, ...scannedDocuments].slice(0, 50); // Max 50 documents
+      saveDocuments(updatedDocs);
+      
+      // Télécharger le fichier
       const file = await dataURLtoFile(processedImage, `${fileName}_scanned.jpg`);
       const url = URL.createObjectURL(file);
       const a = document.createElement('a');
@@ -233,6 +278,9 @@ export default function DocumentScannerPage() {
       a.download = file.name;
       a.click();
       URL.revokeObjectURL(url);
+      
+      // Message de confirmation
+      alert('✅ Document sauvegardé et téléchargé !');
     } catch (error) {
       console.error('Erreur téléchargement:', error);
     }
@@ -243,11 +291,28 @@ export default function DocumentScannerPage() {
     setProcessedImage(null);
     setRawImage(null);
     setCorners([]);
+    setSelectedDoc(null);
     setStep('intro');
     setSelectedFilter('magic');
     setFileName('document');
     setCropMode(false);
     stopWebcam();
+  };
+
+  const handleDeleteDocument = (id: string) => {
+    if (confirm('Supprimer ce document ?')) {
+      const updatedDocs = scannedDocuments.filter(doc => doc.id !== id);
+      saveDocuments(updatedDocs);
+    }
+  };
+
+  const handleViewDocument = (doc: ScannedDocument) => {
+    setSelectedDoc(doc);
+    setOriginalImage(doc.imageUrl);
+    setProcessedImage(doc.imageUrl);
+    setFileName(doc.name);
+    setSelectedFilter(doc.filter);
+    setStep('edit');
   };
 
   // Manuel crop functions
@@ -427,11 +492,35 @@ export default function DocumentScannerPage() {
             </div>
             
             {step === 'edit' && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setStep('gallery')}
+                  className="p-2 hover:bg-slate-800 rounded-lg transition-colors flex items-center gap-2"
+                  title="Voir les documents scannés"
+                >
+                  <FileText className="w-5 h-5 text-slate-400" />
+                  {scannedDocuments.length > 0 && (
+                    <span className="bg-teal-500 text-white text-xs font-bold rounded-full w-5 h-5 flex items-center justify-center">
+                      {scannedDocuments.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={handleReset}
+                  className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </div>
+            )}
+            
+            {(step === 'intro' || step === 'gallery') && scannedDocuments.length > 0 && (
               <button
-                onClick={handleReset}
-                className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                onClick={() => setStep(step === 'intro' ? 'gallery' : 'intro')}
+                className="flex items-center gap-2 px-4 py-2 bg-slate-800 hover:bg-slate-700 rounded-lg transition-colors"
               >
-                <X className="w-6 h-6 text-slate-400" />
+                <FileText className="w-5 h-5 text-teal-400" />
+                <span className="text-white font-medium">{scannedDocuments.length} document{scannedDocuments.length > 1 ? 's' : ''}</span>
               </button>
             )}
           </div>
@@ -708,6 +797,84 @@ export default function DocumentScannerPage() {
                 </div>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Gallery View */}
+        {step === 'gallery' && (
+          <div className="max-w-7xl mx-auto">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-white mb-2">Documents scannés</h2>
+              <p className="text-slate-400">Historique de vos scans ({scannedDocuments.length} document{scannedDocuments.length > 1 ? 's' : ''})</p>
+            </div>
+
+            {scannedDocuments.length === 0 ? (
+              <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl p-12 text-center">
+                <FileText className="w-16 h-16 text-slate-600 mx-auto mb-4" />
+                <p className="text-slate-400 text-lg mb-4">Aucun document scanné</p>
+                <button
+                  onClick={() => setStep('intro')}
+                  className="bg-gradient-to-r from-teal-500 to-teal-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-teal-600 hover:to-teal-700 transition-all shadow-lg shadow-teal-500/30"
+                >
+                  Scanner un document
+                </button>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {scannedDocuments.map((doc) => (
+                  <div
+                    key={doc.id}
+                    className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-xl overflow-hidden hover:border-teal-500 transition-all group"
+                  >
+                    {/* Thumbnail */}
+                    <div 
+                      className="relative aspect-[3/4] bg-black cursor-pointer"
+                      onClick={() => handleViewDocument(doc)}
+                    >
+                      <img
+                        src={doc.imageUrl}
+                        alt={doc.name}
+                        className="w-full h-full object-contain"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                        <div className="bg-teal-500 text-white px-4 py-2 rounded-lg font-semibold">
+                          Ouvrir
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Info */}
+                    <div className="p-4">
+                      <h3 className="text-white font-semibold truncate mb-1">{doc.name}</h3>
+                      <div className="flex items-center justify-between text-xs text-slate-400 mb-3">
+                        <span>{new Date(doc.timestamp).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}</span>
+                        <span className="capitalize">{doc.filter === 'magic' ? 'Auto' : doc.filter}</span>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleViewDocument(doc)}
+                          className="flex-1 bg-teal-600 hover:bg-teal-700 text-white px-3 py-2 rounded-lg text-sm font-medium transition-colors"
+                        >
+                          Voir
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteDocument(doc.id);
+                          }}
+                          className="bg-red-600 hover:bg-red-700 text-white p-2 rounded-lg transition-colors"
+                          title="Supprimer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         )}
 
