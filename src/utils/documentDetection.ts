@@ -27,8 +27,9 @@ export async function loadOpenCV(): Promise<any> {
   }
 
   cvLoadPromise = new Promise((resolve, reject) => {
+    // Utiliser la version optimisée (plus petite et rapide)
     const script = document.createElement('script');
-    script.src = 'https://docs.opencv.org/4.8.0/opencv.js';
+    script.src = 'https://docs.opencv.org/4.5.0/opencv.js';
     script.async = true;
     
     script.onload = () => {
@@ -37,20 +38,25 @@ export async function loadOpenCV(): Promise<any> {
         if ((window as any).cv && (window as any).cv.Mat) {
           clearInterval(checkCV);
           cvLoaded = true;
+          console.log('✅ OpenCV chargé avec succès');
           resolve((window as any).cv);
         }
-      }, 100);
+      }, 50); // Check toutes les 50ms au lieu de 100ms
 
-      // Timeout après 10 secondes
+      // Timeout après 15 secondes (plus généreux)
       setTimeout(() => {
         clearInterval(checkCV);
         if (!cvLoaded) {
+          console.warn('⚠️ OpenCV timeout - mode manuel activé');
           reject(new Error('OpenCV timeout'));
         }
-      }, 10000);
+      }, 15000);
     };
 
-    script.onerror = () => reject(new Error('Failed to load OpenCV'));
+    script.onerror = () => {
+      console.error('❌ Échec chargement OpenCV');
+      reject(new Error('Failed to load OpenCV'));
+    };
     
     document.head.appendChild(script);
   });

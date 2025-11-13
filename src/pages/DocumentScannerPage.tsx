@@ -23,27 +23,27 @@ export default function DocumentScannerPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [fileName, setFileName] = useState('document');
   const [isLoadingOpenCV, setIsLoadingOpenCV] = useState(false);
-  const [autoDetectEnabled, setAutoDetectEnabled] = useState(true);
+  const [openCVReady, setOpenCVReady] = useState(false);
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const webcamVideoRef = useRef<HTMLVideoElement>(null);
   const [isWebcamActive, setIsWebcamActive] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
 
-  // Précharger OpenCV au chargement de la page
+  // Précharger OpenCV en arrière-plan dès le montage
   useEffect(() => {
-    if (autoDetectEnabled) {
-      setIsLoadingOpenCV(true);
-      loadOpenCV()
-        .then(() => {
-          setIsLoadingOpenCV(false);
-        })
-        .catch(() => {
-          setIsLoadingOpenCV(false);
-          setAutoDetectEnabled(false);
-        });
-    }
-  }, [autoDetectEnabled]);
+    setIsLoadingOpenCV(true);
+    loadOpenCV()
+      .then(() => {
+        setOpenCVReady(true);
+        setIsLoadingOpenCV(false);
+      })
+      .catch((error) => {
+        console.error('OpenCV non disponible:', error);
+        setOpenCVReady(false);
+        setIsLoadingOpenCV(false);
+      });
+  }, []);
 
   const filters = [
     { id: 'magic' as FilterType, name: 'Auto', icon: Sparkles, color: '#14b8a6' },
@@ -64,18 +64,14 @@ export default function DocumentScannerPage() {
       const imageUrl = event.target?.result as string;
       
       try {
-        // Étape 1: Détection automatique des bords si activé
-        if (autoDetectEnabled) {
+        // Utiliser la détection automatique si OpenCV est prêt
+        if (openCVReady) {
           const corners = await detectDocumentCorners(imageUrl);
-          
-          // Étape 2: Recadrage et correction de perspective
           const croppedImage = await cropAndCorrectPerspective(imageUrl, corners);
           setOriginalImage(croppedImage);
-          
-          // Étape 3: Appliquer le filtre magic automatiquement
           await applyFilter('magic', croppedImage);
         } else {
-          // Mode manuel: juste appliquer le filtre
+          // Fallback: mode manuel
           setOriginalImage(imageUrl);
           await applyFilter('magic', imageUrl);
         }
@@ -83,7 +79,6 @@ export default function DocumentScannerPage() {
         setStep('edit');
       } catch (error) {
         console.error('Erreur traitement:', error);
-        // Fallback: utiliser l'image originale
         setOriginalImage(imageUrl);
         await applyFilter('magic', imageUrl);
         setStep('edit');
@@ -132,8 +127,7 @@ export default function DocumentScannerPage() {
     stopWebcam();
     
     try {
-      // Détection automatique et recadrage
-      if (autoDetectEnabled) {
+      if (openCVReady) {
         const corners = await detectDocumentCorners(imageUrl);
         const croppedImage = await cropAndCorrectPerspective(imageUrl, corners);
         setOriginalImage(croppedImage);
@@ -286,10 +280,21 @@ export default function DocumentScannerPage() {
 
             {/* Badge IA */}
             <div className="flex justify-center mb-8">
-              <div className="bg-gradient-to-r from-teal-500/20 to-blue-500/20 border border-teal-500/30 rounded-full px-6 py-2 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-teal-400" />
-                <span className="text-sm font-semibold text-white">Détection automatique activée</span>
-              </div>
+              {isLoadingOpenCV ? (
+                <div className="bg-gradient-to-r from-orange-500/20 to-yellow-500/20 border border-orange-500/30 rounded-full px-6 py-2 flex items-center gap-2">
+                  <Loader className="w-4 h-4 text-orange-400 animate-spin" />
+                  <span className="text-sm font-semibold text-white">Chargement IA en cours...</span>
+                </div>
+              ) : openCVReady ? (
+                <div className="bg-gradient-to-r from-teal-500/20 to-blue-500/20 border border-teal-500/30 rounded-full px-6 py-2 flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-teal-400" />
+                  <span className="text-sm font-semibold text-white">Détection automatique activée</span>
+                </div>
+              ) : (
+                <div className="bg-gradient-to-r from-slate-500/20 to-slate-600/20 border border-slate-500/30 rounded-full px-6 py-2 flex items-center gap-2">
+                  <span className="text-sm font-semibold text-slate-300">Mode manuel (IA non disponible)</span>
+                </div>
+              )}
             </div>
 
             {/* Features grid */}
