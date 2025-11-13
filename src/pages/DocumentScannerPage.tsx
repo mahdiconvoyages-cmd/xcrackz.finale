@@ -11,7 +11,7 @@
  */
 
 import { useState, useRef } from 'react';
-import { Camera, Upload, RotateCw, Download, X, Sparkles, Palette, Contrast, Image as ImageIcon } from 'lucide-react';
+import { Camera, RotateCw, Download, X, Sparkles, Palette, Contrast, Image as ImageIcon } from 'lucide-react';
 import { applyDocumentFilter, rotateImage, FilterType, dataURLtoFile } from '../utils/imageProcessing';
 
 export default function DocumentScannerPage() {
@@ -200,7 +200,7 @@ export default function DocumentScannerPage() {
             <div className="text-center mb-12">
               <h2 className="text-3xl font-bold text-white mb-3">Scanner un document</h2>
               <p className="text-lg text-slate-400">
-                Capturez avec la webcam ou uploadez un fichier depuis votre ordinateur
+                Prenez une photo ou sélectionnez un fichier à améliorer
               </p>
             </div>
 
@@ -235,24 +235,25 @@ export default function DocumentScannerPage() {
             <div className="space-y-4">
               <button
                 onClick={startWebcam}
-                className="w-full bg-gradient-to-r from-teal-500 to-teal-600 text-white px-6 py-4 rounded-xl font-semibold hover:from-teal-600 hover:to-teal-700 transition-all shadow-lg shadow-teal-500/30 flex items-center justify-center gap-3"
+                className="w-full bg-slate-800 text-white px-6 py-4 rounded-xl font-semibold hover:bg-slate-700 transition-all border border-slate-600 flex items-center justify-center gap-3 hidden md:flex"
               >
                 <Camera className="w-6 h-6" />
-                Ouvrir la webcam
+                Webcam (Desktop)
               </button>
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full bg-slate-800 text-white px-6 py-4 rounded-xl font-semibold hover:bg-slate-700 transition-all border border-slate-600 flex items-center justify-center gap-3"
+                className="w-full bg-gradient-to-r from-teal-500 to-teal-600 text-white px-6 py-4 rounded-xl font-semibold hover:from-teal-600 hover:to-teal-700 transition-all shadow-lg shadow-teal-500/30 flex items-center justify-center gap-3"
               >
-                <Upload className="w-6 h-6" />
-                Uploader un fichier
+                <Camera className="w-6 h-6" />
+                Prendre une photo
               </button>
 
               <input
                 ref={fileInputRef}
                 type="file"
                 accept="image/*"
+                capture="environment"
                 onChange={handleFileUpload}
                 className="hidden"
               />
