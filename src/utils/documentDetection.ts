@@ -201,8 +201,8 @@ function getDefaultCorners(width: number, height: number): Corner[] {
 }
 
 /**
- * Recadrage et correction de perspective SIMPLIFIÉ
- * Approche pragmatique : rotation + crop des coins
+ * Recadrage et correction de perspective OPTIMISÉ
+ * Utilise une transformation perspective réelle avec interpolation
  */
 export async function cropAndCorrectPerspective(
   imageDataUrl: string,
@@ -213,68 +213,58 @@ export async function cropAndCorrectPerspective(
     
     img.onload = () => {
       try {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
+        // Calculer les dimensions du rectangle de destination
+        const widthTop = distance(corners[0], corners[1]);
+        const widthBottom = distance(corners[3], corners[2]);
+        const heightLeft = distance(corners[0], corners[3]);
+        const heightRight = distance(corners[1], corners[2]);
         
-        if (!ctx) {
-          reject(new Error('Canvas context not available'));
-          return;
+        const outputWidth = Math.round(Math.max(widthTop, widthBottom));
+        const outputHeight = Math.round(Math.max(heightLeft, heightRight));
+        
+        // Limiter la taille pour performance (max 2500px)
+        const MAX_SIZE = 2500;
+        let scale = 1;
+        if (outputWidth > MAX_SIZE || outputHeight > MAX_SIZE) {
+          scale = Math.min(MAX_SIZE / outputWidth, MAX_SIZE / outputHeight);
         }
-
-        // Calculer l'angle de rotation du document
-        const angle = Math.atan2(
-          corners[1].y - corners[0].y,
-          corners[1].x - corners[0].x
-        );
         
-        // Dimensions du canvas pour contenir l'image pivotée
-        const cos = Math.abs(Math.cos(angle));
-        const sin = Math.abs(Math.sin(angle));
-        const newWidth = img.width * cos + img.height * sin;
-        const newHeight = img.width * sin + img.height * cos;
+        const finalWidth = Math.round(outputWidth * scale);
+        const finalHeight = Math.round(outputHeight * scale);
         
-        canvas.width = newWidth;
-        canvas.height = newHeight;
+        // Canvas pour l'image source
+        const srcCanvas = document.createElement('canvas');
+        srcCanvas.width = img.width;
+        srcCanvas.height = img.height;
+        const srcCtx = srcCanvas.getContext('2d', { willReadFrequently: true })!;
+        srcCtx.drawImage(img, 0, 0);
+        const srcData = srcCtx.getImageData(0, 0, img.width, img.height);
         
-        // Pivoter l'image
-        ctx.translate(newWidth / 2, newHeight / 2);
-        ctx.rotate(-angle);
-        ctx.drawImage(img, -img.width / 2, -img.height / 2);
-        ctx.setTransform(1, 0, 0, 1, 0, 0);
+        // Canvas de destination
+        const dstCanvas = document.createElement('canvas');
+        dstCanvas.width = finalWidth;
+        dstCanvas.height = finalHeight;
+        const dstCtx = dstCanvas.getContext('2d')!;
+        const dstData = dstCtx.createImageData(finalWidth, finalHeight);
         
-        // Calculer les coins après rotation
-        const centerX = newWidth / 2;
-        const centerY = newHeight / 2;
+        // Points de destination (rectangle parfait)
+        const dstCorners: Corner[] = [
+          { x: 0, y: 0 },
+          { x: finalWidth, y: 0 },
+          { x: finalWidth, y: finalHeight },
+          { x: 0, y: finalHeight }
+        ];
         
-        const rotatedCorners = corners.map(c => {
-          const dx = c.x - img.width / 2;
-          const dy = c.y - img.height / 2;
-          return {
-            x: centerX + (dx * Math.cos(-angle) - dy * Math.sin(-angle)),
-            y: centerY + (dx * Math.sin(-angle) + dy * Math.cos(-angle))
-          };
-        });
+        // Calculer la matrice de transformation inverse (dst -> src)
+        const matrix = computePerspectiveMatrix(dstCorners, corners);
         
-        // Trouver le rectangle englobant des coins
-        const minX = Math.max(0, Math.min(...rotatedCorners.map(c => c.x)));
-        const maxX = Math.min(newWidth, Math.max(...rotatedCorners.map(c => c.x)));
-        const minY = Math.max(0, Math.min(...rotatedCorners.map(c => c.y)));
-        const maxY = Math.min(newHeight, Math.max(...rotatedCorners.map(c => c.y)));
+        // Appliquer la transformation avec échantillonnage adaptatif
+        applyPerspectiveWarp(srcData, dstData, matrix, img.width, img.height, finalWidth, finalHeight);
         
-        const cropWidth = maxX - minX;
-        const cropHeight = maxY - minY;
+        // Mettre l'image transformée sur le canvas
+        dstCtx.putImageData(dstData, 0, 0);
         
-        // Extraire la région recadrée
-        const croppedImageData = ctx.getImageData(minX, minY, cropWidth, cropHeight);
-        
-        // Canvas final
-        const finalCanvas = document.createElement('canvas');
-        finalCanvas.width = cropWidth;
-        finalCanvas.height = cropHeight;
-        const finalCtx = finalCanvas.getContext('2d')!;
-        finalCtx.putImageData(croppedImageData, 0, 0);
-        
-        resolve(finalCanvas.toDataURL('image/jpeg', 0.92));
+        resolve(dstCanvas.toDataURL('image/jpeg', 0.92));
       } catch (error) {
         reject(error);
       }
@@ -283,6 +273,170 @@ export async function cropAndCorrectPerspective(
     img.onerror = () => reject(new Error('Failed to load image'));
     img.src = imageDataUrl;
   });
+}
+
+/**
+ * Calcule la distance entre deux points
+ */
+function distance(p1: Corner, p2: Corner): number {
+  return Math.sqrt((p2.x - p1.x) ** 2 + (p2.y - p1.y) ** 2);
+}
+
+/**
+ * Calcule la matrice de transformation perspective (homographie)
+ * Résout le système linéaire pour mapper 4 points src vers 4 points dst
+ */
+function computePerspectiveMatrix(src: Corner[], dst: Corner[]): number[] {
+  // Construction du système linéaire Ax = b
+  const A: number[][] = [];
+  const b: number[] = [];
+  
+  for (let i = 0; i < 4; i++) {
+    const sx = src[i].x;
+    const sy = src[i].y;
+    const dx = dst[i].x;
+    const dy = dst[i].y;
+    
+    // Équations pour x
+    A.push([sx, sy, 1, 0, 0, 0, -sx * dx, -sy * dx]);
+    b.push(dx);
+    
+    // Équations pour y
+    A.push([0, 0, 0, sx, sy, 1, -sx * dy, -sy * dy]);
+    b.push(dy);
+  }
+  
+  // Résolution par élimination de Gauss
+  const h = gaussianElimination(A, b);
+  
+  // Matrice 3x3 complète [h0, h1, h2, h3, h4, h5, h6, h7, 1]
+  return [...h, 1];
+}
+
+/**
+ * Résolution de système linéaire par élimination de Gauss
+ */
+function gaussianElimination(A: number[][], b: number[]): number[] {
+  const n = A.length;
+  const augmented = A.map((row, i) => [...row, b[i]]);
+  
+  // Élimination avant
+  for (let i = 0; i < n; i++) {
+    // Pivot partiel
+    let maxRow = i;
+    for (let k = i + 1; k < n; k++) {
+      if (Math.abs(augmented[k][i]) > Math.abs(augmented[maxRow][i])) {
+        maxRow = k;
+      }
+    }
+    [augmented[i], augmented[maxRow]] = [augmented[maxRow], augmented[i]];
+    
+    // Élimination
+    for (let k = i + 1; k < n; k++) {
+      const factor = augmented[k][i] / augmented[i][i];
+      for (let j = i; j <= n; j++) {
+        augmented[k][j] -= factor * augmented[i][j];
+      }
+    }
+  }
+  
+  // Substitution arrière
+  const x = new Array(n).fill(0);
+  for (let i = n - 1; i >= 0; i--) {
+    x[i] = augmented[i][n];
+    for (let j = i + 1; j < n; j++) {
+      x[i] -= augmented[i][j] * x[j];
+    }
+    x[i] /= augmented[i][i];
+  }
+  
+  return x;
+}
+
+/**
+ * Applique la transformation perspective avec échantillonnage bilinéaire
+ * Utilise un échantillonnage par blocs pour optimisation
+ */
+function applyPerspectiveWarp(
+  srcData: ImageData,
+  dstData: ImageData,
+  matrix: number[],
+  srcW: number,
+  srcH: number,
+  dstW: number,
+  dstH: number
+) {
+  const BLOCK_SIZE = 1; // Échantillonnage par pixel pour qualité maximale
+  
+  for (let dy = 0; dy < dstH; dy += BLOCK_SIZE) {
+    for (let dx = 0; dx < dstW; dx += BLOCK_SIZE) {
+      // Transformation inverse: dst -> src
+      const w = matrix[6] * dx + matrix[7] * dy + matrix[8];
+      const sx = (matrix[0] * dx + matrix[1] * dy + matrix[2]) / w;
+      const sy = (matrix[3] * dx + matrix[4] * dy + matrix[5]) / w;
+      
+      // Vérifier que le point est dans l'image source
+      if (sx >= 0 && sx < srcW - 1 && sy >= 0 && sy < srcH - 1) {
+        // Interpolation bilinéaire pour qualité
+        const color = bilinearSample(srcData, sx, sy, srcW, srcH);
+        
+        // Appliquer au bloc de destination
+        for (let by = 0; by < BLOCK_SIZE && dy + by < dstH; by++) {
+          for (let bx = 0; bx < BLOCK_SIZE && dx + bx < dstW; bx++) {
+            const dstIdx = ((dy + by) * dstW + (dx + bx)) * 4;
+            dstData.data[dstIdx] = color.r;
+            dstData.data[dstIdx + 1] = color.g;
+            dstData.data[dstIdx + 2] = color.b;
+            dstData.data[dstIdx + 3] = 255;
+          }
+        }
+      }
+    }
+  }
+}
+
+/**
+ * Échantillonnage bilinéaire pour interpolation lisse
+ */
+function bilinearSample(
+  data: ImageData,
+  x: number,
+  y: number,
+  width: number,
+  height: number
+): { r: number; g: number; b: number } {
+  const x1 = Math.floor(x);
+  const y1 = Math.floor(y);
+  const x2 = Math.min(x1 + 1, width - 1);
+  const y2 = Math.min(y1 + 1, height - 1);
+  
+  const fx = x - x1;
+  const fy = y - y1;
+  
+  const getPixel = (px: number, py: number) => {
+    const idx = (py * width + px) * 4;
+    return {
+      r: data.data[idx],
+      g: data.data[idx + 1],
+      b: data.data[idx + 2]
+    };
+  };
+  
+  const p11 = getPixel(x1, y1);
+  const p21 = getPixel(x2, y1);
+  const p12 = getPixel(x1, y2);
+  const p22 = getPixel(x2, y2);
+  
+  // Interpolation bilinéaire
+  const r = (1 - fx) * (1 - fy) * p11.r + fx * (1 - fy) * p21.r + (1 - fx) * fy * p12.r + fx * fy * p22.r;
+  const g = (1 - fx) * (1 - fy) * p11.g + fx * (1 - fy) * p21.g + (1 - fx) * fy * p12.g + fx * fy * p22.g;
+  const b = (1 - fx) * (1 - fy) * p11.b + fx * (1 - fy) * p21.b + (1 - fx) * fy * p12.b + fx * fy * p22.b;
+  
+  return {
+    r: Math.round(Math.max(0, Math.min(255, r))),
+    g: Math.round(Math.max(0, Math.min(255, g))),
+    b: Math.round(Math.max(0, Math.min(255, b)))
+  };
 }
 
 /**
