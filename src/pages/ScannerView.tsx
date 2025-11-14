@@ -15,8 +15,14 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
   const [isFlashOn, setIsFlashOn] = useState(false);
   const streamRef = useRef<MediaStream | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
+  const stableDetectionCount = useRef(0);
+  const captureTimeout = useRef<NodeJS.Timeout | null>(null);
 
   const stopCamera = useCallback(() => {
+    if (captureTimeout.current) {
+      clearTimeout(captureTimeout.current);
+      captureTimeout.current = null;
+    }
     if (streamRef.current) {
       streamRef.current.getTracks().forEach((track) => track.stop());
       streamRef.current = null;
@@ -27,49 +33,41 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
     setIsCameraReady(false);
   }, []);
 
-  useEffect(() => {
-    let detectionInterval: NodeJS.Timeout;
+  const handleCapture = useCallback(async () => {
+    if (!videoRef.current || isCapturing) return;
+    setIsCapturing(true);
+    setStatus('Capture en cours...');
 
-    const startCamera = async () => {
-      try {
-        setStatus('Initialisation de la caméra...');
-        await loadOpenCV();
-        setStatus('Caméra prête. Positionnez le document.');
+    try {
+      const video = videoRef.current;
+      
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = video.videoWidth;
+      tempCanvas.height = video.videoHeight;
+      const ctx = tempCanvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas context is null');
+      ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
 
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: {
-            facingMode: 'environment',
-            width: { ideal: 1920 },
-            height: { ideal: 1080 },
-          },
-          audio: false,
-        });
+      const corners = detectDocumentCorners(tempCanvas);
 
-        if (videoRef.current) {
-          videoRef.current.srcObject = stream;
-          await videoRef.current.play();
-          setIsCameraReady(true);
-          streamRef.current = stream;
-          detectionInterval = setInterval(performDetection, 200);
-        }
-      } catch (err) {
-        console.error('Erreur caméra:', err);
-        setStatus('Erreur caméra. Vérifiez les permissions.');
-        alert('Impossible d\'accéder à la caméra. Veuillez autoriser l\'accès dans les paramètres de votre navigateur.');
-        onCancel();
+      if (corners) {
+        const croppedUri = cropAndCorrectPerspective(tempCanvas, corners);
+        onScanComplete(croppedUri);
+      } else {
+        const imageUri = tempCanvas.toDataURL('image/jpeg', 0.9);
+        onScanComplete(imageUri);
       }
-    };
+    } catch (error) {
+      console.error('Erreur de capture:', error);
+      setStatus('Erreur de capture. Réessayez.');
+      setIsCapturing(false); // Permettre une nouvelle tentative
+    } finally {
+      stopCamera(); // Arrêter la caméra après la capture
+    }
+  }, [isCapturing, onScanComplete, stopCamera]);
 
-    startCamera();
-
-    return () => {
-      clearInterval(detectionInterval);
-      stopCamera();
-    };
-  }, [onCancel, stopCamera]);
-
-  const performDetection = () => {
-    if (!videoRef.current || !canvasRef.current || videoRef.current.paused || videoRef.current.ended) {
+  const performDetection = useCallback(() => {
+    if (!videoRef.current || !canvasRef.current || videoRef.current.paused || videoRef.current.ended || isCapturing) {
       return;
     }
 
@@ -95,46 +93,67 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
       }
       ctx.closePath();
       ctx.stroke();
+
+      // Logique de capture automatique
+      stableDetectionCount.current++;
+      if (stableDetectionCount.current > 5) { // 5 frames stables
+        if (!captureTimeout.current && !isCapturing) {
+          setStatus('Capture automatique...');
+          captureTimeout.current = setTimeout(() => {
+            handleCapture();
+          }, 300); // Délai de 300ms pour la stabilité
+        }
+      }
     } else {
       setStatus('Recherche de document...');
-    }
-  };
-
-  const handleCapture = useCallback(async () => {
-    if (!videoRef.current || isCapturing) return;
-    setIsCapturing(true);
-    setStatus('Capture en cours...');
-
-    try {
-      const video = videoRef.current;
-      
-      // Créer un canvas temporaire pour obtenir l'image actuelle
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = video.videoWidth;
-      tempCanvas.height = video.videoHeight;
-      const ctx = tempCanvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas context is null');
-      ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
-
-      const corners = detectDocumentCorners(tempCanvas);
-
-      if (corners) {
-        // Le recadrage se fait à partir du canvas, pas de la vidéo
-        const croppedUri = cropAndCorrectPerspective(tempCanvas, corners);
-        onScanComplete(croppedUri);
-      } else {
-        // Si pas de détection, utiliser l'image du canvas
-        const imageUri = tempCanvas.toDataURL('image/jpeg', 0.9);
-        onScanComplete(imageUri);
+      stableDetectionCount.current = 0;
+      if (captureTimeout.current) {
+        clearTimeout(captureTimeout.current);
+        captureTimeout.current = null;
       }
-    } catch (error) {
-      console.error('Erreur de capture:', error);
-      setStatus('Erreur de capture. Réessayez.');
-    } finally {
-      setIsCapturing(false);
-      stopCamera();
     }
-  }, [isCapturing, onScanComplete, stopCamera]);
+  }, [handleCapture, isCapturing]);
+
+  useEffect(() => {
+    let detectionInterval: NodeJS.Timeout;
+
+    const startCamera = async () => {
+      try {
+        setStatus('Initialisation de la caméra...');
+        await loadOpenCV();
+        setStatus('Caméra prête. Positionnez le document.');
+
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: {
+            facingMode: 'environment',
+            width: { ideal: 1920 },
+            height: { ideal: 1080 },
+          },
+          audio: false,
+        });
+
+        if (videoRef.current) {
+          videoRef.current.srcObject = stream;
+          await videoRef.current.play();
+          setIsCameraReady(true);
+          streamRef.current = stream;
+          detectionInterval = setInterval(performDetection, 100); // Détection plus rapide
+        }
+      } catch (err) {
+        console.error('Erreur caméra:', err);
+        setStatus('Erreur caméra. Vérifiez les permissions.');
+        alert('Impossible d\'accéder à la caméra. Veuillez autoriser l\'accès dans les paramètres de votre navigateur.');
+        onCancel();
+      }
+    };
+
+    startCamera();
+
+    return () => {
+      clearInterval(detectionInterval);
+      stopCamera();
+    };
+  }, [onCancel, stopCamera, performDetection]);
 
   const toggleFlash = useCallback(async () => {
     if (streamRef.current) {

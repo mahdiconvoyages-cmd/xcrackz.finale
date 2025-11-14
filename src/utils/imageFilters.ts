@@ -32,29 +32,41 @@ export const applyFilter = async (uri: string, filterId: string): Promise<string
     const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
     const data = imageData.data;
 
+    // Calculs préliminaires pour les filtres avancés
+    let totalLuminance = 0;
+    let minLuminance = 255;
+    let maxLuminance = 0;
+
     for (let i = 0; i < data.length; i += 4) {
       const r = data[i];
       const g = data[i + 1];
       const b = data[i + 2];
-      let gray;
+      const luminance = 0.299 * r + 0.587 * g + 0.114 * b;
+      totalLuminance += luminance;
+      if (luminance < minLuminance) minLuminance = luminance;
+      if (luminance > maxLuminance) maxLuminance = luminance;
+    }
+    const avgLuminance = totalLuminance / (data.length / 4);
+
+    for (let i = 0; i < data.length; i += 4) {
+      const r = data[i];
+      const g = data[i + 1];
+      const b = data[i + 2];
+      let gray = 0.299 * r + 0.587 * g + 0.114 * b;
 
       switch (filterId) {
         case 'grayscale':
-          gray = 0.299 * r + 0.587 * g + 0.114 * b;
           data[i] = data[i + 1] = data[i + 2] = gray;
           break;
 
         case 'bw':
-          gray = 0.299 * r + 0.587 * g + 0.114 * b;
-          data[i] = data[i + 1] = data[i + 2] = gray > 128 ? 255 : 0;
+          // Seuil dynamique basé sur la luminosité moyenne
+          data[i] = data[i + 1] = data[i + 2] = gray > avgLuminance ? 255 : 0;
           break;
 
         case 'magic':
-          // Contraste simple
-          gray = 0.299 * r + 0.587 * g + 0.114 * b;
-          const contrast = 1.5;
-          const factor = (259 * (contrast * 255 + 255)) / (255 * (259 - contrast * 255));
-          let magicVal = factor * (gray - 128) + 128;
+          // Algorithme de "Magic Color" par étirement d'histogramme
+          let magicVal = 255 * (gray - minLuminance) / (maxLuminance - minLuminance);
           magicVal = Math.max(0, Math.min(255, magicVal));
           data[i] = data[i + 1] = data[i + 2] = magicVal;
           break;
