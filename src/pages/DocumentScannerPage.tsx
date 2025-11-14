@@ -745,112 +745,89 @@ export default function DocumentScannerPage() {
           </div>
         )}
 
-        {/* Crop Mode */}
+        {/* Crop Mode - PLEIN ÉCRAN */}
         {step === 'crop' && rawImage && (
-          <div className="max-w-5xl mx-auto">
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl overflow-hidden">
-              {/* Header */}
-              <div className="border-b border-slate-700 p-6">
-                <div className="flex items-center justify-between">
+          <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col">
+            {/* Header fixe */}
+            <div className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700 p-4 flex-shrink-0">
+              <div className="max-w-7xl mx-auto flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <Move className="w-5 h-5 text-teal-400" />
                   <div>
-                    <h2 className="text-xl font-bold text-white mb-1">Recadrage manuel</h2>
-                    <p className="text-sm text-slate-400">Déplacez les coins pour ajuster la zone à scanner</p>
+                    <h2 className="text-lg font-bold text-white">Recadrage manuel</h2>
+                    <p className="text-xs text-slate-400">Déplacez les coins pour ajuster</p>
                   </div>
+                </div>
+                <button
+                  onClick={handleReset}
+                  className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
+                >
+                  <X className="w-6 h-6 text-slate-400" />
+                </button>
+              </div>
+            </div>
+
+            {/* Zone canvas - prend tout l'espace disponible */}
+            <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center">
+              <canvas
+                ref={cropCanvasRef}
+                onMouseDown={handleCanvasMouseDown}
+                onMouseMove={handleCanvasMouseMove}
+                onMouseUp={handleCanvasMouseUp}
+                onMouseLeave={handleCanvasMouseUp}
+                onTouchStart={handleCanvasTouchStart}
+                onTouchMove={handleCanvasTouchMove}
+                onTouchEnd={handleCanvasTouchEnd}
+                className="max-w-full max-h-full cursor-move touch-none"
+                style={{ objectFit: 'contain' }}
+              />
+              
+              {/* Instructions overlay */}
+              <div className="absolute top-4 left-4 right-4 pointer-events-none z-10">
+                <div className="bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-lg inline-block">
                   <div className="flex items-center gap-2">
-                    <Move className="w-5 h-5 text-teal-400" />
-                    <span className="text-sm text-slate-300">Glissez les points</span>
+                    <Sparkles className="w-4 h-4 text-teal-400" />
+                    <span className="text-sm font-medium">
+                      {openCVReady ? 'Coins détectés automatiquement' : 'Ajustez les 4 coins du document'}
+                    </span>
                   </div>
                 </div>
               </div>
+            </div>
 
-              {/* Canvas interactif */}
-              <div className="relative bg-black">
-                <canvas
-                  ref={cropCanvasRef}
-                  onMouseDown={handleCanvasMouseDown}
-                  onMouseMove={handleCanvasMouseMove}
-                  onMouseUp={handleCanvasMouseUp}
-                  onMouseLeave={handleCanvasMouseUp}
-                  onTouchStart={handleCanvasTouchStart}
-                  onTouchMove={handleCanvasTouchMove}
-                  onTouchEnd={handleCanvasTouchEnd}
-                  className="w-full cursor-move touch-none"
-                  style={{ maxHeight: '70vh', objectFit: 'contain' }}
-                />
-                
-                {/* Instructions overlay */}
-                <div className="absolute top-4 left-4 right-4 pointer-events-none">
-                  <div className="bg-black/70 backdrop-blur-sm text-white px-4 py-3 rounded-lg inline-block">
-                    <div className="flex items-center gap-2">
-                      <Sparkles className="w-4 h-4 text-teal-400" />
-                      <span className="text-sm font-medium">
-                        {openCVReady ? 'Coins détectés automatiquement' : 'Ajustez les coins du document'}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions */}
-              <div className="border-t border-slate-700 p-6">
-                <div className="flex gap-3">
-                  <button
-                    onClick={handleReset}
-                    className="px-6 py-3 bg-slate-700 text-white rounded-lg font-semibold hover:bg-slate-600 transition-colors"
-                  >
-                    Annuler
-                  </button>
-                  <button
-                    onClick={handleSkipCrop}
-                    disabled={isProcessing}
-                    className="px-6 py-3 bg-slate-600 text-white rounded-lg font-semibold hover:bg-slate-500 transition-colors disabled:opacity-50"
-                  >
-                    Sans recadrage
-                  </button>
-                  <button
-                    onClick={handleApplyCrop}
-                    disabled={isProcessing || corners.length !== 4}
-                    className="flex-1 bg-gradient-to-r from-teal-500 to-teal-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-teal-600 hover:to-teal-700 transition-all shadow-lg shadow-teal-500/30 flex items-center justify-center gap-2 disabled:opacity-50"
-                  >
-                    {isProcessing ? (
-                      <>
-                        <Loader className="w-5 h-5 animate-spin" />
-                        Traitement...
-                      </>
-                    ) : (
-                      <>
-                        <Check className="w-5 h-5" />
-                        Appliquer le recadrage
-                      </>
-                    )}
-                  </button>
-                </div>
-                
-                {/* Légende coins */}
-                <div className="mt-4 flex items-center gap-4 text-xs text-slate-400">
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white font-bold">1</div>
-                    <span>Haut gauche</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white font-bold">2</div>
-                    <span>Haut droit</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white font-bold">3</div>
-                    <span>Bas droit</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-6 h-6 rounded-full bg-teal-500 flex items-center justify-center text-white font-bold">4</div>
-                    <span>Bas gauche</span>
-                  </div>
-                </div>
+            {/* Actions fixées en bas */}
+            <div className="bg-slate-900/95 backdrop-blur-sm border-t border-slate-700 p-4 flex-shrink-0">
+              <div className="max-w-7xl mx-auto flex gap-3">
+                <button
+                  onClick={handleSkipCrop}
+                  disabled={isProcessing}
+                  className="px-6 py-3 bg-slate-700 text-white rounded-lg font-semibold hover:bg-slate-600 transition-colors disabled:opacity-50"
+                >
+                  Sans recadrage
+                </button>
+                <button
+                  onClick={handleApplyCrop}
+                  disabled={isProcessing || corners.length !== 4}
+                  className="flex-1 bg-gradient-to-r from-teal-500 to-teal-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-teal-600 hover:to-teal-700 transition-all shadow-lg shadow-teal-500/30 flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isProcessing ? (
+                    <>
+                      <Loader className="w-5 h-5 animate-spin" />
+                      Traitement...
+                    </>
+                  ) : (
+                    <>
+                      <Check className="w-5 h-5" />
+                      Valider le recadrage
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Gallery View */}
+        {/* Gallery View */}        {/* Gallery View */}
         {step === 'gallery' && (
           <div className="max-w-7xl mx-auto">
             <div className="mb-6">
