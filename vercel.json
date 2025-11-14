@@ -6,9 +6,15 @@
   "installCommand": "npm install",
   "redirects": [
     {
-      "source": "https://xcrackz.com/:path*",
+      "source": "/:path*",
       "destination": "https://www.xcrackz.com/:path*",
-      "permanent": true
+      "permanent": true,
+      "has": [
+        {
+          "type": "host",
+          "value": "xcrackz.com"
+        }
+      ]
     }
   ],
   "rewrites": [
