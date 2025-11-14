@@ -15,6 +15,7 @@ import { Camera, RotateCw, Download, X, Sparkles, Palette, Contrast, Image as Im
 import { applyDocumentFilter, rotateImage, FilterType, dataURLtoFile } from '../utils/imageProcessing';
 import { detectDocumentCorners, cropAndCorrectPerspective, loadOpenCV } from '../utils/documentDetection';
 import AdvancedCropPage from './AdvancedCropPage';
+import ScannerView from './ScannerView';
 
 interface Corner {
   x: number;
@@ -146,12 +147,6 @@ export default function DocumentScannerPage() {
 
   const startLiveCamera = () => {
     setStep('camera');
-  };
-
-  const handleLiveCapture = async (imageUrl: string, capturedCorners: Corner[]) => {
-    setRawImage(imageUrl);
-    setCorners(capturedCorners);
-    setStep('crop');
   };
 
   const applyFilter = async (filterType: FilterType, imageSource?: string) => {
@@ -427,54 +422,14 @@ export default function DocumentScannerPage() {
         )}
 
         {step === 'camera' && (
-          <div className="fixed inset-0 bg-black z-50 flex flex-col">
-            <div className="flex-1 flex items-center justify-center p-4">
-              <video
-                ref={(video) => {
-                  if (video && !video.srcObject) {
-                    navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } })
-                      .then(stream => { video.srcObject = stream; video.play(); })
-                      .catch(console.error);
-                  }
-                }}
-                className="max-w-full max-h-full"
-                autoPlay
-                playsInline
-              />
-            </div>
-            <div className="p-4 flex gap-2">
-              <button
-                onClick={() => setStep('intro')}
-                className="flex-1 bg-gray-600 text-white px-4 py-3 rounded-lg font-medium"
-              >
-                Annuler
-              </button>
-              <button
-                onClick={() => {
-                  const video = document.querySelector('video');
-                  if (video) {
-                    const canvas = document.createElement('canvas');
-                    canvas.width = video.videoWidth;
-                    canvas.height = video.videoHeight;
-                    canvas.getContext('2d')?.drawImage(video, 0, 0);
-                    const imageUrl = canvas.toDataURL('image/jpeg');
-                    const defaultCorners: Corner[] = [
-                      { x: 0, y: 0 },
-                      { x: canvas.width, y: 0 },
-                      { x: canvas.width, y: canvas.height },
-                      { x: 0, y: canvas.height }
-                    ];
-                    handleLiveCapture(imageUrl, defaultCorners);
-                    const stream = video.srcObject as MediaStream;
-                    stream?.getTracks().forEach(track => track.stop());
-                  }
-                }}
-                className="flex-1 bg-indigo-600 text-white px-4 py-3 rounded-lg font-medium"
-              >
-                Capturer
-              </button>
-            </div>
-          </div>
+          <ScannerView
+            onScanComplete={(imageUri) => {
+              setOriginalImage(imageUri);
+              setProcessedImage(imageUri);
+              setStep('edit');
+            }}
+            onCancel={() => setStep('intro')}
+          />
         )}
 
         {/* Crop Mode - Page Avancée */}
