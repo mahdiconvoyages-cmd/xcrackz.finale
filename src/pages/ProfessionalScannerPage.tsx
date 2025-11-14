@@ -17,7 +17,6 @@ import {
   Upload,
   RotateCw,
   Download,
-  Sparkles,
   Palette,
   Contrast,
   Image as ImageIcon,
@@ -52,7 +51,7 @@ export default function ProfessionalScannerPage() {
   const [rawImage, setRawImage] = useState<string | null>(null);
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
-  const [selectedFilter, setSelectedFilter] = useState<FilterType>('magic');
+  const [selectedFilter, setSelectedFilter] = useState<FilterType>('bw');
   const [fileName, setFileName] = useState('document');
   
   // États de détection
@@ -102,9 +101,8 @@ export default function ProfessionalScannerPage() {
     }
   };
 
-  // Configuration des filtres
+  // Configuration des filtres (N&B par défaut, Gris et Couleur en option)
   const filters = [
-    { id: 'magic' as FilterType, name: 'Auto', icon: Sparkles, color: '#10b981' },
     { id: 'bw' as FilterType, name: 'N&B', icon: Contrast, color: '#374151' },
     { id: 'grayscale' as FilterType, name: 'Gris', icon: Palette, color: '#6b7280' },
     { id: 'color' as FilterType, name: 'Couleur', icon: ImageIcon, color: '#3b82f6' },
@@ -176,7 +174,7 @@ export default function ProfessionalScannerPage() {
       const cropped = await cropAndCorrectPerspective(rawImage, finalCorners);
       setCroppedImage(cropped);
       setProcessedImage(cropped); // Pas de filtre par défaut
-      setSelectedFilter('magic');
+      setSelectedFilter('bw');
 
       // Passer à l'édition
       setStep('edit');
@@ -266,13 +264,21 @@ export default function ProfessionalScannerPage() {
       const updatedDocs = [newDoc, ...scannedDocuments].slice(0, 50);
       saveDocuments(updatedDocs);
 
-      alert('✅ Document sauvegardé !');
+      alert('✅ Document sauvegardé avec succès !');
       
-      // Réinitialiser
-      handleNewScan();
+      // Aller directement à la page des documents pour voir le résultat
+      setStep('documents');
+      
+      // Réinitialiser les états pour un nouveau scan
+      setRawImage(null);
+      setCroppedImage(null);
+      setProcessedImage(null);
+      setCorners([]);
+      setSelectedFilter('bw');
+      setFileName('document');
     } catch (error) {
       console.error('Erreur sauvegarde:', error);
-      alert('Erreur lors de la sauvegarde');
+      alert('❌ Erreur lors de la sauvegarde');
     } finally {
       setIsProcessing(false);
     }
@@ -303,7 +309,7 @@ export default function ProfessionalScannerPage() {
     setCroppedImage(null);
     setProcessedImage(null);
     setCorners([]);
-    setSelectedFilter('magic');
+    setSelectedFilter('bw');
     setFileName('document');
   };
 
@@ -512,7 +518,7 @@ export default function ProfessionalScannerPage() {
             </div>
 
             {/* Filtres avec design cards moderne */}
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="grid grid-cols-3 gap-3">
               {filters.map((filter) => {
                 const Icon = filter.icon;
                 const isActive = selectedFilter === filter.id;
@@ -547,10 +553,9 @@ export default function ProfessionalScannerPage() {
                           {filter.name}
                         </span>
                         <span className="text-xs text-gray-500 block mt-1">
-                          {filter.id === 'magic' && 'IA Avancée'}
-                          {filter.id === 'bw' && 'Contraste'}
-                          {filter.id === 'grayscale' && 'CLAHE'}
-                          {filter.id === 'color' && 'Naturel'}
+                          {filter.id === 'bw' && 'Contraste Max'}
+                          {filter.id === 'grayscale' && 'CLAHE Pro'}
+                          {filter.id === 'color' && 'Naturel HD'}
                         </span>
                       </div>
 
