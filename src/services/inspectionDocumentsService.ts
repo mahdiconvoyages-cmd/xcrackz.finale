@@ -142,19 +142,55 @@ export async function getUserDocuments(
  */
 export async function getAllUserDocuments(userId: string): Promise<InspectionDocument[]> {
   try {
-    // Récupérer tous les documents de l'utilisateur (avec ou sans inspection_id)
-    const { data: allDocs, error } = await supabase
+    // Stratégie 1: Récupérer les documents avec user_id direct
+    const { data: directDocs, error: directError } = await supabase
       .from('inspection_documents')
       .select('*')
       .eq('user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (error) {
-      console.error('Erreur récupération documents:', error);
-      return [];
+    if (directError) {
+      console.error('Erreur récupération documents directs:', directError);
     }
 
-    return allDocs || [];
+    // Stratégie 2: Récupérer les documents via inspections liées aux missions de l'utilisateur
+    const { data: linkedDocs, error: linkedError } = await supabase
+      .from('inspection_documents')
+      .select(`
+        *,
+        vehicle_inspections!inner(
+          id,
+          mission_id,
+          missions!inner(
+            user_id
+          )
+        )
+      `)
+      .eq('vehicle_inspections.missions.user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (linkedError) {
+      console.error('Erreur récupération documents liés:', linkedError);
+    }
+
+    // Combiner et dédupliquer par ID
+    const allDocuments = new Map<string, InspectionDocument>();
+    
+    // Ajouter les documents directs
+    (directDocs || []).forEach((doc: any) => allDocuments.set(doc.id, doc));
+    
+    // Ajouter les documents liés
+    (linkedDocs || []).forEach((doc: any) => allDocuments.set(doc.id, doc));
+
+    // Convertir en tableau et trier par date
+    const finalDocs = Array.from(allDocuments.values());
+    finalDocs.sort((a, b) => 
+      new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+
+    console.log(`📄 Documents trouvés: ${finalDocs.length} (directs: ${directDocs?.length || 0}, liés: ${linkedDocs?.length || 0})`);
+
+    return finalDocs;
   } catch (error) {
     console.error('Erreur récupération tous les documents:', error);
     return [];
