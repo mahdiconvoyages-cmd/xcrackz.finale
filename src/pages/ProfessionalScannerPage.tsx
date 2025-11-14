@@ -26,7 +26,9 @@ import {
   Save,
   FileText,
   Trash2,
-  Eye
+  Eye,
+  Share2,
+  FileDown
 } from 'lucide-react';
 import {
   loadOpenCV,
@@ -296,6 +298,87 @@ export default function ProfessionalScannerPage() {
     link.click();
   };
 
+  const exportToPDF = async () => {
+    if (!processedImage) return;
+
+    try {
+      setIsProcessing(true);
+
+      // Créer un canvas avec l'image
+      const img = new Image();
+      img.src = processedImage;
+      await new Promise(resolve => { img.onload = resolve; });
+
+      // Importer jsPDF dynamiquement
+      const jsPDFModule = await import('jspdf');
+      const jsPDF = jsPDFModule.default;
+      
+      // Format A4
+      const pdf = new jsPDF({
+        orientation: img.width > img.height ? 'landscape' : 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+
+      // Calculer les dimensions pour ajuster l'image
+      const imgRatio = img.width / img.height;
+      const pageRatio = pageWidth / pageHeight;
+
+      let finalWidth = pageWidth;
+      let finalHeight = pageHeight;
+
+      if (imgRatio > pageRatio) {
+        finalHeight = pageWidth / imgRatio;
+      } else {
+        finalWidth = pageHeight * imgRatio;
+      }
+
+      const x = (pageWidth - finalWidth) / 2;
+      const y = (pageHeight - finalHeight) / 2;
+
+      pdf.addImage(processedImage, 'JPEG', x, y, finalWidth, finalHeight, undefined, 'FAST');
+      pdf.save(`scan_${Date.now()}.pdf`);
+
+      alert('✅ PDF exporté avec succès !');
+    } catch (error) {
+      console.error('Erreur export PDF:', error);
+      alert('❌ Erreur lors de l\'export PDF');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const shareDocument = async () => {
+    if (!processedImage) return;
+
+    try {
+      // Convertir base64 en blob
+      const response = await fetch(processedImage);
+      const blob = await response.blob();
+      const file = new File([blob], `scan_${Date.now()}.jpg`, { type: 'image/jpeg' });
+
+      if (navigator.share && navigator.canShare({ files: [file] })) {
+        await navigator.share({
+          files: [file],
+          title: 'Document scanné',
+          text: 'Partage du document scanné'
+        });
+      } else {
+        // Fallback : télécharger le fichier
+        downloadImage();
+        alert('ℹ️ Le partage n\'est pas disponible. Le fichier a été téléchargé.');
+      }
+    } catch (error) {
+      console.error('Erreur partage:', error);
+      if ((error as Error).name !== 'AbortError') {
+        alert('❌ Erreur lors du partage');
+      }
+    }
+  };
+
   const handleBack = () => {
     if (step === 'edit') {
       setStep('crop');
@@ -450,11 +533,28 @@ export default function ProfessionalScannerPage() {
 
             <div className="flex items-center gap-2">
               <button
+                onClick={shareDocument}
+                className="p-2.5 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-purple-500/25 hover:scale-105"
+                title="Partager"
+              >
+                <Share2 className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={exportToPDF}
+                disabled={isProcessing}
+                className="px-4 py-2.5 bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-red-500/25 hover:scale-105 disabled:opacity-50 disabled:scale-100"
+              >
+                <FileDown className="w-4 h-4" />
+                <span className="hidden sm:inline">PDF</span>
+              </button>
+
+              <button
                 onClick={downloadImage}
-                className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-blue-500/25 hover:scale-105"
+                className="p-2.5 bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white rounded-xl transition-all duration-200 shadow-lg hover:shadow-blue-500/25 hover:scale-105"
+                title="Télécharger JPG"
               >
                 <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">Export</span>
               </button>
               
               <button
