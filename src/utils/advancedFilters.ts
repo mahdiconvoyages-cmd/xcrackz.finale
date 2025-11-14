@@ -65,11 +65,12 @@ export async function applyAdvancedFilter(
 }
 
 /**
- * 🪄 FILTRE MAGIC PROFESSIONNEL - Algorithme CamScanner-like
+ * 🪄 FILTRE MAGIC PROFESSIONNEL - Algorithme CamScanner-like ULTRA NET
  * - Détection automatique du fond
  * - Normalisation adaptative
  * - Contraste local optimal
  * - Correction de luminosité intelligente
+ * - NETTETÉ MAXIMALE
  */
 function applyProfessionalMagicFilter(imageData: ImageData) {
   const data = imageData.data;
@@ -94,7 +95,7 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
   const backgroundLevel = sorted[Math.floor(sorted.length * 0.90)]; // Top 10% = fond
   const textLevel = sorted[Math.floor(sorted.length * 0.10)]; // Bottom 10% = texte
 
-  // Phase 3: Normalisation adaptative avec correction gamma
+  // Phase 3: Normalisation adaptative avec correction gamma RENFORCÉE
   for (let i = 0; i < data.length; i += 4) {
     const idx = i / 4;
     let gray = grayscale[idx];
@@ -105,21 +106,21 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
     }
 
     // Correction gamma adaptative selon la luminosité
-    const gamma = gray < 128 ? 0.8 : 1.2; // Éclaircir zones sombres, garder zones claires
+    const gamma = gray < 128 ? 0.75 : 1.25; // Plus agressif
     gray = Math.pow(gray / 255, gamma) * 255;
 
-    // Contraste adaptatif fort
-    gray = clamp((gray - 128) * 1.6 + 128);
+    // Contraste adaptatif TRÈS FORT (comme les autres filtres)
+    gray = clamp((gray - 128) * 1.8 + 128);
 
-    // Blanchiment intelligent du fond (algorithme à seuil doux)
-    if (gray > 120) {
-      const whitenAmount = Math.pow((gray - 120) / 135, 0.7); // Courbe progressive
-      gray = gray + (255 - gray) * whitenAmount;
+    // Blanchiment MAXIMAL du fond (comme filtre Gris)
+    if (gray > 130) {
+      const whitenAmount = Math.pow((gray - 130) / 125, 0.65); 
+      gray = gray + (255 - gray) * whitenAmount * 0.95; // 95% de blanchiment
     }
-    // Noircissement du texte
-    else if (gray < 120) {
-      const darkenAmount = Math.pow((120 - gray) / 120, 0.8);
-      gray = gray * (1 - darkenAmount * 0.5);
+    // Noircissement FORT du texte (comme filtre N&B)
+    else if (gray < 115) {
+      const darkenAmount = Math.pow((115 - gray) / 115, 0.75);
+      gray = gray * (1 - darkenAmount * 0.65); // Plus de noircissement
     }
 
     tempData[i] = clamp(gray);
@@ -127,8 +128,8 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
     tempData[i + 2] = clamp(gray);
   }
 
-  // Phase 4: Netteté professionnelle multi-passes
-  applyUnsharpMask(tempData, data, width, height, 3.5, 0.9);
+  // Phase 4: Netteté ULTRA FORTE (plus que les autres filtres)
+  applyUnsharpMask(tempData, data, width, height, 4.0, 0.85);
 }
 
 /**
