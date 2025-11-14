@@ -95,21 +95,21 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
     let newG = clamp((g - min) * normalizeFactor);
     let newB = clamp((b - min) * normalizeFactor);
 
-    // Correction gamma adaptative pour documents
-    const gamma = 1.1;
+    // Correction gamma douce pour documents
+    const gamma = 1.08;
     newR = clamp(Math.pow(newR / 255, 1 / gamma) * 255);
     newG = clamp(Math.pow(newG / 255, 1 / gamma) * 255);
     newB = clamp(Math.pow(newB / 255, 1 / gamma) * 255);
 
-    // Augmenter le contraste pour texte ultra-net
-    const contrastBoost = 1.25;
+    // Contraste modéré pour lisibilité optimale
+    const contrastBoost = 1.15;
     newR = clamp((newR - 128) * contrastBoost + 128);
     newG = clamp((newG - 128) * contrastBoost + 128);
     newB = clamp((newB - 128) * contrastBoost + 128);
 
-    // Réduction bruit couleur pour look professionnel
+    // Légère désaturation pour look professionnel sans excès
     const gray = newR * 0.299 + newG * 0.587 + newB * 0.114;
-    const desaturation = 0.75;
+    const desaturation = 0.8;
     newR = clamp(gray + (newR - gray) * desaturation);
     newG = clamp(gray + (newG - gray) * desaturation);
     newB = clamp(gray + (newB - gray) * desaturation);
@@ -119,8 +119,8 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
     tempData[i + 2] = newB;
   }
 
-  // Phase 3: Netteté ultra-optimisée pour documents
-  applyUnsharpMask(tempData, data, width, height, 3.0, 1.5);
+  // Phase 3: Netteté équilibrée pour documents
+  applyUnsharpMask(tempData, data, width, height, 2.0, 1.0);
 }
 
 /**
@@ -134,18 +134,18 @@ function applyAdaptiveBlackAndWhite(imageData: ImageData) {
   const width = imageData.width;
   const height = imageData.height;
 
-  // Convertir en niveaux de gris
+  // Convertir en niveaux de gris avec pré-lissage
   const grayscale = new Uint8Array(width * height);
   for (let i = 0; i < data.length; i += 4) {
     const idx = i / 4;
-    grayscale[idx] = Math.round(
-      data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114
-    );
+    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    // Appliquer une légère courbe pour adoucir
+    grayscale[idx] = Math.round(gray * 0.95 + 12);
   }
 
-  // Binarisation adaptative locale optimisée avec post-traitement
-  const blockSize = 25; // Fenêtre plus large pour meilleure détection
-  const C = 12; // Réduction optimisée pour documents nets
+  // Binarisation adaptative douce
+  const blockSize = 30; // Fenêtre large pour moyenne douce
+  const C = 15; // Seuil réduit pour moins d'intensité
 
   const tempGrayscale = new Uint8Array(width * height);
 
