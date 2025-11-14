@@ -11,10 +11,10 @@
  */
 
 import { useState, useRef, useEffect } from 'react';
-import { Camera, RotateCw, Download, X, Sparkles, Palette, Contrast, Image as ImageIcon, Loader, Move, Check, FileText, Trash2 } from 'lucide-react';
+import { Camera, RotateCw, Download, X, Sparkles, Palette, Contrast, Image as ImageIcon, Loader, FileText, Trash2 } from 'lucide-react';
 import { applyDocumentFilter, rotateImage, FilterType, dataURLtoFile } from '../utils/imageProcessing';
 import { detectDocumentCorners, cropAndCorrectPerspective, loadOpenCV } from '../utils/documentDetection';
-import AdvancedCropPage from './AdvancedCropPage';
+import CropWorkspace from './CropWorkspace';
 
 interface Corner {
   x: number;
@@ -32,7 +32,7 @@ interface ScannedDocument {
 }
 
 export default function DocumentScannerPage() {
-  const [step, setStep] = useState<'intro' | 'crop' | 'advanced-crop' | 'edit' | 'gallery'>('intro');
+  const [step, setStep] = useState<'intro' | 'crop' | 'edit' | 'gallery'>('intro');
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('magic');
@@ -560,7 +560,7 @@ export default function DocumentScannerPage() {
 
         {/* Crop Mode - Page Avancée */}
         {step === 'crop' && rawImage && corners.length === 4 && (
-          <AdvancedCropPage
+          <CropWorkspace
             imageUrl={rawImage}
             initialCorners={corners}
             onApply={async (newCorners) => {
