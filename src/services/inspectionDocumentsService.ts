@@ -139,10 +139,14 @@ export async function getUserDocuments(
 
 /**
  * Récupérer tous les documents (standalone inclus)
+ * Sources multiples:
+ * 1. Documents standalone avec user_id direct
+ * 2. Documents liés aux inspections de missions créées par l'utilisateur
+ * 3. Documents liés aux inspections de missions assignées à l'utilisateur
  */
 export async function getAllUserDocuments(userId: string): Promise<InspectionDocument[]> {
   try {
-    // Stratégie 1: Récupérer les documents avec user_id direct
+    // Stratégie 1: Récupérer les documents avec user_id direct (scans standalone)
     const { data: directDocs, error: directError } = await supabase
       .from('inspection_documents')
       .select('*')
@@ -153,8 +157,8 @@ export async function getAllUserDocuments(userId: string): Promise<InspectionDoc
       console.error('Erreur récupération documents directs:', directError);
     }
 
-    // Stratégie 2: Récupérer les documents via inspections liées aux missions de l'utilisateur
-    const { data: linkedDocs, error: linkedError } = await supabase
+    // Stratégie 2: Récupérer les documents via inspections de missions CRÉÉES par l'utilisateur
+    const { data: ownedMissionDocs, error: ownedError } = await supabase
       .from('inspection_documents')
       .select(`
         *,
@@ -169,18 +173,41 @@ export async function getAllUserDocuments(userId: string): Promise<InspectionDoc
       .eq('vehicle_inspections.missions.user_id', userId)
       .order('created_at', { ascending: false });
 
-    if (linkedError) {
-      console.error('Erreur récupération documents liés:', linkedError);
+    if (ownedError) {
+      console.error('Erreur récupération documents missions créées:', ownedError);
+    }
+
+    // Stratégie 3: Récupérer les documents via inspections de missions ASSIGNÉES à l'utilisateur
+    const { data: assignedMissionDocs, error: assignedError } = await supabase
+      .from('inspection_documents')
+      .select(`
+        *,
+        vehicle_inspections!inner(
+          id,
+          mission_id,
+          missions!inner(
+            assigned_user_id
+          )
+        )
+      `)
+      .eq('vehicle_inspections.missions.assigned_user_id', userId)
+      .order('created_at', { ascending: false });
+
+    if (assignedError) {
+      console.error('Erreur récupération documents missions assignées:', assignedError);
     }
 
     // Combiner et dédupliquer par ID
     const allDocuments = new Map<string, InspectionDocument>();
     
-    // Ajouter les documents directs
+    // Ajouter les documents directs (scans standalone)
     (directDocs || []).forEach((doc: any) => allDocuments.set(doc.id, doc));
     
-    // Ajouter les documents liés
-    (linkedDocs || []).forEach((doc: any) => allDocuments.set(doc.id, doc));
+    // Ajouter les documents de missions créées
+    (ownedMissionDocs || []).forEach((doc: any) => allDocuments.set(doc.id, doc));
+    
+    // Ajouter les documents de missions assignées
+    (assignedMissionDocs || []).forEach((doc: any) => allDocuments.set(doc.id, doc));
 
     // Convertir en tableau et trier par date
     const finalDocs = Array.from(allDocuments.values());
@@ -188,7 +215,7 @@ export async function getAllUserDocuments(userId: string): Promise<InspectionDoc
       new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
 
-    console.log(`📄 Documents trouvés: ${finalDocs.length} (directs: ${directDocs?.length || 0}, liés: ${linkedDocs?.length || 0})`);
+    console.log(`📄 Documents trouvés: ${finalDocs.length} (standalone: ${directDocs?.length || 0}, missions créées: ${ownedMissionDocs?.length || 0}, missions assignées: ${assignedMissionDocs?.length || 0})`);
 
     return finalDocs;
   } catch (error) {
