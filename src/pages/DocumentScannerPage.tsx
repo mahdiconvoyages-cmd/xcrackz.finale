@@ -15,7 +15,6 @@ import { Camera, RotateCw, Download, X, Sparkles, Palette, Contrast, Image as Im
 import { applyDocumentFilter, rotateImage, FilterType, dataURLtoFile } from '../utils/imageProcessing';
 import { detectDocumentCorners, cropAndCorrectPerspective, loadOpenCV } from '../utils/documentDetection';
 import AdvancedCropPage from './AdvancedCropPage';
-import ScannerView from './ScannerView';
 
 interface Corner {
   x: number;
@@ -52,6 +51,9 @@ export default function DocumentScannerPage() {
   // NOTE: imageDimensions était utilisé dans une version précédente pour le debug, supprimé pour éviter les warnings.
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
 
   // Précharger OpenCV en arrière-plan dès le montage
   useEffect(() => {
@@ -67,6 +69,15 @@ export default function DocumentScannerPage() {
         setIsLoadingOpenCV(false);
       });
   }, []);
+
+  // Cleanup de la caméra
+  useEffect(() => {
+    return () => {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    };
+  }, [stream]);
 
   // Charger les documents scannés depuis localStorage
   useEffect(() => {
@@ -145,8 +156,76 @@ export default function DocumentScannerPage() {
     reader.readAsDataURL(file);
   };
 
-  const startLiveCamera = () => {
+  const startLiveCamera = async () => {
     setStep('camera');
+    try {
+      const mediaStream = await navigator.mediaDevices.getUserMedia({ 
+        video: { facingMode: 'environment' } 
+      });
+      setStream(mediaStream);
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+      }
+    } catch (error) {
+      console.error('Erreur accès caméra:', error);
+      setStep('intro');
+    }
+  };
+
+  const handleCapture = async () => {
+    if (!videoRef.current || !canvasRef.current) return;
+    
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(video, 0, 0);
+      const imageUrl = canvas.toDataURL('image/jpeg', 0.95);
+      
+      setFileName(`scan_${Date.now()}`);
+      setIsProcessing(true);
+      
+      try {
+        // Stocker l'image brute
+        setRawImage(imageUrl);
+        
+        // Détecter les coins automatiquement
+        if (openCVReady) {
+          const detectedCorners = await detectDocumentCorners(imageUrl);
+          setCorners(detectedCorners);
+        } else {
+          // Coins par défaut
+          const img = new Image();
+          img.src = imageUrl;
+          await new Promise(resolve => { img.onload = resolve; });
+          setCorners([
+            { x: 0, y: 0 },
+            { x: img.width, y: 0 },
+            { x: img.width, y: img.height },
+            { x: 0, y: img.height },
+          ]);
+        }
+        
+        // Arrêter la caméra
+        handleCancelCamera();
+        
+        // Passer au crop
+        setStep('crop');
+      } finally {
+        setIsProcessing(false);
+      }
+    }
+  };
+
+  const handleCancelCamera = () => {
+    if (stream) {
+      stream.getTracks().forEach(track => track.stop());
+      setStream(null);
+    }
+    setStep('intro');
   };
 
   const applyFilter = async (filterType: FilterType, imageSource?: string) => {
@@ -422,14 +501,34 @@ export default function DocumentScannerPage() {
         )}
 
         {step === 'camera' && (
-          <ScannerView
-            onScanComplete={(imageUri) => {
-              setOriginalImage(imageUri);
-              setProcessedImage(imageUri);
-              setStep('edit');
-            }}
-            onCancel={() => setStep('intro')}
-          />
+          <div className="fixed inset-0 bg-black z-50 flex flex-col">
+            <div className="flex-1 relative">
+              <video
+                ref={videoRef}
+                autoPlay
+                playsInline
+                className="w-full h-full object-cover"
+              />
+              <canvas ref={canvasRef} className="hidden" />
+            </div>
+            <div className="p-6 bg-gradient-to-t from-black/90 to-transparent">
+              <div className="flex items-center justify-between gap-4">
+                <button
+                  onClick={handleCancelCamera}
+                  className="flex-1 px-6 py-3 bg-white/10 text-white rounded-lg font-medium hover:bg-white/20"
+                >
+                  Annuler
+                </button>
+                <button
+                  onClick={handleCapture}
+                  className="flex-shrink-0 w-16 h-16 bg-white rounded-full flex items-center justify-center hover:bg-gray-100"
+                >
+                  <Camera className="w-8 h-8 text-gray-900" />
+                </button>
+                <div className="flex-1" />
+              </div>
+            </div>
+          </div>
         )}
 
         {/* Crop Mode - Page Avancée */}
