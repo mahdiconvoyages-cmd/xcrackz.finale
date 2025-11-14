@@ -142,8 +142,9 @@ export default function ProfessionalScannerPage() {
       const mediaStream = await navigator.mediaDevices.getUserMedia({
         video: { 
           facingMode: 'environment',
-          width: { ideal: 1920 },
-          height: { ideal: 1080 }
+          width: { min: 1920, ideal: 3840, max: 4096 },
+          height: { min: 1080, ideal: 2160, max: 2160 },
+          aspectRatio: { ideal: 16/9 }
         }
       });
       
@@ -176,7 +177,7 @@ export default function ProfessionalScannerPage() {
     if (!ctx) return;
 
     ctx.drawImage(video, 0, 0);
-    const imageUrl = canvas.toDataURL('image/jpeg', 0.95);
+    const imageUrl = canvas.toDataURL('image/jpeg', 0.98);
     
     // Arrêter la caméra
     stopCamera();
@@ -283,7 +284,7 @@ export default function ProfessionalScannerPage() {
         ctx.rotate(Math.PI / 2);
         ctx.drawImage(img, -img.width / 2, -img.height / 2);
 
-        const rotated = canvas.toDataURL('image/jpeg', 0.95);
+        const rotated = canvas.toDataURL('image/jpeg', 0.98);
         setProcessedImage(rotated);
         setCroppedImage(rotated);
       }

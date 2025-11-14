@@ -226,7 +226,7 @@ export async function cropAndCorrectPerspective(
     // Convertir en dataURL
     const canvas = document.createElement('canvas');
     cv.imshow(canvas, dst);
-    const result = canvas.toDataURL('image/jpeg', 0.95);
+    const result = canvas.toDataURL('image/jpeg', 0.98);
 
     // Nettoyage
     src.delete();

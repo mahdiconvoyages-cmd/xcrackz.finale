@@ -57,8 +57,8 @@ export async function applyAdvancedFilter(
         // Appliquer les modifications
         ctx.putImageData(imageData, 0, 0);
 
-        // Exporter en haute qualité
-        resolve(canvas.toDataURL('image/jpeg', 0.95));
+        // Exporter en haute qualité (98%)
+        resolve(canvas.toDataURL('image/jpeg', 0.98));
       } catch (error) {
         reject(error);
       }
@@ -132,8 +132,8 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
     tempData[i + 2] = newB;
   }
 
-  // Phase 3: Netteté renforcée pour documents
-  applyUnsharpMask(tempData, data, width, height, 2.5, 1.0);
+  // Phase 3: Netteté renforcée pour documents (radius réduit pour plus de précision)
+  applyUnsharpMask(tempData, data, width, height, 2.8, 0.8);
 }
 
 /**
@@ -231,8 +231,8 @@ function applyEnhancedGrayscale(imageData: ImageData) {
     tempData[i + 2] = enhanced;
   }
 
-  // Appliquer netteté forte
-  applyUnsharpMask(tempData, data, width, height, 2.5, 1.3);
+  // Appliquer netteté forte (optimisée pour HD)
+  applyUnsharpMask(tempData, data, width, height, 3.0, 1.0);
 }
 
 /**
@@ -284,8 +284,8 @@ function applyVividColorEnhancement(imageData: ImageData) {
     tempData[i + 2] = newB;
   }
 
-  // Appliquer netteté très forte pour documents colorés
-  applyUnsharpMask(tempData, data, width, height, 2.5, 1.2);
+  // Appliquer netteté très forte pour documents colorés (optimisée pour HD)
+  applyUnsharpMask(tempData, data, width, height, 3.0, 0.9);
 }
 
 // ===== FONCTIONS UTILITAIRES =====
