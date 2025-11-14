@@ -15,6 +15,7 @@ import { Camera, RotateCw, Download, X, Sparkles, Palette, Contrast, Image as Im
 import { applyDocumentFilter, rotateImage, FilterType, dataURLtoFile } from '../utils/imageProcessing';
 import { detectDocumentCorners, cropAndCorrectPerspective, loadOpenCV } from '../utils/documentDetection';
 import CropWorkspace from './CropWorkspace';
+import LiveCameraScanner from './LiveCameraScanner';
 
 interface Corner {
   x: number;
@@ -32,7 +33,7 @@ interface ScannedDocument {
 }
 
 export default function DocumentScannerPage() {
-  const [step, setStep] = useState<'intro' | 'crop' | 'edit' | 'gallery'>('intro');
+  const [step, setStep] = useState<'intro' | 'camera' | 'crop' | 'edit' | 'gallery'>('intro');
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('magic');
@@ -52,9 +53,6 @@ export default function DocumentScannerPage() {
   // NOTE: imageDimensions était utilisé dans une version précédente pour le debug, supprimé pour éviter les warnings.
   
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const webcamVideoRef = useRef<HTMLVideoElement>(null);
-  const [isWebcamActive, setIsWebcamActive] = useState(false);
-  const streamRef = useRef<MediaStream | null>(null);
 
   // Précharger OpenCV en arrière-plan dès le montage
   useEffect(() => {
@@ -148,82 +146,14 @@ export default function DocumentScannerPage() {
     reader.readAsDataURL(file);
   };
 
-  const startWebcam = async () => {
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } }
-      });
-      
-      streamRef.current = stream;
-      
-      if (webcamVideoRef.current) {
-        webcamVideoRef.current.srcObject = stream;
-        await webcamVideoRef.current.play();
-      }
-      
-      setIsWebcamActive(true);
-    } catch (error) {
-      console.error('Erreur webcam:', error);
-      alert('Impossible d\'accéder à la webcam');
-    }
+  const startLiveCamera = () => {
+    setStep('camera');
   };
 
-  const captureFromWebcam = async () => {
-    if (!webcamVideoRef.current) return;
-
-    const video = webcamVideoRef.current;
-    const canvas = document.createElement('canvas');
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
-    const ctx = canvas.getContext('2d');
-    
-    if (!ctx) return;
-
-    ctx.drawImage(video, 0, 0);
-    const imageUrl = canvas.toDataURL('image/jpeg', 0.95);
-    
-    setIsProcessing(true);
-    stopWebcam();
-    
-      try {
-      // Stocker l'image brute
-      setRawImage(imageUrl);
-      
-      // Détecter les coins automatiquement
-      if (openCVReady) {
-        const detectedCorners = await detectDocumentCorners(imageUrl);
-        setCorners(detectedCorners);
-      } else {
-        const img = new Image();
-        img.src = imageUrl;
-        await new Promise(resolve => { img.onload = resolve; });
-        const margin = Math.min(img.width, img.height) * 0.05;
-        setCorners([
-          { x: margin, y: margin },
-          { x: img.width - margin, y: margin },
-          { x: img.width - margin, y: img.height - margin },
-          { x: margin, y: img.height - margin }
-        ]);
-          // Ancien stockage des dimensions de l'image, plus nécessaire ici
-      }
-      
-      setStep('crop');
-    } catch (error) {
-      console.error('Erreur traitement webcam:', error);
-      setOriginalImage(imageUrl);
-      await applyFilter('magic', imageUrl);
-      setStep('edit');
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const stopWebcam = () => {
-    if (streamRef.current) {
-      streamRef.current.getTracks().forEach(track => track.stop());
-      streamRef.current = null;
-    }
-    setIsWebcamActive(false);
+  const handleLiveCapture = async (imageUrl: string, capturedCorners: Corner[]) => {
+    setRawImage(imageUrl);
+    setCorners(capturedCorners);
+    setStep('crop');
   };
 
   const applyFilter = async (filterType: FilterType, imageSource?: string) => {
@@ -299,7 +229,6 @@ export default function DocumentScannerPage() {
     setStep('intro');
     setSelectedFilter('magic');
     setFileName('document');
-    stopWebcam();
   };
 
   const handleDeleteDocument = (id: string) => {
@@ -407,7 +336,7 @@ export default function DocumentScannerPage() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {step === 'intro' && !isWebcamActive && (
+        {step === 'intro' && (
           <div className="max-w-2xl mx-auto">
             {/* Icon principale */}
             <div className="flex justify-center mb-8">
@@ -473,19 +402,19 @@ export default function DocumentScannerPage() {
             {/* Action buttons */}
             <div className="space-y-4">
               <button
-                onClick={startWebcam}
-                className="w-full bg-slate-800 text-white px-6 py-4 rounded-xl font-semibold hover:bg-slate-700 transition-all border border-slate-600 flex items-center justify-center gap-3 hidden md:flex"
+                onClick={startLiveCamera}
+                className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 text-white px-6 py-4 rounded-xl font-semibold hover:from-emerald-600 hover:to-teal-700 transition-all shadow-lg shadow-emerald-500/30 flex items-center justify-center gap-3"
               >
                 <Camera className="w-6 h-6" />
-                Webcam (Desktop)
+                Scanner Live (Recadrage en direct)
               </button>
 
               <button
                 onClick={() => fileInputRef.current?.click()}
-                className="w-full bg-gradient-to-r from-teal-500 to-teal-600 text-white px-6 py-4 rounded-xl font-semibold hover:from-teal-600 hover:to-teal-700 transition-all shadow-lg shadow-teal-500/30 flex items-center justify-center gap-3"
+                className="w-full bg-slate-800 text-white px-6 py-4 rounded-xl font-semibold hover:bg-slate-700 transition-all border border-slate-600 flex items-center justify-center gap-3"
               >
                 <Camera className="w-6 h-6" />
-                Prendre une photo
+                Importer une photo
               </button>
 
               <input
@@ -500,62 +429,12 @@ export default function DocumentScannerPage() {
           </div>
         )}
 
-        {isWebcamActive && (
-          <div className="max-w-4xl mx-auto">
-            <div className="bg-slate-800/50 backdrop-blur-sm border border-slate-700 rounded-2xl overflow-hidden">
-              <div className="relative aspect-video bg-black">
-                <video
-                  ref={webcamVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  className="w-full h-full object-contain"
-                />
-                
-                {/* Overlay guide */}
-                <div className="absolute inset-0 pointer-events-none">
-                  <svg className="w-full h-full" viewBox="0 0 100 100" preserveAspectRatio="none">
-                    <defs>
-                      <mask id="docMask">
-                        <rect x="0" y="0" width="100" height="100" fill="white" />
-                        <rect x="10" y="20" width="80" height="60" rx="2" fill="black" />
-                      </mask>
-                    </defs>
-                    <rect x="0" y="0" width="100" height="100" fill="black" opacity="0.5" mask="url(#docMask)" />
-                    <rect x="10" y="20" width="80" height="60" fill="none" stroke="#14B8A6" strokeWidth="0.5" strokeDasharray="2,2" rx="2" />
-                    
-                    {/* Coins */}
-                    <path d="M 10 22 L 10 20 L 12 20" stroke="#14B8A6" strokeWidth="0.8" fill="none" strokeLinecap="round" />
-                    <path d="M 88 20 L 90 20 L 90 22" stroke="#14B8A6" strokeWidth="0.8" fill="none" strokeLinecap="round" />
-                    <path d="M 90 78 L 90 80 L 88 80" stroke="#14B8A6" strokeWidth="0.8" fill="none" strokeLinecap="round" />
-                    <path d="M 12 80 L 10 80 L 10 78" stroke="#14B8A6" strokeWidth="0.8" fill="none" strokeLinecap="round" />
-                  </svg>
-                  
-                  <div className="absolute bottom-6 left-0 right-0 text-center">
-                    <div className="bg-black/70 text-white px-4 py-3 rounded-lg inline-block">
-                      <p className="text-sm font-medium">Placez le document dans le cadre</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 flex gap-3">
-                <button
-                  onClick={stopWebcam}
-                  className="flex-1 bg-slate-700 text-white px-6 py-3 rounded-lg font-semibold hover:bg-slate-600 transition-colors"
-                >
-                  Annuler
-                </button>
-                <button
-                  onClick={captureFromWebcam}
-                  className="flex-1 bg-gradient-to-r from-teal-500 to-teal-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-teal-600 hover:to-teal-700 transition-all shadow-lg shadow-teal-500/30 flex items-center justify-center gap-2"
-                >
-                  <Camera className="w-5 h-5" />
-                  Capturer
-                </button>
-              </div>
-            </div>
-          </div>
+        {step === 'camera' && (
+          <LiveCameraScanner
+            onCapture={handleLiveCapture}
+            onCancel={() => setStep('intro')}
+            openCVReady={openCVReady}
+          />
         )}
 
         {/* Crop Mode - Page Avancée */}
