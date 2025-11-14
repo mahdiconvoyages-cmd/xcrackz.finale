@@ -356,50 +356,125 @@ function cross(o: Corner, a: Corner, b: Corner) {
 function minimumBoundingRectangle(points: Corner[]): Corner[] | null {
   if (points.length < 4) return null;
 
-  let bestArea = Infinity;
-  let bestRect: Corner[] | null = null;
-
-  for (let i = 0; i < points.length; i++) {
-    const p1 = points[i];
-    const p2 = points[(i + 1) % points.length];
-    const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
-    const cos = Math.cos(-angle);
-    const sin = Math.sin(-angle);
-
-    let minX = Infinity;
-    let maxX = -Infinity;
-    let minY = Infinity;
-    let maxY = -Infinity;
-
-    for (const p of points) {
-      const rx = p.x * cos - p.y * sin;
-      const ry = p.x * sin + p.y * cos;
-      minX = Math.min(minX, rx);
-      maxX = Math.max(maxX, rx);
-      minY = Math.min(minY, ry);
-      maxY = Math.max(maxY, ry);
-    }
-
-    const area = (maxX - minX) * (maxY - minY);
-    if (area < bestArea) {
-      bestArea = area;
-      const corners: Corner[] = [
-        { x: minX, y: minY },
-        { x: maxX, y: minY },
-        { x: maxX, y: maxY },
-        { x: minX, y: maxY },
-      ];
-
-      const invCos = Math.cos(angle);
-      const invSin = Math.sin(angle);
-      bestRect = corners.map((corner) => ({
-        x: corner.x * invCos - corner.y * invSin,
-        y: corner.x * invSin + corner.y * invCos,
-      }));
-    }
+  // Approximer le contour en polygone avec moins de points (Douglas-Peucker simplifié)
+  const simplified = simplifyPolygon(points, 10);
+  
+  if (simplified.length < 4) {
+    // Fallback: prendre les 4 coins extrêmes du convex hull
+    return findQuadrilateralCorners(points);
   }
 
-  return bestRect ? normalizeCornersOrder(bestRect) : null;
+  // Si on a exactement 4 points après simplification, c'est parfait
+  if (simplified.length === 4) {
+    return normalizeCornersOrder(simplified);
+  }
+
+  // Sinon, trouver le meilleur quadrilatère qui approxime le polygone
+  return findQuadrilateralCorners(simplified);
+}
+
+/**
+ * Simplification de polygone (Douglas-Peucker light)
+ */
+function simplifyPolygon(points: Corner[], tolerance: number): Corner[] {
+  if (points.length <= 4) return points;
+
+  const result: Corner[] = [points[0]];
+  
+  for (let i = 1; i < points.length - 1; i++) {
+    const prev = result[result.length - 1];
+    const current = points[i];
+    const next = points[i + 1];
+    
+    // Distance perpendiculaire du point à la ligne prev-next
+    const dist = perpendicularDistance(current, prev, next);
+    
+    if (dist > tolerance) {
+      result.push(current);
+    }
+  }
+  
+  result.push(points[points.length - 1]);
+  return result;
+}
+
+function perpendicularDistance(point: Corner, lineStart: Corner, lineEnd: Corner): number {
+  const dx = lineEnd.x - lineStart.x;
+  const dy = lineEnd.y - lineStart.y;
+  
+  if (dx === 0 && dy === 0) {
+    return Math.sqrt((point.x - lineStart.x) ** 2 + (point.y - lineStart.y) ** 2);
+  }
+  
+  const t = ((point.x - lineStart.x) * dx + (point.y - lineStart.y) * dy) / (dx * dx + dy * dy);
+  
+  if (t < 0) {
+    return Math.sqrt((point.x - lineStart.x) ** 2 + (point.y - lineStart.y) ** 2);
+  }
+  if (t > 1) {
+    return Math.sqrt((point.x - lineEnd.x) ** 2 + (point.y - lineEnd.y) ** 2);
+  }
+  
+  const projX = lineStart.x + t * dx;
+  const projY = lineStart.y + t * dy;
+  
+  return Math.sqrt((point.x - projX) ** 2 + (point.y - projY) ** 2);
+}
+
+/**
+ * Trouve les 4 coins d'un quadrilatère à partir d'un ensemble de points
+ */
+function findQuadrilateralCorners(points: Corner[]): Corner[] {
+  if (points.length <= 4) {
+    return normalizeCornersOrder(points.slice(0, 4));
+  }
+
+  // Calculer le centroïde
+  const cx = points.reduce((sum, p) => sum + p.x, 0) / points.length;
+  const cy = points.reduce((sum, p) => sum + p.y, 0) / points.length;
+
+  // Diviser en 4 quadrants et prendre le point le plus éloigné du centre dans chaque quadrant
+  const topLeft = points
+    .filter(p => p.x < cx && p.y < cy)
+    .sort((a, b) => {
+      const distA = (a.x - cx) ** 2 + (a.y - cy) ** 2;
+      const distB = (b.x - cx) ** 2 + (b.y - cy) ** 2;
+      return distB - distA;
+    })[0];
+
+  const topRight = points
+    .filter(p => p.x >= cx && p.y < cy)
+    .sort((a, b) => {
+      const distA = (a.x - cx) ** 2 + (a.y - cy) ** 2;
+      const distB = (b.x - cx) ** 2 + (b.y - cy) ** 2;
+      return distB - distA;
+    })[0];
+
+  const bottomRight = points
+    .filter(p => p.x >= cx && p.y >= cy)
+    .sort((a, b) => {
+      const distA = (a.x - cx) ** 2 + (a.y - cy) ** 2;
+      const distB = (b.x - cx) ** 2 + (b.y - cy) ** 2;
+      return distB - distA;
+    })[0];
+
+  const bottomLeft = points
+    .filter(p => p.x < cx && p.y >= cy)
+    .sort((a, b) => {
+      const distA = (a.x - cx) ** 2 + (a.y - cy) ** 2;
+      const distB = (b.x - cx) ** 2 + (b.y - cy) ** 2;
+      return distB - distA;
+    })[0];
+
+  // Si un quadrant est vide, utiliser les coins extrêmes globaux
+  const corners = [
+    topLeft || points.reduce((min, p) => (p.x + p.y < min.x + min.y ? p : min)),
+    topRight || points.reduce((max, p) => (p.x - p.y > max.x - max.y ? p : max)),
+    bottomRight || points.reduce((max, p) => (p.x + p.y > max.x + max.y ? p : max)),
+    bottomLeft || points.reduce((min, p) => (p.x - p.y < min.x - min.y ? p : min)),
+  ];
+
+  return normalizeCornersOrder(corners);
 }
 
 function normalizeCornersOrder(corners: Corner[]): Corner[] {
