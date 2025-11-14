@@ -79,7 +79,15 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    const corners = detectDocumentCorners(video);
+    // Créer un canvas temporaire pour la détection
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = video.videoWidth;
+    tempCanvas.height = video.videoHeight;
+    const tempCtx = tempCanvas.getContext('2d');
+    if (!tempCtx) return;
+    tempCtx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+
+    const corners = detectDocumentCorners(tempCanvas);
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     if (corners) {

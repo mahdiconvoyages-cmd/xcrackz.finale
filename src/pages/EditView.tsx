@@ -24,7 +24,7 @@ const EditView: React.FC<EditViewProps> = ({ page, onComplete, onCancel }) => {
   const applyAndSetFilter = useCallback(async (filterId: string) => {
     setIsProcessing(true);
     try {
-      const newUri = await applyFilter(editedPage.originalUri, filterId);
+      const newUri = await applyFilter(page.originalUri, filterId);
       setEditedPage((p) => ({ ...p, processedUri: newUri, filterId }));
     } catch (error) {
       console.error('Erreur de filtre:', error);
@@ -32,15 +32,13 @@ const EditView: React.FC<EditViewProps> = ({ page, onComplete, onCancel }) => {
     } finally {
       setIsProcessing(false);
     }
-  }, [editedPage.originalUri]);
+  }, [page.originalUri]);
 
-  // Appliquer le filtre initial
+  // Appliquer le filtre par défaut au montage
   useEffect(() => {
-    if (page.filterId) {
-      applyAndSetFilter(page.filterId);
-    }
+    applyAndSetFilter('magic');
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page.originalUri, page.filterId]);
+  }, []);
 
 
   const handleRotate = () => {
