@@ -347,48 +347,107 @@ export default function DocumentScannerPage() {
     }
   };
 
-  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!cropCanvasRef.current) return;
+  const getPointerPosition = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
+    if (!cropCanvasRef.current) return null;
     
     const canvas = cropCanvasRef.current;
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
     const scaleY = canvas.height / rect.height;
     
-    const x = (e.clientX - rect.left) * scaleX;
-    const y = (e.clientY - rect.top) * scaleY;
+    let clientX: number;
+    let clientY: number;
+    
+    if ('touches' in e) {
+      if (e.touches.length === 0) return null;
+      clientX = e.touches[0].clientX;
+      clientY = e.touches[0].clientY;
+    } else {
+      clientX = e.clientX;
+      clientY = e.clientY;
+    }
+    
+    const x = (clientX - rect.left) * scaleX;
+    const y = (clientY - rect.top) * scaleY;
+    
+    return { x, y };
+  };
+
+  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const pos = getPointerPosition(e);
+    if (!pos) return;
     
     // Trouver le coin le plus proche
-    const TOUCH_RADIUS = 40;
+    const TOUCH_RADIUS = 50; // Plus large pour mobile
     for (let i = 0; i < corners.length; i++) {
-      const dx = corners[i].x - x;
-      const dy = corners[i].y - y;
+      const dx = corners[i].x - pos.x;
+      const dy = corners[i].y - pos.y;
       const distance = Math.sqrt(dx * dx + dy * dy);
       
       if (distance < TOUCH_RADIUS) {
         setDraggingCorner(i);
+        e.preventDefault();
+        break;
+      }
+    }
+  };
+
+  const handleCanvasTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    const pos = getPointerPosition(e);
+    if (!pos) return;
+    
+    // Trouver le coin le plus proche
+    const TOUCH_RADIUS = 50;
+    for (let i = 0; i < corners.length; i++) {
+      const dx = corners[i].x - pos.x;
+      const dy = corners[i].y - pos.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      
+      if (distance < TOUCH_RADIUS) {
+        setDraggingCorner(i);
+        e.preventDefault();
         break;
       }
     }
   };
 
   const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (draggingCorner === null || !cropCanvasRef.current) return;
+    if (draggingCorner === null) return;
+    
+    const pos = getPointerPosition(e);
+    if (!pos || !cropCanvasRef.current) return;
     
     const canvas = cropCanvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
-    
-    const x = Math.max(0, Math.min(canvas.width, (e.clientX - rect.left) * scaleX));
-    const y = Math.max(0, Math.min(canvas.height, (e.clientY - rect.top) * scaleY));
+    const x = Math.max(0, Math.min(canvas.width, pos.x));
+    const y = Math.max(0, Math.min(canvas.height, pos.y));
     
     const newCorners = [...corners];
     newCorners[draggingCorner] = { x, y };
     setCorners(newCorners);
+    e.preventDefault();
+  };
+
+  const handleCanvasTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
+    if (draggingCorner === null) return;
+    
+    const pos = getPointerPosition(e);
+    if (!pos || !cropCanvasRef.current) return;
+    
+    const canvas = cropCanvasRef.current;
+    const x = Math.max(0, Math.min(canvas.width, pos.x));
+    const y = Math.max(0, Math.min(canvas.height, pos.y));
+    
+    const newCorners = [...corners];
+    newCorners[draggingCorner] = { x, y };
+    setCorners(newCorners);
+    e.preventDefault();
   };
 
   const handleCanvasMouseUp = () => {
+    setDraggingCorner(null);
+  };
+
+  const handleCanvasTouchEnd = () => {
     setDraggingCorner(null);
   };
 
@@ -706,25 +765,10 @@ export default function DocumentScannerPage() {
                   onMouseMove={handleCanvasMouseMove}
                   onMouseUp={handleCanvasMouseUp}
                   onMouseLeave={handleCanvasMouseUp}
-                  onTouchStart={(e) => {
-                    const touch = e.touches[0];
-                    const mouseEvent = new MouseEvent('mousedown', {
-                      clientX: touch.clientX,
-                      clientY: touch.clientY
-                    });
-                    handleCanvasMouseDown(mouseEvent as any);
-                  }}
-                  onTouchMove={(e) => {
-                    e.preventDefault();
-                    const touch = e.touches[0];
-                    const mouseEvent = new MouseEvent('mousemove', {
-                      clientX: touch.clientX,
-                      clientY: touch.clientY
-                    });
-                    handleCanvasMouseMove(mouseEvent as any);
-                  }}
-                  onTouchEnd={handleCanvasMouseUp}
-                  className="w-full cursor-move"
+                  onTouchStart={handleCanvasTouchStart}
+                  onTouchMove={handleCanvasTouchMove}
+                  onTouchEnd={handleCanvasTouchEnd}
+                  className="w-full cursor-move touch-none"
                   style={{ maxHeight: '70vh', objectFit: 'contain' }}
                 />
                 
