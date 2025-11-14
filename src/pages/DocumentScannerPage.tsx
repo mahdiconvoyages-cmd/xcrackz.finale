@@ -768,7 +768,7 @@ export default function DocumentScannerPage() {
             </div>
 
             {/* Zone canvas - prend tout l'espace disponible */}
-            <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center">
+            <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center p-2">
               <canvas
                 ref={cropCanvasRef}
                 onMouseDown={handleCanvasMouseDown}
@@ -778,8 +778,12 @@ export default function DocumentScannerPage() {
                 onTouchStart={handleCanvasTouchStart}
                 onTouchMove={handleCanvasTouchMove}
                 onTouchEnd={handleCanvasTouchEnd}
-                className="max-w-full max-h-full cursor-move touch-none"
-                style={{ objectFit: 'contain' }}
+                className="cursor-move touch-none"
+                style={{ 
+                  width: '100%',
+                  height: '100%',
+                  objectFit: 'contain'
+                }}
               />
               
               {/* Instructions overlay */}
