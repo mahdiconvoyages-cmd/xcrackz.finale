@@ -96,13 +96,13 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
     let newB = clamp((b - min) * normalizeFactor);
 
     // Correction gamma adaptative pour documents
-    const gamma = 1.15;
+    const gamma = 1.1;
     newR = clamp(Math.pow(newR / 255, 1 / gamma) * 255);
     newG = clamp(Math.pow(newG / 255, 1 / gamma) * 255);
     newB = clamp(Math.pow(newB / 255, 1 / gamma) * 255);
 
-    // Augmenter légèrement le contraste pour texte net
-    const contrastBoost = 1.1;
+    // Augmenter le contraste pour texte ultra-net
+    const contrastBoost = 1.25;
     newR = clamp((newR - 128) * contrastBoost + 128);
     newG = clamp((newG - 128) * contrastBoost + 128);
     newB = clamp((newB - 128) * contrastBoost + 128);
@@ -119,8 +119,8 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
     tempData[i + 2] = newB;
   }
 
-  // Phase 3: Netteté optimisée pour documents
-  applyUnsharpMask(tempData, data, width, height, 2.0, 1.2);
+  // Phase 3: Netteté ultra-optimisée pour documents
+  applyUnsharpMask(tempData, data, width, height, 3.0, 1.5);
 }
 
 /**
@@ -143,14 +143,15 @@ function applyAdaptiveBlackAndWhite(imageData: ImageData) {
     );
   }
 
-  // Binarisation adaptative locale optimisée
-  const blockSize = 20; // Fenêtre plus large pour meilleure moyenne
-  const C = 8; // Réduction optimisée pour documents
+  // Binarisation adaptative locale optimisée avec post-traitement
+  const blockSize = 25; // Fenêtre plus large pour meilleure détection
+  const C = 12; // Réduction optimisée pour documents nets
+
+  const tempGrayscale = new Uint8Array(width * height);
 
   for (let y = 0; y < height; y++) {
     for (let x = 0; x < width; x++) {
       const idx = y * width + x;
-      const pixelIdx = idx * 4;
 
       // Calculer la moyenne locale
       let sum = 0;
@@ -171,13 +172,17 @@ function applyAdaptiveBlackAndWhite(imageData: ImageData) {
       const localMean = sum / count;
       const localThreshold = localMean - C;
 
-      // Appliquer le seuil
-      const value = grayscale[idx] > localThreshold ? 255 : 0;
-
-      data[pixelIdx] = value;
-      data[pixelIdx + 1] = value;
-      data[pixelIdx + 2] = value;
+      // Appliquer le seuil avec contraste amélioré
+      tempGrayscale[idx] = grayscale[idx] > localThreshold ? 255 : 0;
     }
+  }
+
+  // Appliquer le résultat avec netteté
+  for (let i = 0; i < tempGrayscale.length; i++) {
+    const value = tempGrayscale[i];
+    data[i * 4] = value;
+    data[i * 4 + 1] = value;
+    data[i * 4 + 2] = value;
   }
 }
 
@@ -189,18 +194,28 @@ function applyAdaptiveBlackAndWhite(imageData: ImageData) {
  */
 function applyEnhancedGrayscale(imageData: ImageData) {
   const data = imageData.data;
+  const width = imageData.width;
+  const height = imageData.height;
+
+  const tempData = new Uint8ClampedArray(data);
 
   // Convertir en niveaux de gris avec amélioration du contraste
   for (let i = 0; i < data.length; i += 4) {
     const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
     
-    // Amélioration du contraste (S-curve)
-    const enhanced = applySCurve(gray / 255) * 255;
+    // Amélioration du contraste (S-curve plus prononcée)
+    let enhanced = applySCurve(gray / 255) * 255;
     
-    data[i] = enhanced;
-    data[i + 1] = enhanced;
-    data[i + 2] = enhanced;
+    // Boost de contraste supplémentaire
+    enhanced = clamp((enhanced - 128) * 1.2 + 128);
+    
+    tempData[i] = enhanced;
+    tempData[i + 1] = enhanced;
+    tempData[i + 2] = enhanced;
   }
+
+  // Appliquer netteté forte
+  applyUnsharpMask(tempData, data, width, height, 2.5, 1.3);
 }
 
 /**
@@ -221,32 +236,32 @@ function applyVividColorEnhancement(imageData: ImageData) {
     const g = data[i + 1];
     const b = data[i + 2];
 
-    // Saturation vibrante pour documents
+    // Saturation très vibrante pour documents
     const gray = r * 0.299 + g * 0.587 + b * 0.114;
-    const saturationBoost = 1.5;
+    const saturationBoost = 1.6;
     
     let newR = clamp(gray + (r - gray) * saturationBoost);
     let newG = clamp(gray + (g - gray) * saturationBoost);
     let newB = clamp(gray + (b - gray) * saturationBoost);
 
-    // Contraste élevé pour netteté
-    const contrastFactor = 1.4;
+    // Contraste très élevé pour netteté maximale
+    const contrastFactor = 1.5;
     newR = clamp((newR - 128) * contrastFactor + 128);
     newG = clamp((newG - 128) * contrastFactor + 128);
     newB = clamp((newB - 128) * contrastFactor + 128);
 
-    // Correction gamma optimisée
-    newR = clamp(Math.pow(newR / 255, 0.85) * 255);
-    newG = clamp(Math.pow(newG / 255, 0.85) * 255);
-    newB = clamp(Math.pow(newB / 255, 0.85) * 255);
+    // Correction gamma agressive
+    newR = clamp(Math.pow(newR / 255, 0.8) * 255);
+    newG = clamp(Math.pow(newG / 255, 0.8) * 255);
+    newB = clamp(Math.pow(newB / 255, 0.8) * 255);
 
     tempData[i] = newR;
     tempData[i + 1] = newG;
     tempData[i + 2] = newB;
   }
 
-  // Appliquer netteté forte pour documents colorés
-  applyUnsharpMask(tempData, data, width, height, 1.8, 1.0);
+  // Appliquer netteté très forte pour documents colorés
+  applyUnsharpMask(tempData, data, width, height, 2.5, 1.2);
 }
 
 // ===== FONCTIONS UTILITAIRES =====
@@ -298,7 +313,7 @@ function findOptimalRange(histogram: number[]): { min: number; max: number } {
   return { min, max };
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+/* eslint-disable @typescript-eslint/no-unused-vars */
 function calculateOtsuThreshold(grayscale: Uint8Array): number {
   const histogram = new Array(256).fill(0);
   
@@ -342,8 +357,8 @@ function calculateOtsuThreshold(grayscale: Uint8Array): number {
 }
 
 function applySCurve(x: number): number {
-  // S-curve pour amélioration du contraste
-  return 1 / (1 + Math.exp(-12 * (x - 0.5)));
+  // S-curve améliorée pour contraste maximal
+  return 1 / (1 + Math.exp(-15 * (x - 0.5)));
 }
 
 function applyUnsharpMask(
