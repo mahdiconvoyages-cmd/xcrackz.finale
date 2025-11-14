@@ -348,10 +348,16 @@ export default function DocumentScannerPage() {
   };
 
   const getPointerPosition = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!cropCanvasRef.current || !rawImage) return null;
+    if (!cropCanvasRef.current) return null;
     
     const canvas = cropCanvasRef.current;
     const rect = canvas.getBoundingClientRect();
+    
+    // Récupérer les scales sauvegardés
+    const scaleX = parseFloat(canvas.getAttribute('data-scale-x') || '1');
+    const scaleY = parseFloat(canvas.getAttribute('data-scale-y') || '1');
+    const imgWidth = parseFloat(canvas.getAttribute('data-img-width') || '1');
+    const imgHeight = parseFloat(canvas.getAttribute('data-img-height') || '1');
     
     let clientX: number;
     let clientY: number;
@@ -365,31 +371,24 @@ export default function DocumentScannerPage() {
       clientY = e.clientY;
     }
     
-    // Position dans le canvas affiché
+    // Position dans le canvas affiché (pixels CSS)
     const canvasX = clientX - rect.left;
     const canvasY = clientY - rect.top;
     
-    // Charger l'image pour obtenir les dimensions originales
-    const img = new Image();
-    img.src = rawImage;
-    
-    // Ratio entre canvas affiché et image originale
-    const scaleX = img.width / canvas.width;
-    const scaleY = img.height / canvas.height;
-    
     // Convertir en coordonnées de l'image originale
-    const x = canvasX * scaleX;
-    const y = canvasY * scaleY;
+    const x = canvasX / scaleX;
+    const y = canvasY / scaleY;
     
-    return { x, y, scaleX, scaleY };
+    return { x, y, scaleX, scaleY, imgWidth, imgHeight };
   };
 
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const pos = getPointerPosition(e);
     if (!pos) return;
     
-    // Trouver le coin le plus proche (en coordonnées originales)
-    const TOUCH_RADIUS = 50 * pos.scaleX; // Adapter le rayon au scale
+    // Rayon de détection en pixels de l'image originale
+    const TOUCH_RADIUS = 60 / pos.scaleX; // Plus gros rayon
+    
     for (let i = 0; i < corners.length; i++) {
       const dx = corners[i].x - pos.x;
       const dy = corners[i].y - pos.y;
@@ -398,7 +397,7 @@ export default function DocumentScannerPage() {
       if (distance < TOUCH_RADIUS) {
         setDraggingCorner(i);
         e.preventDefault();
-        break;
+        return;
       }
     }
   };
@@ -407,8 +406,8 @@ export default function DocumentScannerPage() {
     const pos = getPointerPosition(e);
     if (!pos) return;
     
-    // Trouver le coin le plus proche
-    const TOUCH_RADIUS = 50 * pos.scaleX;
+    const TOUCH_RADIUS = 60 / pos.scaleX;
+    
     for (let i = 0; i < corners.length; i++) {
       const dx = corners[i].x - pos.x;
       const dy = corners[i].y - pos.y;
@@ -417,7 +416,7 @@ export default function DocumentScannerPage() {
       if (distance < TOUCH_RADIUS) {
         setDraggingCorner(i);
         e.preventDefault();
-        break;
+        return;
       }
     }
   };
@@ -426,14 +425,10 @@ export default function DocumentScannerPage() {
     if (draggingCorner === null) return;
     
     const pos = getPointerPosition(e);
-    if (!pos || !rawImage) return;
+    if (!pos) return;
     
-    // Charger l'image pour les limites
-    const img = new Image();
-    img.src = rawImage;
-    
-    const x = Math.max(0, Math.min(img.width, pos.x));
-    const y = Math.max(0, Math.min(img.height, pos.y));
+    const x = Math.max(0, Math.min(pos.imgWidth, pos.x));
+    const y = Math.max(0, Math.min(pos.imgHeight, pos.y));
     
     const newCorners = [...corners];
     newCorners[draggingCorner] = { x, y };
@@ -445,13 +440,10 @@ export default function DocumentScannerPage() {
     if (draggingCorner === null) return;
     
     const pos = getPointerPosition(e);
-    if (!pos || !rawImage) return;
+    if (!pos) return;
     
-    const img = new Image();
-    img.src = rawImage;
-    
-    const x = Math.max(0, Math.min(img.width, pos.x));
-    const y = Math.max(0, Math.min(img.height, pos.y));
+    const x = Math.max(0, Math.min(pos.imgWidth, pos.x));
+    const y = Math.max(0, Math.min(pos.imgHeight, pos.y));
     
     const newCorners = [...corners];
     newCorners[draggingCorner] = { x, y };
@@ -482,27 +474,29 @@ export default function DocumentScannerPage() {
       const container = canvas.parentElement;
       if (!container) return;
       
-      const containerWidth = container.clientWidth - 16; // padding
-      const containerHeight = container.clientHeight - 16;
+      // Utiliser toute la largeur disponible sans padding
+      const containerWidth = container.clientWidth;
+      const containerHeight = container.clientHeight;
       
-      // Calculer le ratio pour que l'image remplisse l'écran
+      // Calculer le ratio pour que l'image remplisse l'écran au maximum
       const imgRatio = img.width / img.height;
       const containerRatio = containerWidth / containerHeight;
       
       let displayWidth: number;
       let displayHeight: number;
       
+      // Toujours remplir au maximum la largeur OU la hauteur
       if (imgRatio > containerRatio) {
-        // Image plus large que le container
+        // Image plus large : remplir la largeur
         displayWidth = containerWidth;
         displayHeight = containerWidth / imgRatio;
       } else {
-        // Image plus haute que le container
+        // Image plus haute : remplir la hauteur
         displayHeight = containerHeight;
         displayWidth = containerHeight * imgRatio;
       }
       
-      // Définir les dimensions du canvas pour remplir l'écran
+      // Définir les dimensions du canvas
       canvas.width = displayWidth;
       canvas.height = displayHeight;
       canvas.style.width = `${displayWidth}px`;
@@ -511,6 +505,12 @@ export default function DocumentScannerPage() {
       // Calculer le scale pour mapper les coins
       const scaleX = displayWidth / img.width;
       const scaleY = displayHeight / img.height;
+      
+      // Sauvegarder le scale dans un attribut data pour les handlers
+      canvas.setAttribute('data-scale-x', scaleX.toString());
+      canvas.setAttribute('data-scale-y', scaleY.toString());
+      canvas.setAttribute('data-img-width', img.width.toString());
+      canvas.setAttribute('data-img-height', img.height.toString());
       
       // Clear et redessiner
       ctx.clearRect(0, 0, canvas.width, canvas.height);
@@ -551,7 +551,7 @@ export default function DocumentScannerPage() {
         const cy = corner.y * scaleY;
         
         ctx.beginPath();
-        ctx.arc(cx, cy, 20, 0, Math.PI * 2);
+        ctx.arc(cx, cy, 25, 0, Math.PI * 2);
         ctx.fillStyle = '#14b8a6';
         ctx.fill();
         ctx.strokeStyle = '#fff';
@@ -560,7 +560,7 @@ export default function DocumentScannerPage() {
         
         // Numéro du coin
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 14px sans-serif';
+        ctx.font = 'bold 16px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText((index + 1).toString(), cx, cy);
