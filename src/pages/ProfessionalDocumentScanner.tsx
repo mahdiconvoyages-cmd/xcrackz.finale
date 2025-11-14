@@ -202,7 +202,7 @@ export default function ProfessionalDocumentScanner() {
       if (!ctx) return;
 
       ctx.drawImage(video, 0, 0);
-      const imageUrl = canvas.toDataURL('image/jpeg', 0.7);
+      const imageUrl = canvas.toDataURL('image/jpeg', 0.8);
 
       const corners = await detectDocumentCorners(imageUrl);
       
@@ -221,11 +221,11 @@ export default function ProfessionalDocumentScanner() {
             setStableFrames(prev => {
               const newCount = prev + 1;
               
-              // Auto-capture après 3 frames stables (plus rapide)
-              if (newCount >= 3 && !autoCaptureTimeoutRef.current) {
+              // Auto-capture après 2 frames stables (très rapide)
+              if (newCount >= 2 && !autoCaptureTimeoutRef.current) {
                 autoCaptureTimeoutRef.current = window.setTimeout(() => {
                   autoCapture(imageUrl, corners);
-                }, 100);
+                }, 50);
               }
               
               return newCount;
@@ -243,11 +243,11 @@ export default function ProfessionalDocumentScanner() {
         }
       } else {
         setDetectedCorners([]);
-        setDetectionQuality({ score: 0, isGood: false, reason: 'Document non détecté' });
+        setDetectionQuality({ score: 0, isGood: false, reason: 'Recherche...' });
         setStableFrames(0);
       }
     } catch (error) {
-      console.error('Erreur détection:', error);
+      // Ignorer les erreurs de détection silencieusement
     }
   };
 
@@ -331,7 +331,7 @@ export default function ProfessionalDocumentScanner() {
   const areCornersStable = (current: Corner[], previous: Corner[]): boolean => {
     if (!previous || previous.length !== 4) return false;
     
-    const THRESHOLD = 15; // pixels
+    const THRESHOLD = 20; // pixels - plus tolérant
     
     for (let i = 0; i < 4; i++) {
       const distance = Math.hypot(
@@ -401,28 +401,12 @@ export default function ProfessionalDocumentScanner() {
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-    // Masque sombre
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.4)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Zone détectée
-    ctx.save();
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.beginPath();
-    ctx.moveTo(detectedCorners[0].x, detectedCorners[0].y);
-    for (let i = 1; i < detectedCorners.length; i++) {
-      ctx.lineTo(detectedCorners[i].x, detectedCorners[i].y);
-    }
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-
-    // Bordure
-    const color = detectionQuality.isGood ? '#10b981' : '#f59e0b';
+    // Bordure seulement - pas de masque sombre
+    const color = detectionQuality.isGood ? '#10b981' : '#3b82f6';
     ctx.strokeStyle = color;
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 3;
     ctx.shadowColor = color;
-    ctx.shadowBlur = 15;
+    ctx.shadowBlur = 10;
     ctx.beginPath();
     ctx.moveTo(detectedCorners[0].x, detectedCorners[0].y);
     for (let i = 1; i < detectedCorners.length; i++) {
@@ -432,11 +416,11 @@ export default function ProfessionalDocumentScanner() {
     ctx.stroke();
     ctx.shadowBlur = 0;
 
-    // Coins
+    // Coins discrets
     detectedCorners.forEach((corner) => {
-      ctx.fillStyle = detectionQuality.isGood ? '#10b981' : '#f59e0b';
+      ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(corner.x, corner.y, 10, 0, Math.PI * 2);
+      ctx.arc(corner.x, corner.y, 8, 0, Math.PI * 2);
       ctx.fill();
       ctx.strokeStyle = '#ffffff';
       ctx.lineWidth = 2;
