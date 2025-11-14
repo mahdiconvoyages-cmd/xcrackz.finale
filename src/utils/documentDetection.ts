@@ -12,75 +12,140 @@ interface Corner {
  * Détecte les bords d'un document avec analyse de contours
  */
 export async function detectDocumentCorners(imageDataUrl: string): Promise<Corner[]> {
-  return new Promise((resolve, reject) => {
-    const img = new Image();
-    
-    img.onload = () => {
-      try {
-        const canvas = document.createElement('canvas');
-        canvas.width = img.width;
-        canvas.height = img.height;
-        const ctx = canvas.getContext('2d');
-        
-        if (!ctx) {
-          reject(new Error('Canvas context not available'));
-          return;
-        }
+  const img = await loadImageElement(imageDataUrl);
 
-        ctx.drawImage(img, 0, 0);
-        
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const corners = detectCornersAdvanced(imageData, canvas.width, canvas.height);
-        
-        resolve(corners);
-      } catch (error) {
-        reject(error);
-      }
-    };
-    
-    img.onerror = () => reject(new Error('Failed to load image'));
-    img.src = imageDataUrl;
+  const sourceCanvas = document.createElement('canvas');
+  sourceCanvas.width = img.width;
+  sourceCanvas.height = img.height;
+  const baseCtx = sourceCanvas.getContext('2d', { willReadFrequently: true });
+
+  if (!baseCtx) {
+    return getDefaultCorners(img.width, img.height);
+  }
+
+  baseCtx.drawImage(img, 0, 0);
+
+  const { imageData, scale } = getScaledImageData(baseCtx, img.width, img.height);
+  const advancedCorners = detectCornersAdvanced(imageData, imageData.width, imageData.height);
+
+  if (!advancedCorners || advancedCorners.length !== 4) {
+    return getDefaultCorners(img.width, img.height);
+  }
+
+  // Remapper les coins à l'échelle originale
+  return normalizeCornersOrder(
+    advancedCorners.map((corner) => ({
+      x: corner.x / scale,
+      y: corner.y / scale,
+    }))
+  );
+}
+
+async function loadImageElement(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error('Failed to load image'));
+    image.src = src;
   });
 }
 
+function getScaledImageData(ctx: CanvasRenderingContext2D, width: number, height: number) {
+  const MAX_DIMENSION = 1200;
+  const largestSide = Math.max(width, height);
+  const scale = largestSide > MAX_DIMENSION ? MAX_DIMENSION / largestSide : 1;
+
+  const scaledWidth = Math.round(width * scale);
+  const scaledHeight = Math.round(height * scale);
+
+  if (scale === 1) {
+    return { imageData: ctx.getImageData(0, 0, width, height), scale };
+  }
+
+  const scaledCanvas = document.createElement('canvas');
+  scaledCanvas.width = scaledWidth;
+  scaledCanvas.height = scaledHeight;
+  const scaledCtx = scaledCanvas.getContext('2d', { willReadFrequently: true })!;
+  scaledCtx.drawImage(ctx.canvas, 0, 0, scaledWidth, scaledHeight);
+
+  return { imageData: scaledCtx.getImageData(0, 0, scaledWidth, scaledHeight), scale };
+}
+
 /**
- * Détection avancée avec filtre Canny simplifié
+ * Détection avancée avec pipeline complet (blur + Canny + contour + min rect)
  */
-function detectCornersAdvanced(imageData: ImageData, width: number, height: number): Corner[] {
-  const data = imageData.data;
-  
-  // 1. Conversion niveaux de gris
-  const gray = new Uint8Array(width * height);
+function detectCornersAdvanced(imageData: ImageData, width: number, height: number): Corner[] | null {
+  const grayscale = convertToGrayscale(imageData.data, width, height);
+  const blurred = gaussianBlur(grayscale, width, height);
+  const { magnitude, direction } = sobelWithDirection(blurred, width, height);
+  const suppressed = nonMaxSuppression(magnitude, direction, width, height);
+  const edgeMap = hysteresisThreshold(suppressed, width, height, 20, 60);
+  const contours = extractContours(edgeMap, width, height);
+  const bestContour = selectBestContour(contours, width, height);
+
+  if (!bestContour) {
+    return null;
+  }
+
+  const hull = convexHull(bestContour);
+  if (hull.length < 4) {
+    return null;
+  }
+
+  const rectCorners = minimumBoundingRectangle(hull);
+  return rectCorners ? rectCorners : null;
+}
+
+function convertToGrayscale(data: Uint8ClampedArray, width: number, height: number): Float32Array {
+  const gray = new Float32Array(width * height);
   for (let i = 0; i < data.length; i += 4) {
     const idx = i / 4;
     gray[idx] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
   }
-  
-  // 2. Détection des bords avec Sobel
-  const edges = applySobelEdgeDetection(gray, width, height);
-  
-  // 3. Trouver le plus grand contour rectangulaire
-  const corners = findLargestRectangle(edges, width, height);
-  
-  return corners;
+  return gray;
 }
 
-/**
- * Filtre de détection de bords Sobel
- */
-function applySobelEdgeDetection(gray: Uint8Array, width: number, height: number): Uint8Array {
-  const edges = new Uint8Array(width * height);
-  
-  // Noyaux Sobel
+function gaussianBlur(gray: Float32Array, width: number, height: number): Float32Array {
+  const kernel = [
+    2, 4, 5, 4, 2,
+    4, 9, 12, 9, 4,
+    5, 12, 15, 12, 5,
+    4, 9, 12, 9, 4,
+    2, 4, 5, 4, 2,
+  ];
+  const kernelSize = 5;
+  const kernelSum = 159;
+  const output = new Float32Array(width * height);
+
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      let sum = 0;
+      for (let ky = -2; ky <= 2; ky++) {
+        for (let kx = -2; kx <= 2; kx++) {
+          const px = Math.min(width - 1, Math.max(0, x + kx));
+          const py = Math.min(height - 1, Math.max(0, y + ky));
+          const weight = kernel[(ky + 2) * kernelSize + (kx + 2)];
+          sum += gray[py * width + px] * weight;
+        }
+      }
+      output[y * width + x] = sum / kernelSum;
+    }
+  }
+
+  return output;
+}
+
+function sobelWithDirection(gray: Float32Array, width: number, height: number) {
+  const magnitude = new Float32Array(width * height);
+  const direction = new Float32Array(width * height);
   const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
   const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
-  
+
   for (let y = 1; y < height - 1; y++) {
     for (let x = 1; x < width - 1; x++) {
       let gx = 0;
       let gy = 0;
-      
-      // Appliquer les noyaux Sobel
+
       for (let ky = -1; ky <= 1; ky++) {
         for (let kx = -1; kx <= 1; kx++) {
           const idx = (y + ky) * width + (x + kx);
@@ -89,102 +154,273 @@ function applySobelEdgeDetection(gray: Uint8Array, width: number, height: number
           gy += gray[idx] * sobelY[kernelIdx];
         }
       }
-      
-      // Magnitude du gradient
-      const magnitude = Math.sqrt(gx * gx + gy * gy);
-      edges[y * width + x] = magnitude > 50 ? 255 : 0; // Seuillage
+
+      const mag = Math.sqrt(gx * gx + gy * gy);
+      magnitude[y * width + x] = mag;
+      direction[y * width + x] = Math.atan2(gy, gx);
     }
   }
-  
-  return edges;
+
+  return { magnitude, direction };
 }
 
-/**
- * Trouve le plus grand rectangle dans l'image de bords
- */
-function findLargestRectangle(edges: Uint8Array, width: number, height: number): Corner[] {
-  // Trouver tous les points de bord
-  const edgePoints: Corner[] = [];
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      if (edges[y * width + x] > 0) {
-        edgePoints.push({ x, y });
+function nonMaxSuppression(
+  magnitude: Float32Array,
+  direction: Float32Array,
+  width: number,
+  height: number
+): Float32Array {
+  const suppressed = new Float32Array(width * height);
+
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x;
+      const angle = (direction[idx] * 180) / Math.PI;
+      let sector = ((Math.round(angle / 45) + 4) % 4) as 0 | 1 | 2 | 3;
+
+      const neighbors: [number, number] = [0, 0];
+
+      switch (sector) {
+        case 0:
+          neighbors[0] = idx + 1;
+          neighbors[1] = idx - 1;
+          break;
+        case 1:
+          neighbors[0] = idx + width + 1;
+          neighbors[1] = idx - width - 1;
+          break;
+        case 2:
+          neighbors[0] = idx + width;
+          neighbors[1] = idx - width;
+          break;
+        case 3:
+          neighbors[0] = idx + width - 1;
+          neighbors[1] = idx - width + 1;
+          break;
+      }
+
+      if (
+        magnitude[idx] >= magnitude[neighbors[0]] &&
+        magnitude[idx] >= magnitude[neighbors[1]]
+      ) {
+        suppressed[idx] = magnitude[idx];
+      } else {
+        suppressed[idx] = 0;
       }
     }
   }
-  
-  if (edgePoints.length < 4) {
-    // Pas assez de points, retourner l'image entière
-    return getDefaultCorners(width, height);
+
+  return suppressed;
+}
+
+function hysteresisThreshold(
+  suppressed: Float32Array,
+  width: number,
+  height: number,
+  lowThreshold: number,
+  highThreshold: number
+): Uint8Array {
+  const result = new Uint8Array(width * height);
+  const strong = 255;
+  const weak = 75;
+
+  for (let i = 0; i < suppressed.length; i++) {
+    if (suppressed[i] >= highThreshold) {
+      result[i] = strong;
+    } else if (suppressed[i] >= lowThreshold) {
+      result[i] = weak;
+    } else {
+      result[i] = 0;
+    }
   }
-  
-  // Trouver les 4 coins extrêmes
-  const corners = findExtremeCorners(edgePoints, width, height);
-  
-  // Vérifier si le rectangle trouvé est valide
-  const area = calculateArea(corners);
+
+  // liaison des faibles avec les forts
+  const neighbors = [-width - 1, -width, -width + 1, -1, 1, width - 1, width, width + 1];
+
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x;
+      if (result[idx] === weak) {
+        let connected = false;
+        for (const offset of neighbors) {
+          if (result[idx + offset] === strong) {
+            connected = true;
+            break;
+          }
+        }
+        result[idx] = connected ? strong : 0;
+      }
+    }
+  }
+
+  return result;
+}
+
+function extractContours(edges: Uint8Array, width: number, height: number): Corner[][] {
+  const visited = new Uint8Array(width * height);
+  const contours: Corner[][] = [];
+  const offsets = [-width - 1, -width, -width + 1, -1, 1, width - 1, width, width + 1];
+
+  for (let y = 1; y < height - 1; y++) {
+    for (let x = 1; x < width - 1; x++) {
+      const idx = y * width + x;
+      if (edges[idx] === 0 || visited[idx]) {
+        continue;
+      }
+
+      const stack = [idx];
+      visited[idx] = 1;
+      const contour: Corner[] = [];
+
+      while (stack.length) {
+        const current = stack.pop()!;
+        const cx = current % width;
+        const cy = Math.floor(current / width);
+        contour.push({ x: cx, y: cy });
+
+        for (const offset of offsets) {
+          const neighbor = current + offset;
+          if (neighbor < 0 || neighbor >= edges.length) continue;
+          if (edges[neighbor] === 0 || visited[neighbor]) continue;
+          visited[neighbor] = 1;
+          stack.push(neighbor);
+        }
+      }
+
+      if (contour.length > 20) {
+        contours.push(contour);
+      }
+    }
+  }
+
+  return contours;
+}
+
+function selectBestContour(contours: Corner[][], width: number, height: number): Corner[] | null {
+  if (!contours.length) return null;
+
   const imageArea = width * height;
-  
-  // Si le rectangle est trop petit (< 20% de l'image), utiliser les bords
-  if (area < imageArea * 0.2) {
-    return getDefaultCorners(width, height);
-  }
-  
-  return corners;
-}
+  let best: Corner[] | null = null;
+  let bestScore = 0;
 
-/**
- * Trouve les 4 coins extrêmes parmi les points de bord
- */
-function findExtremeCorners(points: Corner[], _width: number, _height: number): Corner[] {
-  // Coins basés sur la position relative
-  let topLeft = points[0];
-  let topRight = points[0];
-  let bottomLeft = points[0];
-  let bottomRight = points[0];
-  
-  let minSum = Infinity;
-  let maxSum = -Infinity;
-  let minDiff = Infinity;
-  let maxDiff = -Infinity;
-  
-  for (const p of points) {
-    const sum = p.x + p.y;
-    const diff = p.x - p.y;
-    
-    if (sum < minSum) {
-      minSum = sum;
-      topLeft = p;
-    }
-    if (sum > maxSum) {
-      maxSum = sum;
-      bottomRight = p;
-    }
-    if (diff < minDiff) {
-      minDiff = diff;
-      bottomLeft = p;
-    }
-    if (diff > maxDiff) {
-      maxDiff = diff;
-      topRight = p;
+  for (const contour of contours) {
+    const hull = convexHull(contour);
+    if (hull.length < 4) continue;
+
+    const area = calculateArea(hull);
+    const fillRatio = area / imageArea;
+
+    if (area > bestScore && fillRatio > 0.1) {
+      bestScore = area;
+      best = hull;
     }
   }
-  
-  return [topLeft, topRight, bottomRight, bottomLeft];
+
+  return best;
 }
 
-/**
- * Calcule l'aire d'un quadrilatère
- */
-function calculateArea(corners: Corner[]): number {
-  // Formule de Shoelace
+function convexHull(points: Corner[]): Corner[] {
+  if (points.length <= 3) {
+    return points.slice();
+  }
+
+  const sorted = points
+    .slice()
+    .sort((a, b) => (a.x === b.x ? a.y - b.y : a.x - b.x));
+
+  const build = (pts: Corner[]) => {
+    const stack: Corner[] = [];
+    for (const p of pts) {
+      while (
+        stack.length >= 2 &&
+        cross(stack[stack.length - 2], stack[stack.length - 1], p) <= 0
+      ) {
+        stack.pop();
+      }
+      stack.push(p);
+    }
+    stack.pop();
+    return stack;
+  };
+
+  const lower = build(sorted);
+  const upper = build(sorted.slice().reverse());
+
+  return lower.concat(upper);
+}
+
+function cross(o: Corner, a: Corner, b: Corner) {
+  return (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+}
+
+function minimumBoundingRectangle(points: Corner[]): Corner[] | null {
+  if (points.length < 4) return null;
+
+  let bestArea = Infinity;
+  let bestRect: Corner[] | null = null;
+
+  for (let i = 0; i < points.length; i++) {
+    const p1 = points[i];
+    const p2 = points[(i + 1) % points.length];
+    const angle = Math.atan2(p2.y - p1.y, p2.x - p1.x);
+    const cos = Math.cos(-angle);
+    const sin = Math.sin(-angle);
+
+    let minX = Infinity;
+    let maxX = -Infinity;
+    let minY = Infinity;
+    let maxY = -Infinity;
+
+    for (const p of points) {
+      const rx = p.x * cos - p.y * sin;
+      const ry = p.x * sin + p.y * cos;
+      minX = Math.min(minX, rx);
+      maxX = Math.max(maxX, rx);
+      minY = Math.min(minY, ry);
+      maxY = Math.max(maxY, ry);
+    }
+
+    const area = (maxX - minX) * (maxY - minY);
+    if (area < bestArea) {
+      bestArea = area;
+      const corners: Corner[] = [
+        { x: minX, y: minY },
+        { x: maxX, y: minY },
+        { x: maxX, y: maxY },
+        { x: minX, y: maxY },
+      ];
+
+      const invCos = Math.cos(angle);
+      const invSin = Math.sin(angle);
+      bestRect = corners.map((corner) => ({
+        x: corner.x * invCos - corner.y * invSin,
+        y: corner.x * invSin + corner.y * invCos,
+      }));
+    }
+  }
+
+  return bestRect ? normalizeCornersOrder(bestRect) : null;
+}
+
+function normalizeCornersOrder(corners: Corner[]): Corner[] {
+  if (corners.length !== 4) return corners;
+
+  const sorted = corners.slice().sort((a, b) => a.y - b.y);
+  const top = sorted.slice(0, 2).sort((a, b) => a.x - b.x);
+  const bottom = sorted.slice(2, 4).sort((a, b) => a.x - b.x);
+
+  return [top[0], top[1], bottom[1], bottom[0]];
+}
+
+function calculateArea(points: Corner[]): number {
+  if (points.length < 3) return 0;
   let area = 0;
-  for (let i = 0; i < corners.length; i++) {
-    const j = (i + 1) % corners.length;
-    area += corners[i].x * corners[j].y;
-    area -= corners[j].x * corners[i].y;
+  for (let i = 0; i < points.length; i++) {
+    const j = (i + 1) % points.length;
+    area += points[i].x * points[j].y;
+    area -= points[j].x * points[i].y;
   }
-  return Math.abs(area) / 2;
+  return Math.abs(area / 2);
 }
 
 /**
