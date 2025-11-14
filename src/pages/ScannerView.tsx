@@ -16,7 +16,7 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
   const streamRef = useRef<MediaStream | null>(null);
   const [isCapturing, setIsCapturing] = useState(false);
   const stableDetectionCount = useRef(0);
-  const captureTimeout = useRef<NodeJS.Timeout | null>(null);
+  const captureTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const stopCamera = useCallback(() => {
     if (captureTimeout.current) {
@@ -115,7 +115,7 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
   }, [handleCapture, isCapturing]);
 
   useEffect(() => {
-    let detectionInterval: NodeJS.Timeout;
+    let detectionInterval: ReturnType<typeof setInterval>;
 
     const startCamera = async () => {
       try {

@@ -1,5 +1,12 @@
 // src/utils/opencv.ts
-import cv from '@techstark/opencv-js';
+// Déclaration globale pour OpenCV chargé via script
+declare const cv: any;
+
+// Types pour OpenCV
+interface Point {
+  x: number;
+  y: number;
+}
 
 let isOpenCvLoaded = false;
 
@@ -9,19 +16,36 @@ export const loadOpenCV = (): Promise<void> => {
       resolve();
       return;
     }
+    
+    // Vérifier si OpenCV est déjà chargé
+    if (typeof cv !== 'undefined' && cv.getBuildInformation) {
+      isOpenCvLoaded = true;
+      resolve();
+      return;
+    }
+    
     const script = document.createElement('script');
     script.src = 'https://docs.opencv.org/4.8.0/opencv.js';
     script.async = true;
     script.defer = true;
     script.onload = () => {
-      // @ts-ignore
-      if (cv.getBuildInformation) {
-        console.log('OpenCV.js chargé avec succès.');
-        isOpenCvLoaded = true;
-        resolve();
-      } else {
-        reject(new Error('Erreur au chargement d\'OpenCV.js'));
-      }
+      // Attendre que cv soit disponible
+      const checkCV = setInterval(() => {
+        if (typeof cv !== 'undefined' && cv.getBuildInformation) {
+          clearInterval(checkCV);
+          console.log('OpenCV.js chargé avec succès.');
+          isOpenCvLoaded = true;
+          resolve();
+        }
+      }, 100);
+      
+      // Timeout après 10 secondes
+      setTimeout(() => {
+        clearInterval(checkCV);
+        if (!isOpenCvLoaded) {
+          reject(new Error('Timeout lors du chargement d\'OpenCV.js'));
+        }
+      }, 10000);
     };
     script.onerror = () => {
       reject(new Error('Impossible de charger le script OpenCV.js'));
@@ -30,7 +54,7 @@ export const loadOpenCV = (): Promise<void> => {
   });
 };
 
-export const detectDocumentCorners = (sourceElement: HTMLVideoElement | HTMLCanvasElement): cv.Point[] | null => {
+export const detectDocumentCorners = (sourceElement: HTMLVideoElement | HTMLCanvasElement): Point[] | null => {
   if (!isOpenCvLoaded) return null;
 
   const src = cv.imread(sourceElement);
@@ -48,7 +72,7 @@ export const detectDocumentCorners = (sourceElement: HTMLVideoElement | HTMLCanv
   cv.findContours(edged, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
 
   let maxArea = 0;
-  let biggestContour: cv.Mat | null = null;
+  let biggestContour: any | null = null;
 
   for (let i = 0; i < contours.size(); ++i) {
     const contour = contours.get(i);
@@ -72,7 +96,7 @@ export const detectDocumentCorners = (sourceElement: HTMLVideoElement | HTMLCanv
   hierarchy.delete();
 
   if (biggestContour) {
-    const points: cv.Point[] = [];
+    const points: Point[] = [];
     for (let i = 0; i < biggestContour.rows; i++) {
       points.push({
         x: biggestContour.data32S[i * 2],
@@ -95,7 +119,7 @@ export const detectDocumentCorners = (sourceElement: HTMLVideoElement | HTMLCanv
 
 export const cropAndCorrectPerspective = (
   sourceElement: HTMLVideoElement | HTMLCanvasElement,
-  corners: cv.Point[]
+  corners: Point[]
 ): string => {
   const src = cv.imread(sourceElement);
   const [tl, tr, br, bl] = corners;

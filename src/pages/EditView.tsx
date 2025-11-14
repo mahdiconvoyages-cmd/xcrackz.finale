@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { X, Check, RotateCw, Zap, Sun, Droplet, Palette } from 'lucide-react';
 import { ScannedPage } from './ScannerPage';
 import { applyFilter } from '../utils/imageFilters';
