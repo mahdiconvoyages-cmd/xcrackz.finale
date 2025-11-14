@@ -221,22 +221,28 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
 
     const startCamera = async () => {
       try {
-        setStatus('Initialisation de la caméra...');
+        setStatus('Chargement d\'OpenCV.js (8MB)...');
         
-        // Attendre que le worker soit prêt
+        // Attendre que le worker soit prêt avec feedback visuel
         if (!isWorkerReady) {
-          setStatus('Chargement OpenCV...');
+          let dots = 0;
+          const loadingInterval = setInterval(() => {
+            dots = (dots + 1) % 4;
+            setStatus('Chargement d\'OpenCV.js' + '.'.repeat(dots) + ' (peut prendre 10-30s)');
+          }, 500);
+
           await new Promise<void>((resolve) => {
             const checkInterval = setInterval(() => {
               if (isWorkerReady) {
                 clearInterval(checkInterval);
+                clearInterval(loadingInterval);
                 resolve();
               }
             }, 100);
           });
         }
         
-        setStatus('Caméra prête. Positionnez le document.');
+        setStatus('Initialisation de la caméra...');
 
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {

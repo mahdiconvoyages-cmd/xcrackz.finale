@@ -1,32 +1,70 @@
 // Web Worker pour la détection de documents avec OpenCV
 let cv = null;
 let isOpenCvLoaded = false;
+let isLoading = false;
 
-// Charger OpenCV.js
-self.importScripts('https://docs.opencv.org/4.8.0/opencv.js');
+// URLs alternatives pour OpenCV.js (de la plus rapide à la plus lente)
+const OPENCV_URLS = [
+  'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.8.0-release.1/opencv.js',
+  'https://docs.opencv.org/4.8.0/opencv.js'
+];
 
-// Attendre que OpenCV soit prêt
-function waitForOpenCV() {
-  return new Promise((resolve) => {
-    if (typeof cv !== 'undefined' && cv.getBuildInformation) {
-      isOpenCvLoaded = true;
-      resolve();
-    } else {
+let currentUrlIndex = 0;
+
+// Charger OpenCV.js avec retry sur différents CDN
+function loadOpenCV() {
+  if (isLoading || isOpenCvLoaded) return;
+  isLoading = true;
+
+  const tryLoadFromUrl = (urlIndex) => {
+    if (urlIndex >= OPENCV_URLS.length) {
+      isLoading = false;
+      self.postMessage({ 
+        type: 'error', 
+        message: 'Failed to load OpenCV from all CDN sources' 
+      });
+      return;
+    }
+
+    const url = OPENCV_URLS[urlIndex];
+    console.log(`Attempting to load OpenCV from: ${url}`);
+
+    try {
+      // Charger le script OpenCV.js
+      importScripts(url);
+      
+      // Attendre que cv soit initialisé
       const checkInterval = setInterval(() => {
         if (typeof cv !== 'undefined' && cv.getBuildInformation) {
           clearInterval(checkInterval);
           isOpenCvLoaded = true;
-          resolve();
+          isLoading = false;
+          self.postMessage({ type: 'ready' });
+          console.log('OpenCV.js loaded successfully from: ' + url);
         }
       }, 100);
+
+      // Timeout de 20 secondes par CDN
+      setTimeout(() => {
+        if (!isOpenCvLoaded) {
+          clearInterval(checkInterval);
+          console.warn(`Timeout loading from ${url}, trying next CDN...`);
+          isLoading = false;
+          tryLoadFromUrl(urlIndex + 1);
+        }
+      }, 20000);
+    } catch (error) {
+      console.error(`Failed to load from ${url}:`, error);
+      isLoading = false;
+      tryLoadFromUrl(urlIndex + 1);
     }
-  });
+  };
+
+  tryLoadFromUrl(0);
 }
 
-// Initialisation
-waitForOpenCV().then(() => {
-  self.postMessage({ type: 'ready' });
-});
+// Démarrer le chargement immédiatement
+loadOpenCV();
 
 // Détection des coins du document
 function detectDocumentCorners(imageData) {

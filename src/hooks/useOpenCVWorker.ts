@@ -17,18 +17,34 @@ export const useOpenCVWorker = (): UseOpenCVWorkerReturn => {
   const workerRef = useRef<Worker | null>(null);
   const messageIdRef = useRef(0);
   const pendingRequestsRef = useRef<Map<number, (result: any) => void>>(new Map());
+  const readyTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     // Créer le worker
     const worker = new Worker('/opencv-worker.js');
     workerRef.current = worker;
 
+    // Timeout si OpenCV ne charge pas en 30 secondes
+    readyTimeoutRef.current = setTimeout(() => {
+      if (!isReady) {
+        console.error('OpenCV worker timeout - failed to load in 30 seconds');
+        alert('Erreur de chargement OpenCV. Rechargez la page.');
+      }
+    }, 30000);
+
     // Écouter les messages du worker
     worker.onmessage = (e) => {
-      const { type, id, corners, imageData } = e.data;
+      const { type, id, corners, imageData, message } = e.data;
 
       if (type === 'ready') {
         setIsReady(true);
+        if (readyTimeoutRef.current) {
+          clearTimeout(readyTimeoutRef.current);
+        }
+        console.log('OpenCV worker ready');
+      } else if (type === 'error') {
+        console.error('Worker error:', message);
+        alert('Erreur OpenCV: ' + message);
       } else if (type === 'detected') {
         const callback = pendingRequestsRef.current.get(id);
         if (callback) {
@@ -49,6 +65,9 @@ export const useOpenCVWorker = (): UseOpenCVWorkerReturn => {
     };
 
     return () => {
+      if (readyTimeoutRef.current) {
+        clearTimeout(readyTimeoutRef.current);
+      }
       worker.terminate();
     };
   }, []);
