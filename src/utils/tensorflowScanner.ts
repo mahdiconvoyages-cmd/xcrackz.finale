@@ -187,10 +187,12 @@ const findDocumentCorners = async (
   const binary = edgeTensor.greater(threshold);
 
   const binaryData = binary.dataSync();
-  const height = binary.shape[0];
-  const width = binary.shape[1];
+  const height = binary.shape[0] ?? 0;
+  const width = binary.shape[1] ?? 0;
   threshold.dispose();
   binary.dispose();
+
+  if (height === 0 || width === 0) return null;
 
   const edgePoints: Point[] = [];
   const step = Math.max(1, Math.floor(Math.min(width, height) / 120));
@@ -375,10 +377,12 @@ export const correctPerspective = async (canvas: HTMLCanvasElement, corners: Poi
 
     const transformMatrix = getPerspectiveTransformMatrix([tl, tr, br, bl], dstPoints);
     const inverse = invertMatrix3x3(transformMatrix);
-    const transformTensor = tf.tensor(matrixToTransformVector(inverse), [8]);
+    const transformVector = matrixToTransformVector(inverse);
+    const transformTensor = tf.tensor2d([[transformVector[0], transformVector[1]], [transformVector[2], transformVector[3]], [transformVector[4], transformVector[5]], [transformVector[6], transformVector[7]]]);
 
     const imageTensor = tf.browser.fromPixels(canvas);
-    const output = tf.image.transform(imageTensor, transformTensor, 'bilinear', 'constant', 0, [
+    const imageTensor4D = imageTensor.expandDims(0) as tf.Tensor4D;
+    const output = tf.image.transform(imageTensor4D, transformTensor, 'bilinear', 'constant', 0, [
       Math.round(targetHeight),
       Math.round(targetWidth),
     ]);
@@ -394,13 +398,13 @@ export const correctPerspective = async (canvas: HTMLCanvasElement, corners: Poi
       throw new Error('Impossible de créer un contexte 2D pour la correction de perspective.');
     }
 
-    const imageData = new ImageData(offscreen.width, offscreen.height);
-    await tf.browser.toPixels(output as tf.Tensor3D, imageData.data);
-    ctx.putImageData(imageData, 0, 0);
+    const output3D = output.squeeze([0]) as tf.Tensor3D;
+    await tf.browser.toPixels(output3D, offscreen);
 
     imageTensor.dispose();
     transformTensor.dispose();
     output.dispose();
+    output3D.dispose();
 
     return offscreen.toDataURL('image/jpeg', 0.92);
   };

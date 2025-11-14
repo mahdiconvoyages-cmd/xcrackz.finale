@@ -3,8 +3,7 @@ import { X, Camera, Zap, ZapOff } from 'lucide-react';
 import { 
   initializeTensorFlow, 
   detectDocument, 
-  correctPerspective,
-  cleanup 
+  correctPerspective
 } from '../utils/tensorflowScanner';
 
 interface ScannerViewProps {
@@ -26,7 +25,7 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
   const cornerHistoryRef = useRef<any[]>([]);
   const isDetectingRef = useRef(false);
   const [isTensorFlowReady, setIsTensorFlowReady] = useState(false);
-  const [detectionConfidence, setDetectionConfidence] = useState(0);
+  const [, setDetectionConfidence] = useState(0);
 
   const stopCamera = useCallback(() => {
     if (captureTimeout.current) {
@@ -252,7 +251,7 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
     return () => {
       clearInterval(detectionInterval);
       stopCamera();
-      cleanup(); // Nettoyer la mémoire GPU
+      // TensorFlow.js handles cleanup automatically with dispose()
     };
   }, [onCancel, stopCamera, performDetection]);
 

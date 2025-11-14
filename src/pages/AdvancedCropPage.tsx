@@ -21,8 +21,7 @@ import {
   Maximize2,
   RefreshCw,
   Move,
-  Grid3x3,
-  Sparkles
+  Grid3x3
 } from 'lucide-react';
 
 interface Corner {
@@ -54,14 +53,13 @@ export default function AdvancedCropPage({
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
 
   // Charger l'image et calculer les dimensions
   useEffect(() => {
     const img = new Image();
     img.src = imageUrl;
     img.onload = () => {
-      setImageDimensions({ width: img.width, height: img.height });
+      // Image dimensions are calculated but not stored in state
     };
   }, [imageUrl]);
 
