@@ -104,7 +104,17 @@ export default function ProfessionalDocumentScanner() {
 
   // Démarrer le scan
   const startScanning = async () => {
+    console.log('Démarrage du scan...');
+    
     try {
+      // Vérifier si l'API est disponible
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        alert('Votre navigateur ne supporte pas l\'accès à la caméra. Utilisez Chrome, Firefox ou Safari récent.');
+        return;
+      }
+
+      console.log('Demande d\'accès à la caméra...');
+      
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'environment',
@@ -113,20 +123,53 @@ export default function ProfessionalDocumentScanner() {
         }
       });
 
+      console.log('Caméra autorisée, stream obtenu');
       streamRef.current = stream;
 
       if (videoRef.current) {
+        console.log('Configuration de la vidéo...');
         videoRef.current.srcObject = stream;
-        await videoRef.current.play();
-        setIsScanning(true);
         
-        if (openCVReady) {
-          startContinuousDetection();
-        }
+        // Attendre que la vidéo soit prête
+        videoRef.current.onloadedmetadata = () => {
+          console.log('Métadonnées chargées, démarrage de la lecture...');
+          videoRef.current?.play()
+            .then(() => {
+              console.log('Vidéo en lecture, scan actif');
+              setIsScanning(true);
+              
+              if (openCVReady) {
+                console.log('Démarrage de la détection continue');
+                startContinuousDetection();
+              } else {
+                console.log('OpenCV pas encore prêt');
+              }
+            })
+            .catch(err => {
+              console.error('Erreur play():', err);
+              alert('Erreur lors du démarrage de la vidéo: ' + err.message);
+            });
+        };
+      } else {
+        console.error('videoRef.current est null');
+        alert('Erreur: élément vidéo non trouvé');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erreur caméra:', error);
-      alert('Impossible d\'accéder à la caméra');
+      
+      let message = 'Impossible d\'accéder à la caméra. ';
+      
+      if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
+        message += 'Vous devez autoriser l\'accès à la caméra dans les paramètres de votre navigateur.';
+      } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
+        message += 'Aucune caméra détectée sur votre appareil.';
+      } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
+        message += 'La caméra est déjà utilisée par une autre application.';
+      } else {
+        message += error.message || 'Erreur inconnue.';
+      }
+      
+      alert(message);
     }
   };
 
@@ -489,6 +532,10 @@ export default function ProfessionalDocumentScanner() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950">
+      {/* Hidden video element - always rendered for ref */}
+      <video ref={videoRef} className="hidden" autoPlay playsInline muted />
+      <canvas ref={canvasRef} className="hidden" />
+      
       {/* Header */}
       <div className="bg-slate-900/80 backdrop-blur-sm border-b border-slate-800">
         <div className="max-w-7xl mx-auto px-4 py-4">
@@ -556,14 +603,22 @@ export default function ProfessionalDocumentScanner() {
       {/* Mode Scan Actif */}
       {mode === 'scan' && isScanning && (
         <div className="fixed inset-0 bg-black z-50">
-          {/* Video */}
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+          {/* Video visible */}
+          <div className="absolute inset-0 w-full h-full">
+            <video
+              className="w-full h-full object-cover"
+              ref={(el) => {
+                if (el && videoRef.current) {
+                  // Clone the stream to the visible video
+                  el.srcObject = videoRef.current.srcObject;
+                  el.play().catch(console.error);
+                }
+              }}
+              autoPlay
+              playsInline
+              muted
+            />
+          </div>
           
           {/* Overlay */}
           <canvas
@@ -571,8 +626,7 @@ export default function ProfessionalDocumentScanner() {
             className="absolute inset-0 w-full h-full"
           />
 
-          {/* Hidden canvas */}
-          <canvas ref={canvasRef} className="hidden" />
+          {/* Hidden canvas - removed, already at top level */}
 
           {/* Status */}
           <div className="absolute top-6 left-1/2 -translate-x-1/2 z-10">
