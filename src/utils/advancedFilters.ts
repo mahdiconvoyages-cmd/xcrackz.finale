@@ -33,6 +33,11 @@ export async function applyAdvancedFilter(
         // Obtenir les données de pixels
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
+        // Pré-traitement: Réduction du bruit avant filtrage
+        if (filterType !== 'color') {
+          reduceNoise(imageData);
+        }
+
         // Appliquer le filtre selon le type
         switch (filterType) {
           case 'magic':
@@ -70,6 +75,7 @@ export async function applyAdvancedFilter(
  * - Suppression des ombres
  * - Netteté optimisée
  * - Balance des blancs
+ * - Correction gamma adaptative
  */
 function applyProfessionalMagicFilter(imageData: ImageData) {
   const data = imageData.data;
@@ -95,14 +101,21 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
     let newG = clamp((g - min) * normalizeFactor);
     let newB = clamp((b - min) * normalizeFactor);
 
-    // Correction gamma douce pour documents
-    const gamma = 1.08;
+    // Balance des blancs automatique (préserver le naturel)
+    const avgR = (newR + newG + newB) / 3;
+    newR = clamp(avgR + (newR - avgR) * 0.85);
+    newG = clamp(avgR + (newG - avgR) * 0.85);
+    newB = clamp(avgR + (newB - avgR) * 0.85);
+
+    // Correction gamma adaptative pour éclaircir les zones sombres
+    const luminosity = newR * 0.299 + newG * 0.587 + newB * 0.114;
+    const gamma = luminosity < 100 ? 1.15 : luminosity > 160 ? 1.05 : 1.10;
     newR = clamp(Math.pow(newR / 255, 1 / gamma) * 255);
     newG = clamp(Math.pow(newG / 255, 1 / gamma) * 255);
     newB = clamp(Math.pow(newB / 255, 1 / gamma) * 255);
 
-    // Contraste modéré pour lisibilité optimale
-    const contrastBoost = 1.15;
+    // Contraste amélioré pour lisibilité optimale
+    const contrastBoost = 1.20;
     newR = clamp((newR - 128) * contrastBoost + 128);
     newG = clamp((newG - 128) * contrastBoost + 128);
     newB = clamp((newB - 128) * contrastBoost + 128);
@@ -119,8 +132,8 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
     tempData[i + 2] = newB;
   }
 
-  // Phase 3: Netteté équilibrée pour documents
-  applyUnsharpMask(tempData, data, width, height, 2.0, 1.0);
+  // Phase 3: Netteté renforcée pour documents
+  applyUnsharpMask(tempData, data, width, height, 2.5, 1.0);
 }
 
 /**
@@ -143,9 +156,12 @@ function applyAdaptiveBlackAndWhite(imageData: ImageData) {
     grayscale[idx] = Math.round(gray * 0.95 + 12);
   }
 
-  // Binarisation adaptative douce
-  const blockSize = 30; // Fenêtre large pour moyenne douce
-  const C = 15; // Seuil réduit pour moins d'intensité
+  // Calculer le seuil global Otsu pour référence
+  const globalThreshold = calculateOtsuThreshold(grayscale);
+
+  // Binarisation adaptative hybride (Otsu + adaptatif local)
+  const blockSize = 25; // Fenêtre optimale
+  const C = 12; // Seuil ajusté
 
   const tempGrayscale = new Uint8Array(width * height);
 
@@ -170,7 +186,8 @@ function applyAdaptiveBlackAndWhite(imageData: ImageData) {
       }
 
       const localMean = sum / count;
-      const localThreshold = localMean - C;
+      // Combiner seuil local et global pour meilleur résultat
+      const localThreshold = (localMean * 0.7 + globalThreshold * 0.3) - C;
 
       // Appliquer le seuil avec contraste amélioré
       tempGrayscale[idx] = grayscale[idx] > localThreshold ? 255 : 0;
@@ -223,6 +240,7 @@ function applyEnhancedGrayscale(imageData: ImageData) {
  * - Saturation intelligente
  * - Contraste optimisé
  * - Netteté augmentée
+ * - Balance des blancs automatique
  */
 function applyVividColorEnhancement(imageData: ImageData) {
   const data = imageData.data;
@@ -232,28 +250,34 @@ function applyVividColorEnhancement(imageData: ImageData) {
   const tempData = new Uint8ClampedArray(data);
 
   for (let i = 0; i < data.length; i += 4) {
-    const r = data[i];
-    const g = data[i + 1];
-    const b = data[i + 2];
+    let r = data[i];
+    let g = data[i + 1];
+    let b = data[i + 2];
 
-    // Saturation très vibrante pour documents
+    // Balance automatique des blancs (préserver couleurs naturelles)
+    const avgColor = (r + g + b) / 3;
+    r = clamp(avgColor + (r - avgColor) * 0.90);
+    g = clamp(avgColor + (g - avgColor) * 0.90);
+    b = clamp(avgColor + (b - avgColor) * 0.90);
+
+    // Saturation vibrante pour documents
     const gray = r * 0.299 + g * 0.587 + b * 0.114;
-    const saturationBoost = 1.6;
+    const saturationBoost = 1.7;
     
     let newR = clamp(gray + (r - gray) * saturationBoost);
     let newG = clamp(gray + (g - gray) * saturationBoost);
     let newB = clamp(gray + (b - gray) * saturationBoost);
 
-    // Contraste très élevé pour netteté maximale
-    const contrastFactor = 1.5;
+    // Contraste élevé pour netteté maximale
+    const contrastFactor = 1.45;
     newR = clamp((newR - 128) * contrastFactor + 128);
     newG = clamp((newG - 128) * contrastFactor + 128);
     newB = clamp((newB - 128) * contrastFactor + 128);
 
-    // Correction gamma agressive
-    newR = clamp(Math.pow(newR / 255, 0.8) * 255);
-    newG = clamp(Math.pow(newG / 255, 0.8) * 255);
-    newB = clamp(Math.pow(newB / 255, 0.8) * 255);
+    // Correction gamma pour éclaircir légèrement
+    newR = clamp(Math.pow(newR / 255, 1 / 1.08) * 255);
+    newG = clamp(Math.pow(newG / 255, 1 / 1.08) * 255);
+    newB = clamp(Math.pow(newB / 255, 1 / 1.08) * 255);
 
     tempData[i] = newR;
     tempData[i + 1] = newG;
@@ -265,6 +289,65 @@ function applyVividColorEnhancement(imageData: ImageData) {
 }
 
 // ===== FONCTIONS UTILITAIRES =====
+
+/**
+ * Réduction du bruit avec filtre bilatéral simplifié
+ */
+function reduceNoise(imageData: ImageData) {
+  const data = imageData.data;
+  const width = imageData.width;
+  const height = imageData.height;
+  const tempData = new Uint8ClampedArray(data);
+
+  const radius = 2;
+  const sigmaColor = 50;
+  const sigmaSpace = 2;
+
+  for (let y = radius; y < height - radius; y++) {
+    for (let x = radius; x < width - radius; x++) {
+      const idx = (y * width + x) * 4;
+      
+      let rSum = 0, gSum = 0, bSum = 0, weightSum = 0;
+      const centerR = tempData[idx];
+      const centerG = tempData[idx + 1];
+      const centerB = tempData[idx + 2];
+
+      for (let dy = -radius; dy <= radius; dy++) {
+        for (let dx = -radius; dx <= radius; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          const nIdx = (ny * width + nx) * 4;
+
+          const r = tempData[nIdx];
+          const g = tempData[nIdx + 1];
+          const b = tempData[nIdx + 2];
+
+          // Distance spatiale
+          const spatialDist = Math.sqrt(dx * dx + dy * dy);
+          const spatialWeight = Math.exp(-(spatialDist * spatialDist) / (2 * sigmaSpace * sigmaSpace));
+
+          // Distance de couleur
+          const colorDist = Math.sqrt(
+            Math.pow(r - centerR, 2) +
+            Math.pow(g - centerG, 2) +
+            Math.pow(b - centerB, 2)
+          );
+          const colorWeight = Math.exp(-(colorDist * colorDist) / (2 * sigmaColor * sigmaColor));
+
+          const weight = spatialWeight * colorWeight;
+          rSum += r * weight;
+          gSum += g * weight;
+          bSum += b * weight;
+          weightSum += weight;
+        }
+      }
+
+      data[idx] = rSum / weightSum;
+      data[idx + 1] = gSum / weightSum;
+      data[idx + 2] = bSum / weightSum;
+    }
+  }
+}
 
 function clamp(value: number, min = 0, max = 255): number {
   return Math.max(min, Math.min(max, value));

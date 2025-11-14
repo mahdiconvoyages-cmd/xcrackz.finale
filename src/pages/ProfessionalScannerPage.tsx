@@ -23,7 +23,11 @@ import {
   Image as ImageIcon,
   Loader,
   ArrowLeft,
-  Check
+  Check,
+  Save,
+  FileText,
+  Trash2,
+  Eye
 } from 'lucide-react';
 import {
   loadOpenCV,
@@ -34,18 +38,30 @@ import {
 import { applyAdvancedFilter, FilterType } from '../utils/advancedFilters';
 import OptimizedCropPage from './OptimizedCropPage';
 
+interface ScannedDocument {
+  id: string;
+  name: string;
+  imageUrl: string;
+  timestamp: number;
+  filter: FilterType;
+}
+
 export default function ProfessionalScannerPage() {
   // États du workflow
-  const [step, setStep] = useState<'intro' | 'camera' | 'crop' | 'edit'>('intro');
+  const [step, setStep] = useState<'intro' | 'camera' | 'crop' | 'edit' | 'documents'>('intro');
   const [rawImage, setRawImage] = useState<string | null>(null);
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('magic');
+  const [fileName, setFileName] = useState('document');
   
   // États de détection
   const [corners, setCorners] = useState<Corner[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingOpenCV, setIsLoadingOpenCV] = useState(false);
+  
+  // Documents sauvegardés
+  const [scannedDocuments, setScannedDocuments] = useState<ScannedDocument[]>([]);
   
   // Références
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -74,6 +90,28 @@ export default function ProfessionalScannerPage() {
       }
     };
   }, [stream]);
+
+  // Charger les documents sauvegardés
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('scannedDocuments');
+      if (stored) {
+        setScannedDocuments(JSON.parse(stored));
+      }
+    } catch (error) {
+      console.error('Erreur chargement documents:', error);
+    }
+  }, []);
+
+  // Sauvegarder les documents
+  const saveDocuments = (docs: ScannedDocument[]) => {
+    try {
+      localStorage.setItem('scannedDocuments', JSON.stringify(docs));
+      setScannedDocuments(docs);
+    } catch (error) {
+      console.error('Erreur sauvegarde documents:', error);
+    }
+  };
 
   // Configuration des filtres
   const filters = [
@@ -256,6 +294,37 @@ export default function ProfessionalScannerPage() {
     }
   };
 
+  const saveDocument = async () => {
+    if (!processedImage) return;
+
+    try {
+      setIsProcessing(true);
+
+      // Créer le document
+      const newDoc: ScannedDocument = {
+        id: Date.now().toString(),
+        name: fileName || `scan_${Date.now()}`,
+        imageUrl: processedImage,
+        timestamp: Date.now(),
+        filter: selectedFilter
+      };
+
+      // Sauvegarder dans l'historique
+      const updatedDocs = [newDoc, ...scannedDocuments].slice(0, 50);
+      saveDocuments(updatedDocs);
+
+      alert('✅ Document sauvegardé !');
+      
+      // Réinitialiser
+      handleNewScan();
+    } catch (error) {
+      console.error('Erreur sauvegarde:', error);
+      alert('Erreur lors de la sauvegarde');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
   const downloadImage = () => {
     if (!processedImage) return;
 
@@ -282,6 +351,22 @@ export default function ProfessionalScannerPage() {
     setProcessedImage(null);
     setCorners([]);
     setSelectedFilter('magic');
+    setFileName('document');
+  };
+
+  const handleDeleteDocument = (id: string) => {
+    if (confirm('Supprimer ce document ?')) {
+      const updatedDocs = scannedDocuments.filter(doc => doc.id !== id);
+      saveDocuments(updatedDocs);
+    }
+  };
+
+  const handleViewDocument = (doc: ScannedDocument) => {
+    setCroppedImage(doc.imageUrl);
+    setProcessedImage(doc.imageUrl);
+    setFileName(doc.name);
+    setSelectedFilter(doc.filter);
+    setStep('edit');
   };
 
   // ===== RENDU =====
@@ -331,6 +416,16 @@ export default function ProfessionalScannerPage() {
               <Upload className="w-6 h-6" />
               Choisir un fichier
             </button>
+
+            {scannedDocuments.length > 0 && (
+              <button
+                onClick={() => setStep('documents')}
+                className="w-full py-4 bg-green-600/20 hover:bg-green-600/30 text-green-300 rounded-xl font-semibold flex items-center justify-center gap-3 transition-all backdrop-blur-sm border border-green-500/30"
+              >
+                <FileText className="w-6 h-6" />
+                Mes documents ({scannedDocuments.length})
+              </button>
+            )}
           </div>
         </div>
 
@@ -417,13 +512,24 @@ export default function ProfessionalScannerPage() {
               Édition
             </h2>
 
-            <button
-              onClick={downloadImage}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
-            >
-              <Download className="w-4 h-4" />
-              Télécharger
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={saveDocument}
+                disabled={isProcessing}
+                className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+              >
+                <Save className="w-4 h-4" />
+                Sauvegarder
+              </button>
+              
+              <button
+                onClick={downloadImage}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+              >
+                <Download className="w-4 h-4" />
+                Télécharger
+              </button>
+            </div>
           </div>
         </div>
 
@@ -494,6 +600,114 @@ export default function ProfessionalScannerPage() {
               Nouveau scan
             </button>
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Page Mes Documents
+  if (step === 'documents') {
+    return (
+      <div className="min-h-screen bg-gray-950 flex flex-col">
+        {/* Header */}
+        <div className="bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 px-4 py-3">
+          <div className="flex items-center justify-between">
+            <button
+              onClick={() => setStep('intro')}
+              className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-gray-300" />
+            </button>
+
+            <h2 className="text-white font-semibold flex items-center gap-2">
+              <FileText className="w-5 h-5" />
+              Mes documents ({scannedDocuments.length})
+            </h2>
+
+            <div className="w-10" />
+          </div>
+        </div>
+
+        {/* Liste des documents */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {scannedDocuments.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <FileText className="w-20 h-20 text-gray-600 mb-4" />
+              <p className="text-gray-400 text-lg mb-2">Aucun document</p>
+              <p className="text-gray-500 text-sm">
+                Vos scans apparaîtront ici
+              </p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-7xl mx-auto">
+              {scannedDocuments.map((doc) => (
+                <div
+                  key={doc.id}
+                  className="bg-gray-900 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-all border border-gray-800 hover:border-blue-600"
+                >
+                  {/* Aperçu */}
+                  <div className="relative aspect-[3/4] bg-gray-800">
+                    <img
+                      src={doc.imageUrl}
+                      alt={doc.name}
+                      className="w-full h-full object-cover"
+                    />
+                    <div className="absolute top-2 right-2">
+                      <span className="px-2 py-1 bg-black/70 backdrop-blur-sm text-white text-xs rounded-full">
+                        {doc.filter === 'magic' ? '✨ Auto' : 
+                         doc.filter === 'bw' ? '⚫ N&B' :
+                         doc.filter === 'grayscale' ? '🌫️ Gris' : '🌈 Couleur'}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-4">
+                    <h3 className="text-white font-medium mb-1 truncate">
+                      {doc.name}
+                    </h3>
+                    <p className="text-gray-400 text-sm mb-3">
+                      {new Date(doc.timestamp).toLocaleDateString('fr-FR', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </p>
+
+                    {/* Actions */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleViewDocument(doc)}
+                        className="flex-1 px-3 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Eye className="w-4 h-4" />
+                        Voir
+                      </button>
+                      <button
+                        onClick={() => handleDeleteDocument(doc.id)}
+                        className="px-3 py-2 bg-red-600/20 hover:bg-red-600/30 text-red-400 rounded-lg text-sm font-medium transition-colors"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Footer avec bouton nouveau scan */}
+        <div className="bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 px-4 py-4">
+          <button
+            onClick={() => setStep('intro')}
+            className="w-full px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center justify-center gap-2"
+          >
+            <Camera className="w-5 h-5" />
+            Nouveau scan
+          </button>
         </div>
       </div>
     );

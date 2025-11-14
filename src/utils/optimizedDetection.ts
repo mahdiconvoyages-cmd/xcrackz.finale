@@ -66,15 +66,21 @@ export async function detectDocumentCorners(imageDataUrl: string): Promise<Corne
       // Conversion en niveaux de gris
       cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
+      // Amélioration du contraste avec CLAHE
+      const clahe = cv.createCLAHE(2.0, new cv.Size(8, 8));
+      clahe.apply(gray, gray);
+      clahe.delete();
+
       // Flou gaussien pour réduire le bruit
       cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
 
-      // Détection de contours Canny avec seuils optimisés
-      cv.Canny(blurred, edges, 50, 150);
+      // Détection de contours Canny avec seuils optimisés (plus sensible)
+      cv.Canny(blurred, edges, 30, 120);
 
       // Dilatation pour connecter les contours brisés
-      const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3, 3));
+      const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(5, 5));
       cv.dilate(edges, edges, kernel);
+      cv.erode(edges, edges, kernel); // Fermeture morphologique
       kernel.delete();
 
       // Trouver les contours
@@ -97,12 +103,27 @@ export async function detectDocumentCorners(imageDataUrl: string): Promise<Corne
         if (area > maxArea) {
           const peri = cv.arcLength(contour, true);
           const approx = new cv.Mat();
-          cv.approxPolyDP(contour, approx, 0.02 * peri, true);
+          
+          // Approximation plus flexible pour détecter les documents légèrement déformés
+          cv.approxPolyDP(contour, approx, 0.015 * peri, true);
 
-          // Recherche d'un quadrilatère
+          // Recherche d'un quadrilatère (4 côtés) ou polygone proche
           if (approx.rows === 4) {
             maxArea = area;
+            if (bestContour) bestContour.delete();
             bestContour = approx;
+          } else if (approx.rows > 4 && approx.rows <= 8) {
+            // Réessayer avec approximation plus stricte pour simplifier
+            const approx2 = new cv.Mat();
+            cv.approxPolyDP(contour, approx2, 0.03 * peri, true);
+            if (approx2.rows === 4) {
+              maxArea = area;
+              if (bestContour) bestContour.delete();
+              bestContour = approx2;
+            } else {
+              approx2.delete();
+            }
+            approx.delete();
           } else {
             approx.delete();
           }
