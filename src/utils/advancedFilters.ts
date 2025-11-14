@@ -95,16 +95,16 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
     let newGray = clamp((gray - min) * normalizeFactor);
 
     // Boost contraste pour séparer texte/fond
-    const contrast = 1.3;
+    const contrast = 1.4;
     newGray = clamp((newGray - 128) * contrast + 128);
 
-    // Blanchir le fond (pixels clairs)
-    if (newGray > 160) {
-      newGray = clamp(newGray + (255 - newGray) * 0.6); // Éclaircir vers blanc
+    // Blanchir FORTEMENT le fond (seuil abaissé)
+    if (newGray > 140) {
+      newGray = clamp(newGray + (255 - newGray) * 0.85); // Blanchiment fort
     }
-    // Noircir le texte (pixels sombres)
-    else if (newGray < 100) {
-      newGray = clamp(newGray * 0.7); // Assombrir vers noir
+    // Noircir fortement le texte (pixels sombres)
+    else if (newGray < 110) {
+      newGray = clamp(newGray * 0.6); // Noircir plus
     }
 
     tempData[i] = newGray;
@@ -164,15 +164,15 @@ function applyEnhancedGrayscale(imageData: ImageData) {
     let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
     
     // Boost de contraste pour séparer texte/fond
-    gray = clamp((gray - 128) * 1.3 + 128);
+    gray = clamp((gray - 128) * 1.4 + 128);
 
-    // Blanchir le fond
-    if (gray > 160) {
-      gray = clamp(gray + (255 - gray) * 0.6);
+    // Blanchir FORTEMENT le fond
+    if (gray > 140) {
+      gray = clamp(gray + (255 - gray) * 0.85);
     }
-    // Noircir le texte
-    else if (gray < 100) {
-      gray = clamp(gray * 0.7);
+    // Noircir fortement le texte
+    else if (gray < 110) {
+      gray = clamp(gray * 0.6);
     }
     
     tempData[i] = gray;
@@ -211,15 +211,15 @@ function applyVividColorEnhancement(imageData: ImageData) {
     let newB = clamp(gray + (b - gray) * saturationBoost);
 
     // Contraste pour séparer texte/fond
-    const contrastFactor = 1.25;
+    const contrastFactor = 1.3;
     newR = clamp((newR - 128) * contrastFactor + 128);
     newG = clamp((newG - 128) * contrastFactor + 128);
     newB = clamp((newB - 128) * contrastFactor + 128);
 
-    // Blanchir les zones claires
+    // Blanchir FORTEMENT les zones claires
     const luminosity = newR * 0.299 + newG * 0.587 + newB * 0.114;
-    if (luminosity > 180) {
-      const whitenFactor = 0.5;
+    if (luminosity > 150) {
+      const whitenFactor = 0.8;
       newR = clamp(newR + (255 - newR) * whitenFactor);
       newG = clamp(newG + (255 - newG) * whitenFactor);
       newB = clamp(newB + (255 - newB) * whitenFactor);
