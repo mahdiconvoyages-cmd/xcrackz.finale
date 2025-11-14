@@ -548,11 +548,11 @@ export default function DocumentScannerPage() {
     // Dessiner l'image en taille réelle du canvas
     ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
     
-    // Masque très léger (presque transparent)
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+    // Masque noir plus prononcé pour mieux voir la zone sélectionnée
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     
-    // Zone sélectionnée (clear overlay complètement)
+    // Zone sélectionnée (clear overlay complètement) - on voit l'image originale
     ctx.save();
     ctx.globalCompositeOperation = 'destination-out';
     ctx.beginPath();
@@ -564,10 +564,43 @@ export default function DocumentScannerPage() {
     ctx.fill();
     ctx.restore();
     
-    // Bordures du document (plus épaisses et plus visibles)
+    // Lignes de grille dans la zone sélectionnée pour guider
+    ctx.save();
+    ctx.strokeStyle = 'rgba(20, 184, 166, 0.3)';
+    ctx.lineWidth = 1;
+    ctx.setLineDash([5, 5]);
+    
+    // Grille 3x3 (règle des tiers)
+    const minX = Math.min(corners[0].x, corners[1].x, corners[2].x, corners[3].x) * scaleX;
+    const maxX = Math.max(corners[0].x, corners[1].x, corners[2].x, corners[3].x) * scaleX;
+    const minY = Math.min(corners[0].y, corners[1].y, corners[2].y, corners[3].y) * scaleY;
+    const maxY = Math.max(corners[0].y, corners[1].y, corners[2].y, corners[3].y) * scaleY;
+    const widthZone = maxX - minX;
+    const heightZone = maxY - minY;
+    
+    // Lignes verticales
+    ctx.beginPath();
+    ctx.moveTo(minX + widthZone / 3, minY);
+    ctx.lineTo(minX + widthZone / 3, maxY);
+    ctx.moveTo(minX + (2 * widthZone) / 3, minY);
+    ctx.lineTo(minX + (2 * widthZone) / 3, maxY);
+    ctx.stroke();
+    
+    // Lignes horizontales
+    ctx.beginPath();
+    ctx.moveTo(minX, minY + heightZone / 3);
+    ctx.lineTo(maxX, minY + heightZone / 3);
+    ctx.moveTo(minX, minY + (2 * heightZone) / 3);
+    ctx.lineTo(maxX, minY + (2 * heightZone) / 3);
+    ctx.stroke();
+    ctx.restore();
+    
+    // Bordures du document (épaisses et brillantes)
     ctx.strokeStyle = '#14b8a6';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = 5;
     ctx.setLineDash([]);
+    ctx.shadowColor = '#14b8a6';
+    ctx.shadowBlur = 10;
     ctx.beginPath();
     ctx.moveTo(corners[0].x * scaleX, corners[0].y * scaleY);
     for (let i = 1; i < corners.length; i++) {
@@ -575,6 +608,7 @@ export default function DocumentScannerPage() {
     }
     ctx.closePath();
     ctx.stroke();
+    ctx.shadowBlur = 0;
   };
 
   return (
@@ -847,17 +881,21 @@ export default function DocumentScannerPage() {
                   const displayX = corner.x * scaleX;
                   const displayY = corner.y * scaleY;
                   
+                  // Étiquettes pour chaque coin
+                  const labels = ['Haut gauche', 'Haut droit', 'Bas droit', 'Bas gauche'];
+                  const isActive = draggingCorner === index;
+                  
                   return (
                     <div
                       key={index}
-                      className="absolute pointer-events-auto cursor-grab active:cursor-grabbing"
+                      className="absolute pointer-events-auto cursor-grab active:cursor-grabbing transition-transform"
                       style={{
-                        left: `${displayX - 30}px`,
-                        top: `${displayY - 30}px`,
-                        width: '60px',
-                        height: '60px',
-                        transform: 'translate(0, 0)',
-                        zIndex: 100,
+                        left: `${displayX - 35}px`,
+                        top: `${displayY - 35}px`,
+                        width: '70px',
+                        height: '70px',
+                        transform: isActive ? 'scale(1.3)' : 'scale(1)',
+                        zIndex: isActive ? 200 : 100,
                       }}
                       onMouseDown={(e) => {
                         setDraggingCorner(index);
@@ -870,25 +908,52 @@ export default function DocumentScannerPage() {
                         e.stopPropagation();
                       }}
                     >
-                      <div className="w-full h-full rounded-full bg-teal-500 border-4 border-white shadow-lg flex items-center justify-center">
-                        <span className="text-white font-bold text-lg">{index + 1}</span>
+                      {/* Cercle du coin avec animation */}
+                      <div className={`w-full h-full rounded-full border-4 border-white shadow-2xl flex items-center justify-center transition-all ${
+                        isActive ? 'bg-teal-400 scale-110' : 'bg-teal-500'
+                      }`}>
+                        <span className="text-white font-bold text-xl">{index + 1}</span>
                       </div>
+                      
+                      {/* Label descriptif (affiché seulement si actif) */}
+                      {isActive && (
+                        <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-teal-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
+                          {labels[index]}
+                        </div>
+                      )}
                     </div>
                   );
                 });
               })()}
               
-              {/* Instructions overlay */}
+              {/* Instructions overlay améliorées */}
               <div className="absolute top-4 left-4 right-4 pointer-events-none z-10">
-                <div className="bg-black/70 backdrop-blur-sm text-white px-4 py-2 rounded-lg inline-block">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-teal-400" />
-                    <span className="text-sm font-medium">
-                      {openCVReady ? 'Coins détectés automatiquement' : 'Ajustez les 4 coins du document'}
-                    </span>
+                <div className="bg-gradient-to-r from-teal-600 to-teal-500 text-white px-5 py-3 rounded-xl shadow-2xl inline-block border-2 border-white/30">
+                  <div className="flex items-center gap-3">
+                    <Move className="w-5 h-5 animate-pulse" />
+                    <div>
+                      <p className="text-sm font-bold">Ajustez les 4 coins du document</p>
+                      <p className="text-xs opacity-90">Glissez les numéros pour cadrer parfaitement</p>
+                    </div>
                   </div>
                 </div>
               </div>
+              
+              {/* Indicateur du coin en cours de déplacement */}
+              {draggingCorner !== null && (
+                <div className="absolute bottom-24 left-1/2 -translate-x-1/2 pointer-events-none z-10">
+                  <div className="bg-black/80 backdrop-blur-sm text-white px-6 py-3 rounded-full shadow-2xl border-2 border-teal-400">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-full bg-teal-500 flex items-center justify-center font-bold">
+                        {draggingCorner + 1}
+                      </div>
+                      <span className="font-semibold">
+                        {['Coin supérieur gauche', 'Coin supérieur droit', 'Coin inférieur droit', 'Coin inférieur gauche'][draggingCorner]}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Actions fixées en bas */}
