@@ -17,6 +17,8 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
   const [isCapturing, setIsCapturing] = useState(false);
   const stableDetectionCount = useRef(0);
   const captureTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastDetectedCorners = useRef<any>(null);
+  const cornerHistoryRef = useRef<any[]>([]);
 
   const stopCamera = useCallback(() => {
     if (captureTimeout.current) {
@@ -90,26 +92,50 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
     const corners = detectDocumentCorners(tempCanvas);
 
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (corners) {
+    
+    // Lissage des coins pour éviter les tremblements
+    let smoothedCorners = corners;
+    if (corners && lastDetectedCorners.current) {
+      // Moyenne mobile sur les coins pour stabilité
+      cornerHistoryRef.current.push(corners);
+      if (cornerHistoryRef.current.length > 3) {
+        cornerHistoryRef.current.shift();
+      }
+      
+      // Calculer la moyenne des positions
+      if (cornerHistoryRef.current.length >= 2) {
+        smoothedCorners = corners.map((_corner: any, idx: number) => {
+          const avgX = cornerHistoryRef.current.reduce((sum, hist) => sum + hist[idx].x, 0) / cornerHistoryRef.current.length;
+          const avgY = cornerHistoryRef.current.reduce((sum, hist) => sum + hist[idx].y, 0) / cornerHistoryRef.current.length;
+          return { x: avgX, y: avgY };
+        });
+      }
+    } else {
+      cornerHistoryRef.current = [];
+    }
+    
+    lastDetectedCorners.current = corners;
+    
+    if (smoothedCorners) {
       setStatus('Document détecté ! Maintenez stable.');
       ctx.strokeStyle = '#10b981';
       ctx.lineWidth = 4;
       ctx.beginPath();
-      ctx.moveTo(corners[0].x, corners[0].y);
-      for (let i = 1; i < corners.length; i++) {
-        ctx.lineTo(corners[i].x, corners[i].y);
+      ctx.moveTo(smoothedCorners[0].x, smoothedCorners[0].y);
+      for (let i = 1; i < smoothedCorners.length; i++) {
+        ctx.lineTo(smoothedCorners[i].x, smoothedCorners[i].y);
       }
       ctx.closePath();
       ctx.stroke();
 
       // Logique de capture automatique
       stableDetectionCount.current++;
-      if (stableDetectionCount.current > 5) { // 5 frames stables
+      if (stableDetectionCount.current > 8) { // 8 frames stables (plus stable)
         if (!captureTimeout.current && !isCapturing) {
-          setStatus('Capture automatique...');
+          setStatus('Capture automatique dans 1s...');
           captureTimeout.current = setTimeout(() => {
             handleCapture();
-          }, 300); // Délai de 300ms pour la stabilité
+          }, 1000); // Délai de 1s pour la stabilité
         }
       }
     } else {
@@ -145,7 +171,7 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
           await videoRef.current.play();
           setIsCameraReady(true);
           streamRef.current = stream;
-          detectionInterval = setInterval(performDetection, 100); // Détection plus rapide
+          detectionInterval = setInterval(performDetection, 200); // Détection toutes les 200ms
         }
       } catch (err) {
         console.error('Erreur caméra:', err);

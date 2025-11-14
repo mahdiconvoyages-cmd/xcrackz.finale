@@ -62,10 +62,10 @@ export const detectDocumentCorners = (sourceElement: HTMLVideoElement | HTMLCanv
   cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
   const blurred = new cv.Mat();
-  cv.GaussianBlur(gray, blurred, new cv.Size(5, 5), 0);
+  cv.GaussianBlur(gray, blurred, new cv.Size(9, 9), 0);
 
   const edged = new cv.Mat();
-  cv.Canny(blurred, edged, 75, 200);
+  cv.Canny(blurred, edged, 50, 150);
 
   const contours = new cv.MatVector();
   const hierarchy = new cv.Mat();
@@ -79,9 +79,9 @@ export const detectDocumentCorners = (sourceElement: HTMLVideoElement | HTMLCanv
     const area = cv.contourArea(contour, false);
     const peri = cv.arcLength(contour, true);
     const approx = new cv.Mat();
-    cv.approxPolyDP(contour, approx, 0.02 * peri, true);
+    cv.approxPolyDP(contour, approx, 0.03 * peri, true);
 
-    if (approx.rows === 4 && area > maxArea && area > 1000) {
+    if (approx.rows === 4 && area > maxArea && area > 500) {
       maxArea = area;
       biggestContour = approx.clone();
     }
