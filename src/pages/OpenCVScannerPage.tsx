@@ -31,26 +31,41 @@ export default function OpenCVScannerPage() {
   }, []);
 
   const loadOpenCV = () => {
-    if (window.cv) {
+    if (window.cv && window.cv.Mat) {
+      console.log('OpenCV déjà chargé');
       setIsOpenCVReady(true);
       return;
     }
 
+    console.log('Chargement d\'OpenCV...');
     const script = document.createElement('script');
     script.src = 'https://docs.opencv.org/4.8.0/opencv.js';
     script.async = true;
+    
     script.onload = () => {
-      if (window.cv) {
-        window.cv.onRuntimeInitialized = () => {
-          console.log('OpenCV chargé avec succès');
+      console.log('Script OpenCV chargé');
+      const checkOpenCV = setInterval(() => {
+        if (window.cv && window.cv.Mat) {
+          clearInterval(checkOpenCV);
+          console.log('OpenCV prêt!');
           setIsOpenCVReady(true);
-        };
-      }
+        }
+      }, 100);
+      
+      setTimeout(() => {
+        clearInterval(checkOpenCV);
+        if (!window.cv || !window.cv.Mat) {
+          console.error('Timeout OpenCV');
+          alert('Erreur de chargement de la bibliothèque de détection');
+        }
+      }, 30000);
     };
+    
     script.onerror = () => {
       console.error('Erreur de chargement OpenCV');
       alert('Erreur de chargement de la bibliothèque de détection');
     };
+    
     document.body.appendChild(script);
   };
 
@@ -99,21 +114,36 @@ export default function OpenCVScannerPage() {
   };
 
   const detectDocument = () => {
-    if (!videoRef.current || !overlayCanvasRef.current || !window.cv) return;
+    if (!videoRef.current || !overlayCanvasRef.current || !window.cv) {
+      console.log('Détection skip: video/canvas/cv manquant');
+      return;
+    }
 
     const video = videoRef.current;
     const canvas = overlayCanvasRef.current;
     
-    if (video.readyState !== video.HAVE_ENOUGH_DATA) return;
+    if (video.readyState !== video.HAVE_ENOUGH_DATA) {
+      console.log('Vidéo pas prête');
+      return;
+    }
 
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
 
-    try {
-      const src = new window.cv.Mat(video.videoHeight, video.videoWidth, window.cv.CV_8UC4);
-      const cap = new window.cv.VideoCapture(video);
-      cap.read(src);
+    if (canvas.width === 0 || canvas.height === 0) return;
 
+    try {
+      // Créer un canvas temporaire pour capturer la frame
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = video.videoWidth;
+      tempCanvas.height = video.videoHeight;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (!tempCtx) return;
+      
+      tempCtx.drawImage(video, 0, 0);
+      const imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+      
+      const src = window.cv.matFromImageData(imageData);
       const gray = new window.cv.Mat();
       const blur = new window.cv.Mat();
       const edges = new window.cv.Mat();
@@ -144,6 +174,7 @@ export default function OpenCVScannerPage() {
 
         if (approx.rows === 4 && area > maxArea && area > 10000) {
           maxArea = area;
+          if (bestContour) bestContour.delete();
           bestContour = approx;
         } else {
           approx.delete();
@@ -160,14 +191,23 @@ export default function OpenCVScannerPage() {
           ctx.beginPath();
 
           for (let i = 0; i < 4; i++) {
-            const point = bestContour.data32S;
-            const x = point[i * 2];
-            const y = point[i * 2 + 1];
+            const x = bestContour.data32S[i * 2];
+            const y = bestContour.data32S[i * 2 + 1];
             if (i === 0) ctx.moveTo(x, y);
             else ctx.lineTo(x, y);
           }
           ctx.closePath();
           ctx.stroke();
+
+          // Dessiner les coins
+          ctx.fillStyle = '#10b981';
+          for (let i = 0; i < 4; i++) {
+            const x = bestContour.data32S[i * 2];
+            const y = bestContour.data32S[i * 2 + 1];
+            ctx.beginPath();
+            ctx.arc(x, y, 8, 0, 2 * Math.PI);
+            ctx.fill();
+          }
 
           bestContour.delete();
         }
