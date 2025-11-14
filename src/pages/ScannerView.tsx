@@ -1,6 +1,11 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { X, Camera, Zap, ZapOff } from 'lucide-react';
-import { loadOpenCV, detectDocumentCorners, cropAndCorrectPerspective } from '../utils/opencv';
+import { 
+  initializeTensorFlow, 
+  detectDocument, 
+  correctPerspective,
+  cleanup 
+} from '../utils/tensorflowScanner';
 
 interface ScannerViewProps {
   onScanComplete: (imageUri: string) => void;
@@ -20,7 +25,8 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
   const lastDetectedCorners = useRef<any>(null);
   const cornerHistoryRef = useRef<any[]>([]);
   const isDetectingRef = useRef(false);
-  const [isOpenCvReady, setIsOpenCvReady] = useState(false);
+  const [isTensorFlowReady, setIsTensorFlowReady] = useState(false);
+  const [detectionConfidence, setDetectionConfidence] = useState(0);
 
   const stopCamera = useCallback(() => {
     if (captureTimeout.current) {
@@ -52,10 +58,10 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
       if (!ctx) throw new Error('Canvas context is null');
       ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
 
-      const corners = detectDocumentCorners(tempCanvas);
+      const result = await detectDocument(tempCanvas);
 
-      if (corners) {
-        const croppedUri = cropAndCorrectPerspective(tempCanvas, corners);
+      if (result.corners && result.confidence > 0.3) {
+        const croppedUri = await correctPerspective(tempCanvas, result.corners);
         onScanComplete(croppedUri);
       } else {
         const imageUri = tempCanvas.toDataURL('image/jpeg', 0.9);
@@ -70,8 +76,8 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
     }
   }, [isCapturing, onScanComplete, stopCamera]);
 
-  const performDetection = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || videoRef.current.paused || videoRef.current.ended || isCapturing || !isOpenCvReady) {
+  const performDetection = useCallback(async () => {
+    if (!videoRef.current || !canvasRef.current || videoRef.current.paused || videoRef.current.ended || isCapturing || !isTensorFlowReady) {
       return;
     }
 
@@ -79,105 +85,100 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
     if (isDetectingRef.current) return;
     isDetectingRef.current = true;
 
-    // Utiliser requestIdleCallback pour ne pas bloquer l'UI
-    const detectTask = () => {
-      try {
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        if (!video || !canvas) return;
-        
-        const ctx = canvas.getContext('2d');
-        if (!ctx) return;
+    try {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      if (!video || !canvas) return;
+      
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
 
-        // Créer un canvas temporaire pour la détection
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = video.videoWidth;
-        tempCanvas.height = video.videoHeight;
-        const tempCtx = tempCanvas.getContext('2d');
-        if (!tempCtx) return;
-        tempCtx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+      // Créer un canvas temporaire pour la détection
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = video.videoWidth;
+      tempCanvas.height = video.videoHeight;
+      const tempCtx = tempCanvas.getContext('2d');
+      if (!tempCtx) return;
+      tempCtx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
 
-        const corners = detectDocumentCorners(tempCanvas);
+      const result = await detectDocument(tempCanvas);
+      const corners = result.corners;
+      setDetectionConfidence(result.confidence);
 
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Lissage des coins pour éviter les tremblements
-        let smoothedCorners = corners;
-        if (corners && lastDetectedCorners.current) {
-          cornerHistoryRef.current.push(corners);
-          if (cornerHistoryRef.current.length > 3) {
-            cornerHistoryRef.current.shift();
-          }
-          
-          if (cornerHistoryRef.current.length >= 2) {
-            smoothedCorners = corners.map((_corner: any, idx: number) => {
-              const avgX = cornerHistoryRef.current.reduce((sum, hist) => sum + hist[idx].x, 0) / cornerHistoryRef.current.length;
-              const avgY = cornerHistoryRef.current.reduce((sum, hist) => sum + hist[idx].y, 0) / cornerHistoryRef.current.length;
-              return { x: avgX, y: avgY };
-            });
-          }
-        } else {
-          cornerHistoryRef.current = [];
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Lissage des coins pour éviter les tremblements
+      let smoothedCorners = corners;
+      if (corners && lastDetectedCorners.current) {
+        cornerHistoryRef.current.push(corners);
+        if (cornerHistoryRef.current.length > 3) {
+          cornerHistoryRef.current.shift();
         }
         
-        lastDetectedCorners.current = corners;
-        
-        if (smoothedCorners) {
-          setStatus('Document détecté ! Maintenez stable.');
-          ctx.strokeStyle = '#10b981';
-          ctx.lineWidth = 4;
-          ctx.beginPath();
-          ctx.moveTo(smoothedCorners[0].x, smoothedCorners[0].y);
-          for (let i = 1; i < smoothedCorners.length; i++) {
-            ctx.lineTo(smoothedCorners[i].x, smoothedCorners[i].y);
-          }
-          ctx.closePath();
-          ctx.stroke();
-
-          stableDetectionCount.current++;
-          if (stableDetectionCount.current > 8) {
-            if (!captureTimeout.current && !isCapturing) {
-              setStatus('Capture automatique dans 1s...');
-              captureTimeout.current = setTimeout(() => {
-                handleCapture();
-              }, 1000);
-            }
-          }
-        } else {
-          setStatus('Recherche de document...');
-          stableDetectionCount.current = 0;
-          if (captureTimeout.current) {
-            clearTimeout(captureTimeout.current);
-            captureTimeout.current = null;
-          }
+        if (cornerHistoryRef.current.length >= 2) {
+          smoothedCorners = corners.map((_corner: any, idx: number) => {
+            const avgX = cornerHistoryRef.current.reduce((sum, hist) => sum + hist[idx].x, 0) / cornerHistoryRef.current.length;
+            const avgY = cornerHistoryRef.current.reduce((sum, hist) => sum + hist[idx].y, 0) / cornerHistoryRef.current.length;
+            return { x: avgX, y: avgY };
+          });
         }
-      } catch (error) {
-        console.error('Erreur détection:', error);
-      } finally {
-        isDetectingRef.current = false;
+      } else {
+        cornerHistoryRef.current = [];
       }
-    };
+      
+      lastDetectedCorners.current = corners;
+      
+      if (smoothedCorners) {
+        const confidenceText = `Confiance: ${Math.round(result.confidence * 100)}%`;
+        setStatus(`Document détecté ! ${confidenceText}`);
+        ctx.strokeStyle = result.confidence > 0.6 ? '#10b981' : '#f59e0b';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(smoothedCorners[0].x, smoothedCorners[0].y);
+        for (let i = 1; i < smoothedCorners.length; i++) {
+          ctx.lineTo(smoothedCorners[i].x, smoothedCorners[i].y);
+        }
+        ctx.closePath();
+        ctx.stroke();
 
-    // Utiliser requestIdleCallback si disponible, sinon setTimeout
-    if ('requestIdleCallback' in window) {
-      requestIdleCallback(detectTask, { timeout: 50 });
-    } else {
-      setTimeout(detectTask, 0);
+        stableDetectionCount.current++;
+        if (stableDetectionCount.current > 8 && result.confidence > 0.5) {
+          if (!captureTimeout.current && !isCapturing) {
+            setStatus('Capture automatique dans 1s...');
+            captureTimeout.current = setTimeout(() => {
+              handleCapture();
+            }, 1000);
+          }
+        }
+      } else {
+        setStatus('Recherche de document (GPU)...');
+        stableDetectionCount.current = 0;
+        if (captureTimeout.current) {
+          clearTimeout(captureTimeout.current);
+          captureTimeout.current = null;
+        }
+      }
+    } catch (error) {
+      console.error('Erreur détection:', error);
+    } finally {
+      isDetectingRef.current = false;
     }
-  }, [handleCapture, isCapturing, isOpenCvReady]);
+  }, [handleCapture, isCapturing, isTensorFlowReady]);
 
   useEffect(() => {
     let detectionInterval: ReturnType<typeof setInterval>;
 
     const startCamera = async () => {
       try {
-        setStatus('Chargement d\'OpenCV.js...');
-        await loadOpenCV();
-        setIsOpenCvReady(true);
-        setStatus('Initialisation de la caméra...');
+        setStatus('Initialisation TensorFlow.js (GPU)...');
+        await initializeTensorFlow();
+        setIsTensorFlowReady(true);
+        setStatus('Détection GPU activée !');
+        
+        await new Promise(resolve => setTimeout(resolve, 500));
 
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
@@ -208,6 +209,7 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
     return () => {
       clearInterval(detectionInterval);
       stopCamera();
+      cleanup(); // Nettoyer la mémoire GPU
     };
   }, [onCancel, stopCamera, performDetection]);
 
