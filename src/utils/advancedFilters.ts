@@ -66,7 +66,7 @@ export async function applyAdvancedFilter(
 
 /**
  * 🪄 FILTRE MAGIC - Amélioration automatique RAPIDE
- * - Blanchit le fond
+ * - Blanchit le fond FORTEMENT
  * - Noircit le texte
  * - Look document scanné
  */
@@ -82,7 +82,7 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
   
   const tempData = new Uint8ClampedArray(data);
 
-  // Appliquer auto-contraste + blanchiment du fond
+  // Appliquer auto-contraste + blanchiment ULTRA du fond
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
@@ -94,17 +94,25 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
     // Auto-contraste
     let newGray = clamp((gray - min) * normalizeFactor);
 
-    // Boost contraste pour séparer texte/fond
-    const contrast = 1.4;
+    // Boost contraste FORT pour séparer texte/fond
+    const contrast = 1.5;
     newGray = clamp((newGray - 128) * contrast + 128);
 
-    // Blanchir FORTEMENT le fond (seuil abaissé)
-    if (newGray > 140) {
-      newGray = clamp(newGray + (255 - newGray) * 0.85); // Blanchiment fort
+    // Blanchir ULTRA-FORTEMENT le fond (seuil très bas)
+    if (newGray > 130) {
+      newGray = clamp(newGray + (255 - newGray) * 0.95); // Blanchiment quasi-total
     }
     // Noircir fortement le texte (pixels sombres)
-    else if (newGray < 110) {
-      newGray = clamp(newGray * 0.6); // Noircir plus
+    else if (newGray < 115) {
+      newGray = clamp(newGray * 0.55); // Noircir beaucoup plus
+    }
+    // Zone intermédiaire: pousser vers blanc ou noir
+    else {
+      if (newGray > 145) {
+        newGray = clamp(newGray + (255 - newGray) * 0.9);
+      } else {
+        newGray = clamp(newGray * 0.65);
+      }
     }
 
     tempData[i] = newGray;
@@ -112,32 +120,38 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
     tempData[i + 2] = newGray;
   }
 
-  // Netteté pour texte net
-  applyUnsharpMask(tempData, data, width, height, 2.0, 1.0);
+  // Netteté FORTE pour texte ultra-net
+  applyUnsharpMask(tempData, data, width, height, 3.0, 1.0);
 }
 
 /**
- * ⚫⚪ FILTRE N&B ADAPTATIF RAPIDE
- * - Binarisation simple et efficace
- * - Seuil automatique Otsu
+ * ⚫⚪ FILTRE N&B OPTIMISÉ
+ * - Binarisation améliorée sans taches
+ * - Seuil ajusté pour lisibilité
+ * - Pré-traitement pour réduire le bruit
  */
 function applyAdaptiveBlackAndWhite(imageData: ImageData) {
   const data = imageData.data;
   const width = imageData.width;
   const height = imageData.height;
 
-  // Convertir en niveaux de gris
+  // Convertir en niveaux de gris avec léger lissage
   const grayscale = new Uint8Array(width * height);
   for (let i = 0; i < data.length; i += 4) {
     const idx = i / 4;
-    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    // Appliquer auto-contraste avant binarisation
+    gray = clamp((gray - 20) * 1.2);
     grayscale[idx] = gray;
   }
 
   // Calculer le seuil optimal avec Otsu
-  const threshold = calculateOtsuThreshold(grayscale);
+  let threshold = calculateOtsuThreshold(grayscale);
+  
+  // Ajuster le seuil pour éviter les taches noires (biais vers blanc)
+  threshold = threshold * 0.85; // Réduire le seuil pour plus de blanc
 
-  // Appliquer la binarisation
+  // Appliquer la binarisation avec seuil ajusté
   for (let i = 0; i < grayscale.length; i++) {
     const value = grayscale[i] > threshold ? 255 : 0;
     data[i * 4] = value;
@@ -180,8 +194,8 @@ function applyEnhancedGrayscale(imageData: ImageData) {
     tempData[i + 2] = gray;
   }
 
-  // Netteté modérée
-  applyUnsharpMask(tempData, data, width, height, 1.8, 1.0);
+  // Netteté FORTE
+  applyUnsharpMask(tempData, data, width, height, 2.5, 1.0);
 }
 
 /**
@@ -230,8 +244,8 @@ function applyVividColorEnhancement(imageData: ImageData) {
     tempData[i + 2] = newB;
   }
 
-  // Netteté modérée
-  applyUnsharpMask(tempData, data, width, height, 1.5, 1.0);
+  // Netteté FORTE
+  applyUnsharpMask(tempData, data, width, height, 2.5, 1.0);
 }
 
 // ===== FONCTIONS UTILITAIRES =====
