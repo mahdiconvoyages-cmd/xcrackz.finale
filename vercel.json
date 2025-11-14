@@ -4,6 +4,13 @@
   "outputDirectory": "dist",
   "devCommand": "npm run dev",
   "installCommand": "npm install",
+  "redirects": [
+    {
+      "source": "https://xcrackz.com/:path*",
+      "destination": "https://www.xcrackz.com/:path*",
+      "permanent": true
+    }
+  ],
   "rewrites": [
     {
       "source": "/(.*)",
