@@ -179,7 +179,14 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
         setStatus('Détection GPU activée !');
         
         await new Promise(resolve => setTimeout(resolve, 500));
+        
+        setStatus('Demande d\'accès caméra...');
 
+        // Vérifier d'abord si l'API est disponible
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          throw new Error('API caméra non supportée par ce navigateur');
+        }
+        
         const stream = await navigator.mediaDevices.getUserMedia({
           video: {
             facingMode: 'environment',
@@ -193,13 +200,49 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
           videoRef.current.srcObject = stream;
           await videoRef.current.play();
           setIsCameraReady(true);
+          setStatus('Caméra prête ! Positionnez le document.');
           streamRef.current = stream;
-          detectionInterval = setInterval(performDetection, 200); // Détection toutes les 200ms
+          detectionInterval = setInterval(performDetection, 150); // 150ms pour plus de réactivité
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error('Erreur caméra:', err);
-        setStatus('Erreur caméra. Vérifiez les permissions.');
-        alert('Impossible d\'accéder à la caméra. Veuillez autoriser l\'accès dans les paramètres de votre navigateur.');
+        
+        let errorMessage = 'Erreur caméra inconnue';
+        
+        if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') {
+          errorMessage = 'Permission caméra refusée. Autorisez l\'accès dans les paramètres du navigateur.';
+        } else if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') {
+          errorMessage = 'Aucune caméra trouvée sur cet appareil.';
+        } else if (err.name === 'NotReadableError' || err.name === 'TrackStartError') {
+          errorMessage = 'La caméra est déjà utilisée par une autre application.';
+        } else if (err.name === 'OverconstrainedError') {
+          errorMessage = 'Impossible d\'utiliser la caméra arrière. Tentative avec caméra avant...';
+          
+          // Réessayer avec n'importe quelle caméra
+          try {
+            const fallbackStream = await navigator.mediaDevices.getUserMedia({
+              video: { width: { ideal: 1920 }, height: { ideal: 1080 } },
+              audio: false,
+            });
+            
+            if (videoRef.current) {
+              videoRef.current.srcObject = fallbackStream;
+              await videoRef.current.play();
+              setIsCameraReady(true);
+              setStatus('Caméra prête ! (caméra avant)');
+              streamRef.current = fallbackStream;
+              detectionInterval = setInterval(performDetection, 150);
+              return;
+            }
+          } catch (fallbackErr) {
+            console.error('Fallback camera error:', fallbackErr);
+          }
+        } else if (err.message) {
+          errorMessage = err.message;
+        }
+        
+        setStatus(errorMessage);
+        alert(errorMessage + '\n\nVeuillez vérifier :\n1. Les permissions caméra\n2. Qu\'aucune autre app n\'utilise la caméra\n3. Que vous utilisez HTTPS ou localhost');
         onCancel();
       }
     };

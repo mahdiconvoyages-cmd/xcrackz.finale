@@ -55,10 +55,25 @@ const preprocessImage = (canvas: HTMLCanvasElement): tf.Tensor3D => {
 // Détection des contours avec filtres de Sobel (détection d'edges GPU)
 const detectEdges = (imageTensor: tf.Tensor3D): tf.Tensor2D => {
   return tf.tidy(() => {
-    // Convertir en niveaux de gris
-    const grayscale = imageTensor.mean(2);
+    // Convertir en niveaux de gris avec pondération correcte
+    const r = imageTensor.slice([0, 0, 0], [-1, -1, 1]);
+    const g = imageTensor.slice([0, 0, 1], [-1, -1, 1]);
+    const b = imageTensor.slice([0, 0, 2], [-1, -1, 1]);
+    const grayscale = r.mul(0.299).add(g.mul(0.587)).add(b.mul(0.114)).squeeze();
     
-    // Filtre de Sobel pour détecter les contours (GPU-accéléré)
+    // Appliquer un flou gaussien pour réduire le bruit
+    const blurred = tf.tidy(() => {
+      const gaussianKernel = tf.tensor2d([
+        [1/16, 2/16, 1/16],
+        [2/16, 4/16, 2/16],
+        [1/16, 2/16, 1/16]
+      ]);
+      const kernelReshaped = gaussianKernel.expandDims(2).expandDims(3);
+      const imageReshaped = grayscale.expandDims(0).expandDims(-1);
+      return tf.conv2d(imageReshaped as any, kernelReshaped as any, 1, 'same').squeeze();
+    });
+    
+    // Filtres de Sobel améliorés
     const sobelX = tf.tensor2d([
       [-1, 0, 1],
       [-2, 0, 2],
@@ -71,7 +86,7 @@ const detectEdges = (imageTensor: tf.Tensor3D): tf.Tensor2D => {
     ]);
     
     // Reshape pour la convolution
-    const kernel = grayscale.expandDims(0).expandDims(-1);
+    const kernel = blurred.expandDims(0).expandDims(-1);
     const filterX = sobelX.expandDims(2).expandDims(3);
     const filterY = sobelY.expandDims(2).expandDims(3);
     
@@ -79,12 +94,16 @@ const detectEdges = (imageTensor: tf.Tensor3D): tf.Tensor2D => {
     const edgesX = tf.conv2d(kernel as any, filterX as any, 1, 'same');
     const edgesY = tf.conv2d(kernel as any, filterY as any, 1, 'same');
     
-    // Magnitude du gradient
+    // Magnitude du gradient avec normalisation
     const magnitude = tf.sqrt(
       edgesX.square().add(edgesY.square())
     ).squeeze();
     
-    return magnitude as tf.Tensor2D;
+    // Normaliser entre 0 et 1 pour un meilleur seuillage
+    const maxVal = magnitude.max();
+    const normalized = magnitude.div(maxVal.add(0.0001));
+    
+    return normalized as tf.Tensor2D;
   });
 };
 
@@ -94,8 +113,16 @@ const findDocumentCorners = async (
   originalWidth: number,
   originalHeight: number
 ): Promise<Point[] | null> => {
-  // Appliquer un seuil pour binariser l'image
-  const threshold = edgeTensor.mean().mul(1.5);
+  // Appliquer un seuil adaptatif plus agressif (percentile 75)
+  const flatTensor = edgeTensor.flatten();
+  const sortedValues = await flatTensor.data();
+  const sorted = Array.from(sortedValues).sort((a, b) => a - b);
+  const percentile75 = sorted[Math.floor(sorted.length * 0.75)];
+  const thresholdValue = Math.max(percentile75, 0.3); // Au moins 30%
+  
+  flatTensor.dispose();
+  
+  const threshold = tf.scalar(thresholdValue);
   const binary = edgeTensor.greater(threshold);
   
   // Récupérer les données
@@ -106,20 +133,20 @@ const findDocumentCorners = async (
   // Nettoyer les tensors temporaires
   threshold.dispose();
   binary.dispose();
-    
-    // Trouver les contours en CPU (plus efficace pour cette partie)
-    const edgePoints: Point[] = [];
-    for (let y = 0; y < height; y++) {
-      for (let x = 0; x < width; x++) {
-        if (binaryData[y * width + x]) {
-          edgePoints.push({ x, y });
-        }
+  
+  // Trouver les points forts de contours (échantillonnage pour performance)
+  const edgePoints: Point[] = [];
+  const step = Math.max(1, Math.floor(Math.min(width, height) / 100)); // Échantillonner
+  
+  for (let y = 0; y < height; y += step) {
+    for (let x = 0; x < width; x += step) {
+      if (binaryData[y * width + x]) {
+        edgePoints.push({ x, y });
       }
     }
-    
-    if (edgePoints.length < 4) return null;
-    
-    // Trouver les 4 coins extrêmes (heuristique simple mais efficace)
+  }
+  
+  if (edgePoints.length < 100) return null; // Besoin de plus de points    // Trouver les 4 coins extrêmes (heuristique simple mais efficace)
     let topLeft = edgePoints[0];
     let topRight = edgePoints[0];
     let bottomLeft = edgePoints[0];
@@ -144,27 +171,47 @@ const findDocumentCorners = async (
       }
     }
     
-    // Convertir les coordonnées à la taille originale
-    const scaleX = originalWidth / width;
-    const scaleY = originalHeight / height;
-    
-    const corners = [
-      { x: topLeft.x * scaleX, y: topLeft.y * scaleY },
-      { x: topRight.x * scaleX, y: topRight.y * scaleY },
-      { x: bottomRight.x * scaleX, y: bottomRight.y * scaleY },
-      { x: bottomLeft.x * scaleX, y: bottomLeft.y * scaleY }
-    ];
-    
-    // Vérifier que le contour est valide (aire minimale)
-    const area = calculatePolygonArea(corners);
-    const minArea = (originalWidth * originalHeight) * 0.05; // Au moins 5% de l'image
-    
-    if (area < minArea) return null;
-    
-    return corners;
+  // Convertir les coordonnées à la taille originale
+  const scaleX = originalWidth / width;
+  const scaleY = originalHeight / height;
+  
+  const corners = [
+    { x: topLeft.x * scaleX, y: topLeft.y * scaleY },
+    { x: topRight.x * scaleX, y: topRight.y * scaleY },
+    { x: bottomRight.x * scaleX, y: bottomRight.y * scaleY },
+    { x: bottomLeft.x * scaleX, y: bottomLeft.y * scaleY }
+  ];
+  
+  // Vérifier que le contour est valide
+  const area = calculatePolygonArea(corners);
+  const minArea = (originalWidth * originalHeight) * 0.1; // Au moins 10% de l'image
+  const maxArea = (originalWidth * originalHeight) * 0.95; // Max 95%
+  
+  if (area < minArea || area > maxArea) return null;
+  
+  // Vérifier que c'est approximativement un rectangle (angles)
+  const isRectangular = validateRectangle(corners);
+  if (!isRectangular) return null;
+  
+  return corners;
 };
 
-// Calculer l'aire d'un polygone
+// Valider que les 4 points forment approximativement un rectangle
+const validateRectangle = (corners: Point[]): boolean => {
+  // Calculer les longueurs des côtés
+  const [tl, tr, br, bl] = corners;
+  
+  const topLength = Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2));
+  const bottomLength = Math.sqrt(Math.pow(br.x - bl.x, 2) + Math.pow(br.y - bl.y, 2));
+  const leftLength = Math.sqrt(Math.pow(bl.x - tl.x, 2) + Math.pow(bl.y - tl.y, 2));
+  const rightLength = Math.sqrt(Math.pow(br.x - tr.x, 2) + Math.pow(br.y - tr.y, 2));
+  
+  // Les côtés opposés doivent avoir des longueurs similaires (tolérance 50%)
+  const topBottomRatio = Math.min(topLength, bottomLength) / Math.max(topLength, bottomLength);
+  const leftRightRatio = Math.min(leftLength, rightLength) / Math.max(leftLength, rightLength);
+  
+  return topBottomRatio > 0.5 && leftRightRatio > 0.5;
+};// Calculer l'aire d'un polygone
 const calculatePolygonArea = (points: Point[]): number => {
   let area = 0;
   const n = points.length;
