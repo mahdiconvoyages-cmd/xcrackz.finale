@@ -11,7 +11,7 @@
  * - Interface fluide et intuitive
  */
 
-import { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   Camera,
   Upload,
@@ -418,108 +418,183 @@ export default function ProfessionalScannerPage() {
   // Vue édition
   if (step === 'edit' && processedImage) {
     return (
-      <div className="min-h-screen bg-gray-950 flex flex-col">
-        {/* Header */}
-        <div className="bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 px-4 py-3">
-          <div className="flex items-center justify-between">
+      <div className="min-h-screen bg-gradient-to-br from-gray-950 via-gray-900 to-gray-950 flex flex-col">
+        {/* Header Premium */}
+        <div className="bg-black/40 backdrop-blur-xl border-b border-white/5 px-4 py-4 shadow-2xl">
+          <div className="max-w-7xl mx-auto flex items-center justify-between">
             <button
               onClick={handleBack}
-              className="p-2 hover:bg-gray-800 rounded-lg transition-colors"
+              className="group flex items-center gap-2 px-3 py-2 hover:bg-white/5 rounded-xl transition-all duration-200"
             >
-              <ArrowLeft className="w-5 h-5 text-gray-300" />
+              <ArrowLeft className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
+              <span className="text-gray-400 group-hover:text-white font-medium transition-colors hidden sm:inline">
+                Retour
+              </span>
             </button>
 
-            <h2 className="text-white font-semibold">
-              Édition
-            </h2>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+              <h2 className="text-white font-bold text-lg tracking-tight">
+                Édition Document
+              </h2>
+            </div>
 
             <div className="flex items-center gap-2">
               <button
-                onClick={saveDocument}
-                disabled={isProcessing}
-                className="px-4 py-2 bg-green-600 text-white rounded-lg font-medium hover:bg-green-700 transition-colors flex items-center gap-2 disabled:opacity-50"
+                onClick={downloadImage}
+                className="px-4 py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-500 hover:to-blue-600 text-white rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-blue-500/25 hover:scale-105"
               >
-                <Save className="w-4 h-4" />
-                Sauvegarder
+                <Download className="w-4 h-4" />
+                <span className="hidden sm:inline">Export</span>
               </button>
               
               <button
-                onClick={downloadImage}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center gap-2"
+                onClick={saveDocument}
+                disabled={isProcessing}
+                className="px-5 py-2.5 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-500 hover:to-emerald-500 text-white rounded-xl font-semibold transition-all duration-200 flex items-center gap-2 shadow-lg hover:shadow-green-500/25 hover:scale-105 disabled:opacity-50 disabled:scale-100"
               >
-                <Download className="w-4 h-4" />
-                Télécharger
+                <Save className="w-4 h-4" />
+                Sauvegarder
               </button>
             </div>
           </div>
         </div>
 
-        {/* Preview */}
+        {/* Preview Premium avec cadre moderne */}
         <div className="flex-1 flex items-center justify-center p-6 overflow-auto">
-          <div className="relative max-w-4xl w-full">
-            <img
-              src={processedImage}
-              alt="Document scanné"
-              className="w-full h-auto rounded-lg shadow-2xl"
-            />
-            {isProcessing && (
-              <div className="absolute inset-0 bg-black/50 backdrop-blur-sm rounded-lg flex items-center justify-center">
-                <Loader className="w-12 h-12 text-white animate-spin" />
+          <div className="relative max-w-5xl w-full">
+            <div className="relative rounded-2xl overflow-hidden shadow-2xl ring-1 ring-white/10">
+              <img
+                src={processedImage}
+                alt="Document scanné"
+                className="w-full h-auto transition-transform duration-300 hover:scale-[1.02]"
+              />
+              {isProcessing && (
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-900/80 via-purple-900/80 to-pink-900/80 backdrop-blur-md flex items-center justify-center">
+                  <div className="text-center">
+                    <Loader className="w-16 h-16 text-white animate-spin mx-auto mb-4" />
+                    <p className="text-white font-semibold text-lg animate-pulse">
+                      Traitement en cours...
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            {/* Badge filtre actif */}
+            <div className="absolute top-4 right-4 px-4 py-2 bg-black/60 backdrop-blur-xl rounded-xl border border-white/10 shadow-2xl">
+              <div className="flex items-center gap-2">
+                {filters.find(f => f.id === selectedFilter)?.icon && (
+                  React.createElement(filters.find(f => f.id === selectedFilter)!.icon, {
+                    className: "w-4 h-4 text-white"
+                  })
+                )}
+                <span className="text-white font-semibold text-sm">
+                  {filters.find(f => f.id === selectedFilter)?.name}
+                </span>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
-        {/* Toolbar */}
-        <div className="bg-gray-900/95 backdrop-blur-sm border-t border-gray-800 px-4 py-4">
-          {/* Filtres */}
-          <div className="flex items-center justify-center gap-3 mb-4">
-            {filters.map((filter) => {
-              const Icon = filter.icon;
-              const isActive = selectedFilter === filter.id;
-              
-              return (
+        {/* Toolbar Premium avec effets glassmorphism */}
+        <div className="bg-black/40 backdrop-blur-xl border-t border-white/5 px-4 py-6 shadow-2xl">
+          <div className="max-w-5xl mx-auto space-y-6">
+            {/* Titre section filtres */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-1 h-6 bg-gradient-to-b from-blue-500 to-purple-500 rounded-full" />
+                <h3 className="text-white font-bold text-lg">Filtres Professionnels</h3>
+              </div>
+              <div className="text-gray-400 text-sm font-medium">
+                {filters.length} disponibles
+              </div>
+            </div>
+
+            {/* Filtres avec design cards moderne */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {filters.map((filter) => {
+                const Icon = filter.icon;
+                const isActive = selectedFilter === filter.id;
+                
+                return (
+                  <button
+                    key={filter.id}
+                    onClick={() => applyFilter(filter.id)}
+                    disabled={isProcessing}
+                    className={`group relative p-5 rounded-2xl font-semibold transition-all duration-300 disabled:opacity-50 ${
+                      isActive
+                        ? 'bg-gradient-to-br from-white/20 to-white/5 ring-2 ring-white/30 shadow-2xl scale-105'
+                        : 'bg-white/5 hover:bg-white/10 hover:scale-105 hover:shadow-xl'
+                    }`}
+                  >
+                    <div className="flex flex-col items-center gap-3">
+                      <div
+                        className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${
+                          isActive
+                            ? 'bg-gradient-to-br from-blue-500 to-purple-600 shadow-lg'
+                            : 'bg-white/10 group-hover:bg-white/20'
+                        }`}
+                        style={{
+                          boxShadow: isActive ? `0 0 30px ${filter.color}60` : 'none'
+                        }}
+                      >
+                        <Icon className={`w-7 h-7 ${isActive ? 'text-white' : 'text-gray-300 group-hover:text-white'} transition-colors`} />
+                      </div>
+                      
+                      <div className="text-center">
+                        <span className={`text-sm font-bold block ${isActive ? 'text-white' : 'text-gray-300 group-hover:text-white'} transition-colors`}>
+                          {filter.name}
+                        </span>
+                        <span className="text-xs text-gray-500 block mt-1">
+                          {filter.id === 'magic' && 'IA Avancée'}
+                          {filter.id === 'bw' && 'Contraste'}
+                          {filter.id === 'grayscale' && 'CLAHE'}
+                          {filter.id === 'color' && 'Naturel'}
+                        </span>
+                      </div>
+
+                      {isActive && (
+                        <div className="absolute -top-2 -right-2 w-8 h-8 bg-gradient-to-br from-green-400 to-emerald-500 rounded-full flex items-center justify-center shadow-lg animate-bounce">
+                          <Check className="w-5 h-5 text-white" />
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Barre de progression en bas si actif */}
+                    {isActive && (
+                      <div className="absolute bottom-0 left-0 right-0 h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 rounded-full" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Actions secondaires avec design moderne */}
+            <div className="pt-4 border-t border-white/5">
+              <div className="grid grid-cols-2 gap-3">
                 <button
-                  key={filter.id}
-                  onClick={() => applyFilter(filter.id)}
+                  onClick={rotateImage}
                   disabled={isProcessing}
-                  className={`relative px-4 py-3 rounded-xl font-medium transition-all disabled:opacity-50 ${
-                    isActive
-                      ? 'bg-blue-600 text-white shadow-lg scale-105'
-                      : 'bg-gray-800 text-gray-300 hover:bg-gray-700'
-                  }`}
-                  style={{
-                    boxShadow: isActive ? `0 0 20px ${filter.color}40` : 'none'
-                  }}
+                  className="group px-6 py-4 bg-gradient-to-br from-white/10 to-white/5 hover:from-white/15 hover:to-white/10 text-white rounded-2xl font-semibold transition-all duration-300 disabled:opacity-50 flex items-center justify-center gap-3 hover:scale-105 hover:shadow-xl border border-white/10"
                 >
-                  <Icon className="w-5 h-5 mx-auto mb-1" />
-                  <span className="text-xs">{filter.name}</span>
-                  {isActive && (
-                    <Check className="w-4 h-4 absolute -top-1 -right-1 bg-green-500 rounded-full p-0.5" />
-                  )}
+                  <div className="w-10 h-10 rounded-xl bg-white/10 group-hover:bg-white/20 flex items-center justify-center transition-all">
+                    <RotateCw className="w-5 h-5 group-hover:rotate-90 transition-transform duration-300" />
+                  </div>
+                  <span>Rotation 90°</span>
                 </button>
-              );
-            })}
-          </div>
 
-          {/* Actions */}
-          <div className="flex items-center justify-center gap-3">
-            <button
-              onClick={rotateImage}
-              disabled={isProcessing}
-              className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 flex items-center gap-2"
-            >
-              <RotateCw className="w-5 h-5" />
-              Rotation
-            </button>
-
-            <button
-              onClick={handleNewScan}
-              className="px-6 py-3 bg-gray-800 hover:bg-gray-700 text-white rounded-lg font-medium transition-colors flex items-center gap-2"
-            >
-              <Camera className="w-5 h-5" />
-              Nouveau scan
-            </button>
+                <button
+                  onClick={handleNewScan}
+                  className="group px-6 py-4 bg-gradient-to-br from-white/10 to-white/5 hover:from-white/15 hover:to-white/10 text-white rounded-2xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 hover:scale-105 hover:shadow-xl border border-white/10"
+                >
+                  <div className="w-10 h-10 rounded-xl bg-white/10 group-hover:bg-white/20 flex items-center justify-center transition-all">
+                    <Camera className="w-5 h-5 group-hover:scale-110 transition-transform" />
+                  </div>
+                  <span>Nouveau Scan</span>
+                </button>
+              </div>
+            </div>
           </div>
         </div>
       </div>
