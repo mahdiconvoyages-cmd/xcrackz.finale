@@ -104,16 +104,11 @@ export default function ProfessionalDocumentScanner() {
 
   // Démarrer le scan
   const startScanning = async () => {
-    console.log('Démarrage du scan...');
-    
     try {
-      // Vérifier si l'API est disponible
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
         alert('Votre navigateur ne supporte pas l\'accès à la caméra. Utilisez Chrome, Firefox ou Safari récent.');
         return;
       }
-
-      console.log('Demande d\'accès à la caméra...');
       
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
@@ -123,26 +118,18 @@ export default function ProfessionalDocumentScanner() {
         }
       });
 
-      console.log('Caméra autorisée, stream obtenu');
       streamRef.current = stream;
 
       if (videoRef.current) {
-        console.log('Configuration de la vidéo...');
         videoRef.current.srcObject = stream;
         
-        // Attendre que la vidéo soit prête
         videoRef.current.onloadedmetadata = () => {
-          console.log('Métadonnées chargées, démarrage de la lecture...');
           videoRef.current?.play()
             .then(() => {
-              console.log('Vidéo en lecture, scan actif');
               setIsScanning(true);
               
               if (openCVReady) {
-                console.log('Démarrage de la détection continue');
                 startContinuousDetection();
-              } else {
-                console.log('OpenCV pas encore prêt');
               }
             })
             .catch(err => {
@@ -150,9 +137,6 @@ export default function ProfessionalDocumentScanner() {
               alert('Erreur lors du démarrage de la vidéo: ' + err.message);
             });
         };
-      } else {
-        console.error('videoRef.current est null');
-        alert('Erreur: élément vidéo non trouvé');
       }
     } catch (error: any) {
       console.error('Erreur caméra:', error);
@@ -160,11 +144,11 @@ export default function ProfessionalDocumentScanner() {
       let message = 'Impossible d\'accéder à la caméra. ';
       
       if (error.name === 'NotAllowedError' || error.name === 'PermissionDeniedError') {
-        message += 'Vous devez autoriser l\'accès à la caméra dans les paramètres de votre navigateur.';
+        message += 'Vous devez autoriser l\'accès à la caméra.';
       } else if (error.name === 'NotFoundError' || error.name === 'DevicesNotFoundError') {
-        message += 'Aucune caméra détectée sur votre appareil.';
+        message += 'Aucune caméra détectée.';
       } else if (error.name === 'NotReadableError' || error.name === 'TrackStartError') {
-        message += 'La caméra est déjà utilisée par une autre application.';
+        message += 'La caméra est déjà utilisée.';
       } else {
         message += error.message || 'Erreur inconnue.';
       }
@@ -196,7 +180,7 @@ export default function ProfessionalDocumentScanner() {
     
     detectionIntervalRef.current = window.setInterval(() => {
       const now = Date.now();
-      if (now - lastDetectionTime < 300) return; // Throttle à 300ms
+      if (now - lastDetectionTime < 500) return; // Throttle à 500ms (plus stable)
       
       lastDetectionTime = now;
       performDetection();
@@ -237,11 +221,11 @@ export default function ProfessionalDocumentScanner() {
             setStableFrames(prev => {
               const newCount = prev + 1;
               
-              // Auto-capture après 5 frames stables
-              if (newCount >= 5 && !autoCaptureTimeoutRef.current) {
+              // Auto-capture après 3 frames stables (plus rapide)
+              if (newCount >= 3 && !autoCaptureTimeoutRef.current) {
                 autoCaptureTimeoutRef.current = window.setTimeout(() => {
                   autoCapture(imageUrl, corners);
-                }, 200);
+                }, 100);
               }
               
               return newCount;
@@ -639,7 +623,7 @@ export default function ProfessionalDocumentScanner() {
               <div className="bg-emerald-500/90 backdrop-blur-sm px-6 py-3 rounded-full text-white font-semibold flex items-center gap-2 animate-pulse">
                 <CheckCircle2 className="w-5 h-5" />
                 {detectionQuality.reason}
-                {stableFrames > 0 && ` (${stableFrames}/5)`}
+                {stableFrames > 0 && ` (${stableFrames}/3)`}
               </div>
             ) : detectedCorners.length === 4 ? (
               <div className="bg-amber-500/90 backdrop-blur-sm px-6 py-3 rounded-full text-white font-semibold flex items-center gap-2">
@@ -652,18 +636,6 @@ export default function ProfessionalDocumentScanner() {
                 Recherche de document...
               </div>
             )}
-          </div>
-
-          {/* Instructions */}
-          <div className="absolute bottom-32 left-0 right-0 px-4 z-10">
-            <div className="bg-black/70 backdrop-blur-sm text-white px-6 py-4 rounded-2xl text-center max-w-md mx-auto">
-              <p className="text-sm font-medium">
-                {detectionQuality.isGood 
-                  ? '✓ Tenez stable - capture automatique dans quelques instants'
-                  : 'Positionnez le document dans le cadre'
-                }
-              </p>
-            </div>
           </div>
 
           {/* Buttons */}
