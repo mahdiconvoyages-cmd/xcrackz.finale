@@ -1,143 +1,200 @@
-// TensorFlow.js Document Scanner avec détection GPU-accélérée
 import * as tf from '@tensorflow/tfjs';
 import '@tensorflow/tfjs-backend-webgl';
 
-interface Point {
+export interface Point {
   x: number;
   y: number;
 }
 
-interface DetectionResult {
+export interface DetectionResult {
   corners: Point[] | null;
   confidence: number;
+  areaRatio: number;
+}
+
+interface CornerDetection {
+  corners: Point[];
+  areaRatio: number;
 }
 
 let isInitialized = false;
 
-// Initialiser TensorFlow avec backend WebGL (GPU)
+const clamp = (value: number, min: number, max: number): number => Math.min(Math.max(value, min), max);
+
 export const initializeTensorFlow = async (): Promise<void> => {
   if (isInitialized) return;
 
-  try {
-    // Utiliser WebGL pour l'accélération GPU
-    await tf.setBackend('webgl');
-    await tf.ready();
-    
-    // Optimisations WebGL
-    tf.env().set('WEBGL_PACK', true);
-    tf.env().set('WEBGL_FORCE_F16_TEXTURES', true);
-    
-    isInitialized = true;
-    console.log('TensorFlow.js initialisé avec backend:', tf.getBackend());
-    console.log('GPU disponible:', await tf.env().getAsync('WEBGL_VERSION'));
-  } catch (error) {
-    console.error('Erreur initialisation TensorFlow:', error);
-    throw error;
-  }
+  await tf.setBackend('webgl');
+  await tf.ready();
+  tf.env().set('WEBGL_PACK', true);
+  tf.env().set('WEBGL_FORCE_F16_TEXTURES', true);
+  isInitialized = true;
+  console.log('TensorFlow.js initialisé avec backend:', tf.getBackend());
 };
 
-// Prétraitement de l'image pour la détection
 const preprocessImage = (canvas: HTMLCanvasElement): tf.Tensor3D => {
   return tf.tidy(() => {
-    // Convertir le canvas en tensor
     const tensor = tf.browser.fromPixels(canvas);
-    
-    // Redimensionner pour accélérer le traitement (320x320 est un bon compromis)
-    const resized = tf.image.resizeBilinear(tensor, [320, 320]);
-    
-    // Normaliser entre 0 et 1
-    const normalized = resized.div(255.0);
-    
+    const resized = tf.image.resizeBilinear(tensor, [320, 320], true);
+    const normalized = resized.div(255);
     return normalized as tf.Tensor3D;
   });
 };
 
-// Détection des contours avec filtres de Sobel (détection d'edges GPU)
 const detectEdges = (imageTensor: tf.Tensor3D): tf.Tensor2D => {
   return tf.tidy(() => {
-    // Convertir en niveaux de gris avec pondération correcte
     const r = imageTensor.slice([0, 0, 0], [-1, -1, 1]);
     const g = imageTensor.slice([0, 0, 1], [-1, -1, 1]);
     const b = imageTensor.slice([0, 0, 2], [-1, -1, 1]);
     const grayscale = r.mul(0.299).add(g.mul(0.587)).add(b.mul(0.114)).squeeze();
-    
-    // Appliquer un flou gaussien pour réduire le bruit
+
     const blurred = tf.tidy(() => {
       const gaussianKernel = tf.tensor2d([
-        [1/16, 2/16, 1/16],
-        [2/16, 4/16, 2/16],
-        [1/16, 2/16, 1/16]
+        [1 / 16, 2 / 16, 1 / 16],
+        [2 / 16, 4 / 16, 2 / 16],
+        [1 / 16, 2 / 16, 1 / 16],
       ]);
       const kernelReshaped = gaussianKernel.expandDims(2).expandDims(3);
       const imageReshaped = grayscale.expandDims(0).expandDims(-1);
       return tf.conv2d(imageReshaped as any, kernelReshaped as any, 1, 'same').squeeze();
     });
-    
-    // Filtres de Sobel améliorés
+
     const sobelX = tf.tensor2d([
       [-1, 0, 1],
       [-2, 0, 2],
-      [-1, 0, 1]
+      [-1, 0, 1],
     ]);
     const sobelY = tf.tensor2d([
       [-1, -2, -1],
       [0, 0, 0],
-      [1, 2, 1]
+      [1, 2, 1],
     ]);
-    
-    // Reshape pour la convolution
+
     const kernel = blurred.expandDims(0).expandDims(-1);
     const filterX = sobelX.expandDims(2).expandDims(3);
     const filterY = sobelY.expandDims(2).expandDims(3);
-    
-    // Appliquer les filtres de Sobel
+
     const edgesX = tf.conv2d(kernel as any, filterX as any, 1, 'same');
     const edgesY = tf.conv2d(kernel as any, filterY as any, 1, 'same');
-    
-    // Magnitude du gradient avec normalisation
-    const magnitude = tf.sqrt(
-      edgesX.square().add(edgesY.square())
-    ).squeeze();
-    
-    // Normaliser entre 0 et 1 pour un meilleur seuillage
+
+    const magnitude = tf.sqrt(edgesX.square().add(edgesY.square())).squeeze();
     const maxVal = magnitude.max();
-    const normalized = magnitude.div(maxVal.add(0.0001));
-    
+    const normalized = magnitude.div(maxVal.add(1e-4));
     return normalized as tf.Tensor2D;
   });
 };
 
-// Trouver les 4 coins du document (algorithme optimisé GPU)
+const computeConvexHull = (points: Point[]): Point[] => {
+  if (points.length <= 3) return points;
+  const sorted = [...points].sort((a, b) => (a.x === b.x ? a.y - b.y : a.x - b.x));
+
+  const cross = (o: Point, a: Point, b: Point) => (a.x - o.x) * (b.y - o.y) - (a.y - o.y) * (b.x - o.x);
+
+  const lower: Point[] = [];
+  for (const p of sorted) {
+    while (lower.length >= 2 && cross(lower[lower.length - 2], lower[lower.length - 1], p) <= 0) {
+      lower.pop();
+    }
+    lower.push(p);
+  }
+
+  const upper: Point[] = [];
+  for (let i = sorted.length - 1; i >= 0; i--) {
+    const p = sorted[i];
+    while (upper.length >= 2 && cross(upper[upper.length - 2], upper[upper.length - 1], p) <= 0) {
+      upper.pop();
+    }
+    upper.push(p);
+  }
+
+  lower.pop();
+  upper.pop();
+  return [...lower, ...upper];
+};
+
+const orderCorners = (corners: Point[]): Point[] => {
+  const sorted = [...corners].sort((a, b) => a.y - b.y);
+  const [top1, top2, bottom1, bottom2] = sorted;
+  const topLeft = top1.x < top2.x ? top1 : top2;
+  const topRight = top1.x < top2.x ? top2 : top1;
+  const bottomLeft = bottom1.x < bottom2.x ? bottom1 : bottom2;
+  const bottomRight = bottom1.x < bottom2.x ? bottom2 : bottom1;
+  return [topLeft, topRight, bottomRight, bottomLeft];
+};
+
+const selectRectangleCorners = (
+  hull: Point[],
+  scaleX: number,
+  scaleY: number,
+  originalWidth: number,
+  originalHeight: number
+): CornerDetection | null => {
+  if (hull.length < 4) return null;
+
+  let topLeft = hull[0];
+  let topRight = hull[0];
+  let bottomRight = hull[0];
+  let bottomLeft = hull[0];
+
+  for (const point of hull) {
+    const sum = point.x + point.y;
+    const diff = point.x - point.y;
+    if (sum < topLeft.x + topLeft.y) topLeft = point;
+    if (diff > topRight.x - topRight.y) topRight = point;
+    if (sum > bottomRight.x + bottomRight.y) bottomRight = point;
+    if (diff < bottomLeft.x - bottomLeft.y) bottomLeft = point;
+  }
+
+  const scaled: Point[] = orderCorners([
+    { x: topLeft.x * scaleX, y: topLeft.y * scaleY },
+    { x: topRight.x * scaleX, y: topRight.y * scaleY },
+    { x: bottomRight.x * scaleX, y: bottomRight.y * scaleY },
+    { x: bottomLeft.x * scaleX, y: bottomLeft.y * scaleY },
+  ]);
+
+  const area = calculatePolygonArea(scaled);
+  const areaRatio = area / (originalWidth * originalHeight);
+
+  if (areaRatio < 0.1 || areaRatio > 0.95) return null;
+
+  const [tl, tr, br, bl] = scaled;
+  const topLength = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+  const bottomLength = Math.hypot(br.x - bl.x, br.y - bl.y);
+  const leftLength = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+  const rightLength = Math.hypot(br.x - tr.x, br.y - tr.y);
+
+  const horizontalRatio = Math.min(topLength, bottomLength) / Math.max(topLength, bottomLength);
+  const verticalRatio = Math.min(leftLength, rightLength) / Math.max(leftLength, rightLength);
+
+  if (horizontalRatio < 0.5 || verticalRatio < 0.5) return null;
+
+  return { corners: scaled, areaRatio };
+};
+
 const findDocumentCorners = async (
   edgeTensor: tf.Tensor2D,
   originalWidth: number,
   originalHeight: number
-): Promise<Point[] | null> => {
-  // Appliquer un seuil adaptatif plus agressif (percentile 75)
+): Promise<CornerDetection | null> => {
   const flatTensor = edgeTensor.flatten();
-  const sortedValues = await flatTensor.data();
-  const sorted = Array.from(sortedValues).sort((a, b) => a - b);
-  const percentile75 = sorted[Math.floor(sorted.length * 0.75)];
-  const thresholdValue = Math.max(percentile75, 0.3); // Au moins 30%
-  
+  const values = await flatTensor.data();
+  const sorted = Array.from(values).sort((a, b) => a - b);
+  const percentile = sorted[Math.floor(sorted.length * 0.7)];
+  const thresholdValue = Math.max(percentile, 0.2);
   flatTensor.dispose();
-  
+
   const threshold = tf.scalar(thresholdValue);
   const binary = edgeTensor.greater(threshold);
-  
-  // Récupérer les données
+
   const binaryData = binary.dataSync();
-  const width = binary.shape[0];
-  const height = binary.shape[1] || 0;
-  
-  // Nettoyer les tensors temporaires
+  const height = binary.shape[0];
+  const width = binary.shape[1];
   threshold.dispose();
   binary.dispose();
-  
-  // Trouver les points forts de contours (échantillonnage pour performance)
+
   const edgePoints: Point[] = [];
-  const step = Math.max(1, Math.floor(Math.min(width, height) / 100)); // Échantillonner
-  
+  const step = Math.max(1, Math.floor(Math.min(width, height) / 120));
+
   for (let y = 0; y < height; y += step) {
     for (let x = 0; x < width; x += step) {
       if (binaryData[y * width + x]) {
@@ -145,184 +202,206 @@ const findDocumentCorners = async (
       }
     }
   }
-  
-  if (edgePoints.length < 100) return null; // Besoin de plus de points    // Trouver les 4 coins extrêmes (heuristique simple mais efficace)
-    let topLeft = edgePoints[0];
-    let topRight = edgePoints[0];
-    let bottomLeft = edgePoints[0];
-    let bottomRight = edgePoints[0];
-    
-    for (const point of edgePoints) {
-      // Top-left: minimiser x + y
-      if (point.x + point.y < topLeft.x + topLeft.y) {
-        topLeft = point;
-      }
-      // Top-right: maximiser x - y
-      if (point.x - point.y > topRight.x - topRight.y) {
-        topRight = point;
-      }
-      // Bottom-left: minimiser x - y
-      if (point.x - point.y < bottomLeft.x - bottomLeft.y) {
-        bottomLeft = point;
-      }
-      // Bottom-right: maximiser x + y
-      if (point.x + point.y > bottomRight.x + bottomRight.y) {
-        bottomRight = point;
-      }
-    }
-    
-  // Convertir les coordonnées à la taille originale
+
+  if (edgePoints.length < 80) return null;
+
+  const hull = computeConvexHull(edgePoints);
+  if (hull.length < 4) return null;
+
   const scaleX = originalWidth / width;
   const scaleY = originalHeight / height;
-  
-  const corners = [
-    { x: topLeft.x * scaleX, y: topLeft.y * scaleY },
-    { x: topRight.x * scaleX, y: topRight.y * scaleY },
-    { x: bottomRight.x * scaleX, y: bottomRight.y * scaleY },
-    { x: bottomLeft.x * scaleX, y: bottomLeft.y * scaleY }
-  ];
-  
-  // Vérifier que le contour est valide
-  const area = calculatePolygonArea(corners);
-  const minArea = (originalWidth * originalHeight) * 0.1; // Au moins 10% de l'image
-  const maxArea = (originalWidth * originalHeight) * 0.95; // Max 95%
-  
-  if (area < minArea || area > maxArea) return null;
-  
-  // Vérifier que c'est approximativement un rectangle (angles)
-  const isRectangular = validateRectangle(corners);
-  if (!isRectangular) return null;
-  
-  return corners;
+  return selectRectangleCorners(hull, scaleX, scaleY, originalWidth, originalHeight);
 };
 
-// Valider que les 4 points forment approximativement un rectangle
-const validateRectangle = (corners: Point[]): boolean => {
-  // Calculer les longueurs des côtés
-  const [tl, tr, br, bl] = corners;
-  
-  const topLength = Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2));
-  const bottomLength = Math.sqrt(Math.pow(br.x - bl.x, 2) + Math.pow(br.y - bl.y, 2));
-  const leftLength = Math.sqrt(Math.pow(bl.x - tl.x, 2) + Math.pow(bl.y - tl.y, 2));
-  const rightLength = Math.sqrt(Math.pow(br.x - tr.x, 2) + Math.pow(br.y - tr.y, 2));
-  
-  // Les côtés opposés doivent avoir des longueurs similaires (tolérance 50%)
-  const topBottomRatio = Math.min(topLength, bottomLength) / Math.max(topLength, bottomLength);
-  const leftRightRatio = Math.min(leftLength, rightLength) / Math.max(leftLength, rightLength);
-  
-  return topBottomRatio > 0.5 && leftRightRatio > 0.5;
-};// Calculer l'aire d'un polygone
 const calculatePolygonArea = (points: Point[]): number => {
   let area = 0;
-  const n = points.length;
-  for (let i = 0; i < n; i++) {
-    const j = (i + 1) % n;
+  for (let i = 0; i < points.length; i++) {
+    const j = (i + 1) % points.length;
     area += points[i].x * points[j].y;
     area -= points[j].x * points[i].y;
   }
   return Math.abs(area / 2);
 };
 
-// Fonction principale de détection
-export const detectDocument = async (
-  canvas: HTMLCanvasElement
-): Promise<DetectionResult> => {
+export const detectDocument = async (canvas: HTMLCanvasElement): Promise<DetectionResult> => {
   if (!isInitialized) {
     await initializeTensorFlow();
   }
 
+  const imageTensor = preprocessImage(canvas);
+  const edgeTensor = detectEdges(imageTensor);
+
   try {
-    // Prétraitement
-    const imageTensor = preprocessImage(canvas);
-    
-    // Détection des contours avec GPU
-    const edgeTensor = detectEdges(imageTensor);
-    
-    // Trouver les coins
-    const corners = await findDocumentCorners(
-      edgeTensor,
-      canvas.width,
-      canvas.height
-    );
-    
-    // Calculer la confiance (basée sur la qualité des contours)
+    const cornerResult = await findDocumentCorners(edgeTensor, canvas.width, canvas.height);
     const edgeStrength = await edgeTensor.mean().data();
-    const confidence = Math.min(edgeStrength[0] * 2, 1.0);
-    
-    // Nettoyer les tensors
+    const gradientScore = clamp(edgeStrength[0] * 3, 0, 1);
+
+    if (!cornerResult) {
+      return { corners: null, confidence: gradientScore * 0.3, areaRatio: 0 };
+    }
+
+    const areaScore = clamp((cornerResult.areaRatio - 0.12) / 0.7, 0, 1);
+    const confidence = clamp(0.6 * areaScore + 0.4 * gradientScore, 0, 1);
+
+    return {
+      corners: cornerResult.corners,
+      confidence,
+      areaRatio: cornerResult.areaRatio,
+    };
+  } finally {
     imageTensor.dispose();
     edgeTensor.dispose();
-    
-    return {
-      corners,
-      confidence
-    };
-  } catch (error) {
-    console.error('Erreur détection TensorFlow:', error);
-    return { corners: null, confidence: 0 };
   }
 };
 
-// Correction de perspective avec TensorFlow (GPU-accéléré)
-export const correctPerspective = async (
-  canvas: HTMLCanvasElement,
-  corners: Point[]
-): Promise<string> => {
-  return tf.tidy(() => {
-    // Calculer les dimensions du document
-    const [tl, tr, br, bl] = corners;
-    
-    const widthTop = Math.sqrt(Math.pow(tr.x - tl.x, 2) + Math.pow(tr.y - tl.y, 2));
-    const widthBottom = Math.sqrt(Math.pow(br.x - bl.x, 2) + Math.pow(br.y - bl.y, 2));
-    const width = Math.max(widthTop, widthBottom);
-    
-    const heightLeft = Math.sqrt(Math.pow(bl.x - tl.x, 2) + Math.pow(bl.y - tl.y, 2));
-    const heightRight = Math.sqrt(Math.pow(br.x - tr.x, 2) + Math.pow(br.y - tr.y, 2));
-    const height = Math.max(heightLeft, heightRight);
-    
-    // Convertir l'image en tensor
-    const imageTensor = tf.browser.fromPixels(canvas);
-    
-    // Créer un canvas pour le résultat
-    const resultCanvas = document.createElement('canvas');
-    resultCanvas.width = Math.round(width);
-    resultCanvas.height = Math.round(height);
-    const ctx = resultCanvas.getContext('2d')!;
-    
-    // Utiliser la transformation de perspective native du canvas
-    // (plus rapide que de calculer avec TensorFlow pour cette opération)
-    ctx.save();
-    
-    // Calculer la matrice de transformation
-    const srcPoints = [tl, tr, br, bl];
-    
-    // Appliquer la transformation (approximation avec setTransform)
-    // Pour une vraie correction perspective, on utilise une approche par sampling
-    
-    // Approche simplifiée : découper et transformer
-    ctx.drawImage(
-      canvas,
-      Math.min(...srcPoints.map(p => p.x)),
-      Math.min(...srcPoints.map(p => p.y)),
-      Math.max(...srcPoints.map(p => p.x)) - Math.min(...srcPoints.map(p => p.x)),
-      Math.max(...srcPoints.map(p => p.y)) - Math.min(...srcPoints.map(p => p.y)),
-      0,
-      0,
-      resultCanvas.width,
-      resultCanvas.height
-    );
-    
-    ctx.restore();
-    
-    // Nettoyer
-    imageTensor.dispose();
-    
-    return resultCanvas.toDataURL('image/jpeg', 0.95);
-  });
+const solveLinearSystem = (A: number[][], b: number[]): number[] => {
+  const n = A.length;
+  const augmented = A.map((row, i) => [...row, b[i]]);
+
+  for (let i = 0; i < n; i++) {
+    let pivotRow = i;
+    for (let j = i + 1; j < n; j++) {
+      if (Math.abs(augmented[j][i]) > Math.abs(augmented[pivotRow][i])) {
+        pivotRow = j;
+      }
+    }
+
+    if (Math.abs(augmented[pivotRow][i]) < 1e-8) continue;
+    [augmented[i], augmented[pivotRow]] = [augmented[pivotRow], augmented[i]];
+
+    const pivot = augmented[i][i];
+    for (let k = i; k <= n; k++) {
+      augmented[i][k] /= pivot;
+    }
+
+    for (let r = 0; r < n; r++) {
+      if (r === i) continue;
+      const factor = augmented[r][i];
+      for (let c = i; c <= n; c++) {
+        augmented[r][c] -= factor * augmented[i][c];
+      }
+    }
+  }
+
+  return augmented.map((row) => row[n]);
 };
 
-// Nettoyage de la mémoire GPU
-export const cleanup = (): void => {
-  tf.disposeVariables();
-  console.log('TensorFlow memory cleaned. Tensors:', tf.memory().numTensors);
+const getPerspectiveTransformMatrix = (src: Point[], dst: Point[]): number[][] => {
+  const A: number[][] = [];
+  const B: number[] = [];
+
+  for (let i = 0; i < 4; i++) {
+    const { x, y } = src[i];
+    const X = dst[i].x;
+    const Y = dst[i].y;
+
+    A.push([x, y, 1, 0, 0, 0, -x * X, -y * X]);
+    B.push(X);
+    A.push([0, 0, 0, x, y, 1, -x * Y, -y * Y]);
+    B.push(Y);
+  }
+
+  const h = solveLinearSystem(A, B);
+  return [
+    [h[0], h[1], h[2]],
+    [h[3], h[4], h[5]],
+    [h[6], h[7], 1],
+  ];
 };
+
+const invertMatrix3x3 = (m: number[][]): number[][] => {
+  const det =
+    m[0][0] * (m[1][1] * m[2][2] - m[1][2] * m[2][1]) -
+    m[0][1] * (m[1][0] * m[2][2] - m[1][2] * m[2][0]) +
+    m[0][2] * (m[1][0] * m[2][1] - m[1][1] * m[2][0]);
+
+  if (Math.abs(det) < 1e-8) {
+    return [
+      [1, 0, 0],
+      [0, 1, 0],
+      [0, 0, 1],
+    ];
+  }
+
+  const invDet = 1 / det;
+  return [
+    [
+      invDet * (m[1][1] * m[2][2] - m[1][2] * m[2][1]),
+      invDet * (m[0][2] * m[2][1] - m[0][1] * m[2][2]),
+      invDet * (m[0][1] * m[1][2] - m[0][2] * m[1][1]),
+    ],
+    [
+      invDet * (m[1][2] * m[2][0] - m[1][0] * m[2][2]),
+      invDet * (m[0][0] * m[2][2] - m[0][2] * m[2][0]),
+      invDet * (m[0][2] * m[1][0] - m[0][0] * m[1][2]),
+    ],
+    [
+      invDet * (m[1][0] * m[2][1] - m[1][1] * m[2][0]),
+      invDet * (m[0][1] * m[2][0] - m[0][0] * m[2][1]),
+      invDet * (m[0][0] * m[1][1] - m[0][1] * m[1][0]),
+    ],
+  ];
+};
+
+const matrixToTransformVector = (m: number[][]): Float32Array => {
+  return new Float32Array([
+    m[0][0],
+    m[0][1],
+    m[0][2],
+    m[1][0],
+    m[1][1],
+    m[1][2],
+    m[2][0],
+    m[2][1],
+  ]);
+};
+
+export const correctPerspective = async (canvas: HTMLCanvasElement, corners: Point[]): Promise<string> => {
+  const [tl, tr, br, bl] = corners;
+  const widthTop = Math.hypot(tr.x - tl.x, tr.y - tl.y);
+    const widthBottom = Math.hypot(br.x - bl.x, br.y - bl.y);
+    const heightLeft = Math.hypot(bl.x - tl.x, bl.y - tl.y);
+    const heightRight = Math.hypot(br.x - tr.x, br.y - tr.y);
+
+    const targetWidth = Math.max(widthTop, widthBottom);
+    const targetHeight = Math.max(heightLeft, heightRight);
+
+    const dstPoints: Point[] = [
+      { x: 0, y: 0 },
+      { x: targetWidth, y: 0 },
+      { x: targetWidth, y: targetHeight },
+      { x: 0, y: targetHeight },
+    ];
+
+    const transformMatrix = getPerspectiveTransformMatrix([tl, tr, br, bl], dstPoints);
+    const inverse = invertMatrix3x3(transformMatrix);
+    const transformTensor = tf.tensor(matrixToTransformVector(inverse), [8]);
+
+    const imageTensor = tf.browser.fromPixels(canvas);
+    const output = tf.image.transform(imageTensor, transformTensor, 'bilinear', 'constant', 0, [
+      Math.round(targetHeight),
+      Math.round(targetWidth),
+    ]);
+
+    const offscreen = document.createElement('canvas');
+    offscreen.width = Math.round(targetWidth);
+    offscreen.height = Math.round(targetHeight);
+    const ctx = offscreen.getContext('2d');
+    if (!ctx) {
+      imageTensor.dispose();
+      transformTensor.dispose();
+      output.dispose();
+      throw new Error('Impossible de créer un contexte 2D pour la correction de perspective.');
+    }
+
+    const imageData = new ImageData(offscreen.width, offscreen.height);
+    await tf.browser.toPixels(output as tf.Tensor3D, imageData.data);
+    ctx.putImageData(imageData, 0, 0);
+
+    imageTensor.dispose();
+    transformTensor.dispose();
+    output.dispose();
+
+    return offscreen.toDataURL('image/jpeg', 0.92);
+  };
+```}
