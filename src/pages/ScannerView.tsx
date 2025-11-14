@@ -107,19 +107,23 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
 
     try {
       const video = videoRef.current;
-      const corners = detectDocumentCorners(video);
+      
+      // Créer un canvas temporaire pour obtenir l'image actuelle
+      const tempCanvas = document.createElement('canvas');
+      tempCanvas.width = video.videoWidth;
+      tempCanvas.height = video.videoHeight;
+      const ctx = tempCanvas.getContext('2d');
+      if (!ctx) throw new Error('Canvas context is null');
+      ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+
+      const corners = detectDocumentCorners(tempCanvas);
 
       if (corners) {
-        const croppedUri = cropAndCorrectPerspective(video, corners);
+        // Le recadrage se fait à partir du canvas, pas de la vidéo
+        const croppedUri = cropAndCorrectPerspective(tempCanvas, corners);
         onScanComplete(croppedUri);
       } else {
-        // Si pas de détection, prendre une photo simple
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = video.videoWidth;
-        tempCanvas.height = video.videoHeight;
-        const ctx = tempCanvas.getContext('2d');
-        if (!ctx) throw new Error('Canvas context is null');
-        ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        // Si pas de détection, utiliser l'image du canvas
         const imageUri = tempCanvas.toDataURL('image/jpeg', 0.9);
         onScanComplete(imageUri);
       }

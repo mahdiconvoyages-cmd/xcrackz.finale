@@ -30,13 +30,10 @@ export const loadOpenCV = (): Promise<void> => {
   });
 };
 
-export const detectDocumentCorners = (videoElement: HTMLVideoElement): cv.Point[] | null => {
+export const detectDocumentCorners = (sourceElement: HTMLVideoElement | HTMLCanvasElement): cv.Point[] | null => {
   if (!isOpenCvLoaded) return null;
 
-  const src = new cv.Mat(videoElement.videoHeight, videoElement.videoWidth, cv.CV_8UC4);
-  const cap = new cv.VideoCapture(videoElement);
-  cap.read(src);
-
+  const src = cv.imread(sourceElement);
   const gray = new cv.Mat();
   cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
 
@@ -97,13 +94,10 @@ export const detectDocumentCorners = (videoElement: HTMLVideoElement): cv.Point[
 };
 
 export const cropAndCorrectPerspective = (
-  videoElement: HTMLVideoElement,
+  sourceElement: HTMLVideoElement | HTMLCanvasElement,
   corners: cv.Point[]
 ): string => {
-  const src = new cv.Mat(videoElement.videoHeight, videoElement.videoWidth, cv.CV_8UC4);
-  const cap = new cv.VideoCapture(videoElement);
-  cap.read(src);
-
+  const src = cv.imread(sourceElement);
   const [tl, tr, br, bl] = corners;
 
   const widthA = Math.sqrt(Math.pow(br.x - bl.x, 2) + Math.pow(br.y - bl.y, 2));
