@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useState, useCallback } from 'react';
 import { X, Camera, Zap, ZapOff } from 'lucide-react';
-import { loadOpenCV, detectDocumentCorners, cropAndCorrectPerspective } from '../utils/opencv';
+import { useOpenCVWorker } from '../hooks/useOpenCVWorker';
 
 interface ScannerViewProps {
   onScanComplete: (imageUri: string) => void;
@@ -19,6 +19,8 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
   const captureTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastDetectedCorners = useRef<any>(null);
   const cornerHistoryRef = useRef<any[]>([]);
+  const { isReady: isWorkerReady, detectDocument, cropDocument, terminateWorker } = useOpenCVWorker();
+  const isDetectingRef = useRef(false);
 
   const stopCamera = useCallback(() => {
     if (captureTimeout.current) {
@@ -32,121 +34,187 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
     if (videoRef.current) {
       videoRef.current.srcObject = null;
     }
+    terminateWorker();
     setIsCameraReady(false);
-  }, []);
+  }, [terminateWorker]);
 
   const handleCapture = useCallback(async () => {
-    if (!videoRef.current || isCapturing) return;
+    if (!videoRef.current || isCapturing || !isWorkerReady) return;
     setIsCapturing(true);
     setStatus('Capture en cours...');
 
     try {
       const video = videoRef.current;
       
-      const tempCanvas = document.createElement('canvas');
-      tempCanvas.width = video.videoWidth;
-      tempCanvas.height = video.videoHeight;
-      const ctx = tempCanvas.getContext('2d');
-      if (!ctx) throw new Error('Canvas context is null');
-      ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+      // Utiliser OffscreenCanvas pour de meilleures performances
+      let imageData: ImageData;
+      
+      if (typeof OffscreenCanvas !== 'undefined') {
+        const offscreen = new OffscreenCanvas(video.videoWidth, video.videoHeight);
+        const ctx = offscreen.getContext('2d');
+        if (!ctx) throw new Error('OffscreenCanvas context is null');
+        ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        imageData = ctx.getImageData(0, 0, video.videoWidth, video.videoHeight);
+      } else {
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = video.videoWidth;
+        tempCanvas.height = video.videoHeight;
+        const ctx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        if (!ctx) throw new Error('Canvas context is null');
+        ctx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        imageData = ctx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+      }
 
-      const corners = detectDocumentCorners(tempCanvas);
+      const corners = await detectDocument(imageData);
 
       if (corners) {
-        const croppedUri = cropAndCorrectPerspective(tempCanvas, corners);
-        onScanComplete(croppedUri);
+        const croppedImageData = await cropDocument(imageData, corners);
+        if (croppedImageData) {
+          const resultCanvas = document.createElement('canvas');
+          resultCanvas.width = croppedImageData.width;
+          resultCanvas.height = croppedImageData.height;
+          const resultCtx = resultCanvas.getContext('2d');
+          if (resultCtx) {
+            resultCtx.putImageData(croppedImageData, 0, 0);
+            const croppedUri = resultCanvas.toDataURL('image/jpeg', 0.9);
+            onScanComplete(croppedUri);
+          }
+        } else {
+          // Convertir imageData en dataURL
+          const fallbackCanvas = document.createElement('canvas');
+          fallbackCanvas.width = imageData.width;
+          fallbackCanvas.height = imageData.height;
+          const fallbackCtx = fallbackCanvas.getContext('2d');
+          if (fallbackCtx) {
+            fallbackCtx.putImageData(imageData, 0, 0);
+            const imageUri = fallbackCanvas.toDataURL('image/jpeg', 0.9);
+            onScanComplete(imageUri);
+          }
+        }
       } else {
-        const imageUri = tempCanvas.toDataURL('image/jpeg', 0.9);
-        onScanComplete(imageUri);
+        // Convertir imageData en dataURL
+        const fallbackCanvas = document.createElement('canvas');
+        fallbackCanvas.width = imageData.width;
+        fallbackCanvas.height = imageData.height;
+        const fallbackCtx = fallbackCanvas.getContext('2d');
+        if (fallbackCtx) {
+          fallbackCtx.putImageData(imageData, 0, 0);
+          const imageUri = fallbackCanvas.toDataURL('image/jpeg', 0.9);
+          onScanComplete(imageUri);
+        }
       }
     } catch (error) {
       console.error('Erreur de capture:', error);
       setStatus('Erreur de capture. Réessayez.');
-      setIsCapturing(false); // Permettre une nouvelle tentative
+      setIsCapturing(false);
     } finally {
-      stopCamera(); // Arrêter la caméra après la capture
+      stopCamera();
     }
-  }, [isCapturing, onScanComplete, stopCamera]);
+  }, [isCapturing, isWorkerReady, onScanComplete, stopCamera, detectDocument, cropDocument]);
 
-  const performDetection = useCallback(() => {
-    if (!videoRef.current || !canvasRef.current || videoRef.current.paused || videoRef.current.ended || isCapturing) {
+  const performDetection = useCallback(async () => {
+    if (!videoRef.current || !canvasRef.current || videoRef.current.paused || videoRef.current.ended || isCapturing || !isWorkerReady) {
       return;
     }
 
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    // Éviter les détections simultanées
+    if (isDetectingRef.current) return;
+    isDetectingRef.current = true;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    try {
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
 
-    // Créer un canvas temporaire pour la détection
-    const tempCanvas = document.createElement('canvas');
-    tempCanvas.width = video.videoWidth;
-    tempCanvas.height = video.videoHeight;
-    const tempCtx = tempCanvas.getContext('2d');
-    if (!tempCtx) return;
-    tempCtx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
 
-    const corners = detectDocumentCorners(tempCanvas);
+      // Utiliser OffscreenCanvas si disponible pour de meilleures performances
+      let imageData: ImageData;
+      if (typeof OffscreenCanvas !== 'undefined') {
+        const offscreen = new OffscreenCanvas(video.videoWidth, video.videoHeight);
+        const offscreenCtx = offscreen.getContext('2d');
+        if (offscreenCtx) {
+          offscreenCtx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+          imageData = offscreenCtx.getImageData(0, 0, video.videoWidth, video.videoHeight);
+        } else {
+          return;
+        }
+      } else {
+        // Fallback pour navigateurs qui ne supportent pas OffscreenCanvas
+        const tempCanvas = document.createElement('canvas');
+        tempCanvas.width = video.videoWidth;
+        tempCanvas.height = video.videoHeight;
+        const tempCtx = tempCanvas.getContext('2d', { willReadFrequently: true });
+        if (!tempCtx) return;
+        tempCtx.drawImage(video, 0, 0, video.videoWidth, video.videoHeight);
+        imageData = tempCtx.getImageData(0, 0, tempCanvas.width, tempCanvas.height);
+      }
 
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Lissage des coins pour éviter les tremblements
-    let smoothedCorners = corners;
-    if (corners && lastDetectedCorners.current) {
-      // Moyenne mobile sur les coins pour stabilité
-      cornerHistoryRef.current.push(corners);
-      if (cornerHistoryRef.current.length > 3) {
-        cornerHistoryRef.current.shift();
+      const corners = await detectDocument(imageData);
+
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      
+      // Lissage des coins pour éviter les tremblements
+      let smoothedCorners = corners;
+      if (corners && lastDetectedCorners.current) {
+        // Moyenne mobile sur les coins pour stabilité
+        cornerHistoryRef.current.push(corners);
+        if (cornerHistoryRef.current.length > 3) {
+          cornerHistoryRef.current.shift();
+        }
+        
+        // Calculer la moyenne des positions
+        if (cornerHistoryRef.current.length >= 2) {
+          smoothedCorners = corners.map((_corner: any, idx: number) => {
+            const avgX = cornerHistoryRef.current.reduce((sum, hist) => sum + hist[idx].x, 0) / cornerHistoryRef.current.length;
+            const avgY = cornerHistoryRef.current.reduce((sum, hist) => sum + hist[idx].y, 0) / cornerHistoryRef.current.length;
+            return { x: avgX, y: avgY };
+          });
+        }
+      } else {
+        cornerHistoryRef.current = [];
       }
       
-      // Calculer la moyenne des positions
-      if (cornerHistoryRef.current.length >= 2) {
-        smoothedCorners = corners.map((_corner: any, idx: number) => {
-          const avgX = cornerHistoryRef.current.reduce((sum, hist) => sum + hist[idx].x, 0) / cornerHistoryRef.current.length;
-          const avgY = cornerHistoryRef.current.reduce((sum, hist) => sum + hist[idx].y, 0) / cornerHistoryRef.current.length;
-          return { x: avgX, y: avgY };
-        });
-      }
-    } else {
-      cornerHistoryRef.current = [];
-    }
-    
-    lastDetectedCorners.current = corners;
-    
-    if (smoothedCorners) {
-      setStatus('Document détecté ! Maintenez stable.');
-      ctx.strokeStyle = '#10b981';
-      ctx.lineWidth = 4;
-      ctx.beginPath();
-      ctx.moveTo(smoothedCorners[0].x, smoothedCorners[0].y);
-      for (let i = 1; i < smoothedCorners.length; i++) {
-        ctx.lineTo(smoothedCorners[i].x, smoothedCorners[i].y);
-      }
-      ctx.closePath();
-      ctx.stroke();
+      lastDetectedCorners.current = corners;
+      
+      if (smoothedCorners) {
+        setStatus('Document détecté ! Maintenez stable.');
+        ctx.strokeStyle = '#10b981';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.moveTo(smoothedCorners[0].x, smoothedCorners[0].y);
+        for (let i = 1; i < smoothedCorners.length; i++) {
+          ctx.lineTo(smoothedCorners[i].x, smoothedCorners[i].y);
+        }
+        ctx.closePath();
+        ctx.stroke();
 
-      // Logique de capture automatique
-      stableDetectionCount.current++;
-      if (stableDetectionCount.current > 8) { // 8 frames stables (plus stable)
-        if (!captureTimeout.current && !isCapturing) {
-          setStatus('Capture automatique dans 1s...');
-          captureTimeout.current = setTimeout(() => {
-            handleCapture();
-          }, 1000); // Délai de 1s pour la stabilité
+        // Logique de capture automatique
+        stableDetectionCount.current++;
+        if (stableDetectionCount.current > 8) {
+          if (!captureTimeout.current && !isCapturing) {
+            setStatus('Capture automatique dans 1s...');
+            captureTimeout.current = setTimeout(() => {
+              handleCapture();
+            }, 1000);
+          }
+        }
+      } else {
+        setStatus('Recherche de document...');
+        stableDetectionCount.current = 0;
+        if (captureTimeout.current) {
+          clearTimeout(captureTimeout.current);
+          captureTimeout.current = null;
         }
       }
-    } else {
-      setStatus('Recherche de document...');
-      stableDetectionCount.current = 0;
-      if (captureTimeout.current) {
-        clearTimeout(captureTimeout.current);
-        captureTimeout.current = null;
-      }
+    } catch (error) {
+      console.error('Erreur détection:', error);
+    } finally {
+      isDetectingRef.current = false;
     }
-  }, [handleCapture, isCapturing]);
+  }, [handleCapture, isCapturing, isWorkerReady, detectDocument]);
 
   useEffect(() => {
     let detectionInterval: ReturnType<typeof setInterval>;
@@ -154,7 +222,20 @@ const ScannerView: React.FC<ScannerViewProps> = ({ onScanComplete, onCancel }) =
     const startCamera = async () => {
       try {
         setStatus('Initialisation de la caméra...');
-        await loadOpenCV();
+        
+        // Attendre que le worker soit prêt
+        if (!isWorkerReady) {
+          setStatus('Chargement OpenCV...');
+          await new Promise<void>((resolve) => {
+            const checkInterval = setInterval(() => {
+              if (isWorkerReady) {
+                clearInterval(checkInterval);
+                resolve();
+              }
+            }, 100);
+          });
+        }
+        
         setStatus('Caméra prête. Positionnez le document.');
 
         const stream = await navigator.mediaDevices.getUserMedia({
