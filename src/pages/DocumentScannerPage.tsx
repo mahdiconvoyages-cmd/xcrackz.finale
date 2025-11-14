@@ -524,11 +524,11 @@ export default function DocumentScannerPage() {
       // Dessiner l'image en taille réelle du canvas
       ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
       
-      // Masque légèrement autour du document (effet beaucoup plus doux)
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
+      // Masque très léger (presque transparent)
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Zone sélectionnée (clear overlay) - adapter les coordonnées
+      // Zone sélectionnée (clear overlay complètement)
       ctx.save();
       ctx.globalCompositeOperation = 'destination-out';
       ctx.beginPath();
@@ -540,9 +540,10 @@ export default function DocumentScannerPage() {
       ctx.fill();
       ctx.restore();
       
-      // Bordures du document
+      // Bordures du document (plus épaisses et plus visibles)
       ctx.strokeStyle = '#14b8a6';
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 4;
+      ctx.setLineDash([]);
       ctx.beginPath();
       ctx.moveTo(corners[0].x * scaleX, corners[0].y * scaleY);
       for (let i = 1; i < corners.length; i++) {
@@ -550,27 +551,6 @@ export default function DocumentScannerPage() {
       }
       ctx.closePath();
       ctx.stroke();
-      
-      // Coins déplaçables (plus gros pour mobile)
-      corners.forEach((corner, index) => {
-        const cx = corner.x * scaleX;
-        const cy = corner.y * scaleY;
-        
-        ctx.beginPath();
-        ctx.arc(cx, cy, 25, 0, Math.PI * 2);
-        ctx.fillStyle = '#14b8a6';
-        ctx.fill();
-        ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 4;
-        ctx.stroke();
-        
-        // Numéro du coin
-        ctx.fillStyle = '#fff';
-        ctx.font = 'bold 16px sans-serif';
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
-        ctx.fillText((index + 1).toString(), cx, cy);
-      });
     };
   }, [step, rawImage, corners]);
 
@@ -833,6 +813,47 @@ export default function DocumentScannerPage() {
                 onTouchEnd={handleCanvasTouchEnd}
                 className="cursor-move touch-none"
               />
+              
+              {/* Coins draggables en HTML (par-dessus le canvas) */}
+              {cropCanvasRef.current && corners.length === 4 && (() => {
+                const canvas = cropCanvasRef.current;
+                const scaleX = parseFloat(canvas.getAttribute('data-scale-x') || '1');
+                const scaleY = parseFloat(canvas.getAttribute('data-scale-y') || '1');
+                
+                return corners.map((corner, index) => {
+                  const displayX = corner.x * scaleX;
+                  const displayY = corner.y * scaleY;
+                  
+                  return (
+                    <div
+                      key={index}
+                      className="absolute pointer-events-auto cursor-grab active:cursor-grabbing"
+                      style={{
+                        left: `${displayX - 30}px`,
+                        top: `${displayY - 30}px`,
+                        width: '60px',
+                        height: '60px',
+                        transform: 'translate(0, 0)',
+                        zIndex: 100,
+                      }}
+                      onMouseDown={(e) => {
+                        setDraggingCorner(index);
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                      onTouchStart={(e) => {
+                        setDraggingCorner(index);
+                        e.preventDefault();
+                        e.stopPropagation();
+                      }}
+                    >
+                      <div className="w-full h-full rounded-full bg-teal-500 border-4 border-white shadow-lg flex items-center justify-center">
+                        <span className="text-white font-bold text-lg">{index + 1}</span>
+                      </div>
+                    </div>
+                  );
+                });
+              })()}
               
               {/* Instructions overlay */}
               <div className="absolute top-4 left-4 right-4 pointer-events-none z-10">
