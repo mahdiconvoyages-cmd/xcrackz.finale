@@ -437,6 +437,10 @@ export default function DocumentScannerPage() {
     const x = Math.max(0, Math.min(pos.imgWidth, pos.x));
     const y = Math.max(0, Math.min(pos.imgHeight, pos.y));
     
+    // Éviter les mises à jour inutiles si la position n'a pas vraiment changé
+    const currentCorner = corners[draggingCorner];
+    if (Math.abs(currentCorner.x - x) < 1 && Math.abs(currentCorner.y - y) < 1) return;
+    
     const newCorners = [...corners];
     newCorners[draggingCorner] = { x, y };
     setCorners(newCorners);
@@ -452,6 +456,10 @@ export default function DocumentScannerPage() {
     const x = Math.max(0, Math.min(pos.imgWidth, pos.x));
     const y = Math.max(0, Math.min(pos.imgHeight, pos.y));
     
+    // Éviter les mises à jour inutiles si la position n'a pas vraiment changé
+    const currentCorner = corners[draggingCorner];
+    if (Math.abs(currentCorner.x - x) < 1 && Math.abs(currentCorner.y - y) < 1) return;
+    
     const newCorners = [...corners];
     newCorners[draggingCorner] = { x, y };
     setCorners(newCorners);
@@ -466,93 +474,108 @@ export default function DocumentScannerPage() {
     setDraggingCorner(null);
   };
 
-  // Dessiner l'overlay de crop avec redimensionnement adaptatif
+  // Dessiner l'overlay de crop avec redimensionnement adaptatif (optimisé)
   useEffect(() => {
     if (step !== 'crop' || !cropCanvasRef.current || !rawImage || corners.length !== 4) return;
     
     const canvas = cropCanvasRef.current;
-    const ctx = canvas.getContext('2d');
+    const ctx = canvas.getContext('2d', { willReadFrequently: false });
     if (!ctx) return;
     
     const img = new Image();
     img.src = rawImage;
-    img.onload = () => {
-      // Obtenir les dimensions de la zone d'affichage (bloc central)
-      const container = canvas.parentElement;
-      if (!container) return;
-      
-      const containerWidth = container.clientWidth;
-      const containerHeight = container.clientHeight;
-      
-      // Calculer le ratio pour que l'image remplisse l'écran au maximum
-      const imgRatio = img.width / img.height;
-      const containerRatio = containerWidth / containerHeight;
-      
-      let displayWidth: number;
-      let displayHeight: number;
-      
-      // Toujours remplir au maximum la largeur OU la hauteur
-      if (imgRatio > containerRatio) {
-        // Image plus large : remplir la largeur
-        displayWidth = containerWidth;
-        displayHeight = containerWidth / imgRatio;
-      } else {
-        // Image plus haute : remplir la hauteur
-        displayHeight = containerHeight;
-        displayWidth = containerHeight * imgRatio;
-      }
-      
-      // Définir les dimensions du canvas
+    
+    // Éviter de redessiner si l'image est déjà chargée
+    if (img.complete && img.naturalWidth > 0) {
+      drawCropOverlay(canvas, ctx, img, corners);
+    } else {
+      img.onload = () => drawCropOverlay(canvas, ctx, img, corners);
+    }
+  }, [step, rawImage, corners]);
+
+  const drawCropOverlay = (
+    canvas: HTMLCanvasElement,
+    ctx: CanvasRenderingContext2D,
+    img: HTMLImageElement,
+    corners: Corner[]
+  ) => {
+    // Obtenir les dimensions de la zone d'affichage (bloc central)
+    const container = canvas.parentElement;
+    if (!container) return;
+    
+    const containerWidth = container.clientWidth;
+    const containerHeight = container.clientHeight;
+    
+    // Calculer le ratio pour que l'image remplisse l'écran au maximum
+    const imgRatio = img.width / img.height;
+    const containerRatio = containerWidth / containerHeight;
+    
+    let displayWidth: number;
+    let displayHeight: number;
+    
+    // Toujours remplir au maximum la largeur OU la hauteur
+    if (imgRatio > containerRatio) {
+      // Image plus large : remplir la largeur
+      displayWidth = containerWidth;
+      displayHeight = containerWidth / imgRatio;
+    } else {
+      // Image plus haute : remplir la hauteur
+      displayHeight = containerHeight;
+      displayWidth = containerHeight * imgRatio;
+    }
+    
+    // Définir les dimensions du canvas seulement si elles ont changé
+    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
       canvas.width = displayWidth;
       canvas.height = displayHeight;
       canvas.style.width = `${displayWidth}px`;
       canvas.style.height = `${displayHeight}px`;
-      
-      // Calculer le scale pour mapper les coins
-      const scaleX = displayWidth / img.width;
-      const scaleY = displayHeight / img.height;
-      
-      // Sauvegarder le scale dans un attribut data pour les handlers
-      canvas.setAttribute('data-scale-x', scaleX.toString());
-      canvas.setAttribute('data-scale-y', scaleY.toString());
-      canvas.setAttribute('data-img-width', img.width.toString());
-      canvas.setAttribute('data-img-height', img.height.toString());
-      
-      // Clear et redessiner
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      
-      // Dessiner l'image en taille réelle du canvas
-      ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
-      
-      // Masque très léger (presque transparent)
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Zone sélectionnée (clear overlay complètement)
-      ctx.save();
-      ctx.globalCompositeOperation = 'destination-out';
-      ctx.beginPath();
-      ctx.moveTo(corners[0].x * scaleX, corners[0].y * scaleY);
-      for (let i = 1; i < corners.length; i++) {
-        ctx.lineTo(corners[i].x * scaleX, corners[i].y * scaleY);
-      }
-      ctx.closePath();
-      ctx.fill();
-      ctx.restore();
-      
-      // Bordures du document (plus épaisses et plus visibles)
-      ctx.strokeStyle = '#14b8a6';
-      ctx.lineWidth = 4;
-      ctx.setLineDash([]);
-      ctx.beginPath();
-      ctx.moveTo(corners[0].x * scaleX, corners[0].y * scaleY);
-      for (let i = 1; i < corners.length; i++) {
-        ctx.lineTo(corners[i].x * scaleX, corners[i].y * scaleY);
-      }
-      ctx.closePath();
-      ctx.stroke();
-    };
-  }, [step, rawImage, corners]);
+    }
+    
+    // Calculer le scale pour mapper les coins
+    const scaleX = displayWidth / img.width;
+    const scaleY = displayHeight / img.height;
+    
+    // Sauvegarder le scale dans un attribut data pour les handlers
+    canvas.setAttribute('data-scale-x', scaleX.toString());
+    canvas.setAttribute('data-scale-y', scaleY.toString());
+    canvas.setAttribute('data-img-width', img.width.toString());
+    canvas.setAttribute('data-img-height', img.height.toString());
+    
+    // Clear et redessiner
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    
+    // Dessiner l'image en taille réelle du canvas
+    ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
+    
+    // Masque très léger (presque transparent)
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Zone sélectionnée (clear overlay complètement)
+    ctx.save();
+    ctx.globalCompositeOperation = 'destination-out';
+    ctx.beginPath();
+    ctx.moveTo(corners[0].x * scaleX, corners[0].y * scaleY);
+    for (let i = 1; i < corners.length; i++) {
+      ctx.lineTo(corners[i].x * scaleX, corners[i].y * scaleY);
+    }
+    ctx.closePath();
+    ctx.fill();
+    ctx.restore();
+    
+    // Bordures du document (plus épaisses et plus visibles)
+    ctx.strokeStyle = '#14b8a6';
+    ctx.lineWidth = 4;
+    ctx.setLineDash([]);
+    ctx.beginPath();
+    ctx.moveTo(corners[0].x * scaleX, corners[0].y * scaleY);
+    for (let i = 1; i < corners.length; i++) {
+      ctx.lineTo(corners[i].x * scaleX, corners[i].y * scaleY);
+    }
+    ctx.closePath();
+    ctx.stroke();
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">

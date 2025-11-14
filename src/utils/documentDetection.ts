@@ -51,7 +51,7 @@ async function loadImageElement(src: string): Promise<HTMLImageElement> {
 }
 
 function getScaledImageData(ctx: CanvasRenderingContext2D, width: number, height: number) {
-  const MAX_DIMENSION = 1200;
+  const MAX_DIMENSION = 800; // Réduit de 1200 à 800 pour plus de rapidité
   const largestSide = Math.max(width, height);
   const scale = largestSide > MAX_DIMENSION ? MAX_DIMENSION / largestSide : 1;
 
@@ -66,20 +66,21 @@ function getScaledImageData(ctx: CanvasRenderingContext2D, width: number, height
   scaledCanvas.width = scaledWidth;
   scaledCanvas.height = scaledHeight;
   const scaledCtx = scaledCanvas.getContext('2d', { willReadFrequently: true })!;
+  
+  // Utiliser imageSmoothingQuality pour un meilleur équilibre vitesse/qualité
+  scaledCtx.imageSmoothingEnabled = true;
+  scaledCtx.imageSmoothingQuality = 'low';
   scaledCtx.drawImage(ctx.canvas, 0, 0, scaledWidth, scaledHeight);
 
   return { imageData: scaledCtx.getImageData(0, 0, scaledWidth, scaledHeight), scale };
 }
 
-/**
- * Détection avancée avec pipeline complet (blur + Canny + contour + min rect)
- */
 function detectCornersAdvanced(imageData: ImageData, width: number, height: number): Corner[] | null {
   const grayscale = convertToGrayscale(imageData.data, width, height);
   const blurred = gaussianBlur(grayscale, width, height);
   const { magnitude, direction } = sobelWithDirection(blurred, width, height);
   const suppressed = nonMaxSuppression(magnitude, direction, width, height);
-  const edgeMap = hysteresisThreshold(suppressed, width, height, 20, 60);
+  const edgeMap = hysteresisThreshold(suppressed, width, height, 15, 50); // Seuils légèrement réduits pour plus de tolérance
   const contours = extractContours(edgeMap, width, height);
   const bestContour = selectBestContour(contours, width, height);
 
@@ -374,17 +375,18 @@ function minimumBoundingRectangle(points: Corner[]): Corner[] | null {
 }
 
 /**
- * Simplification de polygone (Douglas-Peucker light)
+ * Simplification de polygone (Douglas-Peucker light) - optimisé
  */
 function simplifyPolygon(points: Corner[], tolerance: number): Corner[] {
   if (points.length <= 4) return points;
 
   const result: Corner[] = [points[0]];
+  const step = Math.max(1, Math.floor(points.length / 100)); // Sauter des points pour accélérer
   
-  for (let i = 1; i < points.length - 1; i++) {
+  for (let i = step; i < points.length - step; i += step) {
     const prev = result[result.length - 1];
     const current = points[i];
-    const next = points[i + 1];
+    const next = points[Math.min(i + step, points.length - 1)];
     
     // Distance perpendiculaire du point à la ligne prev-next
     const dist = perpendicularDistance(current, prev, next);
