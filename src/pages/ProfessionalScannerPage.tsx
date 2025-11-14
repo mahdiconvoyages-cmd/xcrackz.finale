@@ -115,9 +115,13 @@ export default function ProfessionalScannerPage() {
       setStream(mediaStream);
       setStep('camera');
       
-      if (videoRef.current) {
-        videoRef.current.srcObject = mediaStream;
-      }
+      // Attendre que videoRef soit disponible
+      setTimeout(() => {
+        if (videoRef.current) {
+          videoRef.current.srcObject = mediaStream;
+          videoRef.current.play().catch(err => console.error('Erreur lecture vidéo:', err));
+        }
+      }, 100);
     } catch (error) {
       console.error('Erreur accès caméra:', error);
       alert('Impossible d\'accéder à la caméra');
