@@ -33,12 +33,7 @@ export async function applyAdvancedFilter(
         // Obtenir les données de pixels
         const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
-        // Pré-traitement: Réduction du bruit avant filtrage
-        if (filterType !== 'color') {
-          reduceNoise(imageData);
-        }
-
-        // Appliquer le filtre selon le type
+        // Appliquer le filtre selon le type (sans pré-traitement pour vitesse)
         switch (filterType) {
           case 'magic':
             applyProfessionalMagicFilter(imageData);
@@ -70,133 +65,73 @@ export async function applyAdvancedFilter(
 }
 
 /**
- * 🪄 FILTRE MAGIC - Amélioration automatique professionnelle
- * - Auto-contraste adaptatif
- * - Suppression des ombres
- * - Netteté optimisée
- * - Balance des blancs
- * - Correction gamma adaptative
+ * 🪄 FILTRE MAGIC - Amélioration automatique RAPIDE
+ * - Auto-contraste
+ * - Netteté modérée
+ * - Look naturel
  */
 function applyProfessionalMagicFilter(imageData: ImageData) {
   const data = imageData.data;
   const width = imageData.width;
   const height = imageData.height;
 
-  // Phase 1: Analyser l'histogramme pour auto-contraste
+  // Analyser l'histogramme pour auto-contraste
   const histogram = calculateHistogram(data);
   const { min, max } = findOptimalRange(histogram);
-
-  // Phase 2: Normalisation adaptative
   const normalizeFactor = 255 / (max - min);
   
   const tempData = new Uint8ClampedArray(data);
 
+  // Appliquer auto-contraste + léger boost
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
 
-    // Auto-contraste intelligent
+    // Auto-contraste simple
     let newR = clamp((r - min) * normalizeFactor);
     let newG = clamp((g - min) * normalizeFactor);
     let newB = clamp((b - min) * normalizeFactor);
 
-    // Balance des blancs automatique (préserver le naturel)
-    const avgR = (newR + newG + newB) / 3;
-    newR = clamp(avgR + (newR - avgR) * 0.85);
-    newG = clamp(avgR + (newG - avgR) * 0.85);
-    newB = clamp(avgR + (newB - avgR) * 0.85);
-
-    // Correction gamma adaptative pour éclaircir les zones sombres
-    const luminosity = newR * 0.299 + newG * 0.587 + newB * 0.114;
-    const gamma = luminosity < 100 ? 1.15 : luminosity > 160 ? 1.05 : 1.10;
-    newR = clamp(Math.pow(newR / 255, 1 / gamma) * 255);
-    newG = clamp(Math.pow(newG / 255, 1 / gamma) * 255);
-    newB = clamp(Math.pow(newB / 255, 1 / gamma) * 255);
-
-    // Contraste amélioré pour lisibilité optimale
-    const contrastBoost = 1.20;
-    newR = clamp((newR - 128) * contrastBoost + 128);
-    newG = clamp((newG - 128) * contrastBoost + 128);
-    newB = clamp((newB - 128) * contrastBoost + 128);
-
-    // Légère désaturation pour look professionnel sans excès
-    const gray = newR * 0.299 + newG * 0.587 + newB * 0.114;
-    const desaturation = 0.8;
-    newR = clamp(gray + (newR - gray) * desaturation);
-    newG = clamp(gray + (newG - gray) * desaturation);
-    newB = clamp(gray + (newB - gray) * desaturation);
+    // Léger boost de contraste
+    const contrast = 1.1;
+    newR = clamp((newR - 128) * contrast + 128);
+    newG = clamp((newG - 128) * contrast + 128);
+    newB = clamp((newB - 128) * contrast + 128);
 
     tempData[i] = newR;
     tempData[i + 1] = newG;
     tempData[i + 2] = newB;
   }
 
-  // Phase 3: Netteté renforcée pour documents (radius réduit pour plus de précision)
-  applyUnsharpMask(tempData, data, width, height, 2.8, 0.8);
+  // Netteté modérée
+  applyUnsharpMask(tempData, data, width, height, 1.5, 1.0);
 }
 
 /**
- * ⚫⚪ FILTRE N&B ADAPTATIF - Binarisation intelligente
- * - Seuil adaptatif local (Otsu amélioré)
- * - Préserve les détails fins
- * - Idéal pour texte et documents
+ * ⚫⚪ FILTRE N&B ADAPTATIF RAPIDE
+ * - Binarisation simple et efficace
+ * - Seuil automatique Otsu
  */
 function applyAdaptiveBlackAndWhite(imageData: ImageData) {
   const data = imageData.data;
   const width = imageData.width;
   const height = imageData.height;
 
-  // Convertir en niveaux de gris avec pré-lissage
+  // Convertir en niveaux de gris
   const grayscale = new Uint8Array(width * height);
   for (let i = 0; i < data.length; i += 4) {
     const idx = i / 4;
     const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-    // Appliquer une légère courbe pour adoucir
-    grayscale[idx] = Math.round(gray * 0.95 + 12);
+    grayscale[idx] = gray;
   }
 
-  // Calculer le seuil global Otsu pour référence
-  const globalThreshold = calculateOtsuThreshold(grayscale);
+  // Calculer le seuil optimal avec Otsu
+  const threshold = calculateOtsuThreshold(grayscale);
 
-  // Binarisation adaptative hybride (Otsu + adaptatif local)
-  const blockSize = 25; // Fenêtre optimale
-  const C = 12; // Seuil ajusté
-
-  const tempGrayscale = new Uint8Array(width * height);
-
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const idx = y * width + x;
-
-      // Calculer la moyenne locale
-      let sum = 0;
-      let count = 0;
-      
-      for (let dy = -blockSize; dy <= blockSize; dy++) {
-        for (let dx = -blockSize; dx <= blockSize; dx++) {
-          const nx = x + dx;
-          const ny = y + dy;
-          
-          if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-            sum += grayscale[ny * width + nx];
-            count++;
-          }
-        }
-      }
-
-      const localMean = sum / count;
-      // Combiner seuil local et global pour meilleur résultat
-      const localThreshold = (localMean * 0.7 + globalThreshold * 0.3) - C;
-
-      // Appliquer le seuil avec contraste amélioré
-      tempGrayscale[idx] = grayscale[idx] > localThreshold ? 255 : 0;
-    }
-  }
-
-  // Appliquer le résultat avec netteté
-  for (let i = 0; i < tempGrayscale.length; i++) {
-    const value = tempGrayscale[i];
+  // Appliquer la binarisation
+  for (let i = 0; i < grayscale.length; i++) {
+    const value = grayscale[i] > threshold ? 255 : 0;
     data[i * 4] = value;
     data[i * 4 + 1] = value;
     data[i * 4 + 2] = value;
@@ -204,10 +139,9 @@ function applyAdaptiveBlackAndWhite(imageData: ImageData) {
 }
 
 /**
- * 🌫️ FILTRE NIVEAUX DE GRIS AMÉLIORÉ
- * - Contraste optimisé
- * - Préservation des détails
- * - Réduction du bruit
+ * 🌫️ FILTRE NIVEAUX DE GRIS RAPIDE
+ * - Contraste amélioré
+ * - Netteté modérée
  */
 function applyEnhancedGrayscale(imageData: ImageData) {
   const data = imageData.data;
@@ -216,31 +150,27 @@ function applyEnhancedGrayscale(imageData: ImageData) {
 
   const tempData = new Uint8ClampedArray(data);
 
-  // Convertir en niveaux de gris avec amélioration du contraste
+  // Convertir en niveaux de gris avec contraste
   for (let i = 0; i < data.length; i += 4) {
-    const gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+    let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
     
-    // Amélioration du contraste (S-curve plus prononcée)
-    let enhanced = applySCurve(gray / 255) * 255;
+    // Boost de contraste simple
+    gray = clamp((gray - 128) * 1.2 + 128);
     
-    // Boost de contraste supplémentaire
-    enhanced = clamp((enhanced - 128) * 1.2 + 128);
-    
-    tempData[i] = enhanced;
-    tempData[i + 1] = enhanced;
-    tempData[i + 2] = enhanced;
+    tempData[i] = gray;
+    tempData[i + 1] = gray;
+    tempData[i + 2] = gray;
   }
 
-  // Appliquer netteté forte (optimisée pour HD)
-  applyUnsharpMask(tempData, data, width, height, 3.0, 1.0);
+  // Netteté modérée
+  applyUnsharpMask(tempData, data, width, height, 1.5, 1.0);
 }
 
 /**
- * 🌈 FILTRE COULEUR VIVE - Amélioration des couleurs
- * - Saturation intelligente
- * - Contraste optimisé
- * - Netteté augmentée
- * - Balance des blancs automatique
+ * 🌈 FILTRE COULEUR RAPIDE
+ * - Saturation améliorée
+ * - Contraste modéré
+ * - Netteté douce
  */
 function applyVividColorEnhancement(imageData: ImageData) {
   const data = imageData.data;
@@ -250,42 +180,31 @@ function applyVividColorEnhancement(imageData: ImageData) {
   const tempData = new Uint8ClampedArray(data);
 
   for (let i = 0; i < data.length; i += 4) {
-    let r = data[i];
-    let g = data[i + 1];
-    let b = data[i + 2];
+    const r = data[i];
+    const g = data[i + 1];
+    const b = data[i + 2];
 
-    // Balance automatique des blancs (préserver couleurs naturelles)
-    const avgColor = (r + g + b) / 3;
-    r = clamp(avgColor + (r - avgColor) * 0.90);
-    g = clamp(avgColor + (g - avgColor) * 0.90);
-    b = clamp(avgColor + (b - avgColor) * 0.90);
-
-    // Saturation vibrante pour documents
+    // Saturation pour documents
     const gray = r * 0.299 + g * 0.587 + b * 0.114;
-    const saturationBoost = 1.7;
+    const saturationBoost = 1.3;
     
     let newR = clamp(gray + (r - gray) * saturationBoost);
     let newG = clamp(gray + (g - gray) * saturationBoost);
     let newB = clamp(gray + (b - gray) * saturationBoost);
 
-    // Contraste élevé pour netteté maximale
-    const contrastFactor = 1.45;
+    // Contraste modéré
+    const contrastFactor = 1.15;
     newR = clamp((newR - 128) * contrastFactor + 128);
     newG = clamp((newG - 128) * contrastFactor + 128);
     newB = clamp((newB - 128) * contrastFactor + 128);
-
-    // Correction gamma pour éclaircir légèrement
-    newR = clamp(Math.pow(newR / 255, 1 / 1.08) * 255);
-    newG = clamp(Math.pow(newG / 255, 1 / 1.08) * 255);
-    newB = clamp(Math.pow(newB / 255, 1 / 1.08) * 255);
 
     tempData[i] = newR;
     tempData[i + 1] = newG;
     tempData[i + 2] = newB;
   }
 
-  // Appliquer netteté très forte pour documents colorés (optimisée pour HD)
-  applyUnsharpMask(tempData, data, width, height, 3.0, 0.9);
+  // Netteté modérée
+  applyUnsharpMask(tempData, data, width, height, 1.5, 1.0);
 }
 
 // ===== FONCTIONS UTILITAIRES =====

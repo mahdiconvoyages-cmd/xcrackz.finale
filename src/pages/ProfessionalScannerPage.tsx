@@ -240,13 +240,10 @@ export default function ProfessionalScannerPage() {
     setIsProcessing(true);
 
     try {
-      // Appliquer la correction de perspective
+      // Appliquer la correction de perspective uniquement
       const cropped = await cropAndCorrectPerspective(rawImage, finalCorners);
       setCroppedImage(cropped);
-
-      // Appliquer le filtre par défaut (magic)
-      const filtered = await applyAdvancedFilter(cropped, 'magic');
-      setProcessedImage(filtered);
+      setProcessedImage(cropped); // Pas de filtre par défaut
       setSelectedFilter('magic');
 
       // Passer à l'édition
@@ -270,14 +267,18 @@ export default function ProfessionalScannerPage() {
   const applyFilter = async (filterType: FilterType) => {
     if (!croppedImage) return;
 
-    setIsProcessing(true);
     setSelectedFilter(filterType);
+    setIsProcessing(true);
 
     try {
+      // Appliquer le filtre de manière asynchrone
       const filtered = await applyAdvancedFilter(croppedImage, filterType);
       setProcessedImage(filtered);
     } catch (error) {
       console.error('Erreur application filtre:', error);
+      alert('Erreur lors de l\'application du filtre');
+      // Revenir à l'image non filtrée en cas d'erreur
+      setProcessedImage(croppedImage);
     } finally {
       setIsProcessing(false);
     }
