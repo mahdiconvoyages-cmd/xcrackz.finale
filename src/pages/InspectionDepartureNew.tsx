@@ -7,7 +7,7 @@ import SignatureCanvas from '../components/inspection/SignatureCanvas';
 import PhotoCard from '../components/inspection/PhotoCard';
 import StepNavigation from '../components/inspection/StepNavigation';
 import OptionalPhotos from '../components/inspection/OptionalPhotos';
-import DocumentScanner from '../components/inspection/DocumentScanner';
+import UnifiedDocumentScanner from '../components/inspection/UnifiedDocumentScanner';
 import { showToast } from '../components/Toast';
 
 interface Mission {
@@ -918,11 +918,12 @@ export default function InspectionDepartureNew() {
       />
       {/* Scanner de documents modal */}
       {showDocScanner && (
-        <DocumentScanner
+        <UnifiedDocumentScanner
           onCapture={handleDocScan}
           onCancel={() => setShowDocScanner(false)}
           documentType={scannerDocType}
           title={`Scanner ${scannerDocType === 'registration' ? 'la Carte Grise' : scannerDocType === 'insurance' ? 'l\'Assurance' : 'le Document'}`}
+          userId={user?.id}
         />
       )}
     </div>
