@@ -46,18 +46,30 @@ export default function SimpleScannerPage() {
   };
 
   const captureImage = () => {
-    if (!videoRef.current || !canvasRef.current) return;
+    if (!videoRef.current) return;
 
     const video = videoRef.current;
-    const canvas = canvasRef.current;
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    
+    // Créer un canvas temporaire pour la capture
+    const tempCanvas = document.createElement('canvas');
+    tempCanvas.width = video.videoWidth;
+    tempCanvas.height = video.videoHeight;
 
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
+    const ctx = tempCanvas.getContext('2d');
+    if (!ctx) {
+      alert('Erreur: Impossible de créer le contexte canvas');
+      return;
+    }
 
-    ctx.drawImage(video, 0, 0);
-    const imageData = canvas.toDataURL('image/jpeg', 0.95);
+    // Capturer l'image de la vidéo
+    ctx.drawImage(video, 0, 0, tempCanvas.width, tempCanvas.height);
+    const imageData = tempCanvas.toDataURL('image/jpeg', 0.95);
+    
+    if (!imageData || imageData === 'data:,') {
+      alert('Erreur: Capture échouée. Réessayez.');
+      return;
+    }
+    
     setCapturedImage(imageData);
     stopCamera();
   };
@@ -83,18 +95,21 @@ export default function SimpleScannerPage() {
 
     const img = new Image();
     img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
+      // Gérer la rotation
+      if (rotation === 90 || rotation === 270) {
+        canvas.width = img.height;
+        canvas.height = img.width;
+      } else {
+        canvas.width = img.width;
+        canvas.height = img.height;
+      }
 
-      // Apply rotation
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       ctx.save();
       ctx.translate(canvas.width / 2, canvas.height / 2);
       ctx.rotate((rotation * Math.PI) / 180);
-      ctx.translate(-canvas.width / 2, -canvas.height / 2);
-
-      // Apply filters
       ctx.filter = `brightness(${brightness}%) contrast(${contrast}%)`;
-      ctx.drawImage(img, 0, 0);
+      ctx.drawImage(img, -img.width / 2, -img.height / 2);
       ctx.restore();
 
       const newImage = canvas.toDataURL('image/jpeg', 0.95);
@@ -151,17 +166,27 @@ export default function SimpleScannerPage() {
                 ref={videoRef}
                 autoPlay
                 playsInline
+                muted
                 className="w-full h-full object-cover"
               />
               <div className="absolute inset-0 border-4 border-dashed border-white/30 m-8 rounded-xl pointer-events-none" />
+              
+              {/* Camera status indicator */}
+              {stream && (
+                <div className="absolute top-4 right-4 bg-red-600 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center gap-2">
+                  <div className="w-2 h-2 bg-white rounded-full animate-pulse" />
+                  REC
+                </div>
+              )}
             </div>
 
             <button
               onClick={captureImage}
-              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-6 rounded-2xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all transform hover:scale-105 shadow-xl flex items-center justify-center gap-3"
+              disabled={!stream}
+              className="w-full bg-gradient-to-r from-blue-600 to-indigo-600 text-white px-8 py-6 rounded-2xl font-bold text-lg hover:from-blue-700 hover:to-indigo-700 transition-all transform hover:scale-105 shadow-xl flex items-center justify-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               <Camera size={28} />
-              Capturer le document
+              {stream ? 'Capturer le document' : 'Démarrage de la caméra...'}
             </button>
           </div>
         ) : (
