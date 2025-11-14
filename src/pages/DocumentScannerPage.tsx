@@ -815,7 +815,7 @@ export default function DocumentScannerPage() {
             </div>
 
             {/* Zone canvas - prend tout l'espace disponible */}
-            <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center p-2">
+            <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center">
               <canvas
                 ref={cropCanvasRef}
                 onMouseDown={handleCanvasMouseDown}
