@@ -170,10 +170,13 @@ export default function ProfessionalScannerPage() {
     setIsProcessing(true);
 
     try {
-      // Appliquer la correction de perspective uniquement
+      // Appliquer la correction de perspective
       const cropped = await cropAndCorrectPerspective(rawImage, finalCorners);
       setCroppedImage(cropped);
-      setProcessedImage(cropped); // Pas de filtre par défaut
+      
+      // Appliquer automatiquement le filtre N&B par défaut
+      const filtered = await applyAdvancedFilter(cropped, 'bw');
+      setProcessedImage(filtered);
       setSelectedFilter('bw');
 
       // Passer à l'édition
