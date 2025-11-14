@@ -371,13 +371,15 @@ export default function DocumentScannerPage() {
       clientY = e.clientY;
     }
     
-    // Position dans le canvas affiché (pixels CSS)
-    const canvasX = clientX - rect.left;
-    const canvasY = clientY - rect.top;
+  // Position dans le canvas affiché (pixels CSS)
+  const canvasX = clientX - rect.left;
+  const canvasY = clientY - rect.top;
     
-    // Convertir en coordonnées de l'image originale
-    const x = canvasX / scaleX;
-    const y = canvasY / scaleY;
+  if (!scaleX || !scaleY) return null;
+    
+  // Convertir en coordonnées de l'image originale
+  const x = canvasX / scaleX;
+  const y = canvasY / scaleY;
     
     return { x, y, scaleX, scaleY, imgWidth, imgHeight };
   };
@@ -387,7 +389,7 @@ export default function DocumentScannerPage() {
     if (!pos) return;
     
     // Rayon de détection en pixels de l'image originale
-    const TOUCH_RADIUS = 60 / pos.scaleX; // Plus gros rayon
+    const TOUCH_RADIUS = 80 / pos.scaleX; // Rayon plus large pour faciliter le drag
     
     for (let i = 0; i < corners.length; i++) {
       const dx = corners[i].x - pos.x;
@@ -406,7 +408,7 @@ export default function DocumentScannerPage() {
     const pos = getPointerPosition(e);
     if (!pos) return;
     
-    const TOUCH_RADIUS = 60 / pos.scaleX;
+    const TOUCH_RADIUS = 80 / pos.scaleX; // Même rayon pour le tactile
     
     for (let i = 0; i < corners.length; i++) {
       const dx = corners[i].x - pos.x;
@@ -470,11 +472,10 @@ export default function DocumentScannerPage() {
     const img = new Image();
     img.src = rawImage;
     img.onload = () => {
-      // Obtenir les dimensions de la zone d'affichage
+      // Obtenir les dimensions de la zone d'affichage (bloc central)
       const container = canvas.parentElement;
       if (!container) return;
       
-      // Utiliser toute la largeur disponible sans padding
       const containerWidth = container.clientWidth;
       const containerHeight = container.clientHeight;
       
@@ -518,8 +519,8 @@ export default function DocumentScannerPage() {
       // Dessiner l'image en taille réelle du canvas
       ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
       
-      // Overlay semi-transparent
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
+      // Masque légèrement autour du document (effet beaucoup plus doux)
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.25)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
       // Zone sélectionnée (clear overlay) - adapter les coordonnées
