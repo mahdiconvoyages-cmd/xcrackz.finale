@@ -12,6 +12,7 @@
  */
 
 import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
   Camera,
   Upload,
@@ -28,7 +29,8 @@ import {
   Trash2,
   Eye,
   Share2,
-  FileDown
+  FileDown,
+  FolderOpen
 } from 'lucide-react';
 import {
   loadOpenCV,
@@ -48,6 +50,8 @@ interface ScannedDocument {
 }
 
 export default function ProfessionalScannerPage() {
+  const navigate = useNavigate();
+  
   // États du workflow
   const [step, setStep] = useState<'intro' | 'crop' | 'edit' | 'documents'>('intro');
   const [rawImage, setRawImage] = useState<string | null>(null);
@@ -471,6 +475,14 @@ export default function ProfessionalScannerPage() {
                 Mes documents ({scannedDocuments.length})
               </button>
             )}
+
+            <button
+              onClick={() => navigate('/mes-documents')}
+              className="w-full py-4 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-xl font-semibold flex items-center justify-center gap-3 transition-all backdrop-blur-sm border border-purple-500/30"
+            >
+              <FolderOpen className="w-6 h-6" />
+              Tous mes documents cloud
+            </button>
           </div>
         </div>
 

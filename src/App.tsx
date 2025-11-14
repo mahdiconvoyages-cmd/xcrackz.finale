@@ -58,6 +58,7 @@ import MobileDownload from './pages/MobileDownload';
 import ResetPassword from './pages/ResetPassword';
 import MissionDetail from './pages/MissionDetail';
 import ProfessionalScannerPage from './pages/ProfessionalScannerPage';
+import MyDocuments from './pages/MyDocuments';
 
 function AppContent() {
   return (
@@ -81,6 +82,11 @@ function AppContent() {
         <Route path="/inspection/report/:inspectionId" element={<PublicInspectionReport />} />
         <Route path="/mission/:missionId" element={<MissionDetail />} />
         <Route path="/scanner" element={<ProfessionalScannerPage />} />
+        <Route path="/mes-documents" element={
+          <ProtectedRoute>
+            <MyDocuments />
+          </ProtectedRoute>
+        } />
 
           <Route
             path="/dashboard"
