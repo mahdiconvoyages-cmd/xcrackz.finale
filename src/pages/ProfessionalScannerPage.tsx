@@ -476,7 +476,7 @@ export default function ProfessionalScannerPage() {
 
             {scannedDocuments.length > 0 && (
               <button
-                onClick={() => setStep('documents')}
+                onClick={() => navigate('/mes-documents')}
                 className="w-full py-4 bg-green-600/20 hover:bg-green-600/30 text-green-300 rounded-xl font-semibold flex items-center justify-center gap-3 transition-all backdrop-blur-sm border border-green-500/30"
               >
                 <FileText className="w-6 h-6" />
