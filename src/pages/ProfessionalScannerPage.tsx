@@ -44,7 +44,6 @@ export default function ProfessionalScannerPage() {
   
   // États de détection
   const [corners, setCorners] = useState<Corner[]>([]);
-  const [openCVReady, setOpenCVReady] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isLoadingOpenCV, setIsLoadingOpenCV] = useState(false);
   
@@ -54,17 +53,15 @@ export default function ProfessionalScannerPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
 
-  // Précharger OpenCV au montage
+  // Précharger OpenCV au montage (pour compatibilité)
   useEffect(() => {
     setIsLoadingOpenCV(true);
     loadOpenCV()
       .then(() => {
-        setOpenCVReady(true);
         setIsLoadingOpenCV(false);
       })
       .catch((error) => {
         console.error('OpenCV non disponible:', error);
-        setOpenCVReady(false);
         setIsLoadingOpenCV(false);
       });
   }, []);
@@ -165,24 +162,9 @@ export default function ProfessionalScannerPage() {
     setRawImage(imageUrl);
 
     try {
-      if (openCVReady) {
-        // Détection automatique des coins
-        const detectedCorners = await detectDocumentCorners(imageUrl);
-        setCorners(detectedCorners);
-      } else {
-        // Coins par défaut si OpenCV n'est pas prêt
-        const img = new Image();
-        img.src = imageUrl;
-        await new Promise(resolve => { img.onload = resolve; });
-        
-        const margin = Math.min(img.width, img.height) * 0.05;
-        setCorners([
-          { x: margin, y: margin },
-          { x: img.width - margin, y: margin },
-          { x: img.width - margin, y: img.height - margin },
-          { x: margin, y: img.height - margin }
-        ]);
-      }
+      // Détection automatique optimisée
+      const detectedCorners = await detectDocumentCorners(imageUrl);
+      setCorners(detectedCorners);
 
       // Passer à l'étape de crop
       setStep('crop');
@@ -304,7 +286,7 @@ export default function ProfessionalScannerPage() {
 
   // ===== RENDU =====
 
-  // Écran de chargement OpenCV
+  // Écran de chargement
   if (isLoadingOpenCV) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center">
@@ -350,14 +332,6 @@ export default function ProfessionalScannerPage() {
               Choisir un fichier
             </button>
           </div>
-
-          {!openCVReady && (
-            <div className="mt-6 p-4 bg-yellow-500/10 border border-yellow-500/20 rounded-lg">
-              <p className="text-yellow-200 text-sm text-center">
-                Détection automatique indisponible - recadrage manuel possible
-              </p>
-            </div>
-          )}
         </div>
 
         <input
