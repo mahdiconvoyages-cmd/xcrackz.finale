@@ -348,12 +348,10 @@ export default function DocumentScannerPage() {
   };
 
   const getPointerPosition = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!cropCanvasRef.current) return null;
+    if (!cropCanvasRef.current || !rawImage) return null;
     
     const canvas = cropCanvasRef.current;
     const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
     
     let clientX: number;
     let clientY: number;
@@ -367,18 +365,31 @@ export default function DocumentScannerPage() {
       clientY = e.clientY;
     }
     
-    const x = (clientX - rect.left) * scaleX;
-    const y = (clientY - rect.top) * scaleY;
+    // Position dans le canvas affiché
+    const canvasX = clientX - rect.left;
+    const canvasY = clientY - rect.top;
     
-    return { x, y };
+    // Charger l'image pour obtenir les dimensions originales
+    const img = new Image();
+    img.src = rawImage;
+    
+    // Ratio entre canvas affiché et image originale
+    const scaleX = img.width / canvas.width;
+    const scaleY = img.height / canvas.height;
+    
+    // Convertir en coordonnées de l'image originale
+    const x = canvasX * scaleX;
+    const y = canvasY * scaleY;
+    
+    return { x, y, scaleX, scaleY };
   };
 
   const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const pos = getPointerPosition(e);
     if (!pos) return;
     
-    // Trouver le coin le plus proche
-    const TOUCH_RADIUS = 50; // Plus large pour mobile
+    // Trouver le coin le plus proche (en coordonnées originales)
+    const TOUCH_RADIUS = 50 * pos.scaleX; // Adapter le rayon au scale
     for (let i = 0; i < corners.length; i++) {
       const dx = corners[i].x - pos.x;
       const dy = corners[i].y - pos.y;
@@ -397,7 +408,7 @@ export default function DocumentScannerPage() {
     if (!pos) return;
     
     // Trouver le coin le plus proche
-    const TOUCH_RADIUS = 50;
+    const TOUCH_RADIUS = 50 * pos.scaleX;
     for (let i = 0; i < corners.length; i++) {
       const dx = corners[i].x - pos.x;
       const dy = corners[i].y - pos.y;
@@ -415,11 +426,14 @@ export default function DocumentScannerPage() {
     if (draggingCorner === null) return;
     
     const pos = getPointerPosition(e);
-    if (!pos || !cropCanvasRef.current) return;
+    if (!pos || !rawImage) return;
     
-    const canvas = cropCanvasRef.current;
-    const x = Math.max(0, Math.min(canvas.width, pos.x));
-    const y = Math.max(0, Math.min(canvas.height, pos.y));
+    // Charger l'image pour les limites
+    const img = new Image();
+    img.src = rawImage;
+    
+    const x = Math.max(0, Math.min(img.width, pos.x));
+    const y = Math.max(0, Math.min(img.height, pos.y));
     
     const newCorners = [...corners];
     newCorners[draggingCorner] = { x, y };
@@ -431,11 +445,13 @@ export default function DocumentScannerPage() {
     if (draggingCorner === null) return;
     
     const pos = getPointerPosition(e);
-    if (!pos || !cropCanvasRef.current) return;
+    if (!pos || !rawImage) return;
     
-    const canvas = cropCanvasRef.current;
-    const x = Math.max(0, Math.min(canvas.width, pos.x));
-    const y = Math.max(0, Math.min(canvas.height, pos.y));
+    const img = new Image();
+    img.src = rawImage;
+    
+    const x = Math.max(0, Math.min(img.width, pos.x));
+    const y = Math.max(0, Math.min(img.height, pos.y));
     
     const newCorners = [...corners];
     newCorners[draggingCorner] = { x, y };
@@ -451,7 +467,7 @@ export default function DocumentScannerPage() {
     setDraggingCorner(null);
   };
 
-  // Dessiner l'overlay de crop
+  // Dessiner l'overlay de crop avec redimensionnement adaptatif
   useEffect(() => {
     if (step !== 'crop' || !cropCanvasRef.current || !rawImage || corners.length !== 4) return;
     
@@ -462,29 +478,57 @@ export default function DocumentScannerPage() {
     const img = new Image();
     img.src = rawImage;
     img.onload = () => {
-      // Définir la taille du canvas seulement une fois
-      if (canvas.width === 0 || canvas.height === 0) {
-        canvas.width = img.width;
-        canvas.height = img.height;
+      // Obtenir les dimensions de la zone d'affichage
+      const container = canvas.parentElement;
+      if (!container) return;
+      
+      const containerWidth = container.clientWidth - 16; // padding
+      const containerHeight = container.clientHeight - 16;
+      
+      // Calculer le ratio pour que l'image remplisse l'écran
+      const imgRatio = img.width / img.height;
+      const containerRatio = containerWidth / containerHeight;
+      
+      let displayWidth: number;
+      let displayHeight: number;
+      
+      if (imgRatio > containerRatio) {
+        // Image plus large que le container
+        displayWidth = containerWidth;
+        displayHeight = containerWidth / imgRatio;
+      } else {
+        // Image plus haute que le container
+        displayHeight = containerHeight;
+        displayWidth = containerHeight * imgRatio;
       }
+      
+      // Définir les dimensions du canvas pour remplir l'écran
+      canvas.width = displayWidth;
+      canvas.height = displayHeight;
+      canvas.style.width = `${displayWidth}px`;
+      canvas.style.height = `${displayHeight}px`;
+      
+      // Calculer le scale pour mapper les coins
+      const scaleX = displayWidth / img.width;
+      const scaleY = displayHeight / img.height;
       
       // Clear et redessiner
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
-      // Dessiner l'image
-      ctx.drawImage(img, 0, 0);
+      // Dessiner l'image en taille réelle du canvas
+      ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
       
       // Overlay semi-transparent
       ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
       
-      // Zone sélectionnée (clear overlay)
+      // Zone sélectionnée (clear overlay) - adapter les coordonnées
       ctx.save();
       ctx.globalCompositeOperation = 'destination-out';
       ctx.beginPath();
-      ctx.moveTo(corners[0].x, corners[0].y);
+      ctx.moveTo(corners[0].x * scaleX, corners[0].y * scaleY);
       for (let i = 1; i < corners.length; i++) {
-        ctx.lineTo(corners[i].x, corners[i].y);
+        ctx.lineTo(corners[i].x * scaleX, corners[i].y * scaleY);
       }
       ctx.closePath();
       ctx.fill();
@@ -494,17 +538,20 @@ export default function DocumentScannerPage() {
       ctx.strokeStyle = '#14b8a6';
       ctx.lineWidth = 3;
       ctx.beginPath();
-      ctx.moveTo(corners[0].x, corners[0].y);
+      ctx.moveTo(corners[0].x * scaleX, corners[0].y * scaleY);
       for (let i = 1; i < corners.length; i++) {
-        ctx.lineTo(corners[i].x, corners[i].y);
+        ctx.lineTo(corners[i].x * scaleX, corners[i].y * scaleY);
       }
       ctx.closePath();
       ctx.stroke();
       
       // Coins déplaçables (plus gros pour mobile)
       corners.forEach((corner, index) => {
+        const cx = corner.x * scaleX;
+        const cy = corner.y * scaleY;
+        
         ctx.beginPath();
-        ctx.arc(corner.x, corner.y, 20, 0, Math.PI * 2);
+        ctx.arc(cx, cy, 20, 0, Math.PI * 2);
         ctx.fillStyle = '#14b8a6';
         ctx.fill();
         ctx.strokeStyle = '#fff';
@@ -516,10 +563,10 @@ export default function DocumentScannerPage() {
         ctx.font = 'bold 14px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText((index + 1).toString(), corner.x, corner.y);
+        ctx.fillText((index + 1).toString(), cx, cy);
       });
     };
-  }, [step, rawImage, corners]); // Ajouter corners comme dépendance
+  }, [step, rawImage, corners]);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -779,11 +826,6 @@ export default function DocumentScannerPage() {
                 onTouchMove={handleCanvasTouchMove}
                 onTouchEnd={handleCanvasTouchEnd}
                 className="cursor-move touch-none"
-                style={{ 
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'contain'
-                }}
               />
               
               {/* Instructions overlay */}
