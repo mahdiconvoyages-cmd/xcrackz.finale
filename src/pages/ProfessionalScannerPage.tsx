@@ -139,14 +139,30 @@ export default function ProfessionalScannerPage() {
 
   const startCamera = async () => {
     try {
-      const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: { 
-          facingMode: 'environment',
-          width: { min: 1920, ideal: 3840, max: 4096 },
-          height: { min: 1080, ideal: 2160, max: 2160 },
-          aspectRatio: { ideal: 16/9 }
-        }
-      });
+      // Tenter d'abord la caméra arrière en haute résolution
+      let mediaStream: MediaStream;
+      
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            facingMode: { exact: 'environment' }, // Force caméra arrière
+            width: { min: 1920, ideal: 3840, max: 4096 },
+            height: { min: 1080, ideal: 2160, max: 2160 },
+            aspectRatio: { ideal: 16/9 }
+          }
+        });
+      } catch (exactError) {
+        // Fallback si 'exact' échoue (certains appareils)
+        console.log('Tentative fallback caméra...');
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { 
+            facingMode: 'environment', // Préférence caméra arrière
+            width: { min: 1920, ideal: 3840, max: 4096 },
+            height: { min: 1080, ideal: 2160, max: 2160 },
+            aspectRatio: { ideal: 16/9 }
+          }
+        });
+      }
       
       setStream(mediaStream);
       setStep('camera');
@@ -155,12 +171,15 @@ export default function ProfessionalScannerPage() {
       setTimeout(() => {
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;
+          // Configurer les attributs vidéo pour mobile
+          videoRef.current.setAttribute('playsinline', 'true');
+          videoRef.current.setAttribute('autoplay', 'true');
           videoRef.current.play().catch(err => console.error('Erreur lecture vidéo:', err));
         }
       }, 100);
     } catch (error) {
       console.error('Erreur accès caméra:', error);
-      alert('Impossible d\'accéder à la caméra');
+      alert('Impossible d\'accéder à la caméra. Veuillez autoriser l\'accès à la caméra dans les paramètres de votre navigateur.');
     }
   };
 
@@ -450,12 +469,29 @@ export default function ProfessionalScannerPage() {
             ref={videoRef}
             autoPlay
             playsInline
+            muted
             className="w-full h-full object-cover"
           />
           <canvas ref={canvasRef} className="hidden" />
+          
+          {/* Indicateur caméra arrière */}
+          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full">
+            <p className="text-white text-sm font-medium flex items-center gap-2">
+              <Camera className="w-4 h-4" />
+              Caméra arrière
+            </p>
+          </div>
+          
+          {/* Overlay guide */}
+          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
+            <div className="w-[90%] max-w-md aspect-[3/4] border-2 border-white/30 rounded-lg" />
+          </div>
         </div>
 
         <div className="p-6 bg-gradient-to-t from-black via-black/80 to-transparent">
+          <p className="text-white/80 text-sm text-center mb-4">
+            Placez le document dans le cadre
+          </p>
           <div className="flex items-center justify-between gap-4 max-w-md mx-auto">
             <button
               onClick={stopCamera}
