@@ -65,106 +65,134 @@ export async function applyAdvancedFilter(
 }
 
 /**
- * 🪄 FILTRE MAGIC - Amélioration automatique RAPIDE
- * - Blanchit le fond FORTEMENT
- * - Noircit le texte
- * - Look document scanné
+ * 🪄 FILTRE MAGIC PROFESSIONNEL - Algorithme CamScanner-like
+ * - Détection automatique du fond
+ * - Normalisation adaptative
+ * - Contraste local optimal
+ * - Correction de luminosité intelligente
  */
 function applyProfessionalMagicFilter(imageData: ImageData) {
   const data = imageData.data;
   const width = imageData.width;
   const height = imageData.height;
 
-  // Analyser l'histogramme pour auto-contraste
-  const histogram = calculateHistogram(data);
-  const { min, max } = findOptimalRange(histogram);
-  const normalizeFactor = 255 / (max - min);
-  
+  // Phase 1: Convertir en LAB (simulation simplifié via niveaux de gris améliorés)
   const tempData = new Uint8ClampedArray(data);
-
-  // Appliquer auto-contraste + blanchiment ULTRA du fond
+  const grayscale = new Float32Array(width * height);
+  
+  // Conversion en niveaux de gris avec pondération perceptuelle
   for (let i = 0; i < data.length; i += 4) {
+    const idx = i / 4;
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
-
-    // Convertir en niveaux de gris pour analyse
-    const gray = r * 0.299 + g * 0.587 + b * 0.114;
-
-    // Auto-contraste
-    let newGray = clamp((gray - min) * normalizeFactor);
-
-    // Boost contraste FORT pour séparer texte/fond
-    const contrast = 1.5;
-    newGray = clamp((newGray - 128) * contrast + 128);
-
-    // Blanchir ULTRA-FORTEMENT le fond (seuil très bas)
-    if (newGray > 130) {
-      newGray = clamp(newGray + (255 - newGray) * 0.95); // Blanchiment quasi-total
-    }
-    // Noircir fortement le texte (pixels sombres)
-    else if (newGray < 115) {
-      newGray = clamp(newGray * 0.55); // Noircir beaucoup plus
-    }
-    // Zone intermédiaire: pousser vers blanc ou noir
-    else {
-      if (newGray > 145) {
-        newGray = clamp(newGray + (255 - newGray) * 0.9);
-      } else {
-        newGray = clamp(newGray * 0.65);
-      }
-    }
-
-    tempData[i] = newGray;
-    tempData[i + 1] = newGray;
-    tempData[i + 2] = newGray;
+    grayscale[idx] = r * 0.299 + g * 0.587 + b * 0.114;
   }
 
-  // Netteté FORTE pour texte ultra-net
-  applyUnsharpMask(tempData, data, width, height, 3.0, 1.0);
+  // Phase 2: Détection automatique du fond (analyse statistique)
+  const sorted = Array.from(grayscale).sort((a, b) => a - b);
+  const backgroundLevel = sorted[Math.floor(sorted.length * 0.90)]; // Top 10% = fond
+  const textLevel = sorted[Math.floor(sorted.length * 0.10)]; // Bottom 10% = texte
+
+  // Phase 3: Normalisation adaptative avec correction gamma
+  for (let i = 0; i < data.length; i += 4) {
+    const idx = i / 4;
+    let gray = grayscale[idx];
+
+    // Normalisation basée sur les niveaux détectés
+    if (textLevel < backgroundLevel) {
+      gray = clamp(((gray - textLevel) / (backgroundLevel - textLevel)) * 255);
+    }
+
+    // Correction gamma adaptative selon la luminosité
+    const gamma = gray < 128 ? 0.8 : 1.2; // Éclaircir zones sombres, garder zones claires
+    gray = Math.pow(gray / 255, gamma) * 255;
+
+    // Contraste adaptatif fort
+    gray = clamp((gray - 128) * 1.6 + 128);
+
+    // Blanchiment intelligent du fond (algorithme à seuil doux)
+    if (gray > 120) {
+      const whitenAmount = Math.pow((gray - 120) / 135, 0.7); // Courbe progressive
+      gray = gray + (255 - gray) * whitenAmount;
+    }
+    // Noircissement du texte
+    else if (gray < 120) {
+      const darkenAmount = Math.pow((120 - gray) / 120, 0.8);
+      gray = gray * (1 - darkenAmount * 0.5);
+    }
+
+    tempData[i] = clamp(gray);
+    tempData[i + 1] = clamp(gray);
+    tempData[i + 2] = clamp(gray);
+  }
+
+  // Phase 4: Netteté professionnelle multi-passes
+  applyUnsharpMask(tempData, data, width, height, 3.5, 0.9);
 }
 
 /**
- * ⚫⚪ FILTRE N&B OPTIMISÉ
- * - Binarisation améliorée sans taches
- * - Seuil ajusté pour lisibilité
- * - Pré-traitement pour réduire le bruit
+ * ⚫⚪ FILTRE N&B PROFESSIONNEL - Binarisation adaptative locale (Sauvola)
+ * - Algorithme Sauvola pour documents
+ * - Gère les variations d'éclairage
+ * - Préserve les détails fins
  */
 function applyAdaptiveBlackAndWhite(imageData: ImageData) {
   const data = imageData.data;
   const width = imageData.width;
   const height = imageData.height;
 
-  // Convertir en niveaux de gris avec léger lissage
-  const grayscale = new Uint8Array(width * height);
+  // Convertir en niveaux de gris
+  const grayscale = new Float32Array(width * height);
   for (let i = 0; i < data.length; i += 4) {
     const idx = i / 4;
-    let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-    // Appliquer auto-contraste avant binarisation
-    gray = clamp((gray - 20) * 1.2);
-    grayscale[idx] = gray;
+    grayscale[idx] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
   }
 
-  // Calculer le seuil optimal avec Otsu
-  let threshold = calculateOtsuThreshold(grayscale);
-  
-  // Ajuster le seuil pour éviter les taches noires (biais vers blanc)
-  threshold = threshold * 0.85; // Réduire le seuil pour plus de blanc
+  // Binarisation adaptative Sauvola (fenêtre locale)
+  const windowSize = 15; // Taille de fenêtre
+  const k = 0.2; // Paramètre de sensibilité
+  const R = 128; // Plage dynamique
 
-  // Appliquer la binarisation avec seuil ajusté
-  for (let i = 0; i < grayscale.length; i++) {
-    const value = grayscale[i] > threshold ? 255 : 0;
-    data[i * 4] = value;
-    data[i * 4 + 1] = value;
-    data[i * 4 + 2] = value;
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const idx = y * width + x;
+      
+      // Calculer moyenne et variance locales
+      let sum = 0;
+      let sumSq = 0;
+      let count = 0;
+
+      for (let wy = Math.max(0, y - windowSize); wy < Math.min(height, y + windowSize + 1); wy++) {
+        for (let wx = Math.max(0, x - windowSize); wx < Math.min(width, x + windowSize + 1); wx++) {
+          const val = grayscale[wy * width + wx];
+          sum += val;
+          sumSq += val * val;
+          count++;
+        }
+      }
+
+      const mean = sum / count;
+      const variance = (sumSq / count) - (mean * mean);
+      const stdDev = Math.sqrt(Math.max(0, variance));
+
+      // Seuil adaptatif Sauvola
+      const threshold = mean * (1 + k * ((stdDev / R) - 1));
+
+      // Appliquer binarisation
+      const value = grayscale[idx] > threshold ? 255 : 0;
+      data[idx * 4] = value;
+      data[idx * 4 + 1] = value;
+      data[idx * 4 + 2] = value;
+    }
   }
 }
 
 /**
- * 🌫️ FILTRE NIVEAUX DE GRIS RAPIDE
- * - Blanchit le fond
- * - Contraste amélioré
- * - Netteté modérée
+ * 🌫️ FILTRE NIVEAUX DE GRIS PROFESSIONNEL
+ * - Égalisation d'histogramme adaptative (CLAHE simulé)
+ * - Contraste local optimal
+ * - Netteté maximale
  */
 function applyEnhancedGrayscale(imageData: ImageData) {
   const data = imageData.data;
@@ -173,29 +201,78 @@ function applyEnhancedGrayscale(imageData: ImageData) {
 
   const tempData = new Uint8ClampedArray(data);
 
-  // Convertir en niveaux de gris avec contraste
+  // Convertir en niveaux de gris
+  const grayscale = new Float32Array(width * height);
   for (let i = 0; i < data.length; i += 4) {
-    let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
-    
-    // Boost de contraste pour séparer texte/fond
-    gray = clamp((gray - 128) * 1.4 + 128);
+    const idx = i / 4;
+    grayscale[idx] = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
+  }
 
-    // Blanchir FORTEMENT le fond
-    if (gray > 140) {
-      gray = clamp(gray + (255 - gray) * 0.85);
+  // CLAHE simplifié (Contrast Limited Adaptive Histogram Equalization)
+  const tileSize = 16;
+  const clipLimit = 3.0;
+
+  for (let ty = 0; ty < height; ty += tileSize) {
+    for (let tx = 0; tx < width; tx += tileSize) {
+      // Calculer histogramme local
+      const localHist = new Array(256).fill(0);
+      let pixelCount = 0;
+
+      for (let y = ty; y < Math.min(ty + tileSize, height); y++) {
+        for (let x = tx; x < Math.min(tx + tileSize, width); x++) {
+          const val = Math.floor(grayscale[y * width + x]);
+          localHist[val]++;
+          pixelCount++;
+        }
+      }
+
+      // Clip histogram
+      let excess = 0;
+      for (let i = 0; i < 256; i++) {
+        if (localHist[i] > clipLimit) {
+          excess += localHist[i] - clipLimit;
+          localHist[i] = clipLimit;
+        }
+      }
+      const redistribution = excess / 256;
+      for (let i = 0; i < 256; i++) {
+        localHist[i] += redistribution;
+      }
+
+      // Calculer CDF et mapper
+      const cdf = new Array(256).fill(0);
+      cdf[0] = localHist[0];
+      for (let i = 1; i < 256; i++) {
+        cdf[i] = cdf[i - 1] + localHist[i];
+      }
+
+      // Normaliser et appliquer
+      for (let y = ty; y < Math.min(ty + tileSize, height); y++) {
+        for (let x = tx; x < Math.min(tx + tileSize, width); x++) {
+          const idx = y * width + x;
+          const val = Math.floor(grayscale[idx]);
+          let newVal = (cdf[val] / pixelCount) * 255;
+
+          // Boost contraste supplémentaire
+          newVal = clamp((newVal - 128) * 1.4 + 128);
+
+          // Blanchir fond
+          if (newVal > 140) {
+            newVal = clamp(newVal + (255 - newVal) * 0.8);
+          } else if (newVal < 115) {
+            newVal = clamp(newVal * 0.65);
+          }
+
+          tempData[idx * 4] = newVal;
+          tempData[idx * 4 + 1] = newVal;
+          tempData[idx * 4 + 2] = newVal;
+        }
+      }
     }
-    // Noircir fortement le texte
-    else if (gray < 110) {
-      gray = clamp(gray * 0.6);
-    }
-    
-    tempData[i] = gray;
-    tempData[i + 1] = gray;
-    tempData[i + 2] = gray;
   }
 
   // Netteté FORTE
-  applyUnsharpMask(tempData, data, width, height, 2.5, 1.0);
+  applyUnsharpMask(tempData, data, width, height, 3.0, 0.9);
 }
 
 /**
@@ -250,158 +327,8 @@ function applyVividColorEnhancement(imageData: ImageData) {
 
 // ===== FONCTIONS UTILITAIRES =====
 
-/**
- * Réduction du bruit avec filtre bilatéral simplifié
- */
-function reduceNoise(imageData: ImageData) {
-  const data = imageData.data;
-  const width = imageData.width;
-  const height = imageData.height;
-  const tempData = new Uint8ClampedArray(data);
-
-  const radius = 2;
-  const sigmaColor = 50;
-  const sigmaSpace = 2;
-
-  for (let y = radius; y < height - radius; y++) {
-    for (let x = radius; x < width - radius; x++) {
-      const idx = (y * width + x) * 4;
-      
-      let rSum = 0, gSum = 0, bSum = 0, weightSum = 0;
-      const centerR = tempData[idx];
-      const centerG = tempData[idx + 1];
-      const centerB = tempData[idx + 2];
-
-      for (let dy = -radius; dy <= radius; dy++) {
-        for (let dx = -radius; dx <= radius; dx++) {
-          const nx = x + dx;
-          const ny = y + dy;
-          const nIdx = (ny * width + nx) * 4;
-
-          const r = tempData[nIdx];
-          const g = tempData[nIdx + 1];
-          const b = tempData[nIdx + 2];
-
-          // Distance spatiale
-          const spatialDist = Math.sqrt(dx * dx + dy * dy);
-          const spatialWeight = Math.exp(-(spatialDist * spatialDist) / (2 * sigmaSpace * sigmaSpace));
-
-          // Distance de couleur
-          const colorDist = Math.sqrt(
-            Math.pow(r - centerR, 2) +
-            Math.pow(g - centerG, 2) +
-            Math.pow(b - centerB, 2)
-          );
-          const colorWeight = Math.exp(-(colorDist * colorDist) / (2 * sigmaColor * sigmaColor));
-
-          const weight = spatialWeight * colorWeight;
-          rSum += r * weight;
-          gSum += g * weight;
-          bSum += b * weight;
-          weightSum += weight;
-        }
-      }
-
-      data[idx] = rSum / weightSum;
-      data[idx + 1] = gSum / weightSum;
-      data[idx + 2] = bSum / weightSum;
-    }
-  }
-}
-
 function clamp(value: number, min = 0, max = 255): number {
   return Math.max(min, Math.min(max, value));
-}
-
-function calculateHistogram(data: Uint8ClampedArray): number[] {
-  const histogram = new Array(256).fill(0);
-  
-  for (let i = 0; i < data.length; i += 4) {
-    const brightness = Math.round(
-      data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114
-    );
-    histogram[brightness]++;
-  }
-  
-  return histogram;
-}
-
-function findOptimalRange(histogram: number[]): { min: number; max: number } {
-  const totalPixels = histogram.reduce((sum, val) => sum + val, 0);
-  const threshold = totalPixels * 0.01; // Ignorer 1% des pixels les plus sombres/clairs
-
-  let min = 0;
-  let max = 255;
-  let cumSum = 0;
-
-  // Trouver min
-  for (let i = 0; i < 256; i++) {
-    cumSum += histogram[i];
-    if (cumSum > threshold) {
-      min = i;
-      break;
-    }
-  }
-
-  cumSum = 0;
-  // Trouver max
-  for (let i = 255; i >= 0; i--) {
-    cumSum += histogram[i];
-    if (cumSum > threshold) {
-      max = i;
-      break;
-    }
-  }
-
-  return { min, max };
-}
-
-/* eslint-disable @typescript-eslint/no-unused-vars */
-function calculateOtsuThreshold(grayscale: Uint8Array): number {
-  const histogram = new Array(256).fill(0);
-  
-  for (const value of grayscale) {
-    histogram[value]++;
-  }
-
-  const total = grayscale.length;
-  let sum = 0;
-  
-  for (let i = 0; i < 256; i++) {
-    sum += i * histogram[i];
-  }
-
-  let sumB = 0;
-  let wB = 0;
-  let wF = 0;
-  let maxVariance = 0;
-  let threshold = 0;
-
-  for (let i = 0; i < 256; i++) {
-    wB += histogram[i];
-    if (wB === 0) continue;
-
-    wF = total - wB;
-    if (wF === 0) break;
-
-    sumB += i * histogram[i];
-    const mB = sumB / wB;
-    const mF = (sum - sumB) / wF;
-
-    const variance = wB * wF * (mB - mF) * (mB - mF);
-
-    if (variance > maxVariance) {
-      maxVariance = variance;
-      threshold = i;
-    }
-  }
-
-  return threshold;
-}
-
-function applySCurve(x: number): number {
-  // S-curve améliorée pour contraste maximal
-  return 1 / (1 + Math.exp(-15 * (x - 0.5)));
 }
 
 function applyUnsharpMask(
@@ -489,3 +416,4 @@ function createGaussianKernel(radius: number): number[][] {
 
   return kernel;
 }
+

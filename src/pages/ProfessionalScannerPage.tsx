@@ -48,7 +48,7 @@ interface ScannedDocument {
 
 export default function ProfessionalScannerPage() {
   // États du workflow
-  const [step, setStep] = useState<'intro' | 'camera' | 'crop' | 'edit' | 'documents'>('intro');
+  const [step, setStep] = useState<'intro' | 'crop' | 'edit' | 'documents'>('intro');
   const [rawImage, setRawImage] = useState<string | null>(null);
   const [croppedImage, setCroppedImage] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
@@ -65,11 +65,9 @@ export default function ProfessionalScannerPage() {
   
   // Références
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [stream, setStream] = useState<MediaStream | null>(null);
+  const nativeCameraInputRef = useRef<HTMLInputElement>(null);
 
-  // Précharger OpenCV au montage (pour compatibilité)
+  // Précharger OpenCV au montage
   useEffect(() => {
     setIsLoadingOpenCV(true);
     loadOpenCV()
@@ -81,15 +79,6 @@ export default function ProfessionalScannerPage() {
         setIsLoadingOpenCV(false);
       });
   }, []);
-
-  // Cleanup caméra
-  useEffect(() => {
-    return () => {
-      if (stream) {
-        stream.getTracks().forEach(track => track.stop());
-      }
-    };
-  }, [stream]);
 
   // Charger les documents sauvegardés
   useEffect(() => {
@@ -121,7 +110,7 @@ export default function ProfessionalScannerPage() {
     { id: 'color' as FilterType, name: 'Couleur', icon: ImageIcon, color: '#3b82f6' },
   ];
 
-  // ===== GESTION UPLOAD / CAMERA =====
+  // ===== GESTION UPLOAD / CAMERA NATIVE =====
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -137,80 +126,23 @@ export default function ProfessionalScannerPage() {
     reader.readAsDataURL(file);
   };
 
-  const startCamera = async () => {
-    try {
-      // Tenter d'abord la caméra arrière en haute résolution
-      let mediaStream: MediaStream;
-      
-      try {
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { 
-            facingMode: { exact: 'environment' }, // Force caméra arrière
-            width: { min: 1920, ideal: 3840, max: 4096 },
-            height: { min: 1080, ideal: 2160, max: 2160 },
-            aspectRatio: { ideal: 16/9 }
-          }
-        });
-      } catch (exactError) {
-        // Fallback si 'exact' échoue (certains appareils)
-        console.log('Tentative fallback caméra...');
-        mediaStream = await navigator.mediaDevices.getUserMedia({
-          video: { 
-            facingMode: 'environment', // Préférence caméra arrière
-            width: { min: 1920, ideal: 3840, max: 4096 },
-            height: { min: 1080, ideal: 2160, max: 2160 },
-            aspectRatio: { ideal: 16/9 }
-          }
-        });
-      }
-      
-      setStream(mediaStream);
-      setStep('camera');
-      
-      // Attendre que videoRef soit disponible
-      setTimeout(() => {
-        if (videoRef.current) {
-          videoRef.current.srcObject = mediaStream;
-          // Configurer les attributs vidéo pour mobile
-          videoRef.current.setAttribute('playsinline', 'true');
-          videoRef.current.setAttribute('autoplay', 'true');
-          videoRef.current.play().catch(err => console.error('Erreur lecture vidéo:', err));
-        }
-      }, 100);
-    } catch (error) {
-      console.error('Erreur accès caméra:', error);
-      alert('Impossible d\'accéder à la caméra. Veuillez autoriser l\'accès à la caméra dans les paramètres de votre navigateur.');
-    }
+  const openNativeCamera = () => {
+    // Ouvrir l'appareil photo natif du téléphone via input file
+    nativeCameraInputRef.current?.click();
   };
 
-  const capturePhoto = async () => {
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
-    
-    if (!video || !canvas) return;
+  const handleNativeCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
 
-    canvas.width = video.videoWidth;
-    canvas.height = video.videoHeight;
+    setIsProcessing(true);
     
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
-
-    ctx.drawImage(video, 0, 0);
-    const imageUrl = canvas.toDataURL('image/jpeg', 0.98);
-    
-    // Arrêter la caméra
-    stopCamera();
-    
-    // Traiter l'image
-    await processNewImage(imageUrl);
-  };
-
-  const stopCamera = () => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-    setStep('intro');
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const imageUrl = event.target?.result as string;
+      await processNewImage(imageUrl);
+    };
+    reader.readAsDataURL(file);
   };
 
   // ===== TRAITEMENT IMAGE =====
@@ -423,7 +355,7 @@ export default function ProfessionalScannerPage() {
 
           <div className="space-y-4">
             <button
-              onClick={startCamera}
+              onClick={openNativeCamera}
               className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl"
             >
               <Camera className="w-6 h-6" />
@@ -451,6 +383,14 @@ export default function ProfessionalScannerPage() {
         </div>
 
         <input
+          ref={nativeCameraInputRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
+          onChange={handleNativeCameraCapture}
+          className="hidden"
+        />
+        <input
           ref={fileInputRef}
           type="file"
           accept="image/*"
@@ -461,64 +401,7 @@ export default function ProfessionalScannerPage() {
     );
   }
 
-  // Vue caméra
-  if (step === 'camera') {
-    return (
-      <div className="fixed inset-0 bg-black z-50 flex flex-col">
-        <div className="flex-1 relative">
-          <video
-            ref={videoRef}
-            autoPlay
-            playsInline
-            muted
-            className="w-full h-full object-cover"
-          />
-          <canvas ref={canvasRef} className="hidden" />
-          
-          {/* Indicateur caméra arrière */}
-          <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-black/60 backdrop-blur-sm px-4 py-2 rounded-full">
-            <p className="text-white text-sm font-medium flex items-center gap-2">
-              <Camera className="w-4 h-4" />
-              Caméra arrière
-            </p>
-          </div>
-          
-          {/* Overlay guide */}
-          <div className="absolute inset-0 pointer-events-none flex items-center justify-center">
-            <div className="w-[90%] max-w-md aspect-[3/4] border-2 border-white/30 rounded-lg" />
-          </div>
-        </div>
 
-        <div className="p-6 bg-gradient-to-t from-black via-black/80 to-transparent">
-          <p className="text-white/80 text-sm text-center mb-4">
-            Placez le document dans le cadre
-          </p>
-          <div className="flex items-center justify-between gap-4 max-w-md mx-auto">
-            <button
-              onClick={stopCamera}
-              className="px-6 py-3 bg-white/10 backdrop-blur-sm text-white rounded-xl font-medium hover:bg-white/20 transition-all"
-            >
-              Annuler
-            </button>
-
-            <button
-              onClick={capturePhoto}
-              disabled={isProcessing}
-              className="w-16 h-16 bg-white rounded-full flex items-center justify-center shadow-2xl hover:scale-105 transition-transform disabled:opacity-50 disabled:scale-100"
-            >
-              {isProcessing ? (
-                <Loader className="w-8 h-8 text-gray-900 animate-spin" />
-              ) : (
-                <Camera className="w-8 h-8 text-gray-900" />
-              )}
-            </button>
-
-            <div className="w-24" />
-          </div>
-        </div>
-      </div>
-    );
-  }
 
   // Vue recadrage
   if (step === 'crop' && rawImage && corners.length === 4) {
