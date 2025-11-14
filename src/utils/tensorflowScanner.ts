@@ -404,4 +404,3 @@ export const correctPerspective = async (canvas: HTMLCanvasElement, corners: Poi
 
     return offscreen.toDataURL('image/jpeg', 0.92);
   };
-```}
