@@ -40,6 +40,9 @@ import {
 } from '../utils/optimizedDetection';
 import { applyAdvancedFilter, FilterType } from '../utils/advancedFilters';
 import OptimizedCropPage from './OptimizedCropPage';
+import { useAuth } from '../contexts/AuthContext';
+import { uploadInspectionDocument } from '../services/inspectionDocumentsService';
+import { showToast } from '../components/Toast';
 
 interface ScannedDocument {
   id: string;
@@ -51,6 +54,7 @@ interface ScannedDocument {
 
 export default function ProfessionalScannerPage() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   
   // États du workflow
   const [step, setStep] = useState<'intro' | 'crop' | 'edit' | 'documents'>('intro');
@@ -255,39 +259,43 @@ export default function ProfessionalScannerPage() {
   };
 
   const saveDocument = async () => {
-    if (!processedImage) return;
+    if (!processedImage || !user) {
+      showToast('error', 'Erreur', 'Image ou utilisateur manquant');
+      return;
+    }
 
     try {
       setIsProcessing(true);
 
-      // Créer le document
-      const newDoc: ScannedDocument = {
-        id: Date.now().toString(),
-        name: fileName || `scan_${Date.now()}`,
-        imageUrl: processedImage,
-        timestamp: Date.now(),
-        filter: selectedFilter
-      };
+      // Convertir base64 en File
+      const response = await fetch(processedImage);
+      const blob = await response.blob();
+      const file = new File(
+        [blob], 
+        `${fileName || 'document'}_${Date.now()}.jpg`, 
+        { type: 'image/jpeg' }
+      );
 
-      // Sauvegarder dans l'historique
-      const updatedDocs = [newDoc, ...scannedDocuments].slice(0, 50);
-      saveDocuments(updatedDocs);
+      // Upload vers Supabase via inspectionDocumentsService
+      const uploaded = await uploadInspectionDocument(file, user.id, {
+        inspectionId: undefined, // Document standalone
+        documentType: 'generic',
+        title: fileName || `Document scanné ${new Date().toLocaleDateString()}`
+      });
 
-      alert('✅ Document sauvegardé avec succès !');
-      
-      // Aller directement à la page des documents pour voir le résultat
-      setStep('documents');
-      
-      // Réinitialiser les états pour un nouveau scan
-      setRawImage(null);
-      setCroppedImage(null);
-      setProcessedImage(null);
-      setCorners([]);
-      setSelectedFilter('bw');
-      setFileName('document');
+      if (uploaded) {
+        showToast('success', 'Document sauvegardé', 'Le document a été synchronisé sur votre compte');
+        
+        // Rediriger vers la nouvelle page Mes Documents
+        setTimeout(() => {
+          navigate('/mes-documents');
+        }, 1000);
+      } else {
+        showToast('error', 'Erreur', 'Impossible d\'enregistrer le document');
+      }
     } catch (error) {
       console.error('Erreur sauvegarde:', error);
-      alert('❌ Erreur lors de la sauvegarde');
+      showToast('error', 'Erreur', 'Erreur lors de la sauvegarde');
     } finally {
       setIsProcessing(false);
     }
