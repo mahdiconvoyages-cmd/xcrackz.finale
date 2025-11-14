@@ -57,7 +57,7 @@ import VoiceSettings from './pages/VoiceSettings';
 import MobileDownload from './pages/MobileDownload';
 import ResetPassword from './pages/ResetPassword';
 import MissionDetail from './pages/MissionDetail';
-import ScannerPage from './pages/ScannerPage';
+import WebScannerPage from './pages/WebScannerPage';
 
 function AppContent() {
   return (
@@ -80,7 +80,7 @@ function AppContent() {
         <Route path="/rapport-inspection/:token" element={<PublicInspectionReportShared />} />
         <Route path="/inspection/report/:inspectionId" element={<PublicInspectionReport />} />
         <Route path="/mission/:missionId" element={<MissionDetail />} />
-        <Route path="/scanner" element={<ScannerPage />} />
+        <Route path="/scanner" element={<WebScannerPage />} />
 
           <Route
             path="/dashboard"
