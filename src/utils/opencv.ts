@@ -10,6 +10,12 @@ interface Point {
 
 let isOpenCvLoaded = false;
 
+// URLs CDN par ordre de préférence (jsDelivr est généralement plus rapide)
+const OPENCV_URLS = [
+  'https://cdn.jsdelivr.net/npm/@techstark/opencv-js@4.8.0-release.1/opencv.js',
+  'https://docs.opencv.org/4.8.0/opencv.js'
+];
+
 export const loadOpenCV = (): Promise<void> => {
   return new Promise((resolve, reject) => {
     if (isOpenCvLoaded) {
@@ -23,34 +29,53 @@ export const loadOpenCV = (): Promise<void> => {
       resolve();
       return;
     }
-    
-    const script = document.createElement('script');
-    script.src = 'https://docs.opencv.org/4.8.0/opencv.js';
-    script.async = true;
-    script.defer = true;
-    script.onload = () => {
-      // Attendre que cv soit disponible
-      const checkCV = setInterval(() => {
-        if (typeof cv !== 'undefined' && cv.getBuildInformation) {
+
+    const tryLoadFromUrl = (urlIndex: number) => {
+      if (urlIndex >= OPENCV_URLS.length) {
+        reject(new Error('Impossible de charger OpenCV depuis tous les CDN'));
+        return;
+      }
+
+      const url = OPENCV_URLS[urlIndex];
+      console.log(`Tentative de chargement d'OpenCV depuis: ${url}`);
+
+      const script = document.createElement('script');
+      script.src = url;
+      script.async = true;
+      script.defer = true;
+
+      script.onload = () => {
+        // Attendre que cv soit disponible
+        const checkCV = setInterval(() => {
+          if (typeof cv !== 'undefined' && cv.getBuildInformation) {
+            clearInterval(checkCV);
+            console.log(`OpenCV.js chargé avec succès depuis ${url}`);
+            isOpenCvLoaded = true;
+            resolve();
+          }
+        }, 100);
+        
+        // Timeout de 15 secondes par CDN
+        setTimeout(() => {
           clearInterval(checkCV);
-          console.log('OpenCV.js chargé avec succès.');
-          isOpenCvLoaded = true;
-          resolve();
-        }
-      }, 100);
-      
-      // Timeout après 10 secondes
-      setTimeout(() => {
-        clearInterval(checkCV);
-        if (!isOpenCvLoaded) {
-          reject(new Error('Timeout lors du chargement d\'OpenCV.js'));
-        }
-      }, 10000);
+          if (!isOpenCvLoaded) {
+            console.warn(`Timeout sur ${url}, essai du CDN suivant...`);
+            document.head.removeChild(script);
+            tryLoadFromUrl(urlIndex + 1);
+          }
+        }, 15000);
+      };
+
+      script.onerror = () => {
+        console.error(`Erreur de chargement depuis ${url}`);
+        document.head.removeChild(script);
+        tryLoadFromUrl(urlIndex + 1);
+      };
+
+      document.head.appendChild(script);
     };
-    script.onerror = () => {
-      reject(new Error('Impossible de charger le script OpenCV.js'));
-    };
-    document.body.appendChild(script);
+
+    tryLoadFromUrl(0);
   });
 };
 
