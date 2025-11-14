@@ -26,6 +26,8 @@ interface ScannedDocument {
   imageUrl: string;
   timestamp: number;
   filter: FilterType;
+  // Optionnel : URL distante (documents venant du mobile / Supabase)
+  remoteUrl?: string;
 }
 
 export default function DocumentScannerPage() {
@@ -41,12 +43,14 @@ export default function DocumentScannerPage() {
   const [openCVReady, setOpenCVReady] = useState(false);
   
   // Manuel crop state
-  const [cropMode, setCropMode] = useState(false);
+  // Ancien état de compatibilité supprimé (la page gère déjà le step "crop")
   const [corners, setCorners] = useState<Corner[]>([]);
   const [draggingCorner, setDraggingCorner] = useState<number | null>(null);
   const [rawImage, setRawImage] = useState<string | null>(null);
   const cropCanvasRef = useRef<HTMLCanvasElement>(null);
-  const [imageDimensions, setImageDimensions] = useState({ width: 0, height: 0 });
+  // Mémorisation éventuelle des dimensions, principalement pour debug / évolutions
+  // Dimensions de l'image brute (utilisées pour certains calculs internes)
+  // NOTE: imageDimensions était utilisé dans une version précédente pour le debug, supprimé pour éviter les warnings.
   
   const fileInputRef = useRef<HTMLInputElement>(null);
   const webcamVideoRef = useRef<HTMLVideoElement>(null);
@@ -128,7 +132,7 @@ export default function DocumentScannerPage() {
             { x: img.width - margin, y: img.height - margin },
             { x: margin, y: img.height - margin }
           ]);
-          setImageDimensions({ width: img.width, height: img.height });
+          // Ancien stockage des dimensions de l'image, plus nécessaire ici
         }
         
         // Passer en mode crop manuel
@@ -201,7 +205,7 @@ export default function DocumentScannerPage() {
           { x: img.width - margin, y: img.height - margin },
           { x: margin, y: img.height - margin }
         ]);
-        setImageDimensions({ width: img.width, height: img.height });
+          // Ancien stockage des dimensions de l'image, plus nécessaire ici
       }
       
       setStep('crop');
@@ -254,6 +258,7 @@ export default function DocumentScannerPage() {
     }
   };
 
+  // Sauvegarder le document (historique + téléchargement local)
   const handleDownload = async () => {
     if (!processedImage) return;
 
@@ -295,7 +300,6 @@ export default function DocumentScannerPage() {
     setStep('intro');
     setSelectedFilter('magic');
     setFileName('document');
-    setCropMode(false);
     stopWebcam();
   };
 
@@ -308,8 +312,9 @@ export default function DocumentScannerPage() {
 
   const handleViewDocument = (doc: ScannedDocument) => {
     setSelectedDoc(doc);
-    setOriginalImage(doc.imageUrl);
-    setProcessedImage(doc.imageUrl);
+    const url = doc.remoteUrl || doc.imageUrl;
+    setOriginalImage(url);
+    setProcessedImage(url);
     setFileName(doc.name);
     setSelectedFilter(doc.filter);
     setStep('edit');
@@ -1044,7 +1049,7 @@ export default function DocumentScannerPage() {
                     className="w-full bg-gradient-to-r from-teal-500 to-teal-600 text-white px-4 py-3 rounded-lg font-semibold hover:from-teal-600 hover:to-teal-700 transition-all shadow-lg shadow-teal-500/30 flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     <Download className="w-5 h-5" />
-                    Télécharger
+                    Sauvegarder
                   </button>
                 </div>
               </div>
