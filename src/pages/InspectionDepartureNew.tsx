@@ -8,6 +8,7 @@ import PhotoCard from '../components/inspection/PhotoCard';
 import StepNavigation from '../components/inspection/StepNavigation';
 import OptionalPhotos from '../components/inspection/OptionalPhotos';
 import UnifiedDocumentScanner from '../components/inspection/UnifiedDocumentScanner';
+import { uploadInspectionDocument } from '../services/inspectionDocumentsService';
 import { showToast } from '../components/Toast';
 
 interface Mission {
@@ -189,20 +190,29 @@ export default function InspectionDepartureNew() {
     setShowDocScanner(true);
   };
 
-  const handleDocScan = async (file: File) => {
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      setScannedDocs(prev => [
-        ...prev,
-        { 
-          type: scannerDocType, 
-          file, 
-          preview: reader.result as string 
-        }
-      ]);
-      showToast('success', 'Document scanné', `Document ${scannerDocType === 'registration' ? 'carte grise' : scannerDocType === 'insurance' ? 'd\'assurance' : ''} enregistré`);
-    };
-    reader.readAsDataURL(file);
+  const handleDocScan = async (file: File, imageUrl: string) => {
+    // Upload vers Supabase directement
+    if (user) {
+      const uploaded = await uploadInspectionDocument(file, user.id, {
+        inspectionId: undefined, // NULL pour documents standalone web
+        documentType: scannerDocType,
+        title: `${scannerDocType === 'registration' ? 'Carte Grise' : scannerDocType === 'insurance' ? 'Assurance' : 'Document'} - ${new Date().toLocaleDateString()}`
+      });
+
+      if (uploaded) {
+        setScannedDocs(prev => [
+          ...prev,
+          { 
+            type: scannerDocType, 
+            file, 
+            preview: imageUrl 
+          }
+        ]);
+        showToast('success', 'Document scanné', `Document ${scannerDocType === 'registration' ? 'carte grise' : scannerDocType === 'insurance' ? 'd\'assurance' : ''} enregistré et synchronisé`);
+      } else {
+        showToast('error', 'Erreur', 'Impossible d\'enregistrer le document');
+      }
+    }
     setShowDocScanner(false);
   };
 

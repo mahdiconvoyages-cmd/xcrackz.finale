@@ -29,18 +29,16 @@ import {
   Image as ImageIcon,
   Smartphone,
   Monitor,
-  X,
-  Check,
-  BarChart3
+  X
 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import {
-  getUserDocuments,
+  getAllUserDocuments,
   deleteDocument,
   exportDocumentToPDF,
   downloadDocument,
-  UnifiedDocument
-} from '../services/unifiedDocumentService';
+  InspectionDocument
+} from '../services/inspectionDocumentsService';
 import { showToast } from '../components/Toast';
 
 type FilterType = 'all' | 'bw' | 'grayscale' | 'color';
@@ -52,15 +50,15 @@ export default function MyDocuments() {
   const { user } = useAuth();
 
   // États
-  const [documents, setDocuments] = useState<UnifiedDocument[]>([]);
-  const [filteredDocuments, setFilteredDocuments] = useState<UnifiedDocument[]>([]);
+  const [documents, setDocuments] = useState<InspectionDocument[]>([]);
+  const [filteredDocuments, setFilteredDocuments] = useState<InspectionDocument[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedFilterType, setSelectedFilterType] = useState<FilterType>('all');
   const [selectedDocType, setSelectedDocType] = useState<DocumentType>('all');
   const [selectedPlatform, setSelectedPlatform] = useState<PlatformType>('all');
   const [showFilters, setShowFilters] = useState(false);
-  const [selectedDoc, setSelectedDoc] = useState<UnifiedDocument | null>(null);
+  const [selectedDoc, setSelectedDoc] = useState<InspectionDocument | null>(null);
   const [showLightbox, setShowLightbox] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
 
@@ -89,13 +87,19 @@ export default function MyDocuments() {
     // Filtre de recherche
     if (searchQuery) {
       filtered = filtered.filter(doc =>
-        doc.name.toLowerCase().includes(searchQuery.toLowerCase())
+        doc.document_title.toLowerCase().includes(searchQuery.toLowerCase())
       );
     }
 
-    // Filtre par type de filtre
+    // Filtre par type de filtre (basé sur le titre)
     if (selectedFilterType !== 'all') {
-      filtered = filtered.filter(doc => doc.filter_type === selectedFilterType);
+      if (selectedFilterType === 'bw') {
+        filtered = filtered.filter(doc => doc.document_title?.includes('N&B'));
+      } else if (selectedFilterType === 'grayscale') {
+        filtered = filtered.filter(doc => doc.document_title?.includes('Gris'));
+      } else if (selectedFilterType === 'color') {
+        filtered = filtered.filter(doc => doc.document_title?.includes('Couleur'));
+      }
     }
 
     // Filtre par type de document
@@ -105,7 +109,11 @@ export default function MyDocuments() {
 
     // Filtre par plateforme
     if (selectedPlatform !== 'all') {
-      filtered = filtered.filter(doc => doc.platform === selectedPlatform);
+      if (selectedPlatform === 'mobile') {
+        filtered = filtered.filter(doc => doc.inspection_id !== null);
+      } else {
+        filtered = filtered.filter(doc => doc.inspection_id === null);
+      }
     }
 
     setFilteredDocuments(filtered);
@@ -114,93 +122,93 @@ export default function MyDocuments() {
   const loadDocuments = async () => {
     try {
       setLoading(true);
-      const docs = await getUserDocuments(user!.id);
+      const docs = await getAllUserDocuments(user!.id);
       setDocuments(docs);
 
       // Calculer les statistiques
       const stats = {
         total: docs.length,
-        web: docs.filter(d => d.platform === 'web').length,
-        mobile: docs.filter(d => d.platform === 'mobile').length,
-        bw: docs.filter(d => d.filter_type === 'bw').length,
-        grayscale: docs.filter(d => d.filter_type === 'grayscale').length,
-        color: docs.filter(d => d.filter_type === 'color').length,
-        totalSize: docs.reduce((acc, d) => acc + (d.file_size || 0), 0)
+        web: docs.filter(d => !d.inspection_id).length,
+        mobile: docs.filter(d => d.inspection_id).length,
+        bw: docs.filter(d => d.document_title?.includes('N&B')).length,
+        grayscale: docs.filter(d => d.document_title?.includes('Gris')).length,
+        color: docs.filter(d => d.document_title?.includes('Couleur')).length,
+        totalSize: docs.reduce((acc, d) => acc + (d.file_size_kb || 0) * 1024, 0)
       };
       setStats(stats);
     } catch (error) {
       console.error('Erreur chargement documents:', error);
-      showToast('Erreur lors du chargement des documents', 'error');
+      showToast('error', 'Erreur lors du chargement des documents');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleDelete = async (doc: UnifiedDocument) => {
-    if (!confirm(`Supprimer "${doc.name}" ?`)) return;
+  const handleDelete = async (doc: InspectionDocument) => {
+    if (!confirm(`Supprimer "${doc.document_title}" ?`)) return;
 
     try {
       setProcessingId(doc.id);
       const success = await deleteDocument(doc.id);
       
       if (success) {
-        showToast('Document supprimé avec succès', 'success');
+        showToast('success', 'Document supprimé avec succès');
         loadDocuments();
       } else {
-        showToast('Erreur lors de la suppression', 'error');
+        showToast('error', 'Erreur lors de la suppression');
       }
     } catch (error) {
       console.error('Erreur suppression:', error);
-      showToast('Erreur lors de la suppression', 'error');
+      showToast('error', 'Erreur lors de la suppression');
     } finally {
       setProcessingId(null);
     }
   };
 
-  const handleDownload = async (doc: UnifiedDocument) => {
+  const handleDownload = async (doc: InspectionDocument) => {
     try {
       setProcessingId(doc.id);
-      await downloadDocument(doc.public_url, `${doc.name}.jpg`);
-      showToast('Téléchargement réussi', 'success');
+      await downloadDocument(doc.document_url, `${doc.document_title}.jpg`);
+      showToast('success', 'Téléchargement réussi');
     } catch (error) {
       console.error('Erreur téléchargement:', error);
-      showToast('Erreur lors du téléchargement', 'error');
+      showToast('error', 'Erreur lors du téléchargement');
     } finally {
       setProcessingId(null);
     }
   };
 
-  const handleExportPDF = async (doc: UnifiedDocument) => {
+  const handleExportPDF = async (doc: InspectionDocument) => {
     try {
       setProcessingId(doc.id);
-      await exportDocumentToPDF(doc.public_url, doc.name);
-      showToast('PDF exporté avec succès', 'success');
+      await exportDocumentToPDF(doc.document_url, doc.document_title);
+      showToast('success', 'PDF exporté avec succès');
     } catch (error) {
       console.error('Erreur export PDF:', error);
-      showToast('Erreur lors de l\'export PDF', 'error');
+      showToast('error', 'Erreur lors de l\'export PDF');
     } finally {
       setProcessingId(null);
     }
   };
 
-  const handleShare = async (doc: UnifiedDocument) => {
+  const handleShare = async (doc: InspectionDocument) => {
     try {
       if (navigator.share) {
         await navigator.share({
-          title: doc.name,
+          title: doc.document_title,
           text: 'Partage de document',
-          url: doc.public_url
+          url: doc.document_url
         });
       } else {
-        await navigator.clipboard.writeText(doc.public_url);
-        showToast('Lien copié dans le presse-papier', 'success');
+        await navigator.clipboard.writeText(doc.document_url);
+        showToast('success', 'Lien copié dans le presse-papier');
       }
     } catch (error) {
       console.error('Erreur partage:', error);
     }
   };
 
-  const openLightbox = (doc: UnifiedDocument) => {
+  const openLightbox = (doc: InspectionDocument) => {
     setSelectedDoc(doc);
     setShowLightbox(true);
   };
@@ -224,15 +232,6 @@ export default function MyDocuments() {
       hour: '2-digit',
       minute: '2-digit'
     });
-  };
-
-  const getFilterBadgeColor = (filter: string) => {
-    switch (filter) {
-      case 'bw': return 'bg-gray-600';
-      case 'grayscale': return 'bg-slate-600';
-      case 'color': return 'bg-blue-600';
-      default: return 'bg-gray-600';
-    }
   };
 
   const getDocTypeName = (type: string) => {
@@ -470,8 +469,8 @@ export default function MyDocuments() {
                   onClick={() => openLightbox(doc)}
                 >
                   <img
-                    src={doc.public_url}
-                    alt={doc.name}
+                    src={doc.document_url}
+                    alt={doc.document_title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     loading="lazy"
                   />
@@ -481,10 +480,10 @@ export default function MyDocuments() {
 
                   {/* Badges */}
                   <div className="absolute top-2 left-2 flex flex-col gap-2">
-                    <span className={`px-2 py-1 ${getFilterBadgeColor(doc.filter_type)} text-white text-xs font-semibold rounded-lg`}>
-                      {doc.filter_type === 'bw' ? 'N&B' : doc.filter_type === 'grayscale' ? 'Gris' : 'Couleur'}
+                    <span className="px-2 py-1 bg-gray-600 text-white text-xs font-semibold rounded-lg">
+                      {doc.document_title?.includes('N&B') ? 'N&B' : doc.document_title?.includes('Gris') ? 'Gris' : 'Couleur'}
                     </span>
-                    {doc.platform === 'mobile' && (
+                    {doc.inspection_id && (
                       <span className="px-2 py-1 bg-purple-600 text-white text-xs font-semibold rounded-lg flex items-center gap-1">
                         <Smartphone className="w-3 h-3" />
                         Mobile
@@ -495,7 +494,7 @@ export default function MyDocuments() {
 
                 {/* Infos */}
                 <div className="p-4">
-                  <h3 className="text-white font-semibold mb-1 truncate">{doc.name}</h3>
+                  <h3 className="text-white font-semibold mb-1 truncate">{doc.document_title}</h3>
                   <div className="flex items-center gap-2 text-xs text-gray-400 mb-3">
                     <Calendar className="w-3 h-3" />
                     {formatDate(doc.created_at)}
@@ -551,9 +550,9 @@ export default function MyDocuments() {
                   </div>
 
                   {/* Taille fichier */}
-                  {doc.file_size && (
+                  {doc.file_size_kb && (
                     <p className="text-xs text-gray-500 mt-2 text-center">
-                      {formatFileSize(doc.file_size)}
+                      {formatFileSize(doc.file_size_kb * 1024)}
                     </p>
                   )}
                 </div>
@@ -575,12 +574,12 @@ export default function MyDocuments() {
 
           <div className="max-w-5xl w-full">
             <img
-              src={selectedDoc.public_url}
-              alt={selectedDoc.name}
+              src={selectedDoc.document_url}
+              alt={selectedDoc.document_title}
               className="w-full h-auto rounded-xl shadow-2xl"
             />
             <div className="mt-4 text-center">
-              <h3 className="text-2xl font-bold text-white mb-2">{selectedDoc.name}</h3>
+              <h3 className="text-2xl font-bold text-white mb-2">{selectedDoc.document_title}</h3>
               <p className="text-gray-400">{formatDate(selectedDoc.created_at)}</p>
             </div>
           </div>

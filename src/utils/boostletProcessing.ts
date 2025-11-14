@@ -255,7 +255,7 @@ export function applyBilateralFilter(
  */
 export function autoCorrectPerspective(imageData: ImageData): ImageData {
   // Détection des lignes principales
-  const edges = applySobelEdgeDetection(imageData);
+  const _edges = applySobelEdgeDetection(imageData);
   
   // Transformation de Hough pour détecter les lignes
   // (Simplifié pour performance)

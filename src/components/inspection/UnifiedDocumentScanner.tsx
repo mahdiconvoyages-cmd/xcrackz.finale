@@ -45,10 +45,10 @@ interface UnifiedDocumentScannerProps {
 export default function UnifiedDocumentScanner({
   onCapture,
   onCancel,
-  inspectionId,
-  documentType = 'generic',
+  inspectionId: _inspectionId,
+  documentType: _documentType = 'generic',
   title = 'Scanner un document',
-  userId
+  userId: _userId
 }: UnifiedDocumentScannerProps) {
   // États du workflow
   const [step, setStep] = useState<'intro' | 'crop' | 'edit'>('intro');
