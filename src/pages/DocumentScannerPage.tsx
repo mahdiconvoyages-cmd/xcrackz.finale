@@ -14,6 +14,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Camera, RotateCw, Download, X, Sparkles, Palette, Contrast, Image as ImageIcon, Loader, Move, Check, FileText, Trash2 } from 'lucide-react';
 import { applyDocumentFilter, rotateImage, FilterType, dataURLtoFile } from '../utils/imageProcessing';
 import { detectDocumentCorners, cropAndCorrectPerspective, loadOpenCV } from '../utils/documentDetection';
+import AdvancedCropPage from './AdvancedCropPage';
 
 interface Corner {
   x: number;
@@ -31,7 +32,7 @@ interface ScannedDocument {
 }
 
 export default function DocumentScannerPage() {
-  const [step, setStep] = useState<'intro' | 'crop' | 'edit' | 'gallery'>('intro');
+  const [step, setStep] = useState<'intro' | 'crop' | 'advanced-crop' | 'edit' | 'gallery'>('intro');
   const [originalImage, setOriginalImage] = useState<string | null>(null);
   const [processedImage, setProcessedImage] = useState<string | null>(null);
   const [selectedFilter, setSelectedFilter] = useState<FilterType>('magic');
@@ -45,9 +46,7 @@ export default function DocumentScannerPage() {
   // Manuel crop state
   // Ancien état de compatibilité supprimé (la page gère déjà le step "crop")
   const [corners, setCorners] = useState<Corner[]>([]);
-  const [draggingCorner, setDraggingCorner] = useState<number | null>(null);
   const [rawImage, setRawImage] = useState<string | null>(null);
-  const cropCanvasRef = useRef<HTMLCanvasElement>(null);
   // Mémorisation éventuelle des dimensions, principalement pour debug / évolutions
   // Dimensions de l'image brute (utilisées pour certains calculs internes)
   // NOTE: imageDimensions était utilisé dans une version précédente pour le debug, supprimé pour éviter les warnings.
@@ -335,283 +334,7 @@ export default function DocumentScannerPage() {
     } finally {
       setIsProcessing(false);
     }
-  };
-
-  const handleSkipCrop = async () => {
-    if (!rawImage) return;
-    
-    setIsProcessing(true);
-    try {
-      setOriginalImage(rawImage);
-      await applyFilter('magic', rawImage);
-      setStep('edit');
-    } catch (error) {
-      console.error('Erreur:', error);
-    } finally {
-      setIsProcessing(false);
-    }
-  };
-
-  const getPointerPosition = (e: React.MouseEvent<HTMLCanvasElement> | React.TouchEvent<HTMLCanvasElement>) => {
-    if (!cropCanvasRef.current) return null;
-    
-    const canvas = cropCanvasRef.current;
-    const rect = canvas.getBoundingClientRect();
-    
-    // Récupérer les scales sauvegardés
-    const scaleX = parseFloat(canvas.getAttribute('data-scale-x') || '1');
-    const scaleY = parseFloat(canvas.getAttribute('data-scale-y') || '1');
-    const imgWidth = parseFloat(canvas.getAttribute('data-img-width') || '1');
-    const imgHeight = parseFloat(canvas.getAttribute('data-img-height') || '1');
-    
-    let clientX: number;
-    let clientY: number;
-    
-    if ('touches' in e) {
-      if (e.touches.length === 0) return null;
-      clientX = e.touches[0].clientX;
-      clientY = e.touches[0].clientY;
-    } else {
-      clientX = e.clientX;
-      clientY = e.clientY;
-    }
-    
-  // Position dans le canvas affiché (pixels CSS)
-  const canvasX = clientX - rect.left;
-  const canvasY = clientY - rect.top;
-    
-  if (!scaleX || !scaleY) return null;
-    
-  // Convertir en coordonnées de l'image originale
-  const x = canvasX / scaleX;
-  const y = canvasY / scaleY;
-    
-    return { x, y, scaleX, scaleY, imgWidth, imgHeight };
-  };
-
-  const handleCanvasMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    const pos = getPointerPosition(e);
-    if (!pos) return;
-    
-    // Rayon de détection en pixels de l'image originale
-    const TOUCH_RADIUS = 80 / pos.scaleX; // Rayon plus large pour faciliter le drag
-    
-    for (let i = 0; i < corners.length; i++) {
-      const dx = corners[i].x - pos.x;
-      const dy = corners[i].y - pos.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distance < TOUCH_RADIUS) {
-        setDraggingCorner(i);
-        e.preventDefault();
-        return;
-      }
-    }
-  };
-
-  const handleCanvasTouchStart = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    const pos = getPointerPosition(e);
-    if (!pos) return;
-    
-    const TOUCH_RADIUS = 80 / pos.scaleX; // Même rayon pour le tactile
-    
-    for (let i = 0; i < corners.length; i++) {
-      const dx = corners[i].x - pos.x;
-      const dy = corners[i].y - pos.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      
-      if (distance < TOUCH_RADIUS) {
-        setDraggingCorner(i);
-        e.preventDefault();
-        return;
-      }
-    }
-  };
-
-  const handleCanvasMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (draggingCorner === null) return;
-    
-    const pos = getPointerPosition(e);
-    if (!pos) return;
-    
-    const x = Math.max(0, Math.min(pos.imgWidth, pos.x));
-    const y = Math.max(0, Math.min(pos.imgHeight, pos.y));
-    
-    // Éviter les mises à jour inutiles si la position n'a pas vraiment changé
-    const currentCorner = corners[draggingCorner];
-    if (Math.abs(currentCorner.x - x) < 1 && Math.abs(currentCorner.y - y) < 1) return;
-    
-    const newCorners = [...corners];
-    newCorners[draggingCorner] = { x, y };
-    setCorners(newCorners);
-    e.preventDefault();
-  };
-
-  const handleCanvasTouchMove = (e: React.TouchEvent<HTMLCanvasElement>) => {
-    if (draggingCorner === null) return;
-    
-    const pos = getPointerPosition(e);
-    if (!pos) return;
-    
-    const x = Math.max(0, Math.min(pos.imgWidth, pos.x));
-    const y = Math.max(0, Math.min(pos.imgHeight, pos.y));
-    
-    // Éviter les mises à jour inutiles si la position n'a pas vraiment changé
-    const currentCorner = corners[draggingCorner];
-    if (Math.abs(currentCorner.x - x) < 1 && Math.abs(currentCorner.y - y) < 1) return;
-    
-    const newCorners = [...corners];
-    newCorners[draggingCorner] = { x, y };
-    setCorners(newCorners);
-    e.preventDefault();
-  };
-
-  const handleCanvasMouseUp = () => {
-    setDraggingCorner(null);
-  };
-
-  const handleCanvasTouchEnd = () => {
-    setDraggingCorner(null);
-  };
-
-  // Dessiner l'overlay de crop avec redimensionnement adaptatif (optimisé)
-  useEffect(() => {
-    if (step !== 'crop' || !cropCanvasRef.current || !rawImage || corners.length !== 4) return;
-    
-    const canvas = cropCanvasRef.current;
-    const ctx = canvas.getContext('2d', { willReadFrequently: false });
-    if (!ctx) return;
-    
-    const img = new Image();
-    img.src = rawImage;
-    
-    // Éviter de redessiner si l'image est déjà chargée
-    if (img.complete && img.naturalWidth > 0) {
-      drawCropOverlay(canvas, ctx, img, corners);
-    } else {
-      img.onload = () => drawCropOverlay(canvas, ctx, img, corners);
-    }
-  }, [step, rawImage, corners]);
-
-  const drawCropOverlay = (
-    canvas: HTMLCanvasElement,
-    ctx: CanvasRenderingContext2D,
-    img: HTMLImageElement,
-    corners: Corner[]
-  ) => {
-    // Obtenir les dimensions de la zone d'affichage (bloc central)
-    const container = canvas.parentElement;
-    if (!container) return;
-    
-    const containerWidth = container.clientWidth;
-    const containerHeight = container.clientHeight;
-    
-    // Calculer le ratio pour que l'image remplisse l'écran au maximum
-    const imgRatio = img.width / img.height;
-    const containerRatio = containerWidth / containerHeight;
-    
-    let displayWidth: number;
-    let displayHeight: number;
-    
-    // Toujours remplir au maximum la largeur OU la hauteur
-    if (imgRatio > containerRatio) {
-      // Image plus large : remplir la largeur
-      displayWidth = containerWidth;
-      displayHeight = containerWidth / imgRatio;
-    } else {
-      // Image plus haute : remplir la hauteur
-      displayHeight = containerHeight;
-      displayWidth = containerHeight * imgRatio;
-    }
-    
-    // Définir les dimensions du canvas seulement si elles ont changé
-    if (canvas.width !== displayWidth || canvas.height !== displayHeight) {
-      canvas.width = displayWidth;
-      canvas.height = displayHeight;
-      canvas.style.width = `${displayWidth}px`;
-      canvas.style.height = `${displayHeight}px`;
-    }
-    
-    // Calculer le scale pour mapper les coins
-    const scaleX = displayWidth / img.width;
-    const scaleY = displayHeight / img.height;
-    
-    // Sauvegarder le scale dans un attribut data pour les handlers
-    canvas.setAttribute('data-scale-x', scaleX.toString());
-    canvas.setAttribute('data-scale-y', scaleY.toString());
-    canvas.setAttribute('data-img-width', img.width.toString());
-    canvas.setAttribute('data-img-height', img.height.toString());
-    
-    // Clear et redessiner
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
-    // Dessiner l'image en taille réelle du canvas
-    ctx.drawImage(img, 0, 0, displayWidth, displayHeight);
-    
-    // Masque noir plus prononcé pour mieux voir la zone sélectionnée
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-    
-    // Zone sélectionnée (clear overlay complètement) - on voit l'image originale
-    ctx.save();
-    ctx.globalCompositeOperation = 'destination-out';
-    ctx.beginPath();
-    ctx.moveTo(corners[0].x * scaleX, corners[0].y * scaleY);
-    for (let i = 1; i < corners.length; i++) {
-      ctx.lineTo(corners[i].x * scaleX, corners[i].y * scaleY);
-    }
-    ctx.closePath();
-    ctx.fill();
-    ctx.restore();
-    
-    // Lignes de grille dans la zone sélectionnée pour guider
-    ctx.save();
-    ctx.strokeStyle = 'rgba(20, 184, 166, 0.3)';
-    ctx.lineWidth = 1;
-    ctx.setLineDash([5, 5]);
-    
-    // Grille 3x3 (règle des tiers)
-    const minX = Math.min(corners[0].x, corners[1].x, corners[2].x, corners[3].x) * scaleX;
-    const maxX = Math.max(corners[0].x, corners[1].x, corners[2].x, corners[3].x) * scaleX;
-    const minY = Math.min(corners[0].y, corners[1].y, corners[2].y, corners[3].y) * scaleY;
-    const maxY = Math.max(corners[0].y, corners[1].y, corners[2].y, corners[3].y) * scaleY;
-    const widthZone = maxX - minX;
-    const heightZone = maxY - minY;
-    
-    // Lignes verticales
-    ctx.beginPath();
-    ctx.moveTo(minX + widthZone / 3, minY);
-    ctx.lineTo(minX + widthZone / 3, maxY);
-    ctx.moveTo(minX + (2 * widthZone) / 3, minY);
-    ctx.lineTo(minX + (2 * widthZone) / 3, maxY);
-    ctx.stroke();
-    
-    // Lignes horizontales
-    ctx.beginPath();
-    ctx.moveTo(minX, minY + heightZone / 3);
-    ctx.lineTo(maxX, minY + heightZone / 3);
-    ctx.moveTo(minX, minY + (2 * heightZone) / 3);
-    ctx.lineTo(maxX, minY + (2 * heightZone) / 3);
-    ctx.stroke();
-    ctx.restore();
-    
-    // Bordures du document (épaisses et brillantes)
-    ctx.strokeStyle = '#14b8a6';
-    ctx.lineWidth = 5;
-    ctx.setLineDash([]);
-    ctx.shadowColor = '#14b8a6';
-    ctx.shadowBlur = 10;
-    ctx.beginPath();
-    ctx.moveTo(corners[0].x * scaleX, corners[0].y * scaleY);
-    for (let i = 1; i < corners.length; i++) {
-      ctx.lineTo(corners[i].x * scaleX, corners[i].y * scaleY);
-    }
-    ctx.closePath();
-    ctx.stroke();
-    ctx.shadowBlur = 0;
-  };
-
-  return (
+  };  return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       {/* Loader OpenCV */}
       {isLoadingOpenCV && (
@@ -835,160 +558,20 @@ export default function DocumentScannerPage() {
           </div>
         )}
 
-        {/* Crop Mode - PLEIN ÉCRAN */}
-        {step === 'crop' && rawImage && (
-          <div className="fixed inset-0 bg-slate-950 z-50 flex flex-col">
-            {/* Header fixe */}
-            <div className="bg-slate-900/95 backdrop-blur-sm border-b border-slate-700 p-4 flex-shrink-0">
-              <div className="max-w-7xl mx-auto flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Move className="w-5 h-5 text-teal-400" />
-                  <div>
-                    <h2 className="text-lg font-bold text-white">Recadrage manuel</h2>
-                    <p className="text-xs text-slate-400">Déplacez les coins pour ajuster</p>
-                  </div>
-                </div>
-                <button
-                  onClick={handleReset}
-                  className="p-2 hover:bg-slate-800 rounded-lg transition-colors"
-                >
-                  <X className="w-6 h-6 text-slate-400" />
-                </button>
-              </div>
-            </div>
-
-            {/* Zone canvas - prend tout l'espace disponible */}
-            <div className="flex-1 relative bg-black overflow-hidden flex items-center justify-center">
-              <canvas
-                ref={cropCanvasRef}
-                onMouseDown={handleCanvasMouseDown}
-                onMouseMove={handleCanvasMouseMove}
-                onMouseUp={handleCanvasMouseUp}
-                onMouseLeave={handleCanvasMouseUp}
-                onTouchStart={handleCanvasTouchStart}
-                onTouchMove={handleCanvasTouchMove}
-                onTouchEnd={handleCanvasTouchEnd}
-                className="cursor-move touch-none"
-              />
-              
-              {/* Coins draggables en HTML (par-dessus le canvas) */}
-              {cropCanvasRef.current && corners.length === 4 && (() => {
-                const canvas = cropCanvasRef.current;
-                const scaleX = parseFloat(canvas.getAttribute('data-scale-x') || '1');
-                const scaleY = parseFloat(canvas.getAttribute('data-scale-y') || '1');
-                
-                return corners.map((corner, index) => {
-                  const displayX = corner.x * scaleX;
-                  const displayY = corner.y * scaleY;
-                  
-                  // Étiquettes pour chaque coin
-                  const labels = ['Haut gauche', 'Haut droit', 'Bas droit', 'Bas gauche'];
-                  const isActive = draggingCorner === index;
-                  
-                  return (
-                    <div
-                      key={index}
-                      className="absolute pointer-events-auto cursor-grab active:cursor-grabbing transition-transform"
-                      style={{
-                        left: `${displayX - 35}px`,
-                        top: `${displayY - 35}px`,
-                        width: '70px',
-                        height: '70px',
-                        transform: isActive ? 'scale(1.3)' : 'scale(1)',
-                        zIndex: isActive ? 200 : 100,
-                      }}
-                      onMouseDown={(e) => {
-                        setDraggingCorner(index);
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                      onTouchStart={(e) => {
-                        setDraggingCorner(index);
-                        e.preventDefault();
-                        e.stopPropagation();
-                      }}
-                    >
-                      {/* Cercle du coin avec animation */}
-                      <div className={`w-full h-full rounded-full border-4 border-white shadow-2xl flex items-center justify-center transition-all ${
-                        isActive ? 'bg-teal-400 scale-110' : 'bg-teal-500'
-                      }`}>
-                        <span className="text-white font-bold text-xl">{index + 1}</span>
-                      </div>
-                      
-                      {/* Label descriptif (affiché seulement si actif) */}
-                      {isActive && (
-                        <div className="absolute top-full mt-2 left-1/2 -translate-x-1/2 whitespace-nowrap bg-teal-500 text-white px-3 py-1 rounded-full text-xs font-semibold shadow-lg">
-                          {labels[index]}
-                        </div>
-                      )}
-                    </div>
-                  );
-                });
-              })()}
-              
-              {/* Instructions overlay améliorées */}
-              <div className="absolute top-4 left-4 right-4 pointer-events-none z-10">
-                <div className="bg-gradient-to-r from-teal-600 to-teal-500 text-white px-5 py-3 rounded-xl shadow-2xl inline-block border-2 border-white/30">
-                  <div className="flex items-center gap-3">
-                    <Move className="w-5 h-5 animate-pulse" />
-                    <div>
-                      <p className="text-sm font-bold">Ajustez les 4 coins du document</p>
-                      <p className="text-xs opacity-90">Glissez les numéros pour cadrer parfaitement</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              {/* Indicateur du coin en cours de déplacement */}
-              {draggingCorner !== null && (
-                <div className="absolute bottom-24 left-1/2 -translate-x-1/2 pointer-events-none z-10">
-                  <div className="bg-black/80 backdrop-blur-sm text-white px-6 py-3 rounded-full shadow-2xl border-2 border-teal-400">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full bg-teal-500 flex items-center justify-center font-bold">
-                        {draggingCorner + 1}
-                      </div>
-                      <span className="font-semibold">
-                        {['Coin supérieur gauche', 'Coin supérieur droit', 'Coin inférieur droit', 'Coin inférieur gauche'][draggingCorner]}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            {/* Actions fixées en bas */}
-            <div className="bg-slate-900/95 backdrop-blur-sm border-t border-slate-700 p-4 flex-shrink-0">
-              <div className="max-w-7xl mx-auto flex gap-3">
-                <button
-                  onClick={handleSkipCrop}
-                  disabled={isProcessing}
-                  className="px-6 py-3 bg-slate-700 text-white rounded-lg font-semibold hover:bg-slate-600 transition-colors disabled:opacity-50"
-                >
-                  Sans recadrage
-                </button>
-                <button
-                  onClick={handleApplyCrop}
-                  disabled={isProcessing || corners.length !== 4}
-                  className="flex-1 bg-gradient-to-r from-teal-500 to-teal-600 text-white px-6 py-3 rounded-lg font-semibold hover:from-teal-600 hover:to-teal-700 transition-all shadow-lg shadow-teal-500/30 flex items-center justify-center gap-2 disabled:opacity-50"
-                >
-                  {isProcessing ? (
-                    <>
-                      <Loader className="w-5 h-5 animate-spin" />
-                      Traitement...
-                    </>
-                  ) : (
-                    <>
-                      <Check className="w-5 h-5" />
-                      Valider le recadrage
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* Crop Mode - Page Avancée */}
+        {step === 'crop' && rawImage && corners.length === 4 && (
+          <AdvancedCropPage
+            imageUrl={rawImage}
+            initialCorners={corners}
+            onApply={async (newCorners) => {
+              setCorners(newCorners);
+              await handleApplyCrop();
+            }}
+            onCancel={handleReset}
+          />
         )}
 
-        {/* Gallery View */}        {/* Gallery View */}
+        {/* Gallery View */}
         {step === 'gallery' && (
           <div className="max-w-7xl mx-auto">
             <div className="mb-6">
