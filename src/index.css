@@ -1,6 +1,3 @@
-/* Import mobile critical FIRST (priorité absolue) */
-@import './styles/mobile-critical.css';
-
 /* Import unified theme */
 @import './styles/unified-theme.css';
 /* Import responsive utilities */
@@ -17,8 +14,6 @@
    RÈGLES CRITIQUES RESPONSIVE (PRIORITÉ MAX)
    ============================================ */
 * {
-  -webkit-box-sizing: border-box;
-  -moz-box-sizing: border-box;
   box-sizing: border-box;
 }
 
@@ -27,6 +22,7 @@ html {
   -ms-text-size-adjust: 100%;
   text-size-adjust: 100%;
   touch-action: manipulation;
+  overflow-x: hidden;
 }
 
 body {
@@ -34,19 +30,10 @@ body {
   padding: 0;
   min-width: 320px;
   overflow-x: hidden;
-  -webkit-overflow-scrolling: touch;
 }
 
-/* Empêcher le débordement horizontal */
-body,
 #root {
-  max-width: 100vw;
   overflow-x: hidden;
-}
-
-/* Container principal responsive */
-#root > * {
-  max-width: 100%;
 }
 
 /* Images et médias responsive par défaut */
