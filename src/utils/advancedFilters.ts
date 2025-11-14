@@ -66,9 +66,9 @@ export async function applyAdvancedFilter(
 
 /**
  * 🪄 FILTRE MAGIC - Amélioration automatique RAPIDE
- * - Auto-contraste
- * - Netteté modérée
- * - Look naturel
+ * - Blanchit le fond
+ * - Noircit le texte
+ * - Look document scanné
  */
 function applyProfessionalMagicFilter(imageData: ImageData) {
   const data = imageData.data;
@@ -82,30 +82,38 @@ function applyProfessionalMagicFilter(imageData: ImageData) {
   
   const tempData = new Uint8ClampedArray(data);
 
-  // Appliquer auto-contraste + léger boost
+  // Appliquer auto-contraste + blanchiment du fond
   for (let i = 0; i < data.length; i += 4) {
     const r = data[i];
     const g = data[i + 1];
     const b = data[i + 2];
 
-    // Auto-contraste simple
-    let newR = clamp((r - min) * normalizeFactor);
-    let newG = clamp((g - min) * normalizeFactor);
-    let newB = clamp((b - min) * normalizeFactor);
+    // Convertir en niveaux de gris pour analyse
+    const gray = r * 0.299 + g * 0.587 + b * 0.114;
 
-    // Léger boost de contraste
-    const contrast = 1.1;
-    newR = clamp((newR - 128) * contrast + 128);
-    newG = clamp((newG - 128) * contrast + 128);
-    newB = clamp((newB - 128) * contrast + 128);
+    // Auto-contraste
+    let newGray = clamp((gray - min) * normalizeFactor);
 
-    tempData[i] = newR;
-    tempData[i + 1] = newG;
-    tempData[i + 2] = newB;
+    // Boost contraste pour séparer texte/fond
+    const contrast = 1.3;
+    newGray = clamp((newGray - 128) * contrast + 128);
+
+    // Blanchir le fond (pixels clairs)
+    if (newGray > 160) {
+      newGray = clamp(newGray + (255 - newGray) * 0.6); // Éclaircir vers blanc
+    }
+    // Noircir le texte (pixels sombres)
+    else if (newGray < 100) {
+      newGray = clamp(newGray * 0.7); // Assombrir vers noir
+    }
+
+    tempData[i] = newGray;
+    tempData[i + 1] = newGray;
+    tempData[i + 2] = newGray;
   }
 
-  // Netteté modérée
-  applyUnsharpMask(tempData, data, width, height, 1.5, 1.0);
+  // Netteté pour texte net
+  applyUnsharpMask(tempData, data, width, height, 2.0, 1.0);
 }
 
 /**
@@ -140,6 +148,7 @@ function applyAdaptiveBlackAndWhite(imageData: ImageData) {
 
 /**
  * 🌫️ FILTRE NIVEAUX DE GRIS RAPIDE
+ * - Blanchit le fond
  * - Contraste amélioré
  * - Netteté modérée
  */
@@ -154,8 +163,17 @@ function applyEnhancedGrayscale(imageData: ImageData) {
   for (let i = 0; i < data.length; i += 4) {
     let gray = data[i] * 0.299 + data[i + 1] * 0.587 + data[i + 2] * 0.114;
     
-    // Boost de contraste simple
-    gray = clamp((gray - 128) * 1.2 + 128);
+    // Boost de contraste pour séparer texte/fond
+    gray = clamp((gray - 128) * 1.3 + 128);
+
+    // Blanchir le fond
+    if (gray > 160) {
+      gray = clamp(gray + (255 - gray) * 0.6);
+    }
+    // Noircir le texte
+    else if (gray < 100) {
+      gray = clamp(gray * 0.7);
+    }
     
     tempData[i] = gray;
     tempData[i + 1] = gray;
@@ -163,14 +181,14 @@ function applyEnhancedGrayscale(imageData: ImageData) {
   }
 
   // Netteté modérée
-  applyUnsharpMask(tempData, data, width, height, 1.5, 1.0);
+  applyUnsharpMask(tempData, data, width, height, 1.8, 1.0);
 }
 
 /**
  * 🌈 FILTRE COULEUR RAPIDE
- * - Saturation améliorée
- * - Contraste modéré
- * - Netteté douce
+ * - Blanchit le fond
+ * - Préserve les couleurs
+ * - Contraste amélioré
  */
 function applyVividColorEnhancement(imageData: ImageData) {
   const data = imageData.data;
@@ -184,19 +202,28 @@ function applyVividColorEnhancement(imageData: ImageData) {
     const g = data[i + 1];
     const b = data[i + 2];
 
-    // Saturation pour documents
     const gray = r * 0.299 + g * 0.587 + b * 0.114;
-    const saturationBoost = 1.3;
     
+    // Saturation modérée
+    const saturationBoost = 1.2;
     let newR = clamp(gray + (r - gray) * saturationBoost);
     let newG = clamp(gray + (g - gray) * saturationBoost);
     let newB = clamp(gray + (b - gray) * saturationBoost);
 
-    // Contraste modéré
-    const contrastFactor = 1.15;
+    // Contraste pour séparer texte/fond
+    const contrastFactor = 1.25;
     newR = clamp((newR - 128) * contrastFactor + 128);
     newG = clamp((newG - 128) * contrastFactor + 128);
     newB = clamp((newB - 128) * contrastFactor + 128);
+
+    // Blanchir les zones claires
+    const luminosity = newR * 0.299 + newG * 0.587 + newB * 0.114;
+    if (luminosity > 180) {
+      const whitenFactor = 0.5;
+      newR = clamp(newR + (255 - newR) * whitenFactor);
+      newG = clamp(newG + (255 - newG) * whitenFactor);
+      newB = clamp(newB + (255 - newB) * whitenFactor);
+    }
 
     tempData[i] = newR;
     tempData[i + 1] = newG;
