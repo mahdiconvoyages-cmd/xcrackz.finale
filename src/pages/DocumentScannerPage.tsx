@@ -462,8 +462,14 @@ export default function DocumentScannerPage() {
     const img = new Image();
     img.src = rawImage;
     img.onload = () => {
-      canvas.width = img.width;
-      canvas.height = img.height;
+      // Définir la taille du canvas seulement une fois
+      if (canvas.width === 0 || canvas.height === 0) {
+        canvas.width = img.width;
+        canvas.height = img.height;
+      }
+      
+      // Clear et redessiner
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       // Dessiner l'image
       ctx.drawImage(img, 0, 0);
@@ -495,25 +501,25 @@ export default function DocumentScannerPage() {
       ctx.closePath();
       ctx.stroke();
       
-      // Coins déplaçables
+      // Coins déplaçables (plus gros pour mobile)
       corners.forEach((corner, index) => {
         ctx.beginPath();
-        ctx.arc(corner.x, corner.y, 15, 0, Math.PI * 2);
+        ctx.arc(corner.x, corner.y, 20, 0, Math.PI * 2);
         ctx.fillStyle = '#14b8a6';
         ctx.fill();
         ctx.strokeStyle = '#fff';
-        ctx.lineWidth = 3;
+        ctx.lineWidth = 4;
         ctx.stroke();
         
         // Numéro du coin
         ctx.fillStyle = '#fff';
-        ctx.font = 'bold 12px sans-serif';
+        ctx.font = 'bold 14px sans-serif';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText((index + 1).toString(), corner.x, corner.y);
       });
     };
-  }, [step, rawImage, corners]);
+  }, [step, rawImage, corners]); // Ajouter corners comme dépendance
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
