@@ -247,24 +247,31 @@ export default function PublicTracking() {
 
   return (
     <div className="space-y-6">
-      {/* HEADER */}
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-4xl font-bold mb-2 bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 bg-clip-text text-transparent flex items-center gap-3">
-            <Navigation className="w-8 h-8 text-teal-500 animate-pulse" />
-            Tracking en Temps Réel
-          </h1>
-          <p className="text-slate-600 text-lg">
-            Suivez vos missions actives en direct
-          </p>
+      {/* HEADER REFONTE */}
+      <div className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-teal-600 via-cyan-600 to-blue-600 p-8 shadow-2xl">
+        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGRlZnM+PHBhdHRlcm4gaWQ9ImdyaWQiIHdpZHRoPSI2MCIgaGVpZ2h0PSI2MCIgcGF0dGVyblVuaXRzPSJ1c2VyU3BhY2VPblVzZSI+PHBhdGggZD0iTSAxMCAwIEwgMCAwIDAgMTAiIGZpbGw9Im5vbmUiIHN0cm9rZT0iI2ZmZmZmZiIgc3Ryb2tlLXdpZHRoPSIwLjUiIG9wYWNpdHk9IjAuMSIvPjwvcGF0dGVybj48L2RlZnM+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0idXJsKCNncmlkKSIvPjwvc3ZnPg==')] opacity-30"></div>
+        <div className="relative flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-2">
+              <div className="p-3 bg-white/20 backdrop-blur rounded-xl">
+                <Navigation className="w-8 h-8 text-white animate-pulse" />
+              </div>
+              <h1 className="text-4xl font-black text-white">
+                Suivi GPS Temps Réel
+              </h1>
+            </div>
+            <p className="text-white/90 text-lg font-medium ml-[60px]">
+              Suivez vos missions avec vitesse, ETA et position en direct 🚗
+            </p>
+          </div>
+          <button
+            onClick={() => setShowMap(!showMap)}
+            className="inline-flex items-center gap-2 bg-white text-teal-600 px-6 py-3 rounded-xl font-bold hover:shadow-xl transition-all hover:scale-105"
+          >
+            <Maximize2 className="w-5 h-5" />
+            {showMap ? 'Masquer' : 'Afficher'} carte
+          </button>
         </div>
-        <button
-          onClick={() => setShowMap(!showMap)}
-          className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-xl transition-all"
-        >
-          <Maximize2 className="w-5 h-5" />
-          {showMap ? 'Masquer' : 'Afficher'} la carte
-        </button>
       </div>
 
       {/* STATS */}
@@ -428,164 +435,228 @@ export default function PublicTracking() {
 
         {/* CARTE + DÉTAILS */}
         <div className="lg:col-span-2 space-y-4">
-          {/* STATISTIQUES TEMPS RÉEL */}
-          {showMap && selectedMission && selectedMission.status === 'in_progress' && currentPosition && (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              {/* VITESSE ACTUELLE */}
-              <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-200 rounded-2xl p-5 shadow-xl">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="p-3 bg-blue-500/20 backdrop-blur rounded-xl">
-                    <Activity className="w-6 h-6 text-blue-700" />
+          {/* STATISTIQUES TEMPS RÉEL - TOUJOURS VISIBLE */}
+          {showMap && selectedMission && selectedMission.status === 'in_progress' && (
+            <div className="backdrop-blur-xl bg-gradient-to-br from-white via-teal-50/30 to-cyan-50/30 border-2 border-teal-200 rounded-3xl p-6 shadow-2xl">
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-xl font-black text-slate-900 flex items-center gap-2">
+                  <Activity className="w-6 h-6 text-teal-600 animate-pulse" />
+                  Données en temps réel
+                </h3>
+                {currentPosition && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500 text-white rounded-full text-xs font-bold animate-pulse">
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                    GPS ACTIF
                   </div>
-                  {currentPosition.speed !== undefined && currentPosition.speed > 0 && (
-                    <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 rounded-lg">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                      <span className="text-xs font-bold text-green-700">En mouvement</span>
+                )}
+                {!currentPosition && (
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500 text-white rounded-full text-xs font-bold">
+                    <div className="w-2 h-2 bg-white rounded-full animate-ping"></div>
+                    En attente GPS...
+                  </div>
+                )}
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {/* VITESSE ACTUELLE */}
+                <div className="relative overflow-hidden backdrop-blur-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border-2 border-blue-300 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-blue-400/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform"></div>
+                  <div className="relative">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="p-3 bg-blue-500/20 backdrop-blur rounded-xl">
+                        <Activity className="w-7 h-7 text-blue-700" />
+                      </div>
+                      {currentPosition?.speed !== undefined && currentPosition.speed > 0 && (
+                        <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 rounded-lg">
+                          <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                          <span className="text-xs font-bold text-green-700">En mouvement</span>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-blue-800">Vitesse actuelle</p>
-                  <p className="text-3xl font-black text-blue-700">
-                    {currentPosition.speed !== undefined ? Math.round(currentPosition.speed) : 0}
-                    <span className="text-lg ml-1">km/h</span>
-                  </p>
-                  <p className="text-xs text-blue-600 mt-2">
-                    Dernière mise à jour: {new Date(currentPosition.timestamp).toLocaleTimeString('fr-FR')}
-                  </p>
-                </div>
-              </div>
-
-              {/* DISTANCE RESTANTE */}
-              <div className="backdrop-blur-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-200 rounded-2xl p-5 shadow-xl">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="p-3 bg-amber-500/20 backdrop-blur rounded-xl">
-                    <RouteIcon className="w-6 h-6 text-amber-700" />
+                    <div className="space-y-2">
+                      <p className="text-sm font-bold text-blue-800 uppercase tracking-wide">Vitesse actuelle</p>
+                      <p className="text-5xl font-black text-blue-700">
+                        {currentPosition?.speed !== undefined ? Math.round(currentPosition.speed) : '--'}
+                        <span className="text-xl ml-2">km/h</span>
+                      </p>
+                      {currentPosition && (
+                        <p className="text-xs text-blue-600 mt-2">
+                          ⏰ MAJ: {new Date(currentPosition.timestamp).toLocaleTimeString('fr-FR')}
+                        </p>
+                      )}
+                      {!currentPosition && (
+                        <p className="text-xs text-blue-600 mt-2">
+                          En attente de données GPS...
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-amber-800">Distance restante</p>
-                  <p className="text-3xl font-black text-amber-700">
-                    {calculateDistance(currentPosition.lat, currentPosition.lng, selectedMission.delivery_lat, selectedMission.delivery_lng)}
-                    <span className="text-lg ml-1">km</span>
-                  </p>
-                  <p className="text-xs text-amber-600 mt-2">
-                    Distance totale: {calculateDistance(selectedMission.pickup_lat, selectedMission.pickup_lng, selectedMission.delivery_lat, selectedMission.delivery_lng)} km
-                  </p>
-                </div>
-              </div>
 
-              {/* ETA */}
-              <div className="backdrop-blur-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-200 rounded-2xl p-5 shadow-xl">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="p-3 bg-green-500/20 backdrop-blur rounded-xl">
-                    <Clock className="w-6 h-6 text-green-700" />
+                {/* DISTANCE RESTANTE */}
+                <div className="relative overflow-hidden backdrop-blur-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border-2 border-amber-300 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-amber-400/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform"></div>
+                  <div className="relative">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="p-3 bg-amber-500/20 backdrop-blur rounded-xl">
+                        <RouteIcon className="w-7 h-7 text-amber-700" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-bold text-amber-800 uppercase tracking-wide">Distance restante</p>
+                      <p className="text-5xl font-black text-amber-700">
+                        {currentPosition ? 
+                          calculateDistance(currentPosition.lat, currentPosition.lng, selectedMission.delivery_lat, selectedMission.delivery_lng)
+                          : calculateDistance(selectedMission.pickup_lat, selectedMission.pickup_lng, selectedMission.delivery_lat, selectedMission.delivery_lng)
+                        }
+                        <span className="text-xl ml-2">km</span>
+                      </p>
+                      <p className="text-xs text-amber-600 mt-2">
+                        📍 Total: {calculateDistance(selectedMission.pickup_lat, selectedMission.pickup_lng, selectedMission.delivery_lat, selectedMission.delivery_lng)} km
+                      </p>
+                    </div>
                   </div>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-sm font-semibold text-green-800">Arrivée estimée</p>
-                  {(() => {
-                    const distanceKm = calculateDistance(currentPosition.lat, currentPosition.lng, selectedMission.delivery_lat, selectedMission.delivery_lng);
-                    const speedKmh = currentPosition.speed || 0;
-                    
-                    if (speedKmh > 5 && distanceKm > 0) {
-                      const hoursRemaining = distanceKm / speedKmh;
-                      const minutesRemaining = Math.round(hoursRemaining * 60);
-                      const etaDate = new Date(Date.now() + minutesRemaining * 60 * 1000);
-                      
-                      if (minutesRemaining < 60) {
-                        return (
-                          <>
-                            <p className="text-3xl font-black text-green-700">
-                              {minutesRemaining}
-                              <span className="text-lg ml-1">min</span>
-                            </p>
-                            <p className="text-xs text-green-600 mt-2">
-                              Vers {etaDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                          </>
-                        );
-                      } else {
-                        const hours = Math.floor(hoursRemaining);
-                        const mins = Math.round((hoursRemaining - hours) * 60);
-                        return (
-                          <>
-                            <p className="text-2xl font-black text-green-700">
-                              {hours}h{mins > 0 ? ` ${mins}min` : ''}
-                            </p>
-                            <p className="text-xs text-green-600 mt-2">
-                              Vers {etaDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                          </>
-                        );
-                      }
-                    } else if (distanceKm < 0.5) {
-                      return (
-                        <>
-                          <p className="text-2xl font-black text-green-700">
-                            🎯 Arrivé
-                          </p>
-                          <p className="text-xs text-green-600 mt-2">
-                            À destination
-                          </p>
-                        </>
-                      );
-                    } else {
-                      return (
-                        <>
-                          <p className="text-xl font-bold text-green-600">
-                            En attente
-                          </p>
-                          <p className="text-xs text-green-600 mt-2">
-                            GPS en cours...
-                          </p>
-                        </>
-                      );
-                    }
-                  })()}
+
+                {/* ETA */}
+                <div className="relative overflow-hidden backdrop-blur-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 border-2 border-green-300 rounded-2xl p-6 shadow-xl hover:shadow-2xl transition-all group">
+                  <div className="absolute top-0 right-0 w-32 h-32 bg-green-400/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform"></div>
+                  <div className="relative">
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="p-3 bg-green-500/20 backdrop-blur rounded-xl">
+                        <Clock className="w-7 h-7 text-green-700" />
+                      </div>
+                    </div>
+                    <div className="space-y-2">
+                      <p className="text-sm font-bold text-green-800 uppercase tracking-wide">Arrivée estimée</p>
+                      {(() => {
+                        if (!currentPosition) {
+                          return (
+                            <>
+                              <p className="text-3xl font-black text-green-700">
+                                En attente
+                              </p>
+                              <p className="text-xs text-green-600 mt-2">
+                                GPS en cours d'activation...
+                              </p>
+                            </>
+                          );
+                        }
+                        
+                        const distanceKm = calculateDistance(currentPosition.lat, currentPosition.lng, selectedMission.delivery_lat, selectedMission.delivery_lng);
+                        const speedKmh = currentPosition.speed || 0;
+                        
+                        if (speedKmh > 5 && distanceKm > 0) {
+                          const hoursRemaining = distanceKm / speedKmh;
+                          const minutesRemaining = Math.round(hoursRemaining * 60);
+                          const etaDate = new Date(Date.now() + minutesRemaining * 60 * 1000);
+                          
+                          if (minutesRemaining < 60) {
+                            return (
+                              <>
+                                <p className="text-5xl font-black text-green-700">
+                                  {minutesRemaining}
+                                  <span className="text-xl ml-2">min</span>
+                                </p>
+                                <p className="text-xs text-green-600 mt-2">
+                                  🎯 Vers {etaDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </>
+                            );
+                          } else {
+                            const hours = Math.floor(hoursRemaining);
+                            const mins = Math.round((hoursRemaining - hours) * 60);
+                            return (
+                              <>
+                                <p className="text-4xl font-black text-green-700">
+                                  {hours}h{mins > 0 ? ` ${mins}min` : ''}
+                                </p>
+                                <p className="text-xs text-green-600 mt-2">
+                                  🎯 Vers {etaDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                                </p>
+                              </>
+                            );
+                          }
+                        } else if (distanceKm < 0.5) {
+                          return (
+                            <>
+                              <p className="text-3xl font-black text-green-700">
+                                🎯 Arrivé
+                              </p>
+                              <p className="text-xs text-green-600 mt-2">
+                                À destination
+                              </p>
+                            </>
+                          );
+                        } else {
+                          return (
+                            <>
+                              <p className="text-3xl font-black text-green-600">
+                                Calcul...
+                              </p>
+                              <p className="text-xs text-green-600 mt-2">
+                                En attente de vitesse GPS
+                              </p>
+                            </>
+                          );
+                        }
+                      })()}
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
           )}
 
           {showMap && selectedMission && selectedMission.status === 'in_progress' && (
-            <div className="backdrop-blur-xl bg-white/70 border border-slate-200 rounded-2xl p-6 shadow-xl">
-              <div className="mb-4 flex items-center justify-between">
-                <h3 className="text-lg font-bold text-slate-900">Suivi en temps réel</h3>
-                <div className="flex items-center gap-2 text-sm text-slate-600">
-                  <Activity className="w-4 h-4 text-green-500 animate-pulse" />
-                  <span>Mise à jour toutes les 2 secondes</span>
-                </div>
-              </div>
-              <div className="w-full h-[600px] rounded-xl overflow-hidden">
-                {selectedMission.pickup_lat && selectedMission.pickup_lng && 
-                 selectedMission.delivery_lat && selectedMission.delivery_lng ? (
-                  <LeafletTracking
-                    pickupLat={selectedMission.pickup_lat}
-                    pickupLng={selectedMission.pickup_lng}
-                    pickupAddress={selectedMission.pickup_address}
-                    deliveryLat={selectedMission.delivery_lat}
-                    deliveryLng={selectedMission.delivery_lng}
-                    deliveryAddress={selectedMission.delivery_address}
-                    driverLat={currentPosition?.lat}
-                    driverLng={currentPosition?.lng}
-                    driverName="Chauffeur"
-                    vehiclePlate={selectedMission.vehicle_plate}
-                    status={getStatusInfo(selectedMission.status).label}
-                    height="600px"
-                    showControls={true}
-                  />
-                ) : (
-                  <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex items-center justify-center">
-                    <div className="text-center">
-                      <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
-                      <p className="text-slate-700 font-semibold text-lg">Coordonnées GPS manquantes</p>
-                      <p className="text-slate-500 text-sm mt-2">
-                        Cette mission n'a pas de coordonnées GPS définies
-                      </p>
+            <div className="relative backdrop-blur-xl bg-gradient-to-br from-white via-slate-50 to-slate-100 border-2 border-slate-300 rounded-3xl p-6 shadow-2xl overflow-hidden">
+              <div className="absolute top-0 right-0 w-64 h-64 bg-teal-400/10 rounded-full -mr-32 -mt-32 blur-3xl"></div>
+              <div className="relative">
+                <div className="mb-5 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2.5 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl">
+                      <Navigation className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-black text-slate-900">Carte GPS Interactive</h3>
+                      <p className="text-sm text-slate-600">Suivi en temps réel avec route optimisée</p>
                     </div>
                   </div>
-                )}
+                  <div className="flex items-center gap-3 px-4 py-2 bg-green-500 text-white rounded-xl shadow-lg">
+                    <Activity className="w-5 h-5 animate-pulse" />
+                    <span className="font-bold text-sm">LIVE</span>
+                  </div>
+                </div>
+                <div className="w-full h-[600px] rounded-2xl overflow-hidden border-4 border-slate-200 shadow-inner">
+                  {selectedMission.pickup_lat && selectedMission.pickup_lng && 
+                   selectedMission.delivery_lat && selectedMission.delivery_lng ? (
+                    <LeafletTracking
+                      pickupLat={selectedMission.pickup_lat}
+                      pickupLng={selectedMission.pickup_lng}
+                      pickupAddress={selectedMission.pickup_address}
+                      deliveryLat={selectedMission.delivery_lat}
+                      deliveryLng={selectedMission.delivery_lng}
+                      deliveryAddress={selectedMission.delivery_address}
+                      driverLat={currentPosition?.lat}
+                      driverLng={currentPosition?.lng}
+                      driverName="Chauffeur"
+                      vehiclePlate={selectedMission.vehicle_plate}
+                      status={getStatusInfo(selectedMission.status).label}
+                      height="600px"
+                      showControls={true}
+                    />
+                  ) : (
+                    <div className="w-full h-full bg-gradient-to-br from-slate-100 to-slate-200 rounded-xl flex items-center justify-center">
+                      <div className="text-center">
+                        <AlertCircle className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+                        <p className="text-slate-700 font-semibold text-lg">Coordonnées GPS manquantes</p>
+                        <p className="text-slate-500 text-sm mt-2">
+                          Cette mission n'a pas de coordonnées GPS définies
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           )}
