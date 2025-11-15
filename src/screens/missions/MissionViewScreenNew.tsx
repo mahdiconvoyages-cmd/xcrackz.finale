@@ -22,6 +22,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import { shareMissionLink } from '../../lib/shareCode';
 import LocationSharing from '../../components/LocationSharing';
+import VersionBadge from '../../components/VersionBadge';
 
 const { width, height } = Dimensions.get('window');
 
@@ -159,13 +160,13 @@ export default function MissionViewScreenNew({ route, navigation }: any) {
       return;
     }
 
-    navigation.navigate('Inspections', {
+    navigation.navigate('Inspections' as never, {
       screen: type === 'departure' ? 'InspectionDeparture' : 'InspectionArrival',
       params: {
         missionId: mission.id,
         inspectionId: existingInspection?.id,
       },
-    });
+    } as never);
   };
 
   const handleCompleteMission = async () => {
@@ -362,6 +363,8 @@ export default function MissionViewScreenNew({ route, navigation }: any) {
         </Animated.View>
 
         <View style={styles.content}>
+          {/* Version badge */}
+          <VersionBadge />
           {/* Timeline Progress */}
           <Animated.View
             style={[
