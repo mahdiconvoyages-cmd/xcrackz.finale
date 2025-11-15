@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { Navigation, Gauge, Clock, MapPin, Activity, TrendingUp, Users } from 'lucide-react';
+import { Navigation, Gauge, Clock, MapPin, Activity, TrendingUp, Users, Share2, Check, Link2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import LeafletTracking from '../components/LeafletTracking';
@@ -49,6 +49,8 @@ export default function TrackingCommand() {
   const [loading, setLoading] = useState(true);
   const [eta, setEta] = useState<number>(0);
   const [distanceRemaining, setDistanceRemaining] = useState<number>(0);
+  const [copied, setCopied] = useState(false);
+  const [generatingLink, setGeneratingLink] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
@@ -163,6 +165,50 @@ export default function TrackingCommand() {
     channelRef.current = channel;
   };
 
+  const generatePublicLink = async () => {
+    if (!selectedMission) return;
+
+    setGeneratingLink(true);
+    try {
+      // Vérifier si un lien existe déjà
+      if (selectedMission.public_tracking_link) {
+        await navigator.clipboard.writeText(selectedMission.public_tracking_link);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 3000);
+        setGeneratingLink(false);
+        return;
+      }
+
+      // Générer un nouveau token
+      const token = Array.from(crypto.getRandomValues(new Uint8Array(16)))
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+      
+      const publicLink = `${window.location.origin}/tracking/${token}`;
+
+      // Sauvegarder dans la base
+      const { error } = await supabase
+        .from('missions')
+        .update({ public_tracking_link: publicLink })
+        .eq('id', selectedMission.id);
+
+      if (error) throw error;
+
+      // Mettre à jour l'état local
+      setSelectedMission(prev => prev ? { ...prev, public_tracking_link: publicLink } : null);
+
+      // Copier dans le presse-papier
+      await navigator.clipboard.writeText(publicLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    } catch (error) {
+      console.error('Error generating public link:', error);
+      alert('Erreur lors de la génération du lien');
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
   const calculateETAAndDistance = () => {
     if (!currentLocation || !selectedMission?.delivery_lat || !selectedMission?.delivery_lng) return;
 
@@ -237,9 +283,37 @@ export default function TrackingCommand() {
               </div>
               <p className="text-white/90 text-lg ml-[60px]">Suivi temps réel · Vitesse · ETA · Timeline</p>
             </div>
-            <div className="flex items-center gap-3 px-5 py-3 bg-white/20 backdrop-blur rounded-xl">
-              <Activity className="w-6 h-6 animate-pulse" />
-              <span className="font-bold text-lg">LIVE</span>
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-3 px-5 py-3 bg-white/20 backdrop-blur rounded-xl">
+                <Activity className="w-6 h-6 animate-pulse" />
+                <span className="font-bold text-lg">LIVE</span>
+              </div>
+              
+              {/* Bouton Partager */}
+              {selectedMission && (
+                <button
+                  onClick={generatePublicLink}
+                  disabled={generatingLink}
+                  className="flex items-center gap-2 px-5 py-3 bg-white hover:bg-white/90 text-teal-600 rounded-xl font-bold transition-all hover:scale-105 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-5 h-5" />
+                      <span>Lien copié!</span>
+                    </>
+                  ) : generatingLink ? (
+                    <>
+                      <Link2 className="w-5 h-5 animate-spin" />
+                      <span>Génération...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Share2 className="w-5 h-5" />
+                      <span>Partager le suivi</span>
+                    </>
+                  )}
+                </button>
+              )}
             </div>
           </div>
         </div>
