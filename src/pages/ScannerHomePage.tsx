@@ -10,7 +10,6 @@
 import { useNavigate } from 'react-router-dom';
 import { 
   Camera, 
-  Upload, 
   FolderOpen, 
   Zap,
   Sparkles,
@@ -101,7 +100,7 @@ export default function ScannerHomePage() {
 
           {/* Action Buttons */}
           <div className="space-y-3">
-            {/* Primary: Capture Photo */}
+            {/* Primary: Capture Photo - Ouvre directement le scanner */}
             <button
               onClick={() => navigate('/scanner-pro')}
               className="group relative w-full overflow-hidden rounded-2xl"
@@ -116,10 +115,10 @@ export default function ScannerHomePage() {
                   </div>
                   <div className="text-left">
                     <div className="text-white font-bold text-lg">
-                      Prendre une photo
+                      Démarrer le scanner
                     </div>
                     <div className="text-blue-100 text-sm">
-                      Appareil photo natif
+                      Photo ou fichier
                     </div>
                   </div>
                 </div>
@@ -127,30 +126,7 @@ export default function ScannerHomePage() {
               </div>
             </button>
 
-            {/* Secondary: Upload File */}
-            <button
-              onClick={() => navigate('/scanner-pro')}
-              className="group w-full px-6 py-5 bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/20 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center">
-                    <Upload className="w-7 h-7 text-blue-300 group-hover:text-blue-200 transition-colors" />
-                  </div>
-                  <div className="text-left">
-                    <div className="text-white font-bold text-lg">
-                      Importer un fichier
-                    </div>
-                    <div className="text-blue-200 text-sm">
-                      JPG, PNG ou PDF
-                    </div>
-                  </div>
-                </div>
-                <ArrowRight className="w-6 h-6 text-blue-300 group-hover:translate-x-1 transition-transform" />
-              </div>
-            </button>
-
-            {/* Tertiary: My Documents */}
+            {/* Mes Documents Cloud */}
             <button
               onClick={() => navigate('/mes-documents')}
               className="group w-full px-6 py-5 bg-gradient-to-r from-emerald-500/10 to-teal-500/10 hover:from-emerald-500/20 hover:to-teal-500/20 backdrop-blur-sm border border-emerald-500/30 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
@@ -165,7 +141,7 @@ export default function ScannerHomePage() {
                       Mes numérisations
                     </div>
                     <div className="text-emerald-200 text-sm">
-                      Documents cloud synchronisés
+                      Documents synchronisés
                     </div>
                   </div>
                 </div>
