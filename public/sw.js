@@ -1,9 +1,10 @@
 // Service Worker pour xCrackz PWA
 // Cache les assets statiques et permet le mode hors ligne
 
-const CACHE_NAME = 'xcrackz-v1';
-const STATIC_CACHE = 'xcrackz-static-v1';
-const DYNAMIC_CACHE = 'xcrackz-dynamic-v1';
+const CACHE_VERSION = 'v2-uber-gps'; // CHANGÉ pour forcer mise à jour
+const CACHE_NAME = `xcrackz-${CACHE_VERSION}`;
+const STATIC_CACHE = `xcrackz-static-${CACHE_VERSION}`;
+const DYNAMIC_CACHE = `xcrackz-dynamic-${CACHE_VERSION}`;
 
 // Assets à mettre en cache lors de l'installation
 const STATIC_ASSETS = [
@@ -31,22 +32,24 @@ self.addEventListener('install', (event) => {
 
 // Activation du Service Worker
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activation...');
+  console.log('[SW] Activation... Version:', CACHE_VERSION);
   
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== STATIC_CACHE && cacheName !== DYNAMIC_CACHE) {
-            console.log('[SW] Suppression ancien cache:', cacheName);
+          // Supprimer TOUS les anciens caches
+          if (!cacheName.includes(CACHE_VERSION)) {
+            console.log('[SW] 🗑️ Suppression ancien cache:', cacheName);
             return caches.delete(cacheName);
           }
         })
       );
+    }).then(() => {
+      console.log('[SW] ✅ Tous les anciens caches supprimés');
+      return self.clients.claim();
     })
   );
-  
-  self.clients.claim();
 });
 
 // Interception des requêtes réseau
