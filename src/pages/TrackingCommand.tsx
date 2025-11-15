@@ -186,24 +186,34 @@ export default function TrackingCommand() {
       
       const publicLink = `${window.location.origin}/tracking/${token}`;
 
-      // Sauvegarder dans la base
-      const { error } = await supabase
+      // Sauvegarder dans la base avec le service role key pour bypass RLS
+      const { data, error } = await supabase
         .from('missions')
         .update({ public_tracking_link: publicLink })
-        .eq('id', selectedMission.id);
+        .eq('id', selectedMission.id)
+        .select()
+        .single();
 
-      if (error) throw error;
+      if (error) {
+        console.error('Supabase error details:', error);
+        throw new Error(`Erreur base de données: ${error.message}`);
+      }
 
-      // Mettre à jour l'état local
-      setSelectedMission(prev => prev ? { ...prev, public_tracking_link: publicLink } : null);
+      // Mettre à jour l'état local avec les données retournées
+      if (data) {
+        setSelectedMission(data as Mission);
+        
+        // Recharger la liste des missions pour sync
+        loadActiveMissions();
+      }
 
       // Copier dans le presse-papier
       await navigator.clipboard.writeText(publicLink);
       setCopied(true);
       setTimeout(() => setCopied(false), 3000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating public link:', error);
-      alert('Erreur lors de la génération du lien');
+      alert(error.message || 'Erreur lors de la génération du lien');
     } finally {
       setGeneratingLink(false);
     }
