@@ -206,11 +206,7 @@ export default function LeafletTracking({
               opacity: 0.3;
             }
           }
-        </style>
-      `,
-      className: '',
-          }
-        </style>
+        <\/style>
       `,
       className: '',
       iconSize: [70, 70],
