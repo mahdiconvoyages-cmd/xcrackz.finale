@@ -67,7 +67,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [subscriptionFilter, setSubscriptionFilter] = useState<'all' | 'starter' | 'basic' | 'pro' | 'business' | 'enterprise' | 'none'>('all');
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tracking' | 'analytics' | 'shop-requests'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tracking' | 'analytics' | 'shop-requests' | 'apk-manager'>('overview');
   const [trackingMissions, setTrackingMissions] = useState<any[]>([]);
   const [supportCount, setSupportCount] = useState(0);
   const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'client' | 'driver'>('all');
@@ -80,6 +80,16 @@ export default function Admin() {
   const [grantPlan, setGrantPlan] = useState('pro');
   const [grantDuration, setGrantDuration] = useState('30');
   const [shopPlans, setShopPlans] = useState<Array<{name: string, credits_amount: number, price: number}>>([]);
+
+  // APK Management States
+  const [apkVersions, setApkVersions] = useState<any[]>([]);
+  const [uploadingApk, setUploadingApk] = useState(false);
+  const [showApkModal, setShowApkModal] = useState(false);
+  const [newApkVersion, setNewApkVersion] = useState('');
+  const [newApkCode, setNewApkCode] = useState('');
+  const [newApkFile, setNewApkFile] = useState<File | null>(null);
+  const [newApkNotes, setNewApkNotes] = useState('');
+  const [newApkMandatory, setNewApkMandatory] = useState(false);
 
   useEffect(() => {
     loadAdminData();
@@ -198,6 +208,7 @@ export default function Admin() {
         loadTrackingMissions(),
         loadSupportCount(),
         loadShopPlans(),
+        loadApkVersions(),
       ]);
     } catch (error) {
       console.error('Error loading admin data:', error);
@@ -824,6 +835,141 @@ export default function Admin() {
     a.click();
   };
 
+  // APK Management Functions
+  const loadApkVersions = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_versions')
+        .select('*')
+        .order('version_code', { ascending: false });
+
+      if (error) throw error;
+      setApkVersions(data || []);
+    } catch (error) {
+      console.error('Error loading APK versions:', error);
+    }
+  };
+
+  const handleUploadApk = async () => {
+    if (!newApkFile || !newApkVersion || !newApkCode) {
+      alert('Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+
+    setUploadingApk(true);
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Non authentifié');
+
+      // Upload le fichier APK dans Supabase Storage
+      const fileName = `xcrackz-v${newApkVersion}-${newApkCode}.apk`;
+      const filePath = `${fileName}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('apk-files')
+        .upload(filePath, newApkFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
+
+      if (uploadError) throw uploadError;
+
+      // Récupérer l'URL publique
+      const { data: { publicUrl } } = supabase.storage
+        .from('apk-files')
+        .getPublicUrl(filePath);
+
+      // Insérer dans la table app_versions
+      const { error: insertError } = await supabase
+        .from('app_versions')
+        .insert({
+          version_name: newApkVersion,
+          version_code: parseInt(newApkCode),
+          apk_url: publicUrl,
+          file_size: newApkFile.size,
+          release_notes: newApkNotes || null,
+          is_mandatory: newApkMandatory,
+          uploaded_by: user.id,
+        });
+
+      if (insertError) throw insertError;
+
+      // Réinitialiser le formulaire
+      setShowApkModal(false);
+      setNewApkFile(null);
+      setNewApkVersion('');
+      setNewApkCode('');
+      setNewApkNotes('');
+      setNewApkMandatory(false);
+
+      // Recharger la liste
+      await loadApkVersions();
+
+      alert('✅ Version APK uploadée avec succès !');
+    } catch (error: any) {
+      console.error('Error uploading APK:', error);
+      alert(`❌ Erreur lors de l'upload: ${error.message}`);
+    } finally {
+      setUploadingApk(false);
+    }
+  };
+
+  const handleToggleApkStatus = async (versionId: string, currentStatus: boolean) => {
+    try {
+      const { error } = await supabase
+        .from('app_versions')
+        .update({ is_active: !currentStatus })
+        .eq('id', versionId);
+
+      if (error) throw error;
+
+      await loadApkVersions();
+      alert(`✅ Version ${currentStatus ? 'désactivée' : 'activée'} !`);
+    } catch (error: any) {
+      console.error('Error toggling APK status:', error);
+      alert(`❌ Erreur: ${error.message}`);
+    }
+  };
+
+  const handleDeleteApk = async (versionId: string) => {
+    if (!confirm('⚠️ Supprimer cette version APK ?\n\nCette action est irréversible !')) {
+      return;
+    }
+
+    try {
+      // Récupérer l'URL pour supprimer du storage
+      const { data: version } = await supabase
+        .from('app_versions')
+        .select('apk_url')
+        .eq('id', versionId)
+        .single();
+
+      if (version?.apk_url) {
+        const fileName = version.apk_url.split('/').pop();
+        if (fileName) {
+          await supabase.storage
+            .from('apk-files')
+            .remove([fileName]);
+        }
+      }
+
+      // Supprimer de la base de données
+      const { error } = await supabase
+        .from('app_versions')
+        .delete()
+        .eq('id', versionId);
+
+      if (error) throw error;
+
+      await loadApkVersions();
+      alert('✅ Version supprimée avec succès !');
+    } catch (error: any) {
+      console.error('Error deleting APK:', error);
+      alert(`❌ Erreur: ${error.message}`);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-screen">
@@ -878,6 +1024,7 @@ export default function Admin() {
             { id: 'tracking', label: `Missions GPS (${trackingMissions.length})`, icon: MapPin },
             { id: 'analytics', label: 'Analytics', icon: PieChart },
             { id: 'shop-requests', label: 'Demandes Boutique', icon: ShoppingCart },
+            { id: 'apk-manager', label: `Versions APK (${apkVersions.length})`, icon: Download },
           ].map(tab => (
             <button
               key={tab.id}
@@ -1526,6 +1673,262 @@ export default function Admin() {
 
       {activeTab === 'shop-requests' && (
         <AdminShopRequests />
+      )}
+
+      {/* APK Manager Tab */}
+      {activeTab === 'apk-manager' && (
+        <div className="space-y-6">
+          {/* Header avec bouton Upload */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h2 className="text-3xl font-black text-slate-900">Gestion des Versions APK</h2>
+              <p className="text-slate-600 mt-2">Téléversez et gérez les versions de l'application mobile</p>
+            </div>
+            <button
+              onClick={() => setShowApkModal(true)}
+              className="flex items-center gap-2 bg-gradient-to-r from-teal-500 to-blue-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-2xl transition-all hover:-translate-y-1"
+            >
+              <Download className="w-5 h-5" />
+              Nouvelle Version
+            </button>
+          </div>
+
+          {/* Liste des versions */}
+          <div className="bg-white rounded-2xl shadow-xl border border-slate-200 overflow-hidden">
+            {apkVersions.length === 0 ? (
+              <div className="p-12 text-center">
+                <Download className="w-16 h-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-xl font-black text-slate-900 mb-2">Aucune version APK</h3>
+                <p className="text-slate-600 mb-6">Commencez par uploader votre première version</p>
+                <button
+                  onClick={() => setShowApkModal(true)}
+                  className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-blue-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-xl transition-all"
+                >
+                  <Download className="w-5 h-5" />
+                  Uploader la première version
+                </button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead className="bg-gradient-to-r from-slate-50 to-slate-100">
+                    <tr>
+                      <th className="px-6 py-4 text-left text-sm font-black text-slate-700">Version</th>
+                      <th className="px-6 py-4 text-left text-sm font-black text-slate-700">Code</th>
+                      <th className="px-6 py-4 text-left text-sm font-black text-slate-700">Taille</th>
+                      <th className="px-6 py-4 text-left text-sm font-black text-slate-700">Téléchargements</th>
+                      <th className="px-6 py-4 text-left text-sm font-black text-slate-700">Statut</th>
+                      <th className="px-6 py-4 text-left text-sm font-black text-slate-700">Date</th>
+                      <th className="px-6 py-4 text-left text-sm font-black text-slate-700">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-200">
+                    {apkVersions.map((version) => (
+                      <tr key={version.id} className="hover:bg-slate-50 transition">
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <span className="font-bold text-slate-900">{version.version_name}</span>
+                            {version.is_mandatory && (
+                              <span className="px-2 py-1 bg-red-100 text-red-700 text-xs font-bold rounded-full">
+                                Obligatoire
+                              </span>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 text-slate-600 font-semibold">{version.version_code}</td>
+                        <td className="px-6 py-4 text-slate-600">
+                          {(version.file_size / (1024 * 1024)).toFixed(2)} MB
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <Download className="w-4 h-4 text-slate-400" />
+                            <span className="font-bold text-slate-900">{version.download_count}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          {version.is_active ? (
+                            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-sm font-bold">
+                              Active
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 bg-slate-100 text-slate-600 rounded-full text-sm font-bold">
+                              Inactive
+                            </span>
+                          )}
+                        </td>
+                        <td className="px-6 py-4 text-slate-600">
+                          {new Date(version.created_at).toLocaleDateString('fr-FR')}
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-2">
+                            <a
+                              href={version.apk_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="p-2 bg-blue-100 text-blue-600 rounded-lg hover:bg-blue-200 transition"
+                              title="Télécharger"
+                            >
+                              <Download className="w-4 h-4" />
+                            </a>
+                            <button
+                              onClick={() => handleToggleApkStatus(version.id, version.is_active)}
+                              className={`p-2 rounded-lg transition ${
+                                version.is_active
+                                  ? 'bg-orange-100 text-orange-600 hover:bg-orange-200'
+                                  : 'bg-green-100 text-green-600 hover:bg-green-200'
+                              }`}
+                              title={version.is_active ? 'Désactiver' : 'Activer'}
+                            >
+                              {version.is_active ? <XCircle className="w-4 h-4" /> : <CheckCircle className="w-4 h-4" />}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteApk(version.id)}
+                              className="p-2 bg-red-100 text-red-600 rounded-lg hover:bg-red-200 transition"
+                              title="Supprimer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Upload APK */}
+      {showApkModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full p-8 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-6">
+              <div>
+                <h3 className="text-2xl font-black text-slate-900">Nouvelle Version APK</h3>
+                <p className="text-slate-600 mt-1">Uploadez une nouvelle version de l'application mobile</p>
+              </div>
+              <button
+                onClick={() => {
+                  setShowApkModal(false);
+                  setNewApkFile(null);
+                  setNewApkVersion('');
+                  setNewApkCode('');
+                  setNewApkNotes('');
+                  setNewApkMandatory(false);
+                }}
+                className="p-2 hover:bg-slate-100 rounded-lg transition"
+              >
+                <XCircle className="w-6 h-6 text-slate-600" />
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              {/* Version Name */}
+              <div>
+                <label className="block text-sm font-black text-slate-700 mb-2">
+                  Nom de la version *
+                </label>
+                <input
+                  type="text"
+                  value={newApkVersion}
+                  onChange={(e) => setNewApkVersion(e.target.value)}
+                  placeholder="1.0.0"
+                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:ring-4 focus:ring-teal-200 focus:border-teal-500 font-semibold"
+                />
+                <p className="text-xs text-slate-500 mt-1">Format: Major.Minor.Patch (ex: 1.0.0)</p>
+              </div>
+
+              {/* Version Code */}
+              <div>
+                <label className="block text-sm font-black text-slate-700 mb-2">
+                  Code de version *
+                </label>
+                <input
+                  type="number"
+                  value={newApkCode}
+                  onChange={(e) => setNewApkCode(e.target.value)}
+                  placeholder="1"
+                  min="1"
+                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:ring-4 focus:ring-teal-200 focus:border-teal-500 font-semibold"
+                />
+                <p className="text-xs text-slate-500 mt-1">Numéro incrémental (1, 2, 3...)</p>
+              </div>
+
+              {/* File Upload */}
+              <div>
+                <label className="block text-sm font-black text-slate-700 mb-2">
+                  Fichier APK *
+                </label>
+                <input
+                  type="file"
+                  accept=".apk"
+                  onChange={(e) => setNewApkFile(e.target.files?.[0] || null)}
+                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:ring-4 focus:ring-teal-200 focus:border-teal-500 font-semibold file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:bg-teal-50 file:text-teal-700 file:font-bold hover:file:bg-teal-100"
+                />
+                {newApkFile && (
+                  <p className="text-sm text-teal-600 font-semibold mt-2">
+                    📦 {newApkFile.name} ({(newApkFile.size / (1024 * 1024)).toFixed(2)} MB)
+                  </p>
+                )}
+              </div>
+
+              {/* Release Notes */}
+              <div>
+                <label className="block text-sm font-black text-slate-700 mb-2">
+                  Notes de version
+                </label>
+                <textarea
+                  value={newApkNotes}
+                  onChange={(e) => setNewApkNotes(e.target.value)}
+                  placeholder="- Nouvelle fonctionnalité GPS tracking\n- Correction de bugs\n- Amélioration des performances"
+                  rows={5}
+                  className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:ring-4 focus:ring-teal-200 focus:border-teal-500 font-semibold resize-none"
+                />
+              </div>
+
+              {/* Mandatory Update */}
+              <div className="flex items-center gap-3 p-4 bg-orange-50 border-2 border-orange-200 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="mandatory"
+                  checked={newApkMandatory}
+                  onChange={(e) => setNewApkMandatory(e.target.checked)}
+                  className="w-5 h-5 rounded border-2 border-orange-300 text-orange-600 focus:ring-4 focus:ring-orange-200"
+                />
+                <label htmlFor="mandatory" className="flex-1 cursor-pointer">
+                  <span className="font-black text-slate-900 block">Mise à jour obligatoire</span>
+                  <span className="text-sm text-slate-600">L'utilisateur devra installer cette version pour continuer</span>
+                </label>
+              </div>
+            </div>
+
+            {/* Actions */}
+            <div className="flex gap-4 mt-8">
+              <button
+                onClick={() => {
+                  setShowApkModal(false);
+                  setNewApkFile(null);
+                  setNewApkVersion('');
+                  setNewApkCode('');
+                  setNewApkNotes('');
+                  setNewApkMandatory(false);
+                }}
+                className="flex-1 px-4 py-3 bg-slate-200 text-slate-700 font-black rounded-xl hover:bg-slate-300 transition-all hover:shadow-lg"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={handleUploadApk}
+                disabled={uploadingApk || !newApkFile || !newApkVersion || !newApkCode}
+                className="flex-1 px-4 py-3 bg-gradient-to-r from-teal-500 to-blue-500 text-white font-black rounded-xl hover:shadow-2xl transition-all hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:translate-y-0"
+              >
+                {uploadingApk ? 'Upload en cours...' : 'Uploader'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
