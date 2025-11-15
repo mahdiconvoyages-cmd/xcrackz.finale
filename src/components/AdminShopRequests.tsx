@@ -48,6 +48,7 @@ export default function AdminShopRequests() {
 
   const loadRequests = async () => {
     try {
+      console.log('🔍 [AdminShopRequests] Chargement des demandes...');
       let query = supabase
         .from('shop_quote_requests')
         .select(`
@@ -62,7 +63,12 @@ export default function AdminShopRequests() {
 
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error('❌ [AdminShopRequests] Erreur:', error);
+        throw error;
+      }
+      
+      console.log('✅ [AdminShopRequests] Demandes chargées:', data?.length || 0, data);
       setRequests(data || []);
     } catch (error) {
       console.error('Error loading requests:', error);
