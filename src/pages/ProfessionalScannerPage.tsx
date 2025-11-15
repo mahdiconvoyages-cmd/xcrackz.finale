@@ -11,11 +11,10 @@
  * - Interface fluide et intuitive
  */
 
-import React, { useState, useRef, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import {
   Camera,
-  Upload,
   RotateCw,
   Download,
   Palette,
@@ -29,8 +28,7 @@ import {
   Trash2,
   Eye,
   Share2,
-  FileDown,
-  FolderOpen
+  FileDown
 } from 'lucide-react';
 import {
   loadOpenCV,
@@ -54,6 +52,7 @@ interface ScannedDocument {
 
 export default function ProfessionalScannerPage() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user } = useAuth();
   
   // États du workflow
@@ -71,10 +70,6 @@ export default function ProfessionalScannerPage() {
   
   // Documents sauvegardés
   const [scannedDocuments, setScannedDocuments] = useState<ScannedDocument[]>([]);
-  
-  // Références
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const nativeCameraInputRef = useRef<HTMLInputElement>(null);
 
   // Précharger OpenCV au montage
   useEffect(() => {
@@ -88,6 +83,14 @@ export default function ProfessionalScannerPage() {
         setIsLoadingOpenCV(false);
       });
   }, []);
+
+  // Traiter l'image si elle vient de la navigation
+  useEffect(() => {
+    const state = location.state as { imageUrl?: string; fromCamera?: boolean; fromUpload?: boolean };
+    if (state?.imageUrl && rawImage === null) {
+      processNewImage(state.imageUrl);
+    }
+  }, [location.state]);
 
   // Charger les documents sauvegardés
   useEffect(() => {
@@ -117,41 +120,6 @@ export default function ProfessionalScannerPage() {
     { id: 'grayscale' as FilterType, name: 'Gris', icon: Palette, color: '#6b7280' },
     { id: 'color' as FilterType, name: 'Couleur', icon: ImageIcon, color: '#3b82f6' },
   ];
-
-  // ===== GESTION UPLOAD / CAMERA NATIVE =====
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsProcessing(true);
-    
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const imageUrl = event.target?.result as string;
-      await processNewImage(imageUrl);
-    };
-    reader.readAsDataURL(file);
-  };
-
-  const openNativeCamera = () => {
-    // Ouvrir l'appareil photo natif du téléphone via input file
-    nativeCameraInputRef.current?.click();
-  };
-
-  const handleNativeCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    setIsProcessing(true);
-    
-    const reader = new FileReader();
-    reader.onload = async (event) => {
-      const imageUrl = event.target?.result as string;
-      await processNewImage(imageUrl);
-    };
-    reader.readAsDataURL(file);
-  };
 
   // ===== TRAITEMENT IMAGE =====
 
@@ -440,75 +408,21 @@ export default function ProfessionalScannerPage() {
     );
   }
 
-  // Écran d'introduction
+  // Écran d'introduction - Rediriger vers /scanner
   if (step === 'intro') {
+    // Si on arrive ici sans image, rediriger vers la page d'accueil
+    useEffect(() => {
+      if (!rawImage) {
+        navigate('/scanner', { replace: true });
+      }
+    }, []);
+
     return (
-      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex flex-col items-center justify-center p-6">
-        <div className="max-w-md w-full">
-          <div className="text-center mb-8">
-            <div className="w-20 h-20 bg-blue-600 rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-2xl">
-              <Camera className="w-10 h-10 text-white" />
-            </div>
-            <h1 className="text-3xl font-bold text-white mb-2">
-              Scanner Professionnel
-            </h1>
-            <p className="text-blue-200">
-              Numérisez vos documents en haute qualité
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <button
-              onClick={openNativeCamera}
-              className="w-full py-4 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-semibold flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl"
-            >
-              <Camera className="w-6 h-6" />
-              Prendre une photo
-            </button>
-
-            <button
-              onClick={() => fileInputRef.current?.click()}
-              className="w-full py-4 bg-white/10 hover:bg-white/20 text-white rounded-xl font-semibold flex items-center justify-center gap-3 transition-all backdrop-blur-sm"
-            >
-              <Upload className="w-6 h-6" />
-              Choisir un fichier
-            </button>
-
-            {scannedDocuments.length > 0 && (
-              <button
-                onClick={() => navigate('/mes-documents')}
-                className="w-full py-4 bg-green-600/20 hover:bg-green-600/30 text-green-300 rounded-xl font-semibold flex items-center justify-center gap-3 transition-all backdrop-blur-sm border border-green-500/30"
-              >
-                <FileText className="w-6 h-6" />
-                Mes documents ({scannedDocuments.length})
-              </button>
-            )}
-
-            <button
-              onClick={() => navigate('/mes-documents')}
-              className="w-full py-4 bg-purple-600/20 hover:bg-purple-600/30 text-purple-300 rounded-xl font-semibold flex items-center justify-center gap-3 transition-all backdrop-blur-sm border border-purple-500/30"
-            >
-              <FolderOpen className="w-6 h-6" />
-              Tous mes documents cloud
-            </button>
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center">
+        <div className="text-center">
+          <Loader className="w-12 h-12 text-blue-400 animate-spin mx-auto mb-4" />
+          <p className="text-white text-lg">Redirection...</p>
         </div>
-
-        <input
-          ref={nativeCameraInputRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          onChange={handleNativeCameraCapture}
-          className="hidden"
-        />
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept="image/*"
-          onChange={handleFileUpload}
-          className="hidden"
-        />
       </div>
     );
   }

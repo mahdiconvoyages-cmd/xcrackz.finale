@@ -7,9 +7,11 @@
  * - Accès rapide aux documents cloud
  */
 
+import { useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { 
   Camera, 
+  Upload,
   FolderOpen, 
   Zap,
   Sparkles,
@@ -21,6 +23,32 @@ import { useAuth } from '../contexts/AuthContext';
 export default function ScannerHomePage() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleCameraCapture = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Rediriger vers scanner-pro avec le fichier
+    const reader = new FileReader();
+    reader.onload = () => {
+      navigate('/scanner-pro', { state: { imageUrl: reader.result, fromCamera: true } });
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    
+    // Rediriger vers scanner-pro avec le fichier
+    const reader = new FileReader();
+    reader.onload = () => {
+      navigate('/scanner-pro', { state: { imageUrl: reader.result, fromUpload: true } });
+    };
+    reader.readAsDataURL(file);
+  };
 
   const features = [
     {
@@ -100,9 +128,9 @@ export default function ScannerHomePage() {
 
           {/* Action Buttons */}
           <div className="space-y-3">
-            {/* Primary: Capture Photo - Ouvre directement le scanner */}
+            {/* Primary: Capture Photo */}
             <button
-              onClick={() => navigate('/scanner-pro')}
+              onClick={() => cameraInputRef.current?.click()}
               className="group relative w-full overflow-hidden rounded-2xl"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-blue-600 via-blue-500 to-purple-600 opacity-100 group-hover:opacity-90 transition-opacity" />
@@ -115,14 +143,37 @@ export default function ScannerHomePage() {
                   </div>
                   <div className="text-left">
                     <div className="text-white font-bold text-lg">
-                      Démarrer le scanner
+                      Prendre une photo
                     </div>
                     <div className="text-blue-100 text-sm">
-                      Photo ou fichier
+                      Appareil photo natif
                     </div>
                   </div>
                 </div>
                 <ArrowRight className="w-6 h-6 text-white group-hover:translate-x-1 transition-transform" />
+              </div>
+            </button>
+
+            {/* Secondary: Upload File */}
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="group w-full px-6 py-5 bg-white/10 hover:bg-white/15 backdrop-blur-sm border border-white/20 rounded-2xl transition-all duration-300 hover:scale-[1.02]"
+            >
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <div className="w-14 h-14 bg-white/10 rounded-xl flex items-center justify-center">
+                    <Upload className="w-7 h-7 text-blue-300 group-hover:text-blue-200 transition-colors" />
+                  </div>
+                  <div className="text-left">
+                    <div className="text-white font-bold text-lg">
+                      Importer un fichier
+                    </div>
+                    <div className="text-blue-200 text-sm">
+                      JPG, PNG ou PDF
+                    </div>
+                  </div>
+                </div>
+                <ArrowRight className="w-6 h-6 text-blue-300 group-hover:translate-x-1 transition-transform" />
               </div>
             </button>
 
@@ -149,6 +200,23 @@ export default function ScannerHomePage() {
               </div>
             </button>
           </div>
+
+          {/* Hidden File Inputs */}
+          <input
+            ref={cameraInputRef}
+            type="file"
+            accept="image/*"
+            capture="environment"
+            onChange={handleCameraCapture}
+            className="hidden"
+          />
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleFileUpload}
+            className="hidden"
+          />
 
           {/* Footer Info */}
           <div className="pt-4 text-center">
