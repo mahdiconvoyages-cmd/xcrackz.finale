@@ -425,8 +425,7 @@ export default function ShopNew() {
                 </div>
 
                 {/* Package Info */}
-                <h3 className="text-2xl font-black text-slate-900 mb-2">{pkg.name}</h3>
-                <p className="text-slate-600 mb-6 text-sm leading-relaxed">{pkg.description}</p>
+                <h3 className="text-2xl font-black text-slate-900 mb-6">{pkg.name}</h3>
 
                 {/* Price */}
                 <div className="mb-6">
