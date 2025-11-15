@@ -42,7 +42,6 @@ export default function ShopNew() {
   const [packages, setPackages] = useState<CreditPackage[]>([]);
   const [userCredits, setUserCredits] = useState<UserCredits | null>(null);
   const [loading, setLoading] = useState(true);
-  const [processingPackageId, setProcessingPackageId] = useState<string | null>(null);
   const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
   
   // Modal Devis
@@ -57,6 +56,19 @@ export default function ShopNew() {
     message: ''
   });
 
+  // Modal Abonnement
+  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
+  const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
+  const [submittingSubscription, setSubmittingSubscription] = useState(false);
+  const [subscriptionSuccess, setSubscriptionSuccess] = useState(false);
+  const [subscriptionForm, setSubscriptionForm] = useState<QuoteForm>({
+    company_name: '',
+    email: user?.email || '',
+    phone: '',
+    expected_volume: '',
+    message: ''
+  });
+
   useEffect(() => {
     loadData();
   }, [user, billingPeriod]);
@@ -64,6 +76,7 @@ export default function ShopNew() {
   useEffect(() => {
     if (user?.email) {
       setQuoteForm(prev => ({ ...prev, email: user.email || '' }));
+      setSubscriptionForm(prev => ({ ...prev, email: user.email || '' }));
     }
   }, [user]);
 
@@ -128,34 +141,57 @@ export default function ShopNew() {
       return;
     }
 
-    setProcessingPackageId(pkg.id);
+    // Ouvrir le modal avec le package sélectionné
+    setSelectedPackage(pkg);
+    setSubscriptionForm(prev => ({
+      ...prev,
+      expected_volume: `${pkg.name} - ${pkg.credits} crédits`,
+      message: `Demande d'abonnement : ${pkg.name}\nCrédits : ${pkg.credits}\nPrix : ${pkg.price}€\nPériode : ${pkg.billing_period === 'monthly' ? 'Mensuel' : 'Annuel'}`
+    }));
+    setShowSubscriptionModal(true);
+  };
+
+  const handleSubscriptionSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!user || !selectedPackage) return;
+
+    setSubmittingSubscription(true);
 
     try {
-      // Créer une demande d'abonnement/crédits
       const { error } = await supabase
         .from('shop_quote_requests')
         .insert([{
           user_id: user.id,
-          company_name: user.email?.split('@')[0] || 'Utilisateur',
-          email: user.email,
-          phone: '',
-          expected_volume: `${pkg.name} - ${pkg.credits} crédits`,
-          message: `Demande d'achat : ${pkg.name}\nCrédits : ${pkg.credits}\nPrix : ${pkg.price}€\nPériode : ${pkg.billing_period === 'monthly' ? 'Mensuel' : 'Annuel'}`,
+          company_name: subscriptionForm.company_name,
+          email: subscriptionForm.email,
+          phone: subscriptionForm.phone,
+          expected_volume: subscriptionForm.expected_volume,
+          message: subscriptionForm.message,
           status: 'pending',
-          package_id: pkg.id
+          package_id: selectedPackage.id
         }]);
 
       if (error) throw error;
 
-      alert('✅ Demande envoyée !\n\nVotre demande a été transmise à l\'administrateur.\nVous serez contacté sous 24h pour finaliser votre commande.');
-      
-      // Recharger pour rafraîchir
-      await loadData();
+      setSubscriptionSuccess(true);
+      setTimeout(() => {
+        setShowSubscriptionModal(false);
+        setSubscriptionSuccess(false);
+        setSubscriptionForm({
+          company_name: '',
+          email: user.email || '',
+          phone: '',
+          expected_volume: '',
+          message: ''
+        });
+        setSelectedPackage(null);
+      }, 2000);
     } catch (error) {
-      console.error('Error creating request:', error);
-      alert('❌ Erreur lors de l\'envoi de la demande.\nVeuillez réessayer ou contacter le support.');
+      console.error('Error submitting subscription request:', error);
+      alert('Une erreur est survenue. Veuillez réessayer.');
     } finally {
-      setProcessingPackageId(null);
+      setSubmittingSubscription(false);
     }
   };
 
@@ -427,25 +463,25 @@ export default function ShopNew() {
                   <div className="flex items-start gap-2 text-sm">
                     <CheckCircle className="w-5 h-5 text-teal-500 flex-shrink-0 mt-0.5" />
                     <span className="text-slate-700 font-medium">
-                      <strong className="text-slate-900">Inspections gratuites</strong> - Incluses avec chaque mission
+                      <strong className="text-slate-900">Inspections complètes</strong> - Incluses avec chaque mission
                     </span>
                   </div>
                   <div className="flex items-start gap-2 text-sm">
                     <CheckCircle className="w-5 h-5 text-teal-500 flex-shrink-0 mt-0.5" />
                     <span className="text-slate-700 font-medium">
-                      <strong className="text-slate-900">Tracking GPS</strong> - Suivi en temps réel gratuit
+                      <strong className="text-slate-900">Tracking GPS</strong> - Suivi en temps réel
                     </span>
                   </div>
                   <div className="flex items-start gap-2 text-sm">
                     <CheckCircle className="w-5 h-5 text-teal-500 flex-shrink-0 mt-0.5" />
                     <span className="text-slate-700 font-medium">
-                      <strong className="text-slate-900">Scanner QR</strong> - Scans illimités gratuits
+                      <strong className="text-slate-900">Scanner QR</strong> - Scans illimités
                     </span>
                   </div>
                   <div className="flex items-start gap-2 text-sm">
                     <CheckCircle className="w-5 h-5 text-teal-500 flex-shrink-0 mt-0.5" />
                     <span className="text-slate-700 font-medium">
-                      <strong className="text-slate-900">Factures & Devis</strong> - Création illimitée gratuite
+                      <strong className="text-slate-900">Factures & Devis</strong> - Création illimitée
                     </span>
                   </div>
                   <div className="flex items-start gap-2 text-sm">
@@ -468,24 +504,14 @@ export default function ShopNew() {
                 {/* Contact Admin Button */}
                 <button
                   onClick={() => handlePurchase(pkg)}
-                  disabled={processingPackageId === pkg.id}
-                  className={`w-full bg-gradient-to-r ${colors.gradient} text-white py-4 rounded-xl font-black text-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2`}
+                  className={`w-full bg-gradient-to-r ${colors.gradient} text-white py-4 rounded-xl font-black text-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 flex items-center justify-center gap-2`}
                 >
-                  {processingPackageId === pkg.id ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      Envoi en cours...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-5 h-5" />
-                      Contacter l'admin
-                    </>
-                  )}
+                  <Send className="w-5 h-5" />
+                  Demander cet abonnement
                 </button>
                 
                 <p className="text-xs text-center text-slate-500 mt-2">
-                  💬 Votre demande sera traitée sous 24h
+                  💬 Remplissez le formulaire, nous vous rappelons
                 </p>
               </div>
             );
@@ -823,6 +849,136 @@ export default function ShopNew() {
                     Nous vous répondrons dans les 24h ouvrées
                   </p>
                 </form>
+              </>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Modal Formulaire Abonnement */}
+      {showSubscriptionModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-teal-600 to-cyan-600 text-white p-6 rounded-t-3xl flex items-center justify-between z-10">
+              <div>
+                <h3 className="text-2xl font-black flex items-center gap-2">
+                  <ShoppingCart className="w-7 h-7" />
+                  Demande d'abonnement
+                </h3>
+                <p className="text-teal-100 mt-1">
+                  {selectedPackage?.name} - {selectedPackage?.credits} crédits
+                </p>
+              </div>
+              <button
+                onClick={() => setShowSubscriptionModal(false)}
+                className="p-2 hover:bg-white/20 rounded-full transition-colors"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {subscriptionSuccess ? (
+              <div className="p-8 text-center">
+                <div className="w-20 h-20 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="w-12 h-12 text-white" />
+                </div>
+                <h4 className="text-2xl font-black text-slate-900 mb-2">
+                  Demande envoyée !
+                </h4>
+                <p className="text-slate-600">
+                  Nous vous contacterons sous 24h
+                </p>
+              </div>
+            ) : (
+              <>
+                <div className="p-8">
+                  <div className="bg-teal-50 border-2 border-teal-200 rounded-xl p-4 mb-6">
+                    <p className="text-sm text-teal-800 font-medium">
+                      💬 <strong>Remplissez ce formulaire</strong> et nous vous rappellerons pour finaliser votre abonnement.
+                    </p>
+                  </div>
+
+                  <form onSubmit={handleSubscriptionSubmit} className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-bold text-slate-900 mb-2">
+                        Nom de l'entreprise / Nom complet *
+                      </label>
+                      <input
+                        type="text"
+                        required
+                        value={subscriptionForm.company_name}
+                        onChange={(e) => setSubscriptionForm({ ...subscriptionForm, company_name: e.target.value })}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 outline-none transition-all font-medium"
+                        placeholder="Votre entreprise"
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-bold text-slate-900 mb-2">
+                          Email *
+                        </label>
+                        <input
+                          type="email"
+                          required
+                          value={subscriptionForm.email}
+                          onChange={(e) => setSubscriptionForm({ ...subscriptionForm, email: e.target.value })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 outline-none transition-all font-medium"
+                          placeholder="contact@entreprise.com"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-bold text-slate-900 mb-2">
+                          Téléphone *
+                        </label>
+                        <input
+                          type="tel"
+                          required
+                          value={subscriptionForm.phone}
+                          onChange={(e) => setSubscriptionForm({ ...subscriptionForm, phone: e.target.value })}
+                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 outline-none transition-all font-medium"
+                          placeholder="+33 6 12 34 56 78"
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-bold text-slate-900 mb-2">
+                        Message / Besoins spécifiques
+                      </label>
+                      <textarea
+                        value={subscriptionForm.message}
+                        onChange={(e) => setSubscriptionForm({ ...subscriptionForm, message: e.target.value })}
+                        rows={4}
+                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 outline-none transition-all font-medium resize-none"
+                        placeholder="Informations complémentaires, questions..."
+                      />
+                    </div>
+
+                    <button
+                      type="submit"
+                      disabled={submittingSubscription}
+                      className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white py-4 rounded-xl font-black text-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    >
+                      {submittingSubscription ? (
+                        <>
+                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                          Envoi en cours...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="w-5 h-5" />
+                          Envoyer la demande
+                        </>
+                      )}
+                    </button>
+
+                    <p className="text-sm text-slate-500 text-center">
+                      Nous vous rappellerons dans les 24h ouvrées
+                    </p>
+                  </form>
+                </div>
               </>
             )}
           </div>
