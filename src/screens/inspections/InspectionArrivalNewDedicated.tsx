@@ -19,6 +19,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
+import DocumentIcon from '../../components/icons/DocumentIcon';
+import MoneyIcon from '../../components/icons/MoneyIcon';
+import CameraIcon from '../../components/icons/CameraIcon';
+import SignatureIcon from '../../components/icons/SignatureIcon';
 import * as ImagePicker from 'expo-image-picker';
 import { decode } from 'base64-arraybuffer';
 import { Picker } from '@react-native-picker/picker';
@@ -30,6 +34,10 @@ import PhotoIndicator from '../../components/inspection/PhotoIndicator';
 import CamScannerLikeScanner from '../../components/CamScannerLikeScanner';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import ShareInspectionModal from '../../components/ShareInspectionModal';
+import { Routes } from '../../navigation/Routes';
+import * as FileSystem from 'expo-file-system/legacy';
+// duplicate icon imports removed
 
 interface PhotoData {
   type: string;
@@ -44,6 +52,7 @@ interface ScannedDocument {
   uri: string;
   pages: string[]; // URIs des pages scannées
   pagesCount: number;
+  remoteUrl?: string; // URL distante (upload immédiat pour sauvegarde)
 }
 
 interface Expense {
@@ -81,6 +90,7 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
   const [saving, setSaving] = useState(false);
   const [mission, setMission] = useState<any>(null);
   const [currentStep, setCurrentStep] = useState(1);
+  const [photoStepIndex, setPhotoStepIndex] = useState(0); // guidage photo pas à pas
 
   // Photos (8 obligatoires)
   const [photos, setPhotos] = useState<PhotoData[]>(
@@ -112,6 +122,7 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
   const [driverName, setDriverName] = useState('');
   const [driverSignature, setDriverSignature] = useState('');
   const [isSigningActive, setIsSigningActive] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
 
   useEffect(() => {
     loadMission();
@@ -225,7 +236,43 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
 
     setScannedDocuments((prev) => [...prev, newDoc]);
     setScannerVisible(false);
-    Alert.alert('✅ Document scanné', `"${newDoc.title}" ajouté avec succès`);
+
+    // Upload immédiat dans le Storage pour éviter toute perte (sauvegarde préliminaire)
+    try {
+      const fileExt = scannedPageUri.split('.').pop() || 'jpg';
+      const contentType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
+      const fileName = `${newDoc.id}-${Date.now()}.${fileExt}`;
+      const filePath = `raw/${user?.id || 'anonymous'}/${missionId || 'no-mission'}/${fileName}`;
+
+      const response = await fetch(scannedPageUri);
+      const arrayBuffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+
+      const { error: uploadError } = await supabase.storage
+        .from('inspection-documents')
+        .upload(filePath, decode(base64), {
+          contentType,
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('inspection-documents')
+        .getPublicUrl(filePath);
+
+      // Mettre à jour le document avec l'URL distante
+      setScannedDocuments((prev) => prev.map(d => d.id === newDoc.id ? { ...d, remoteUrl: urlData.publicUrl } : d));
+      Alert.alert('✅ Document scanné', `"${newDoc.title}" sauvegardé et stocké en sécurité`);
+    } catch (err) {
+      console.error('Erreur upload document scanné (sauvegarde immédiate):', err);
+      Alert.alert('Document ajouté', 'Le scan a été ajouté localement. Stockage distant indisponible pour le moment.');
+    }
   };
 
   const removeDocument = (docId: string) => {
@@ -263,7 +310,39 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
     setNewExpenseReceipt(uri);
     setScanningReceipt(false);
     setScannerVisible(false);
-    Alert.alert('✅ Justificatif scanné', 'Le justificatif a été ajouté au frais');
+
+    // Sauvegarde immédiate du justificatif dans le Storage (image brute)
+    try {
+      const fileExt = uri.split('.').pop() || 'jpg';
+      const contentType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
+      const fileName = `receipt-${Date.now()}.${fileExt}`;
+      const filePath = `raw/${user?.id || 'anonymous'}/${missionId || 'no-mission'}/${fileName}`;
+
+      const response = await fetch(uri);
+      const arrayBuffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+
+      const { error: uploadError } = await supabase.storage
+        .from('inspection-documents')
+        .upload(filePath, decode(base64), {
+          contentType,
+          upsert: false,
+        });
+
+      if (uploadError) throw uploadError;
+
+      // On n'utilise pas l'URL pour la génération PDF (on conserve l'URI locale),
+      // mais l'upload garantit une sauvegarde immédiate côté serveur
+      Alert.alert('✅ Justificatif scanné', 'Le justificatif a été enregistré et stocké');
+    } catch (err) {
+      console.error('Erreur upload justificatif (sauvegarde immédiate):', err);
+      Alert.alert('Justificatif scanné', 'Ajout local effectué. Stockage distant indisponible pour le moment.');
+    }
   };
 
   const handleSaveExpense = () => {
@@ -388,29 +467,24 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
       const createdInspection = inspection as any;
       console.log('✅ Inspection créée:', createdInspection.id);
 
-      // 2. Upload photos
+      // 2. Upload photos (optimisé)
       console.log(`📸 Upload de ${photos.length} photos...`);
       for (const photo of photos) {
         if (!photo.uri || !photo.captured) continue;
 
         try {
           const fileExt = photo.uri.split('.').pop() || 'jpg';
+          const contentType = `image/${fileExt === 'jpg' ? 'jpeg' : fileExt}`;
           const fileName = `${createdInspection.id}-${photo.type}-${Date.now()}.${fileExt}`;
           const filePath = `inspections/${fileName}`;
 
-          const response = await fetch(photo.uri);
-          const arrayBuffer = await response.arrayBuffer();
-          const bytes = new Uint8Array(arrayBuffer);
-          let binary = '';
-          for (let i = 0; i < bytes.byteLength; i++) {
-            binary += String.fromCharCode(bytes[i]);
-          }
-          const base64 = btoa(binary);
+          // Lire directement en base64 (plus fiable que fetch/arrayBuffer sur mobile)
+          const base64 = await FileSystem.readAsStringAsync(photo.uri, { encoding: 'base64' as any });
 
           const { error: uploadError } = await supabase.storage
             .from('inspection-photos')
             .upload(filePath, decode(base64), {
-              contentType: `image/${fileExt}`,
+              contentType,
               upsert: false,
             });
 
@@ -484,9 +558,16 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
             const fileName = `${createdInspection.id}-receipt-${Date.now()}.pdf`;
             const filePath = `documents/${fileName}`;
 
-            const pdfResult = await Print.printToFileAsync({
-              html: `<img src="${expense.receiptUri}" style="width:100%"/>`,
-            });
+            // Convertir le justificatif en base64 pour éviter les PDF blancs
+            let receiptHtml: string;
+            try {
+              const b64 = await FileSystem.readAsStringAsync(expense.receiptUri, { encoding: 'base64' as any });
+              receiptHtml = `<html><body style="margin:0"><img src="data:image/jpeg;base64,${b64}" style="width:100%"/></body></html>`;
+            } catch {
+              receiptHtml = `<html><body style="margin:0"><img src="${expense.receiptUri}" style="width:100%"/></body></html>`;
+            }
+
+            const pdfResult = await Print.printToFileAsync({ html: receiptHtml });
 
             const response = await fetch(pdfResult.uri);
             const arrayBuffer = await response.arrayBuffer();
@@ -524,8 +605,8 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
         }
       }
 
-      // 5. Mettre à jour la mission
-      await supabase
+      // 5. Mettre à jour la mission (avec gestion d'erreur)
+      const { error: missionUpdateError } = await supabase
         .from('missions')
         .update({ 
           arrival_inspection_completed: true,
@@ -533,14 +614,18 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
         })
         .eq('id', missionId);
 
-      console.log(`✅ Mission ${missionId} status mis à jour: completed`);
+      if (missionUpdateError) {
+        console.error('❌ Erreur mise à jour mission:', missionUpdateError);
+        Alert.alert(
+          'Mission non clôturée',
+          "L'inspection d'arrivée est enregistrée, mais la mission n'a pas pu être clôturée (droits RLS). Contactez l'admin."
+        );
+      } else {
+        console.log(`✅ Mission ${missionId} status mis à jour: completed`);
+      }
 
-      Alert.alert('✅ Succès', `Inspection d'arrivée complétée !\n${photos.length} photos\n${scannedDocuments.length} documents\n${expenses.length} frais`, [
-        {
-          text: 'OK',
-          onPress: () => navigation.goBack(),
-        },
-      ]);
+      // Ouvrir le partage du rapport d'arrivée à la fin
+      setShowShareModal(true);
     } catch (error: any) {
       console.error('❌ Erreur sauvegarde:', error);
       Alert.alert('Erreur', error.message || 'Impossible de sauvegarder l\'inspection');
@@ -553,17 +638,27 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
   // GÉNÉRATION PDF à partir de pages scannées
   // ================================================
   const generatePDFFromPages = async (pages: string[], title: string): Promise<string> => {
-    const imagesHtml = pages.map((uri) => `<img src="${uri}" style="width:100%; page-break-after:always;"/>`).join('');
-    
+    // Convertir chaque page en base64 pour garantir le rendu dans le PDF
+    const imagesHtmlArr: string[] = [];
+    for (const uri of pages) {
+      try {
+        const base64 = await FileSystem.readAsStringAsync(uri, { encoding: 'base64' as any });
+        imagesHtmlArr.push(`<div style="page-break-after: always; text-align:center;"><img src="data:image/jpeg;base64,${base64}" style="max-width:100%; height:auto;"/></div>`);
+      } catch (e) {
+        console.warn('Impossible de lire l\'image pour le PDF, tentative URI directe', e);
+        imagesHtmlArr.push(`<div style="page-break-after: always; text-align:center;"><img src="${uri}" style="width:100%;"/></div>`);
+      }
+    }
+
     const html = `
       <html>
         <head>
           <meta charset="utf-8">
           <title>${title}</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+          <style>*{margin:0;padding:0;box-sizing:border-box;} img{display:block;margin:0 auto;}</style>
         </head>
-        <body style="margin:0; padding:0;">
-          ${imagesHtml}
-        </body>
+        <body>${imagesHtmlArr.join('')}</body>
       </html>
     `;
 
@@ -574,39 +669,60 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
   // ================================================
   // RENDU DES ÉTAPES
   // ================================================
-  const renderStep1 = () => (
-    <ScrollView style={styles.stepContainer}>
-      <View style={styles.photosGrid}>
-        {photos.map((photo) => (
-          <TouchableOpacity
-            key={photo.type}
-            style={[styles.photoCard, { backgroundColor: colors.card, borderColor: colors.border }]}
-            onPress={() => takePhoto(photo.type)}
-          >
-            {photo.uri ? (
-              <Image source={{ uri: photo.uri }} style={styles.photoPreview} />
-            ) : (
-              <View style={styles.photoPlaceholder}>
-                <PhotoIndicator
-                  vehicleType={mission?.vehicle_type || 'VL'}
-                  photoType={photo.type}
-                  isCaptured={false}
-                />
-              </View>
-            )}
-            <View style={styles.photoLabel}>
-              <Text style={[styles.photoLabelText, { color: colors.text }]} numberOfLines={2}>
-                {photo.label}
-              </Text>
-              {photo.captured && (
-                <Ionicons name="checkmark-circle" size={20} color="#10b981" style={styles.checkIcon} />
-              )}
-            </View>
+  const renderStep1 = () => {
+    const currentRequired = REQUIRED_PHOTOS[photoStepIndex];
+    const currentPhoto = photos.find(p => p.type === currentRequired.type)!;
+    const completedCount = photos.filter(p => p.captured).length;
+    const total = REQUIRED_PHOTOS.length;
+
+    return (
+      <ScrollView style={styles.stepContainer}>
+        <Text style={styles.stepTitle}>Photos obligatoires ({completedCount}/{total})</Text>
+        <Text style={styles.stepSubtitle}>Guidage pas à pas</Text>
+
+        <View style={[styles.guidedCard, { backgroundColor: colors.card, borderColor: colors.border }]}> 
+          <View style={styles.guidedIndicatorBox}>
+            <PhotoIndicator
+              vehicleType={mission?.vehicle_type || 'VL'}
+              photoType={currentRequired.type}
+              isCaptured={!!currentPhoto?.captured}
+            />
+          </View>
+          <TouchableOpacity style={styles.captureButton} onPress={() => takePhoto(currentRequired.type)}>
+            <Ionicons name="camera" size={18} color="#fff" />
+            <Text style={styles.captureButtonText}>{currentPhoto?.captured ? 'Refaire la photo' : 'Prendre la photo'}</Text>
           </TouchableOpacity>
-        ))}
-      </View>
-    </ScrollView>
-  );
+          <View style={styles.guidedProgressRow}>
+            <Text style={[styles.guidedProgressText, { color: colors.textSecondary }]}>Étape {photoStepIndex + 1} sur {total}</Text>
+          </View>
+        </View>
+
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
+          <View style={{ flexDirection: 'row', gap: 8 }}>
+            {REQUIRED_PHOTOS.map((p, idx) => {
+              const item = photos.find(ph => ph.type === p.type)!;
+              const isCurrent = idx === photoStepIndex;
+              return (
+                <TouchableOpacity key={p.type} onPress={() => setPhotoStepIndex(idx)} style={[styles.thumbItem, isCurrent && styles.thumbItemActive]}>
+                  {item.uri ? (
+                    <Image source={{ uri: item.uri }} style={styles.thumbImage} />
+                  ) : (
+                    <View style={styles.thumbPlaceholder}>
+                      <Ionicons name="image-outline" size={16} color="#9ca3af" />
+                    </View>
+                  )}
+                  <View style={styles.thumbMetaRow}>
+                    <Text style={styles.thumbIndex}>{idx + 1}</Text>
+                    {item.captured && <Ionicons name="checkmark-circle" size={14} color="#10b981" />}
+                  </View>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </ScrollView>
+      </ScrollView>
+    );
+  };
 
   const renderStep2 = () => (
     <ScrollView style={styles.stepContainer}>
@@ -925,18 +1041,22 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
         <View style={{ width: 24 }} />
       </View>
 
-      {/* Progress */}
-      <View style={styles.progressContainer}>
-        {[1, 2, 3, 4].map((step) => (
-          <View
-            key={step}
-            style={[
-              styles.progressDot,
-              step <= currentStep && styles.progressDotActive,
-              { backgroundColor: step <= currentStep ? '#3b82f6' : colors.border },
-            ]}
-          />
-        ))}
+      {/* Step indicator with icons */}
+      <View style={styles.stepIndicator}>
+        {[1, 2, 3, 4].map((step) => {
+          const Icon = step === 1 ? CameraIcon : step === 2 ? DocumentIcon : step === 3 ? MoneyIcon : SignatureIcon;
+          const label = step === 1 ? 'Photos' : step === 2 ? 'Documents' : step === 3 ? 'Frais & Km' : 'Signature';
+          const active = currentStep >= step;
+          const current = currentStep === step;
+          return (
+            <View key={step} style={styles.stepIndicatorItem}>
+              <View style={[styles.stepDot, active && styles.stepDotActive, current && styles.stepDotCurrent]}> 
+                <Icon color={active ? '#fff' : '#9ca3af'} size={18} />
+              </View>
+              <Text style={[styles.stepLabel, current && styles.stepLabelActive]}>{label}</Text>
+            </View>
+          );
+        })}
       </View>
 
       {/* Content */}
@@ -988,6 +1108,24 @@ export default function InspectionArrivalNew({ route, navigation }: any) {
 
       {/* Expense Modal */}
       {renderExpenseModal()}
+
+      {/* Modal de partage du rapport d'arrivée */}
+      {showShareModal && (
+        <ShareInspectionModal
+          visible={showShareModal}
+          onClose={() => {
+            setShowShareModal(false);
+            // Ramener proprement à la liste des missions pour éviter des incohérences de navigation
+            if (navigation?.reset) {
+              navigation.reset({ index: 0, routes: [{ name: Routes.MissionList as any }] });
+            } else {
+              navigation.navigate?.(Routes.MissionList as any);
+            }
+          }}
+          missionId={missionId}
+          reportType="arrival"
+        />
+      )}
     </SafeAreaView>
   );
 }
@@ -1028,16 +1166,26 @@ const styles = StyleSheet.create({
     paddingVertical: 16,
     gap: 12,
   },
-  progressDot: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+  stepIndicator: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
   },
-  progressDotActive: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
+  stepIndicatorItem: { alignItems: 'center', flex: 1 },
+  stepDot: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#e5e7eb',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 6,
   },
+  stepDotActive: { backgroundColor: '#3b82f6' },
+  stepDotCurrent: { backgroundColor: '#2563eb', transform: [{ scale: 1.1 }] },
+  stepLabel: { fontSize: 11, color: '#9ca3af' },
+  stepLabelActive: { fontWeight: '600', color: '#2563eb' },
   stepContainer: {
     flex: 1,
     padding: 16,
@@ -1086,6 +1234,41 @@ const styles = StyleSheet.create({
   checkIcon: {
     marginLeft: 4,
   },
+  guidedCard: {
+    borderWidth: 1,
+    borderRadius: 12,
+    padding: 16,
+  },
+  guidedIndicatorBox: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+  },
+  captureButton: {
+    marginTop: 8,
+    backgroundColor: '#3b82f6',
+    borderRadius: 10,
+    paddingVertical: 12,
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  captureButtonText: { color: '#fff', fontWeight: '700' },
+  guidedProgressRow: { marginTop: 10, alignItems: 'center' },
+  guidedProgressText: { fontSize: 12 },
+  thumbItem: {
+    width: 64,
+    borderRadius: 8,
+    overflow: 'hidden',
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+  },
+  thumbItemActive: { borderColor: '#3b82f6' },
+  thumbImage: { width: 64, height: 48 },
+  thumbPlaceholder: { width: 64, height: 48, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f3f4f6' },
+  thumbMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 6, paddingVertical: 4 },
+  thumbIndex: { fontSize: 12, color: '#111827', fontWeight: '700' },
   scanButton: {
     flexDirection: 'row',
     alignItems: 'center',

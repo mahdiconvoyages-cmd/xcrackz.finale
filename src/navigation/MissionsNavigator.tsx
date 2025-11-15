@@ -10,8 +10,9 @@ import MissionTrackingScreen from '../screens/missions/MissionTrackingScreen';
 import InspectionDepartureNew from '../screens/inspections/InspectionDepartureNew';
 import InspectionArrivalNew from '../screens/inspections/InspectionArrivalNew';
 import ShareMissionScreen from '../screens/missions/ShareMissionScreen';
+import { Routes, MissionsStackParamList } from './Routes';
 
-const Stack = createNativeStackNavigator();
+const Stack = createNativeStackNavigator<MissionsStackParamList>();
 
 export default function MissionsNavigator() {
   const { colors } = useTheme();
@@ -25,40 +26,39 @@ export default function MissionsNavigator() {
       }}
     >
       <Stack.Screen
-        name="MissionList"
+        name={Routes.MissionList}
         component={MissionsScreenNew}
         options={{ 
-          title: 'Mes missions',
-          headerLeft: () => <MenuButton />
+          headerShown: false
         }}
       />
       <Stack.Screen
-        name="MissionCreate"
+        name={Routes.MissionCreate}
         component={MissionCreateScreen}
-        options={{ title: 'Nouvelle mission' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="ShareMission"
+        name={Routes.ShareMission}
         component={ShareMissionScreen}
-        options={{ title: 'Partager une mission' }}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="MissionView"
+        name={Routes.MissionView}
         component={MissionViewScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="MissionTracking"
+        name={Routes.MissionTracking}
         component={MissionTrackingScreen}
         options={{ title: 'Tracking GPS' }}
       />
       <Stack.Screen
-        name="InspectionDeparture"
+        name={Routes.InspectionDeparture}
         component={InspectionDepartureNew}
         options={{ title: 'Inspection Départ' }}
       />
       <Stack.Screen
-        name="InspectionArrival"
+        name={Routes.InspectionArrival}
         component={InspectionArrivalNew}
         options={{ title: 'Inspection Arrivée' }}
       />
