@@ -71,6 +71,13 @@ export default function ProfessionalScannerPage() {
   // Documents sauvegardés
   const [scannedDocuments, setScannedDocuments] = useState<ScannedDocument[]>([]);
 
+  // Rediriger vers /scanner si pas d'image et pas de state
+  useEffect(() => {
+    if (step === 'intro' && !rawImage && !location.state) {
+      navigate('/scanner', { replace: true });
+    }
+  }, [step, rawImage, location.state]);
+
   // Précharger OpenCV au montage
   useEffect(() => {
     setIsLoadingOpenCV(true);
@@ -87,10 +94,13 @@ export default function ProfessionalScannerPage() {
   // Traiter l'image si elle vient de la navigation
   useEffect(() => {
     const state = location.state as { imageUrl?: string; fromCamera?: boolean; fromUpload?: boolean };
-    if (state?.imageUrl && rawImage === null) {
+    if (state?.imageUrl) {
+      console.log('🖼️ Image reçue depuis navigation:', state);
       processNewImage(state.imageUrl);
+      // Nettoyer le state pour éviter de retraiter
+      window.history.replaceState({}, document.title);
     }
-  }, [location.state]);
+  }, [location]);
 
   // Charger les documents sauvegardés
   useEffect(() => {
@@ -408,20 +418,13 @@ export default function ProfessionalScannerPage() {
     );
   }
 
-  // Écran d'introduction - Rediriger vers /scanner
+  // Écran d'introduction - Afficher loading pendant redirection
   if (step === 'intro') {
-    // Si on arrive ici sans image, rediriger vers la page d'accueil
-    useEffect(() => {
-      if (!rawImage) {
-        navigate('/scanner', { replace: true });
-      }
-    }, []);
-
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-900 via-blue-900 to-gray-900 flex items-center justify-center">
         <div className="text-center">
           <Loader className="w-12 h-12 text-blue-400 animate-spin mx-auto mb-4" />
-          <p className="text-white text-lg">Redirection...</p>
+          <p className="text-white text-lg">Chargement...</p>
         </div>
       </div>
     );
