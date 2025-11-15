@@ -50,10 +50,13 @@ export default function LeafletTracking({
   const deliveryMarkerRef = useRef<L.Marker | null>(null);
   const driverMarkerRef = useRef<L.Marker | null>(null);
   const routeLineRef = useRef<L.Polyline | null>(null);
+  const gpsTrailRef = useRef<L.Polyline | null>(null);
+  const futureRouteRef = useRef<L.Polyline | null>(null);
 
   // États pour le tracé GPS
   const [routeLoading, setRouteLoading] = useState(false);
   const [routeInfo, setRouteInfo] = useState<{ distance: number; duration: number } | null>(null);
+  const [osrmRoute, setOsrmRoute] = useState<[number, number][]>([]);
 
   // Gestion du fullscreen
   useEffect(() => {
@@ -145,32 +148,73 @@ export default function LeafletTracking({
 
     const driverIcon = L.divIcon({
       html: `
-        <div style="
-          background: linear-gradient(135deg, #14b8a6, #0d9488);
-          width: 50px;
-          height: 50px;
-          border-radius: 50%;
-          border: 4px solid white;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          animation: pulse 2s infinite;
-        ">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-            <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
-          </svg>
+        <div style="position: relative;">
+          <!-- Halo pulsant style Uber -->
+          <div style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70px;
+            height: 70px;
+            background: radial-gradient(circle, rgba(20, 184, 166, 0.4) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: pulseHalo 2s infinite;
+          "></div>
+          
+          <!-- Marqueur chauffeur -->
+          <div style="
+            position: relative;
+            background: linear-gradient(135deg, #14b8a6, #0d9488);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 4px solid white;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+          ">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="white">
+              <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+            </svg>
+          </div>
+          
+          <!-- Point de direction (flèche) -->
+          <div style="
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 12px solid #14b8a6;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+          "></div>
         </div>
         <style>
-          @keyframes pulse {
-            0%, 100% { transform: scale(1); }
-            50% { transform: scale(1.1); }
+          @keyframes pulseHalo {
+            0%, 100% { 
+              transform: translate(-50%, -50%) scale(1);
+              opacity: 0.6;
+            }
+            50% { 
+              transform: translate(-50%, -50%) scale(1.2);
+              opacity: 0.3;
+            }
           }
         </style>
       `,
       className: '',
-      iconSize: [50, 50],
-      iconAnchor: [25, 25],
+          }
+        </style>
+      `,
+      className: '',
+      iconSize: [70, 70],
+      iconAnchor: [35, 35],
     });
 
     // Ajouter les marqueurs
@@ -202,27 +246,113 @@ export default function LeafletTracking({
         </div>
       `);
 
-    // Tracer la route (GPS réel ou ligne droite)
-    // OpenRouteService désactivé à cause des problèmes CORS en dev
-    const loadRoute = () => {
+    // Tracer la route (GPS réel ou routing OSRM style Uber)
+    const loadRoute = async () => {
       setRouteLoading(true);
       try {
         if (mapRef.current) {
-          // Supprimer l'ancienne ligne si elle existe
+          // Supprimer les anciennes lignes
           if (routeLineRef.current) {
             mapRef.current.removeLayer(routeLineRef.current);
           }
+          if (gpsTrailRef.current) {
+            mapRef.current.removeLayer(gpsTrailRef.current);
+          }
+          if (futureRouteRef.current) {
+            mapRef.current.removeLayer(futureRouteRef.current);
+          }
 
-          // Si on a un chemin GPS réel, on l'utilise
-          if (gpsPath && gpsPath.length > 1) {
-            routeLineRef.current = L.polyline(gpsPath, {
-              color: '#14b8a6',
-              weight: 4,
+          // Si on a un chemin GPS réel ET un chauffeur en mouvement
+          if (gpsPath && gpsPath.length > 1 && driverLat && driverLng) {
+            // TRAJET PARCOURU (vert épais) - Style Uber Eats
+            gpsTrailRef.current = L.polyline(gpsPath, {
+              color: '#10b981',
+              weight: 6,
               opacity: 0.8,
-              smoothFactor: 1,
+              smoothFactor: 2,
+              lineCap: 'round',
+              lineJoin: 'round',
             }).addTo(mapRef.current);
 
-            // Calculer distance totale du chemin GPS
+            // TRAJET RESTANT (gris pointillé) - Récupérer route OSRM
+            try {
+              const response = await fetch(
+                `https://router.project-osrm.org/route/v1/driving/${driverLng},${driverLat};${deliveryLng},${deliveryLat}?overview=full&geometries=geojson`
+              );
+              
+              if (response.ok) {
+                const data = await response.json();
+                if (data.routes && data.routes[0]) {
+                  const coords = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
+                  setOsrmRoute(coords);
+                  
+                  // Ligne pointillée pour le futur trajet
+                  futureRouteRef.current = L.polyline(coords, {
+                    color: '#94a3b8',
+                    weight: 4,
+                    opacity: 0.5,
+                    dashArray: '10, 10',
+                    smoothFactor: 2,
+                  }).addTo(mapRef.current);
+
+                  // Infos du trajet depuis OSRM
+                  const route = data.routes[0];
+                  setRouteInfo({
+                    distance: route.distance / 1000, // mètres -> km
+                    duration: route.duration / 60 // secondes -> minutes
+                  });
+                }
+              } else {
+                // Fallback: ligne droite si OSRM fail
+                futureRouteRef.current = L.polyline(
+                  [[driverLat, driverLng], [deliveryLat, deliveryLng]],
+                  {
+                    color: '#94a3b8',
+                    weight: 4,
+                    opacity: 0.5,
+                    dashArray: '10, 10',
+                  }
+                ).addTo(mapRef.current);
+              }
+            } catch (osrmError) {
+              console.warn('OSRM routing failed, using straight line:', osrmError);
+              futureRouteRef.current = L.polyline(
+                [[driverLat, driverLng], [deliveryLat, deliveryLng]],
+                {
+                  color: '#94a3b8',
+                  weight: 4,
+                  opacity: 0.5,
+                  dashArray: '10, 10',
+                }
+              ).addTo(mapRef.current);
+            }
+
+            // Calculer distance totale du chemin GPS parcouru
+            let totalDistance = 0;
+            for (let i = 0; i < gpsPath.length - 1; i++) {
+              const [lat1, lng1] = gpsPath[i];
+              const [lat2, lng2] = gpsPath[i + 1];
+              totalDistance += calculateDistance(lat1, lng1, lat2, lng2);
+            }
+
+            // Si pas d'info OSRM, utiliser calcul manuel
+            if (!routeInfo) {
+              const remainingDistance = calculateDistance(driverLat, driverLng, deliveryLat, deliveryLng);
+              setRouteInfo({
+                distance: remainingDistance,
+                duration: remainingDistance / 60 * 60 // 60 km/h
+              });
+            }
+          } else if (gpsPath && gpsPath.length > 1) {
+            // Seulement GPS path sans chauffeur actif
+            routeLineRef.current = L.polyline(gpsPath, {
+              color: '#14b8a6',
+              weight: 5,
+              opacity: 0.8,
+              smoothFactor: 2,
+              lineCap: 'round',
+            }).addTo(mapRef.current);
+
             let totalDistance = 0;
             for (let i = 0; i < gpsPath.length - 1; i++) {
               const [lat1, lng1] = gpsPath[i];
@@ -232,30 +362,56 @@ export default function LeafletTracking({
 
             setRouteInfo({
               distance: totalDistance,
-              duration: totalDistance / 60 * 60 // Estimation: 60 km/h
+              duration: totalDistance / 60 * 60
             });
           } else {
-            // Sinon, tracer une ligne droite entre départ et arrivée
-            routeLineRef.current = L.polyline(
-              [
-                [pickupLat, pickupLng],
-                [deliveryLat, deliveryLng],
-              ],
-              {
-                color: '#14b8a6',
-                weight: 4,
-                opacity: 0.8,
-                smoothFactor: 1,
+            // Pas de GPS path: récupérer route OSRM entre pickup et delivery
+            try {
+              const response = await fetch(
+                `https://router.project-osrm.org/route/v1/driving/${pickupLng},${pickupLat};${deliveryLng},${deliveryLat}?overview=full&geometries=geojson`
+              );
+              
+              if (response.ok) {
+                const data = await response.json();
+                if (data.routes && data.routes[0]) {
+                  const coords = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
+                  
+                  routeLineRef.current = L.polyline(coords, {
+                    color: '#14b8a6',
+                    weight: 5,
+                    opacity: 0.7,
+                    smoothFactor: 2,
+                    lineCap: 'round',
+                  }).addTo(mapRef.current);
+
+                  const route = data.routes[0];
+                  setRouteInfo({
+                    distance: route.distance / 1000,
+                    duration: route.duration / 60
+                  });
+                }
+              } else {
+                throw new Error('OSRM failed');
               }
-            ).addTo(mapRef.current);
+            } catch (error) {
+              console.warn('OSRM routing failed, using straight line');
+              // Fallback ligne droite
+              routeLineRef.current = L.polyline(
+                [[pickupLat, pickupLng], [deliveryLat, deliveryLng]],
+                {
+                  color: '#14b8a6',
+                  weight: 4,
+                  opacity: 0.8,
+                  smoothFactor: 1,
+                }
+              ).addTo(mapRef.current);
 
-            // Calculer distance approximative (Haversine)
-            const distance = calculateDistance(pickupLat, pickupLng, deliveryLat, deliveryLng);
-
-            setRouteInfo({
-              distance: distance,
-              duration: distance / 60 * 60 // Estimation: 60 km/h
-            });
+              const distance = calculateDistance(pickupLat, pickupLng, deliveryLat, deliveryLng);
+              setRouteInfo({
+                distance: distance,
+                duration: distance / 60 * 60
+              });
+            }
           }
         }
       } catch (error) {
@@ -323,41 +479,114 @@ export default function LeafletTracking({
     deliveryAddress,
     showControls,
     gpsPath,
+    driverLat,
+    driverLng,
   ]);
 
-  // Mettre à jour la position du chauffeur en temps réel
+  // Mettre à jour la position du chauffeur en temps réel avec animation fluide
   useEffect(() => {
     if (!driverLat || !driverLng || !mapRef.current) return;
 
-    const driverIcon = L.divIcon({
+    const newDriverIcon = L.divIcon({
       html: `
-        <div style="
-          background: linear-gradient(135deg, #14b8a6, #0d9488);
-          width: 50px;
-          height: 50px;
-          border-radius: 50%;
-          border: 4px solid white;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.4);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          animation: pulse 2s infinite;
-        ">
-          <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
-            <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z"/>
-          </svg>
+        <div style="position: relative;">
+          <div style="
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 70px;
+            height: 70px;
+            background: radial-gradient(circle, rgba(20, 184, 166, 0.4) 0%, transparent 70%);
+            border-radius: 50%;
+            animation: pulseHalo 2s infinite;
+          "></div>
+          
+          <div style="
+            position: relative;
+            background: linear-gradient(135deg, #14b8a6, #0d9488);
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: 4px solid white;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+          ">
+            <svg width="26" height="26" viewBox="0 0 24 24" fill="white">
+              <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+            </svg>
+          </div>
+          
+          <div style="
+            position: absolute;
+            top: -8px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-bottom: 12px solid #14b8a6;
+            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+          "></div>
         </div>
+        <style>
+          @keyframes pulseHalo {
+            0%, 100% { 
+              transform: translate(-50%, -50%) scale(1);
+              opacity: 0.6;
+            }
+            50% { 
+              transform: translate(-50%, -50%) scale(1.2);
+              opacity: 0.3;
+            }
+          }
+        </style>
       `,
       className: '',
-      iconSize: [50, 50],
-      iconAnchor: [25, 25],
+      iconSize: [70, 70],
+      iconAnchor: [35, 35],
     });
 
     if (driverMarkerRef.current) {
-      // Animer le déplacement
-      driverMarkerRef.current.setLatLng([driverLat, driverLng]);
+      // Animation fluide du déplacement (style Uber)
+      const currentLatLng = driverMarkerRef.current.getLatLng();
+      const newLatLng = L.latLng(driverLat, driverLng);
+      
+      // Animer le mouvement sur 1 seconde
+      const duration = 1000;
+      const startTime = Date.now();
+      const startLat = currentLatLng.lat;
+      const startLng = currentLatLng.lng;
+      
+      const animate = () => {
+        const elapsed = Date.now() - startTime;
+        const progress = Math.min(elapsed / duration, 1);
+        
+        // Interpolation easing (smooth)
+        const easeProgress = progress < 0.5
+          ? 2 * progress * progress
+          : 1 - Math.pow(-2 * progress + 2, 2) / 2;
+        
+        const lat = startLat + (driverLat - startLat) * easeProgress;
+        const lng = startLng + (driverLng - startLng) * easeProgress;
+        
+        if (driverMarkerRef.current) {
+          driverMarkerRef.current.setLatLng([lat, lng]);
+        }
+        
+        if (progress < 1) {
+          requestAnimationFrame(animate);
+        }
+      };
+      
+      requestAnimationFrame(animate);
+      driverMarkerRef.current.setIcon(newDriverIcon);
     } else {
-      driverMarkerRef.current = L.marker([driverLat, driverLng], { icon: driverIcon })
+      driverMarkerRef.current = L.marker([driverLat, driverLng], { icon: newDriverIcon })
         .addTo(mapRef.current)
         .bindPopup(`
           <div style="min-width: 200px;">
