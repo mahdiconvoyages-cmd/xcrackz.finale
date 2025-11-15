@@ -400,6 +400,18 @@ export default function LeafletTracking({
     mapRef.current.fitBounds(bounds, { padding: [50, 50], animate: true });
   };
 
+  // Helper functions for formatting
+  const formatDistance = (km: number): string => {
+    return `${km.toFixed(1)} km`;
+  };
+
+  const formatDuration = (minutes: number): string => {
+    if (minutes < 60) return `${Math.round(minutes)} min`;
+    const hours = Math.floor(minutes / 60);
+    const mins = Math.round(minutes % 60);
+    return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
+  };
+
   return (
     <div className="relative">
       <div
