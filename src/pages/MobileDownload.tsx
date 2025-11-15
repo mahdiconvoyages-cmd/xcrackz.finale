@@ -1,17 +1,43 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Download, Smartphone, Apple, PlayCircle, FileDown, CheckCircle2, AlertCircle } from 'lucide-react';
+import { supabase } from '../lib/supabase';
 
 export default function MobileDownload() {
   const [downloading, setDownloading] = useState(false);
+  const [latestVersion, setLatestVersion] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+
+  // Charger la dernière version depuis Supabase
+  useEffect(() => {
+    loadLatestVersion();
+  }, []);
+
+  const loadLatestVersion = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('app_versions')
+        .select('*')
+        .eq('is_active', true)
+        .order('version_code', { ascending: false })
+        .limit(1)
+        .single();
+
+      if (error) throw error;
+      setLatestVersion(data);
+    } catch (error) {
+      console.error('Error loading latest version:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // URLs de téléchargement
-  // Utilise l'APK buildé par EAS (Expo Application Services)
   const ENV_APK_URL = import.meta.env.VITE_ANDROID_APK_URL as string | undefined;
   const ENV_ANDROID_VERSION = (import.meta.env.VITE_ANDROID_VERSION as string | undefined) || '6.0.0';
 
-  // Lien direct de téléchargement APK (Dernier build ID: c628d677-3bcb-47c0-9306-23da02957ed3)
-  // Version 6.0.0 (versionCode: 2) - Inclut correction typage FlatList + unification codes partage
-  const ANDROID_APK_URL = ENV_APK_URL || 'https://expo.dev/artifacts/eas/qteFd2oCGibKVEaNE9hLKD.apk';
+  // Utiliser la version depuis Supabase si disponible, sinon fallback
+  const ANDROID_APK_URL = latestVersion?.apk_url || ENV_APK_URL || 'https://expo.dev/artifacts/eas/qteFd2oCGibKVEaNE9hLKD.apk';
+  const VERSION = latestVersion?.version_name || ENV_ANDROID_VERSION;
 
   const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.finality.app'; // À publier
   const APP_STORE_URL = 'https://apps.apple.com/app/xcrackz/id123456789'; // À publier
@@ -19,7 +45,15 @@ export default function MobileDownload() {
   const handleDownloadAPK = async () => {
     setDownloading(true);
     try {
-      // Simuler le téléchargement
+      // Incrémenter le compteur de téléchargements
+      if (latestVersion?.id) {
+        await supabase
+          .from('app_versions')
+          .update({ download_count: (latestVersion.download_count || 0) + 1 })
+          .eq('id', latestVersion.id);
+      }
+
+      // Télécharger le fichier
       const link = document.createElement('a');
       link.href = ANDROID_APK_URL;
       link.download = 'xcrackz.apk';
@@ -33,6 +67,17 @@ export default function MobileDownload() {
       setDownloading(false);
     }
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-teal-50/20 flex items-center justify-center">
+        <div className="relative">
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-slate-200"></div>
+          <div className="animate-spin rounded-full h-16 w-16 border-4 border-t-teal-500 absolute top-0 left-0"></div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-teal-50/20 p-4 md:p-8">
@@ -60,13 +105,25 @@ export default function MobileDownload() {
               </div>
               <div>
                 <h2 className="text-2xl font-black text-slate-900">Android</h2>
-                <p className="text-sm text-slate-600">Version {ENV_ANDROID_VERSION}</p>
+                <p className="text-sm text-slate-600">Version {VERSION}</p>
               </div>
             </div>
 
             <p className="text-slate-600 mb-6">
               Compatible avec Android 8.0 et versions ultérieures
             </p>
+
+            {latestVersion?.release_notes && (
+              <div className="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+                <h3 className="font-bold text-slate-900 mb-2 flex items-center gap-2">
+                  <CheckCircle2 className="w-4 h-4 text-blue-600" />
+                  Notes de version
+                </h3>
+                <pre className="text-sm text-slate-700 whitespace-pre-wrap font-sans">
+                  {latestVersion.release_notes}
+                </pre>
+              </div>
+            )}
 
             {/* Téléchargement direct APK */}
             <button
