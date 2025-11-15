@@ -30,8 +30,10 @@ interface Mission {
 interface GPSPosition {
   lat: number;
   lng: number;
-  timestamp: number;
+  timestamp: string;
   bearing?: number;
+  speed?: number; // km/h
+  accuracy?: number; // meters
 }
 
 export default function PublicTracking() {
@@ -45,16 +47,36 @@ export default function PublicTracking() {
   const mapRef = useRef<HTMLDivElement>(null);
   const [currentPosition, setCurrentPosition] = useState<GPSPosition | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const missionsChannelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     loadActiveMissions();
     
-    // Rafraîchissement automatique toutes les 2 secondes pour tracking ultra-réactif
-    const interval = setInterval(() => {
-      loadActiveMissions();
-    }, 2000);
+    // S'abonner aux changements de missions en temps réel
+    const missionsChannel = supabase
+      .channel('missions_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'missions',
+          filter: user ? `user_id=eq.${user.id}` : undefined,
+        },
+        (payload) => {
+          console.log('Mission change detected:', payload);
+          loadActiveMissions();
+        }
+      )
+      .subscribe();
 
-    return () => clearInterval(interval);
+    missionsChannelRef.current = missionsChannel;
+
+    return () => {
+      if (missionsChannelRef.current) {
+        missionsChannelRef.current.unsubscribe();
+      }
+    };
   }, [user]);
 
   // Écouter les positions GPS en temps réel pour la mission sélectionnée
@@ -74,7 +96,12 @@ export default function PublicTracking() {
     
     channel.on('broadcast', { event: 'gps_update' }, (payload) => {
       const position = payload.payload as GPSPosition;
-      console.log('GPS update received:', position);
+      console.log('🚗 GPS update received:', {
+        lat: position.lat,
+        lng: position.lng,
+        speed: position.speed,
+        timestamp: new Date(position.timestamp).toLocaleTimeString('fr-FR')
+      });
       
       setCurrentPosition(position);
     });
@@ -94,6 +121,8 @@ export default function PublicTracking() {
     if (!user) return;
 
     try {
+      setLoading(true);
+      
       // Charger missions créées OU assignées
       const { data, error } = await supabase
         .from('missions')
@@ -399,6 +428,126 @@ export default function PublicTracking() {
 
         {/* CARTE + DÉTAILS */}
         <div className="lg:col-span-2 space-y-4">
+          {/* STATISTIQUES TEMPS RÉEL */}
+          {showMap && selectedMission && selectedMission.status === 'in_progress' && currentPosition && (
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              {/* VITESSE ACTUELLE */}
+              <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 border border-blue-200 rounded-2xl p-5 shadow-xl">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 bg-blue-500/20 backdrop-blur rounded-xl">
+                    <Activity className="w-6 h-6 text-blue-700" />
+                  </div>
+                  {currentPosition.speed !== undefined && currentPosition.speed > 0 && (
+                    <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 rounded-lg">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+                      <span className="text-xs font-bold text-green-700">En mouvement</span>
+                    </div>
+                  )}
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-blue-800">Vitesse actuelle</p>
+                  <p className="text-3xl font-black text-blue-700">
+                    {currentPosition.speed !== undefined ? Math.round(currentPosition.speed) : 0}
+                    <span className="text-lg ml-1">km/h</span>
+                  </p>
+                  <p className="text-xs text-blue-600 mt-2">
+                    Dernière mise à jour: {new Date(currentPosition.timestamp).toLocaleTimeString('fr-FR')}
+                  </p>
+                </div>
+              </div>
+
+              {/* DISTANCE RESTANTE */}
+              <div className="backdrop-blur-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-200 rounded-2xl p-5 shadow-xl">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 bg-amber-500/20 backdrop-blur rounded-xl">
+                    <RouteIcon className="w-6 h-6 text-amber-700" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-amber-800">Distance restante</p>
+                  <p className="text-3xl font-black text-amber-700">
+                    {calculateDistance(currentPosition.lat, currentPosition.lng, selectedMission.delivery_lat, selectedMission.delivery_lng)}
+                    <span className="text-lg ml-1">km</span>
+                  </p>
+                  <p className="text-xs text-amber-600 mt-2">
+                    Distance totale: {calculateDistance(selectedMission.pickup_lat, selectedMission.pickup_lng, selectedMission.delivery_lat, selectedMission.delivery_lng)} km
+                  </p>
+                </div>
+              </div>
+
+              {/* ETA */}
+              <div className="backdrop-blur-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-200 rounded-2xl p-5 shadow-xl">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="p-3 bg-green-500/20 backdrop-blur rounded-xl">
+                    <Clock className="w-6 h-6 text-green-700" />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-sm font-semibold text-green-800">Arrivée estimée</p>
+                  {(() => {
+                    const distanceKm = calculateDistance(currentPosition.lat, currentPosition.lng, selectedMission.delivery_lat, selectedMission.delivery_lng);
+                    const speedKmh = currentPosition.speed || 0;
+                    
+                    if (speedKmh > 5 && distanceKm > 0) {
+                      const hoursRemaining = distanceKm / speedKmh;
+                      const minutesRemaining = Math.round(hoursRemaining * 60);
+                      const etaDate = new Date(Date.now() + minutesRemaining * 60 * 1000);
+                      
+                      if (minutesRemaining < 60) {
+                        return (
+                          <>
+                            <p className="text-3xl font-black text-green-700">
+                              {minutesRemaining}
+                              <span className="text-lg ml-1">min</span>
+                            </p>
+                            <p className="text-xs text-green-600 mt-2">
+                              Vers {etaDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </>
+                        );
+                      } else {
+                        const hours = Math.floor(hoursRemaining);
+                        const mins = Math.round((hoursRemaining - hours) * 60);
+                        return (
+                          <>
+                            <p className="text-2xl font-black text-green-700">
+                              {hours}h{mins > 0 ? ` ${mins}min` : ''}
+                            </p>
+                            <p className="text-xs text-green-600 mt-2">
+                              Vers {etaDate.toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          </>
+                        );
+                      }
+                    } else if (distanceKm < 0.5) {
+                      return (
+                        <>
+                          <p className="text-2xl font-black text-green-700">
+                            🎯 Arrivé
+                          </p>
+                          <p className="text-xs text-green-600 mt-2">
+                            À destination
+                          </p>
+                        </>
+                      );
+                    } else {
+                      return (
+                        <>
+                          <p className="text-xl font-bold text-green-600">
+                            En attente
+                          </p>
+                          <p className="text-xs text-green-600 mt-2">
+                            GPS en cours...
+                          </p>
+                        </>
+                      );
+                    }
+                  })()}
+                </div>
+              </div>
+            </div>
+          )}
+
           {showMap && selectedMission && selectedMission.status === 'in_progress' && (
             <div className="backdrop-blur-xl bg-white/70 border border-slate-200 rounded-2xl p-6 shadow-xl">
               <div className="mb-4 flex items-center justify-between">
