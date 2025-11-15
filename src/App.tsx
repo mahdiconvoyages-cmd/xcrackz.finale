@@ -41,8 +41,8 @@ import Support from './pages/Support';
 import Admin from './pages/Admin';
 import AdminSupport from './pages/AdminSupport';
 import AccountSecurity from './pages/AccountSecurity';
-import PublicTracking from './pages/PublicTracking';
-import TrackingList from './pages/TrackingList';
+import PublicTrackingNew from './pages/PublicTrackingNew';
+import TrackingCommand from './pages/TrackingCommand';
 import RealtimeTracking from './pages/RealtimeTracking';
 import TeamMissions from './pages/TeamMissions';
 import InspectionDepartureNew from './pages/InspectionDepartureNew';
@@ -77,7 +77,7 @@ function AppContent() {
         <Route path="/register" element={<Register />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
-        <Route path="/tracking/public/:token" element={<PublicTracking />} />
+        <Route path="/tracking/:token" element={<PublicTrackingNew />} />
         <Route path="/rapport/:token" element={<PublicInspectionReport />} />
         <Route path="/rapport-inspection/:token" element={<PublicInspectionReportShared />} />
         <Route path="/inspection/report/:inspectionId" element={<PublicInspectionReport />} />
@@ -129,7 +129,7 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <TrackingList />
+                  <TrackingCommand />
                 </Layout>
               </ProtectedRoute>
             }

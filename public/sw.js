@@ -90,17 +90,24 @@ self.addEventListener('fetch', (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        // Mettre en cache la réponse
-        return caches.open(DYNAMIC_CACHE).then((cache) => {
-          cache.put(request, response.clone());
-          return response;
-        });
+        // Ne mettre en cache que les requêtes GET
+        if (request.method === 'GET') {
+          return caches.open(DYNAMIC_CACHE).then((cache) => {
+            cache.put(request, response.clone());
+            return response;
+          });
+        }
+        return response;
       })
       .catch(() => {
-        // Fallback vers le cache si hors ligne
-        return caches.match(request).then((cachedResponse) => {
-          return cachedResponse || caches.match('/index.html');
-        });
+        // Fallback vers le cache si hors ligne (seulement pour GET)
+        if (request.method === 'GET') {
+          return caches.match(request).then((cachedResponse) => {
+            return cachedResponse || caches.match('/index.html');
+          });
+        }
+        // Pour POST/PUT/DELETE, retourner une erreur
+        return new Response('Network error', { status: 503 });
       })
   );
 });

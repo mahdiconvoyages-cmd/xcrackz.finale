@@ -2,7 +2,6 @@ import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Truck, Navigation, Maximize2, Route, Loader2 } from 'lucide-react';
-import { getRouteFromOpenRouteService, formatDistance, formatDuration } from '../lib/services/openRouteService';
 
 // Fix pour les icônes Leaflet par défaut
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -26,6 +25,7 @@ interface LeafletTrackingProps {
   status?: string;
   showControls?: boolean;
   height?: string;
+  gpsPath?: [number, number][]; // Nouveau: tableau de coordonnées GPS réelles
 }
 
 export default function LeafletTracking({
@@ -42,6 +42,7 @@ export default function LeafletTracking({
   status = 'En cours',
   showControls = true,
   height = '500px',
+  gpsPath,
 }: LeafletTrackingProps) {
   const mapRef = useRef<L.Map | null>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -201,77 +202,80 @@ export default function LeafletTracking({
         </div>
       `);
 
-    // Tracer la route GPS via OpenRouteService
-    const loadRoute = async () => {
+    // Tracer la route (GPS réel ou ligne droite)
+    // OpenRouteService désactivé à cause des problèmes CORS en dev
+    const loadRoute = () => {
       setRouteLoading(true);
       try {
-        const routeData = await getRouteFromOpenRouteService(
-          pickupLat,
-          pickupLng,
-          deliveryLat,
-          deliveryLng,
-          'driving-car'
-        );
-
-        if (routeData && mapRef.current) {
+        if (mapRef.current) {
           // Supprimer l'ancienne ligne si elle existe
           if (routeLineRef.current) {
             mapRef.current.removeLayer(routeLineRef.current);
           }
 
-          // Créer les coordonnées pour Leaflet
-          const latLngs: L.LatLngExpression[] = routeData.coordinates.map(coord => 
-            [coord.latitude, coord.longitude] as L.LatLngExpression
-          );
-
-          // Tracer la nouvelle ligne avec le tracé GPS réel
-          routeLineRef.current = L.polyline(latLngs, {
-            color: '#14b8a6',
-            weight: 5,
-            opacity: 0.8,
-            smoothFactor: 1,
-          }).addTo(mapRef.current);
-
-          // Sauvegarder les infos de route
-          setRouteInfo({
-            distance: routeData.distance,
-            duration: routeData.duration
-          });
-        } else {
-          // Fallback: ligne droite si OpenRouteService échoue
-          routeLineRef.current = L.polyline(
-            [
-              [pickupLat, pickupLng],
-              [deliveryLat, deliveryLng],
-            ],
-            {
+          // Si on a un chemin GPS réel, on l'utilise
+          if (gpsPath && gpsPath.length > 1) {
+            routeLineRef.current = L.polyline(gpsPath, {
               color: '#14b8a6',
               weight: 4,
-              opacity: 0.7,
-              dashArray: '10, 10',
+              opacity: 0.8,
+              smoothFactor: 1,
+            }).addTo(mapRef.current);
+
+            // Calculer distance totale du chemin GPS
+            let totalDistance = 0;
+            for (let i = 0; i < gpsPath.length - 1; i++) {
+              const [lat1, lng1] = gpsPath[i];
+              const [lat2, lng2] = gpsPath[i + 1];
+              totalDistance += calculateDistance(lat1, lng1, lat2, lng2);
             }
-          ).addTo(mapRef.current!);
+
+            setRouteInfo({
+              distance: totalDistance,
+              duration: totalDistance / 60 * 60 // Estimation: 60 km/h
+            });
+          } else {
+            // Sinon, tracer une ligne droite entre départ et arrivée
+            routeLineRef.current = L.polyline(
+              [
+                [pickupLat, pickupLng],
+                [deliveryLat, deliveryLng],
+              ],
+              {
+                color: '#14b8a6',
+                weight: 4,
+                opacity: 0.8,
+                smoothFactor: 1,
+              }
+            ).addTo(mapRef.current);
+
+            // Calculer distance approximative (Haversine)
+            const distance = calculateDistance(pickupLat, pickupLng, deliveryLat, deliveryLng);
+
+            setRouteInfo({
+              distance: distance,
+              duration: distance / 60 * 60 // Estimation: 60 km/h
+            });
+          }
         }
       } catch (error) {
         console.error('Error loading route:', error);
-        // Fallback: ligne droite en cas d'erreur
-        if (mapRef.current) {
-          routeLineRef.current = L.polyline(
-            [
-              [pickupLat, pickupLng],
-              [deliveryLat, deliveryLng],
-            ],
-            {
-              color: '#14b8a6',
-              weight: 4,
-              opacity: 0.7,
-              dashArray: '10, 10',
-            }
-          ).addTo(mapRef.current);
-        }
       } finally {
         setRouteLoading(false);
       }
+    };
+
+    // Fonction helper pour calculer distance Haversine
+    const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+      const R = 6371; // Rayon de la Terre en km
+      const dLat = (lat2 - lat1) * Math.PI / 180;
+      const dLon = (lon2 - lon1) * Math.PI / 180;
+      const a = 
+        Math.sin(dLat/2) * Math.sin(dLat/2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon/2) * Math.sin(dLon/2);
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      return R * c;
     };
 
     loadRoute();
@@ -318,6 +322,7 @@ export default function LeafletTracking({
     pickupAddress,
     deliveryAddress,
     showControls,
+    gpsPath,
   ]);
 
   // Mettre à jour la position du chauffeur en temps réel

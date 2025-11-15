@@ -50,16 +50,35 @@ export default function TrackingList() {
   const [showMap, setShowMap] = useState(!isMobile); // Carte masquée par défaut sur mobile
   const [currentPosition, setCurrentPosition] = useState<GPSPosition | null>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const missionsChannelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     loadActiveMissions();
     
-    // Rafraîchissement automatique toutes les 2 secondes pour tracking ultra-réactif
-    const interval = setInterval(() => {
-      loadActiveMissions();
-    }, 2000);
+    // S'abonner aux changements de missions en temps réel (au lieu de polling)
+    const missionsChannel = supabase
+      .channel('tracking_missions_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'missions',
+        },
+        (payload) => {
+          console.log('Mission change detected:', payload);
+          loadActiveMissions();
+        }
+      )
+      .subscribe();
 
-    return () => clearInterval(interval);
+    missionsChannelRef.current = missionsChannel;
+
+    return () => {
+      if (missionsChannelRef.current) {
+        missionsChannelRef.current.unsubscribe();
+      }
+    };
   }, [user]);
 
   // Écouter les positions GPS en temps réel pour la mission sélectionnée
