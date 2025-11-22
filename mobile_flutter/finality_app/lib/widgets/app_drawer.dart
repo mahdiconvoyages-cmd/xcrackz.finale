@@ -245,7 +245,7 @@ class AppDrawer extends StatelessWidget {
                 borderRadius: BorderRadius.circular(20),
               ),
               child: const Text(
-                'Finality v2.9.3',
+                'Xcrackz v3.2.5',
                 style: TextStyle(
                   color: Color(0xFF9CA3AF),
                   fontSize: 11,

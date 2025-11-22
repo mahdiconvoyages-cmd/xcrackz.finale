@@ -1,4 +1,4 @@
-package com.finality.app.finality_app
+package com.xcrackz.app
 
 import io.flutter.embedding.android.FlutterActivity
 

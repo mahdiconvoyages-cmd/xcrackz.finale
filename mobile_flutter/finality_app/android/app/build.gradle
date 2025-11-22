@@ -13,7 +13,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.finality.app.finality_app"
+    namespace = "com.xcrackz.app"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -28,7 +28,7 @@ android {
 
     defaultConfig {
         // Application ID - Unique identifier for your app
-        applicationId = "com.finality.app"
+        applicationId = "com.xcrackz.app"
         // Minimum Android version (Android 5.0 Lollipop)
         minSdkVersion = flutter.minSdkVersion
         // Target latest Android version

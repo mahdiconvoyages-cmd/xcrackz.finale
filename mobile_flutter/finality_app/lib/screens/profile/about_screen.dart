@@ -106,7 +106,7 @@ class _AboutScreenState extends State<AboutScreen> {
                         ),
                         const SizedBox(height: 24),
                         Text(
-                          'Finality',
+                          'Xcrackz',
                           style: PremiumTheme.heading1.copyWith(
                             fontSize: 32,
                           ),

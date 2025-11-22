@@ -18,13 +18,13 @@ Future<void> main() async {
     anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmcmt0aHpvdndwanJ2cWt0ZGpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5NzgwNzgsImV4cCI6MjA3NTU1NDA3OH0.ml0TkLYk53U6CqP_iCc8XkZMusFCSI-nYOS0WyV43Nc',
   );
 
-  runApp(const FinalityApp());
+  runApp(const XcrackzApp());
 }
 
 final supabase = Supabase.instance.client;
 
-class FinalityApp extends StatelessWidget {
-  const FinalityApp({super.key});
+class XcrackzApp extends StatelessWidget {
+  const XcrackzApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -37,7 +37,7 @@ class FinalityApp extends StatelessWidget {
       child: SyncProvider(
         syncService: SyncService(),
         child: MaterialApp(
-          title: 'Finality - Convoyages',
+          title: 'Xcrackz - Convoyages',
           debugShowCheckedModeBanner: false,
           theme: PremiumTheme.darkTheme,
           darkTheme: PremiumTheme.darkTheme,

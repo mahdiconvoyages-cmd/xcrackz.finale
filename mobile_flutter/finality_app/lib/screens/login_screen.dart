@@ -165,7 +165,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                       child: Column(
                         children: [
                           Text(
-                            'Finality',
+                            'Xcrackz',
                             style: PremiumTheme.heading1.copyWith(
                               fontSize: 42,
                               fontWeight: FontWeight.bold,

@@ -77,7 +77,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               const SizedBox(height: 40),
               const Text(
-                'Finality',
+                'Xcrackz',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 36,
