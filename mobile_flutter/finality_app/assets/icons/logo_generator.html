@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Logo Xcrackz - X Stylisé</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+            background: #f0f0f0;
+            font-family: Arial, sans-serif;
+        }
+        .logo-container {
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h2 {
+            color: #333;
+            margin: 0 0 10px 0;
+        }
+        .instructions {
+            max-width: 600px;
+            background: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        .instructions ol {
+            padding-left: 20px;
+        }
+        .instructions li {
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <h1>Logo Xcrackz - X Stylisé Bleu</h1>
+    
+    <div class="logo-container">
+        <h2>Logo Principal (512x512)</h2>
+        <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <!-- Fond blanc -->
+            <rect width="512" height="512" fill="white" rx="80"/>
+            
+            <!-- X stylisé en bleu avec effet 3D -->
+            <defs>
+                <linearGradient id="blueGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#0066FF;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#0044CC;stop-opacity:1" />
+                </linearGradient>
+                <filter id="shadow">
+                    <feDropShadow dx="0" dy="4" stdDeviation="4" flood-opacity="0.3"/>
+                </filter>
+            </defs>
+            
+            <!-- Barre 1 du X (diagonale \ ) -->
+            <rect x="120" y="120" width="80" height="330" rx="40" 
+                  transform="rotate(45 256 256)" 
+                  fill="url(#blueGradient)" 
+                  filter="url(#shadow)"/>
+            
+            <!-- Barre 2 du X (diagonale / ) -->
+            <rect x="120" y="120" width="80" height="330" rx="40" 
+                  transform="rotate(-45 256 256)" 
+                  fill="url(#blueGradient)" 
+                  filter="url(#shadow)"/>
+            
+            <!-- Point central décoratif -->
+            <circle cx="256" cy="256" r="35" fill="#0066FF" opacity="0.3"/>
+        </svg>
+    </div>
+
+    <div class="logo-container">
+        <h2>Version Foreground (512x512 - Fond transparent)</h2>
+        <svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+            <!-- X stylisé en bleu avec marges 20% -->
+            <defs>
+                <linearGradient id="blueGradient2" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" style="stop-color:#0066FF;stop-opacity:1" />
+                    <stop offset="100%" style="stop-color:#0044CC;stop-opacity:1" />
+                </linearGradient>
+            </defs>
+            
+            <!-- Barre 1 du X (diagonale \ ) - Réduit de 20% -->
+            <rect x="150" y="150" width="70" height="270" rx="35" 
+                  transform="rotate(45 256 256)" 
+                  fill="url(#blueGradient2)"/>
+            
+            <!-- Barre 2 du X (diagonale / ) - Réduit de 20% -->
+            <rect x="150" y="150" width="70" height="270" rx="35" 
+                  transform="rotate(-45 256 256)" 
+                  fill="url(#blueGradient2)"/>
+            
+            <!-- Point central -->
+            <circle cx="256" cy="256" r="30" fill="#0066FF" opacity="0.3"/>
+        </svg>
+    </div>
+
+    <div class="instructions">
+        <h2>📋 Instructions pour sauvegarder</h2>
+        <ol>
+            <li><strong>Ouvrez cette page dans Chrome ou Firefox</strong></li>
+            <li><strong>Clic droit sur le premier logo</strong> → "Enregistrer l'image sous"</li>
+            <li>Nommez : <code>logo.png</code></li>
+            <li><strong>Clic droit sur le deuxième logo</strong> → "Enregistrer l'image sous"</li>
+            <li>Nommez : <code>logo_foreground.png</code></li>
+            <li>Placez les 2 fichiers dans : <code>mobile_flutter/finality_app/assets/icons/</code></li>
+            <li><strong>Dites "génère les icônes"</strong></li>
+        </ol>
+        
+        <p><strong>Alternative :</strong> Utilisez un convertisseur SVG vers PNG en ligne comme <a href="https://svgtopng.com" target="_blank">svgtopng.com</a> avec une taille de 512x512px</p>
+    </div>
+</body>
+</html>
