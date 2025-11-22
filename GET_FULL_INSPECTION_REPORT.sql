@@ -90,6 +90,11 @@ BEGIN
         'client_name', vi.client_name,
         'latitude', vi.latitude,
         'longitude', vi.longitude,
+        -- Équipements depuis vehicle_info (Flutter)
+        'has_security_kit', COALESCE((vi.vehicle_info->>'has_security_kit')::boolean, false),
+        'has_spare_wheel', COALESCE((vi.vehicle_info->>'has_spare_wheel')::boolean, false),
+        'has_inflation_kit', COALESCE((vi.vehicle_info->>'has_inflation_kit')::boolean, false),
+        'has_fuel_card', COALESCE((vi.vehicle_info->>'has_fuel_card')::boolean, false),
         'photos', (
           SELECT jsonb_agg(jsonb_build_object(
             'id', ip.id,
@@ -165,6 +170,11 @@ BEGIN
         'client_name', vi.client_name,
         'latitude', vi.latitude,
         'longitude', vi.longitude,
+        -- Équipements depuis vehicle_info (Flutter)
+        'has_security_kit', COALESCE((vi.vehicle_info->>'has_security_kit')::boolean, false),
+        'has_spare_wheel', COALESCE((vi.vehicle_info->>'has_spare_wheel')::boolean, false),
+        'has_inflation_kit', COALESCE((vi.vehicle_info->>'has_inflation_kit')::boolean, false),
+        'has_fuel_card', COALESCE((vi.vehicle_info->>'has_fuel_card')::boolean, false),
         'photos', (
           SELECT jsonb_agg(jsonb_build_object(
             'id', ip.id,

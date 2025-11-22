@@ -468,7 +468,10 @@ function InspectionCard({ title, inspection, color, onOpenPhoto }: any) {
         {/* Équipements */}
         <Section title="Équipements de Sécurité" icon={Package}>
           <div className="grid grid-cols-3 gap-3">
-            <Badge label="Roue secours" checked={inspection.has_spare_wheel} />
+            <Badge label="Kit sécurité" checked={inspection.has_security_kit} />
+            <Badge label="Roue de secours" checked={inspection.has_spare_wheel} />
+            <Badge label="Kit gonflage" checked={inspection.has_inflation_kit} />
+            <Badge label="Carte carburant" checked={inspection.has_fuel_card} />
             <Badge label="Cric" checked={inspection.has_jack} />
             <Badge label="Triangle" checked={inspection.has_warning_triangle} />
             <Badge label="Trousse secours" checked={inspection.has_first_aid_kit} />
