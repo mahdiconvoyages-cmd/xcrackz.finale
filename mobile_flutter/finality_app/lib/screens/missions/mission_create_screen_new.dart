@@ -338,10 +338,10 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
           icon: Icon(Icons.close, color: PremiumTheme.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Nouvelle mission',
           style: TextStyle(
-            color: Colors.white,
+            color: PremiumTheme.textPrimary,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),

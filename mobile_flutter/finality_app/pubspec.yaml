@@ -119,10 +119,14 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
 
+  # see https://flutter.dev/to/font-from-package
+
+# Configuration pour la génération automatique des icônes
 flutter_launcher_icons:
   android: true
-  ios: true
-  image_path: "assets/images/icon.png"
-  adaptive_icon_background: "#0b1220"
-  adaptive_icon_foreground: "assets/images/icon.png"
-  # see https://flutter.dev/to/font-from-package
+  ios: false
+  image_path: "assets/icons/logo.png"
+  adaptive_icon_background: "#FFFFFF"
+  adaptive_icon_foreground: "assets/icons/logo_foreground.png"
+  min_sdk_android: 21
+  remove_alpha_ios: true
