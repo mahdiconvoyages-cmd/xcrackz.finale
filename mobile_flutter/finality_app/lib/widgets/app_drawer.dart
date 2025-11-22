@@ -18,16 +18,16 @@ class AppDrawer extends StatelessWidget {
     final user = Supabase.instance.client.auth.currentUser;
 
     return Drawer(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Colors.white,
       child: ListView(
         padding: EdgeInsets.zero,
         children: [
           // Modern User Header
           Container(
             padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
-            decoration: const BoxDecoration(
+            decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF14B8A6), Color(0xFF0D9488), Color(0xFF0F766E)],
+                colors: [Color(0xFF0066FF).withOpacity(0.1), Colors.white],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -57,14 +57,14 @@ class AppDrawer extends StatelessWidget {
                           style: const TextStyle(
                             fontSize: 28,
                             fontWeight: FontWeight.bold,
-                            color: Color(0xFF14B8A6),
+                            color: Color(0xFF0066FF),
                           ),
                         ),
                       ),
                     ),
                     const Spacer(),
                     IconButton(
-                      icon: const Icon(Icons.settings, color: Colors.white, size: 24),
+                      icon: const Icon(Icons.settings, color: Color(0xFF0066FF), size: 24),
                       onPressed: () {
                         Navigator.pop(context);
                         Navigator.push(
@@ -73,7 +73,7 @@ class AppDrawer extends StatelessWidget {
                         );
                       },
                       style: IconButton.styleFrom(
-                        backgroundColor: Colors.white.withOpacity(0.2),
+                        backgroundColor: Color(0xFF0066FF).withOpacity(0.1),
                       ),
                     ),
                   ],
@@ -82,7 +82,7 @@ class AppDrawer extends StatelessWidget {
                 Text(
                   user?.userMetadata?['full_name'] ?? 'Utilisateur',
                   style: const TextStyle(
-                    color: Colors.white,
+                    color: Color(0xFF1A1A1A),
                     fontSize: 20,
                     fontWeight: FontWeight.bold,
                   ),
@@ -90,8 +90,8 @@ class AppDrawer extends StatelessWidget {
                 const SizedBox(height: 4),
                 Text(
                   user?.email ?? 'No email',
-                  style: TextStyle(
-                    color: Colors.white.withOpacity(0.9),
+                  style: const TextStyle(
+                    color: Color(0xFF6B7280),
                     fontSize: 14,
                   ),
                 ),
@@ -192,23 +192,23 @@ class AppDrawer extends StatelessWidget {
               final confirm = await showDialog<bool>(
                 context: context,
                 builder: (context) => AlertDialog(
-                  backgroundColor: const Color(0xFF1F2937),
+                  backgroundColor: Colors.white,
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   title: const Row(
                     children: [
                       Icon(Icons.logout_rounded, color: Color(0xFFEF4444)),
                       SizedBox(width: 12),
-                      Text('Déconnexion', style: TextStyle(color: Colors.white)),
+                      Text('Déconnexion', style: TextStyle(color: Color(0xFF1A1A1A))),
                     ],
                   ),
                   content: const Text(
                     'Êtes-vous sûr de vouloir vous déconnecter ?',
-                    style: TextStyle(color: Colors.white70),
+                    style: TextStyle(color: Color(0xFF6B7280)),
                   ),
                   actions: [
                     TextButton(
                       onPressed: () => Navigator.pop(context, false),
-                      child: const Text('Annuler', style: TextStyle(color: Colors.white70)),
+                      child: const Text('Annuler', style: TextStyle(color: Color(0xFF6B7280))),
                     ),
                     FilledButton(
                       onPressed: () => Navigator.pop(context, true),
@@ -247,7 +247,7 @@ class AppDrawer extends StatelessWidget {
               child: const Text(
                 'Finality v2.9.3',
                 style: TextStyle(
-                  color: Colors.white38,
+                  color: Color(0xFF9CA3AF),
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                 ),
@@ -313,14 +313,14 @@ class AppDrawer extends StatelessWidget {
         title: Text(
           title,
           style: const TextStyle(
-            color: Colors.white,
+            color: Color(0xFF1A1A1A),
             fontSize: 14,
             fontWeight: FontWeight.w500,
           ),
         ),
         trailing: const Icon(
           Icons.arrow_forward_ios_rounded,
-          color: Color(0xFF475569),
+          color: Color(0xFF9CA3AF),
           size: 14,
         ),
         dense: true,

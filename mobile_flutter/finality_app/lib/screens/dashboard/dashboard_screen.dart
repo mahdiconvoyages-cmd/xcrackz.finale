@@ -364,7 +364,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     Text(
                       'Crédits disponibles',
                       style: PremiumTheme.bodySmall.copyWith(
-                        color: Colors.white.withOpacity(0.9),
+                        color: Colors.white.withOpacity(0.95),
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -380,7 +380,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const SizedBox(width: 8),
                         Icon(
                           Icons.account_balance_wallet,
-                          color: Colors.white.withOpacity(0.8),
+                          color: Colors.white.withOpacity(0.9),
                           size: 32,
                         ),
                       ],
@@ -390,7 +390,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.2),
+                    color: Colors.white.withOpacity(0.25),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
