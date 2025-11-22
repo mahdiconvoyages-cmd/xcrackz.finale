@@ -43,27 +43,29 @@ class Invoice {
 
   factory Invoice.fromJson(Map<String, dynamic> json) {
     return Invoice(
-      id: json['id'],
-      userId: json['user_id'],
-      clientId: json['client_id'],
-      missionId: json['mission_id'],
-      invoiceNumber: json['invoice_number'],
-      invoiceDate: DateTime.parse(json['invoice_date']),
-      dueDate: json['due_date'] != null ? DateTime.parse(json['due_date']) : null,
-      status: json['status'] ?? 'pending',
+      id: json['id']?.toString(),
+      userId: json['user_id']?.toString() ?? '',
+      clientId: json['client_id']?.toString(),
+      missionId: json['mission_id']?.toString(),
+      invoiceNumber: json['invoice_number']?.toString() ?? '',
+      invoiceDate: json['invoice_date'] != null 
+          ? DateTime.parse(json['invoice_date'].toString()) 
+          : DateTime.now(),
+      dueDate: json['due_date'] != null ? DateTime.parse(json['due_date'].toString()) : null,
+      status: json['status']?.toString() ?? 'pending',
       subtotal: (json['subtotal'] ?? 0).toDouble(),
       taxRate: (json['tax_rate'] ?? 20.0).toDouble(),
       taxAmount: (json['tax_amount'] ?? 0).toDouble(),
       total: (json['total'] ?? 0).toDouble(),
-      notes: json['notes'],
-      paymentMethod: json['payment_method'],
-      paidAt: json['paid_at'] != null ? DateTime.parse(json['paid_at']) : null,
+      notes: json['notes']?.toString(),
+      paymentMethod: json['payment_method']?.toString(),
+      paidAt: json['paid_at'] != null ? DateTime.parse(json['paid_at'].toString()) : null,
       items: json['items'] != null
           ? (json['items'] as List).map((i) => InvoiceItem.fromJson(i)).toList()
           : [],
-      clientInfo: json['client_info'],
-      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at']) : null,
-      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at']) : null,
+      clientInfo: json['client_info'] as Map<String, dynamic>?,
+      createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'].toString()) : null,
+      updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'].toString()) : null,
     );
   }
 
@@ -147,8 +149,8 @@ class InvoiceItem {
 
   factory InvoiceItem.fromJson(Map<String, dynamic> json) {
     return InvoiceItem(
-      id: json['id'],
-      description: json['description'],
+      id: json['id']?.toString(),
+      description: json['description']?.toString() ?? '',
       quantity: json['quantity'] ?? 1,
       unitPrice: (json['unit_price'] ?? 0).toDouble(),
       total: (json['total'] ?? 0).toDouble(),

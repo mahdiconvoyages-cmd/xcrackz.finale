@@ -68,44 +68,46 @@ class Quote {
     final total = subtotal + taxAmount;
 
     return Quote(
-      id: json['id'] as String?,
-      quoteNumber: json['quote_number'] as String,
-      userId: json['user_id'] as String,
-      missionId: json['mission_id'] as String?,
-      clientName: json['client_name'] as String?,
-      clientEmail: json['client_email'] as String?,
-      clientPhone: json['client_phone'] as String?,
-      clientAddress: json['client_address'] as String?,
-      quoteDate: DateTime.parse(json['quote_date'] as String),
+      id: json['id']?.toString(),
+      quoteNumber: json['quote_number']?.toString() ?? '',
+      userId: json['user_id']?.toString() ?? '',
+      missionId: json['mission_id']?.toString(),
+      clientName: json['client_name']?.toString(),
+      clientEmail: json['client_email']?.toString(),
+      clientPhone: json['client_phone']?.toString(),
+      clientAddress: json['client_address']?.toString(),
+      quoteDate: json['quote_date'] != null 
+          ? DateTime.parse(json['quote_date'].toString()) 
+          : DateTime.now(),
       validUntil: json['valid_until'] != null
-          ? DateTime.parse(json['valid_until'] as String)
+          ? DateTime.parse(json['valid_until'].toString())
           : null,
       items: items,
       subtotal: subtotal,
       taxRate: taxRate,
       taxAmount: taxAmount,
       total: total,
-      status: json['status'] as String? ?? 'draft',
-      notes: json['notes'] as String?,
-      terms: json['terms'] as String?,
+      status: json['status']?.toString() ?? 'draft',
+      notes: json['notes']?.toString(),
+      terms: json['terms']?.toString(),
       sentAt: json['sent_at'] != null
-          ? DateTime.parse(json['sent_at'] as String)
+          ? DateTime.parse(json['sent_at'].toString())
           : null,
       acceptedAt: json['accepted_at'] != null
-          ? DateTime.parse(json['accepted_at'] as String)
+          ? DateTime.parse(json['accepted_at'].toString())
           : null,
       rejectedAt: json['rejected_at'] != null
-          ? DateTime.parse(json['rejected_at'] as String)
+          ? DateTime.parse(json['rejected_at'].toString())
           : null,
       convertedAt: json['converted_at'] != null
-          ? DateTime.parse(json['converted_at'] as String)
+          ? DateTime.parse(json['converted_at'].toString())
           : null,
-      convertedInvoiceId: json['converted_invoice_id'] as String?,
+      convertedInvoiceId: json['converted_invoice_id']?.toString(),
       createdAt: json['created_at'] != null
-          ? DateTime.parse(json['created_at'] as String)
+          ? DateTime.parse(json['created_at'].toString())
           : null,
       updatedAt: json['updated_at'] != null
-          ? DateTime.parse(json['updated_at'] as String)
+          ? DateTime.parse(json['updated_at'].toString())
           : null,
     );
   }
@@ -214,12 +216,12 @@ class QuoteItem {
 
   factory QuoteItem.fromJson(Map<String, dynamic> json) {
     return QuoteItem(
-      id: json['id'] as String?,
-      quoteId: json['quote_id'] as String?,
-      description: json['description'] as String,
-      quantity: (json['quantity'] as num).toDouble(),
-      unitPrice: (json['unit_price'] as num).toDouble(),
-      total: (json['total'] as num).toDouble(),
+      id: json['id']?.toString(),
+      quoteId: json['quote_id']?.toString(),
+      description: json['description']?.toString() ?? '',
+      quantity: (json['quantity'] ?? 1).toDouble(),
+      unitPrice: (json['unit_price'] ?? 0).toDouble(),
+      total: (json['total'] ?? 0).toDouble(),
       sortOrder: json['sort_order'] as int?,
     );
   }
