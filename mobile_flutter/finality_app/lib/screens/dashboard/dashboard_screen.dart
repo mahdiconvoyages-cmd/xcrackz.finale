@@ -138,13 +138,13 @@ class _DashboardScreenState extends State<DashboardScreen>
     final greeting = _getGreeting();
 
     return Scaffold(
-      backgroundColor: PremiumTheme.darkBg,
+      backgroundColor: PremiumTheme.lightBg,
       body: _isLoading
           ? _buildLoadingState()
           : RefreshIndicator(
               onRefresh: _loadDashboardData,
-              backgroundColor: PremiumTheme.cardBg,
-              color: PremiumTheme.primaryTeal,
+              backgroundColor: Colors.white,
+              color: PremiumTheme.primaryBlue,
               child: CustomScrollView(
                 slivers: [
                   // App Bar simplifié et compact
@@ -154,14 +154,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                     pinned: true,
                     flexibleSpace: FlexibleSpaceBar(
                       background: Container(
-                        decoration: BoxDecoration(
+                        decoration: const BoxDecoration(
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
-                              PremiumTheme.primaryTeal,
-                              PremiumTheme.primaryBlue,
-                              PremiumTheme.primaryIndigo,
+                              Colors.white,
+                              Color(0xFFF5F9FF),
+                              Color(0xFFEFF6FF),
                             ],
                           ),
                         ),
@@ -181,7 +181,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                           Text(
                                             greeting,
                                             style: PremiumTheme.bodySmall.copyWith(
-                                              color: Colors.white.withOpacity(0.9),
+                                              color: PremiumTheme.textSecondary,
                                               fontSize: 12,
                                             ),
                                           ),
@@ -191,7 +191,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                                 ? '$_firstName $_lastName'
                                                 : user?.email ?? 'Utilisateur',
                                             style: PremiumTheme.heading3.copyWith(
-                                              color: Colors.white,
+                                              color: PremiumTheme.textPrimary,
                                               fontSize: 18,
                                             ),
                                             overflow: TextOverflow.ellipsis,
@@ -200,7 +200,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       ),
                                     ),
                                     IconButton(
-                                      icon: const Icon(Icons.person, color: Colors.white, size: 22),
+                                      icon: Icon(Icons.person, color: PremiumTheme.primaryBlue, size: 22),
                                       onPressed: () {
                                         Navigator.push(
                                           context,

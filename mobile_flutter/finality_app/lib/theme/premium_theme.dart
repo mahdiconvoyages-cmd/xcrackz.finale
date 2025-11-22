@@ -2,16 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 /// 🎨 THÈME PREMIUM FINALITY
-/// Design moderne avec glassmorphism, gradients et animations fluides
+/// Design moderne clair inspiré des apps modernes - fond blanc, texte noir
 
 class PremiumTheme {
   // ============================================
-  // COULEURS PRINCIPALES
+  // COULEURS PRINCIPALES - THÈME CLAIR
   // ============================================
   
-  static const Color primaryBlue = Color(0xFF3B82F6);
-  static const Color primaryIndigo = Color(0xFF6366F1);
-  static const Color primaryPurple = Color(0xFF8B5CF6);
+  static const Color primaryBlue = Color(0xFF0066FF);
+  static const Color primaryIndigo = Color(0xFF5B8DEF);
+  static const Color primaryPurple = Color(0xFF8B7EE8);
   static const Color primaryTeal = Color(0xFF14B8A6);
   
   static const Color accentGreen = Color(0xFF10B981);
@@ -19,15 +19,18 @@ class PremiumTheme {
   static const Color accentRed = Color(0xFFEF4444);
   static const Color accentPink = Color(0xFFEC4899);
   
-  // Backgrounds
-  static const Color darkBg = Color(0xFF0F172A);
-  static const Color cardBg = Color(0xFF1E293B);
-  static const Color cardBgLight = Color(0xFF334155);
+  // Backgrounds - Thème clair
+  static const Color lightBg = Color(0xFFF8F9FA);
+  static const Color cardBg = Color(0xFFFFFFFF);
+  static const Color cardBgLight = Color(0xFFF5F7FA);
   
-  // Text
-  static const Color textPrimary = Colors.white;
-  static const Color textSecondary = Color(0xFFCBD5E1);
-  static const Color textTertiary = Color(0xFF94A3B8);
+  // Alias pour compatibilité avec l'ancien thème
+  static const Color darkBg = lightBg;
+  
+  // Text - Thème clair
+  static const Color textPrimary = Color(0xFF1A1A1A);
+  static const Color textSecondary = Color(0xFF6B7280);
+  static const Color textTertiary = Color(0xFF9CA3AF);
 
   // ============================================
   // GRADIENTS
@@ -76,20 +79,20 @@ class PremiumTheme {
   static BoxDecoration glassCard({
     Color? color,
     double blur = 10,
-    double opacity = 0.1,
+    double opacity = 1.0,
   }) {
     return BoxDecoration(
-      color: (color ?? Colors.white).withOpacity(opacity),
-      borderRadius: BorderRadius.circular(20),
+      color: color ?? cardBg,
+      borderRadius: BorderRadius.circular(16),
       border: Border.all(
-        color: Colors.white.withOpacity(0.2),
-        width: 1.5,
+        color: const Color(0xFFE5E7EB),
+        width: 1,
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.1),
+          color: Colors.black.withOpacity(0.04),
           blurRadius: blur,
-          offset: const Offset(0, 4),
+          offset: const Offset(0, 2),
         ),
       ],
     );
@@ -291,16 +294,16 @@ class PremiumTheme {
   );
 
   // ============================================
-  // THEME DATA
+  // THEME DATA - THÈME CLAIR MODERNE
   // ============================================
   
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
-    brightness: Brightness.dark,
-    scaffoldBackgroundColor: darkBg,
+    brightness: Brightness.light,
+    scaffoldBackgroundColor: lightBg,
     
-    colorScheme: const ColorScheme.dark(
-      primary: primaryIndigo,
+    colorScheme: const ColorScheme.light(
+      primary: primaryBlue,
       secondary: primaryTeal,
       tertiary: primaryPurple,
       surface: cardBg,
@@ -312,11 +315,15 @@ class PremiumTheme {
     ),
     
     appBarTheme: const AppBarTheme(
-      backgroundColor: Colors.transparent,
+      backgroundColor: Colors.white,
       elevation: 0,
       centerTitle: false,
-      systemOverlayStyle: SystemUiOverlayStyle.light,
-      titleTextStyle: heading3,
+      systemOverlayStyle: SystemUiOverlayStyle.dark,
+      titleTextStyle: TextStyle(
+        color: textPrimary,
+        fontSize: 20,
+        fontWeight: FontWeight.w600,
+      ),
       iconTheme: IconThemeData(color: textPrimary),
     ),
     
@@ -331,24 +338,24 @@ class PremiumTheme {
     
     elevatedButtonTheme: ElevatedButtonThemeData(
       style: ElevatedButton.styleFrom(
-        backgroundColor: primaryIndigo,
-        foregroundColor: Colors.white,
+        backgroundColor: const Color(0xFFDEEAFF),
+        foregroundColor: primaryBlue,
         elevation: 0,
         padding: const EdgeInsets.symmetric(horizontal: spaceLG, vertical: spaceMD),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(radiusMD),
+          borderRadius: BorderRadius.circular(12),
         ),
         textStyle: const TextStyle(
           fontSize: 16,
           fontWeight: FontWeight.w600,
-          letterSpacing: 0.5,
+          letterSpacing: 0.3,
         ),
       ),
     ),
     
     textButtonTheme: TextButtonThemeData(
       style: TextButton.styleFrom(
-        foregroundColor: primaryIndigo,
+        foregroundColor: primaryBlue,
         padding: const EdgeInsets.symmetric(horizontal: spaceMD, vertical: spaceSM),
         textStyle: const TextStyle(
           fontSize: 16,
@@ -359,21 +366,21 @@ class PremiumTheme {
     
     inputDecorationTheme: InputDecorationTheme(
       filled: true,
-      fillColor: cardBg,
+      fillColor: Colors.white,
       border: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(radiusMD),
-        borderSide: BorderSide.none,
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
       ),
       enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(radiusMD),
-        borderSide: BorderSide(color: Colors.white.withOpacity(0.1)),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
       ),
       focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(radiusMD),
-        borderSide: const BorderSide(color: primaryIndigo, width: 2),
+        borderRadius: BorderRadius.circular(12),
+        borderSide: const BorderSide(color: primaryBlue, width: 2),
       ),
       errorBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(radiusMD),
+        borderRadius: BorderRadius.circular(12),
         borderSide: const BorderSide(color: accentRed),
       ),
       contentPadding: const EdgeInsets.symmetric(
@@ -384,32 +391,32 @@ class PremiumTheme {
     ),
     
     floatingActionButtonTheme: const FloatingActionButtonThemeData(
-      backgroundColor: primaryPurple,
+      backgroundColor: primaryBlue,
       foregroundColor: Colors.white,
-      elevation: 8,
+      elevation: 4,
     ),
     
     bottomNavigationBarTheme: BottomNavigationBarThemeData(
-      backgroundColor: cardBg,
-      selectedItemColor: primaryIndigo,
+      backgroundColor: Colors.white,
+      selectedItemColor: primaryBlue,
       unselectedItemColor: textTertiary,
       type: BottomNavigationBarType.fixed,
-      elevation: 0,
+      elevation: 8,
       selectedLabelStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
       unselectedLabelStyle: const TextStyle(fontSize: 12),
     ),
     
-    dividerTheme: DividerThemeData(
-      color: Colors.white.withOpacity(0.1),
+    dividerTheme: const DividerThemeData(
+      color: Color(0xFFE5E7EB),
       thickness: 1,
       space: 1,
     ),
     
     chipTheme: ChipThemeData(
-      backgroundColor: cardBg,
-      selectedColor: primaryIndigo,
+      backgroundColor: const Color(0xFFF3F4F6),
+      selectedColor: const Color(0xFFDEEAFF),
       padding: const EdgeInsets.symmetric(horizontal: spaceMD, vertical: spaceSM),
-      labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+      labelStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textPrimary),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(radiusFull),
       ),

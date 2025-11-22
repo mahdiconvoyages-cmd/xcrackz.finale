@@ -41,7 +41,7 @@ class FinalityApp extends StatelessWidget {
           debugShowCheckedModeBanner: false,
           theme: PremiumTheme.darkTheme,
           darkTheme: PremiumTheme.darkTheme,
-          themeMode: ThemeMode.dark,
+          themeMode: ThemeMode.light,
           initialRoute: '/',
           routes: {
             '/': (context) => const SplashScreen(),

@@ -98,16 +98,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.white,
       body: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              PremiumTheme.darkBg,
-              PremiumTheme.primaryTeal.withOpacity(0.1),
-              PremiumTheme.primaryBlue.withOpacity(0.1),
-              PremiumTheme.darkBg,
+              Colors.white,
+              PremiumTheme.primaryBlue.withOpacity(0.03),
+              PremiumTheme.primaryTeal.withOpacity(0.03),
+              Colors.white,
             ],
             stops: const [0.0, 0.3, 0.7, 1.0],
           ),
@@ -396,7 +397,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 ScaffoldMessenger.of(context).showSnackBar(
                                   const SnackBar(
                                     content: Text('Contactez-nous pour créer un compte'),
-                                    backgroundColor: PremiumTheme.primaryIndigo,
+                                    backgroundColor: PremiumTheme.primaryBlue,
                                     behavior: SnackBarBehavior.floating,
                                   ),
                                 );
