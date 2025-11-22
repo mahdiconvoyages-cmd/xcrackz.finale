@@ -147,9 +147,9 @@ class _DashboardScreenState extends State<DashboardScreen>
               color: PremiumTheme.primaryTeal,
               child: CustomScrollView(
                 slivers: [
-                  // App Bar simplifié
+                  // App Bar simplifié et compact
                   SliverAppBar(
-                    expandedHeight: 140,
+                    expandedHeight: 100,
                     floating: false,
                     pinned: true,
                     flexibleSpace: FlexibleSpaceBar(
@@ -167,7 +167,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ),
                         child: SafeArea(
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
                               mainAxisAlignment: MainAxisAlignment.end,
@@ -182,14 +182,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                                             greeting,
                                             style: PremiumTheme.bodySmall.copyWith(
                                               color: Colors.white.withOpacity(0.9),
+                                              fontSize: 12,
                                             ),
                                           ),
+                                          const SizedBox(height: 2),
                                           Text(
                                             _firstName.isNotEmpty
                                                 ? '$_firstName $_lastName'
                                                 : user?.email ?? 'Utilisateur',
                                             style: PremiumTheme.heading3.copyWith(
                                               color: Colors.white,
+                                              fontSize: 18,
                                             ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -197,7 +200,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       ),
                                     ),
                                     IconButton(
-                                      icon: const Icon(Icons.person, color: Colors.white),
+                                      icon: const Icon(Icons.person, color: Colors.white, size: 22),
                                       onPressed: () {
                                         Navigator.push(
                                           context,
