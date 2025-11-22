@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { searchBySiret, formatSiret, isValidSiret, formatInseeAddress } from '../services/inseeService';
 import { PricingGrid, getClientPricingGrid } from '../services/pricingGridService';
 import PricingGridModal from '../components/PricingGridModal';
-import QuoteGenerator from '../components/QuoteGenerator';
+// import QuoteGenerator from '../components/QuoteGenerator';
 
 interface Client {
   id: string;
@@ -573,7 +573,7 @@ export default function Clients() {
         onSuccess={handlePricingGridSuccess}
       />
 
-      {/* Modal Quote Generator */}
+      {/* Modal Quote Generator - Temporairement désactivé
       <QuoteGenerator
         isOpen={showQuoteModal}
         onClose={() => {
@@ -584,6 +584,7 @@ export default function Clients() {
         clientId={quoteClientId}
         clientName={quoteClientName}
       />
+      */}
 
       {/* Modal formulaire client */}
       {showModal && (

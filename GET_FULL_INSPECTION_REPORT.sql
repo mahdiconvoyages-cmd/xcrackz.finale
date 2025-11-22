@@ -130,6 +130,19 @@ BEGIN
           ) ORDER BY e.created_at), '[]'::jsonb)
           FROM inspection_expenses e
           WHERE e.inspection_id = vi.id
+        ),
+        'damages', (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'id', d.id,
+            'damage_type', d.damage_type,
+            'severity', d.severity,
+            'location', d.location,
+            'description', d.description,
+            'photo_url', d.photo_url,
+            'created_at', d.created_at
+          ) ORDER BY d.created_at), '[]'::jsonb)
+          FROM inspection_damages d
+          WHERE d.inspection_id = vi.id
         )
       )
       FROM vehicle_inspections vi
@@ -190,6 +203,19 @@ BEGIN
           ) ORDER BY e.created_at), '[]'::jsonb)
           FROM inspection_expenses e
           WHERE e.inspection_id = vi.id
+        ),
+        'damages', (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'id', d.id,
+            'damage_type', d.damage_type,
+            'severity', d.severity,
+            'location', d.location,
+            'description', d.description,
+            'photo_url', d.photo_url,
+            'created_at', d.created_at
+          ) ORDER BY d.created_at), '[]'::jsonb)
+          FROM inspection_damages d
+          WHERE d.inspection_id = vi.id
         )
       )
       FROM vehicle_inspections vi

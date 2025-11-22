@@ -27,9 +27,10 @@ export default function EmptyState({ icon: Icon, title, description, action }: E
       {action && (
         <button
           onClick={action.onClick}
-          className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-8 py-3 rounded-xl font-bold shadow-glow-teal hover:shadow-depth-xl transition-all duration-300 hover:-translate-y-1 hover:scale-105"
+          className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-8 py-3 rounded-xl font-bold shadow-glow-teal hover:shadow-depth-xl transition-all duration-300 hover:-translate-y-1 hover:scale-105 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
+          aria-label={action.label}
         >
-          {ActionIcon && <ActionIcon className="w-5 h-5" />}
+          {ActionIcon && <ActionIcon className="w-5 h-5" aria-hidden="true" />}
           {action.label}
         </button>
       )}

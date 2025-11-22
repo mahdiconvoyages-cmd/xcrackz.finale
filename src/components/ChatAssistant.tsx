@@ -1233,10 +1233,11 @@ export default function ChatAssistant() {
           <button
             onClick={() => fileInputRef.current?.click()}
             disabled={loading || uploading}
-            className="w-12 h-12 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center justify-center transition disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-12 h-12 bg-slate-100 hover:bg-slate-200 rounded-xl flex items-center justify-center transition disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-teal-500 focus:ring-offset-2"
             title="Joindre un fichier"
+            aria-label="Joindre un fichier"
           >
-            <Paperclip className="w-5 h-5 text-slate-600" />
+            <Paperclip className="w-5 h-5 text-slate-600" aria-hidden="true" />
           </button>
           <input
             type="text"
@@ -1246,6 +1247,8 @@ export default function ChatAssistant() {
             placeholder={uploading ? "Upload en cours..." : isListening ? "­ƒÄñ ├Ç l'écoute..." : "Posez votre question..."}
             disabled={loading || uploading}
             className="flex-1 px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm transition disabled:opacity-50 disabled:cursor-not-allowed"
+            aria-label="Message à Clara"
+            aria-describedby="clara-input-help"
           />
           {/* Bouton Micro - Mode Push-to-Talk (Maintenir pour parler) */}
           <button
@@ -1278,12 +1281,14 @@ export default function ChatAssistant() {
               }
             }}
             disabled={loading || uploading || isSpeaking}
-            className={`relative w-12 h-12 rounded-xl flex items-center justify-center transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed select-none ${
+            className={`relative w-12 h-12 rounded-xl flex items-center justify-center transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed select-none focus:outline-none focus:ring-2 focus:ring-offset-2 ${
               isListening 
-                ? 'bg-gradient-to-br from-red-500 to-pink-500 scale-110' 
-                : 'bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700'
+                ? 'bg-gradient-to-br from-red-500 to-pink-500 scale-110 focus:ring-red-500' 
+                : 'bg-gradient-to-br from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700 focus:ring-purple-500'
             }`}
             title={isListening ? "Maintenir pour continuer..." : "Maintenir pour parler ­ƒÄñ"}
+            aria-label={isListening ? "Arrêter l'enregistrement vocal" : "Commencer l'enregistrement vocal"}
+            aria-pressed={isListening}
           >
             {/* Animation ondes sonores quand on écoute */}
             {isListening && (
@@ -1293,20 +1298,21 @@ export default function ChatAssistant() {
               </>
             )}
             {isListening ? (
-              <MicOff className="w-5 h-5 text-white relative z-10" />
+              <MicOff className="w-5 h-5 text-white relative z-10" aria-hidden="true" />
             ) : (
-              <Mic className="w-5 h-5 text-white relative z-10" />
+              <Mic className="w-5 h-5 text-white relative z-10" aria-hidden="true" />
             )}
           </button>
           <button
             onClick={handleSend}
             disabled={loading || uploading || (!input.trim() && attachedFiles.length === 0)}
-            className="w-12 h-12 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-xl flex items-center justify-center hover:from-blue-700 hover:to-cyan-700 transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-12 h-12 bg-gradient-to-br from-blue-600 to-cyan-600 rounded-xl flex items-center justify-center hover:from-blue-700 hover:to-cyan-700 transition shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
+            aria-label="Envoyer le message"
           >
-            <Send className="w-5 h-5 text-white" />
+            <Send className="w-5 h-5 text-white" aria-hidden="true" />
           </button>
         </div>
-        <p className="text-xs text-slate-500 mt-2 text-center">
+        <p id="clara-input-help" className="text-xs text-slate-500 mt-2 text-center">
           {uploading ? "­ƒôñ Upload en cours..." : "­ƒôÄ Joignez des fichiers (images, PDF, documents) - Max 10MB"}
         </p>
       </div>

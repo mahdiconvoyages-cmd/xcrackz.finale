@@ -1,9 +1,31 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import * as Sentry from '@sentry/react';
 import App from './App.tsx';
 import './index.css';
 import './styles/accessibility-simple.css';
 import { errorLogger, showStoredErrors } from './utils/errorLogger';
+
+// Initialiser Sentry
+if (import.meta.env.VITE_SENTRY_DSN) {
+  Sentry.init({
+    dsn: import.meta.env.VITE_SENTRY_DSN,
+    environment: import.meta.env.VITE_SENTRY_ENVIRONMENT || 'production',
+    integrations: [
+      Sentry.browserTracingIntegration(),
+      Sentry.replayIntegration({
+        maskAllText: false,
+        blockAllMedia: false,
+      }),
+    ],
+    // Performance Monitoring
+    tracesSampleRate: 1.0, // Capture 100% des transactions
+    // Session Replay
+    replaysSessionSampleRate: 0.1, // 10% des sessions
+    replaysOnErrorSampleRate: 1.0, // 100% des erreurs
+  });
+  console.log('✅ Sentry initialisé avec succès');
+}
 
 // Initialiser le logger d'erreurs
 errorLogger;

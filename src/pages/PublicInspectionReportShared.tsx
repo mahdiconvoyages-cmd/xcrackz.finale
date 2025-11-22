@@ -191,12 +191,45 @@ export default function PublicInspectionReportShared() {
       <div className="max-w-6xl mx-auto px-4 print:px-0">
         
         {/* HEADER PREMIUM */}
-        <div className="bg-white rounded-xl shadow-lg mb-6 print:shadow-none print:border print:border-gray-300">
-          <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-8 rounded-t-xl text-white print:bg-blue-600">
-            <div className="flex items-start justify-between">
-              <div>
-                <h1 className="text-3xl font-bold mb-2">Rapport d'Inspection Véhicule</h1>
-                <p className="text-blue-100">Mission: {mission?.reference || 'N/A'}</p>
+        <div className="bg-white rounded-xl shadow-2xl mb-6 overflow-hidden print:shadow-none print:border print:border-gray-300">
+          <div className="bg-gradient-to-br from-blue-600 via-indigo-600 to-purple-700 p-8 text-white relative overflow-hidden">
+            {/* Motif décoratif */}
+            <div className="absolute inset-0 opacity-10">
+              <div className="absolute top-0 left-0 w-64 h-64 bg-white rounded-full -translate-x-1/2 -translate-y-1/2"></div>
+              <div className="absolute bottom-0 right-0 w-96 h-96 bg-white rounded-full translate-x-1/3 translate-y-1/3"></div>
+            </div>
+
+            <div className="relative flex items-start justify-between flex-wrap gap-4">
+              <div className="flex-1 min-w-[300px]">
+                <div className="flex items-center gap-3 mb-4">
+                  <div className="bg-white/20 p-3 rounded-lg backdrop-blur-sm">
+                    <FileText className="w-8 h-8" />
+                  </div>
+                  <div>
+                    <h1 className="text-3xl font-bold">Rapport d'Inspection Véhicule</h1>
+                    <p className="text-blue-100 text-sm mt-1">Document officiel de convoyage</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-2 bg-white/10 backdrop-blur-sm rounded-lg p-4">
+                  <div className="flex items-center gap-2 text-sm">
+                    <FileText className="w-4 h-4" />
+                    <span className="text-white/80">Référence:</span>
+                    <span className="font-mono font-bold">{mission?.reference || 'N/A'}</span>
+                  </div>
+                  {mission?.created_at && (
+                    <div className="flex items-center gap-2 text-sm">
+                      <Calendar className="w-4 h-4" />
+                      <span className="text-white/80">Date de création:</span>
+                      <span className="font-medium">{new Date(mission.created_at).toLocaleDateString('fr-FR')}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-sm">
+                    <Car className="w-4 h-4" />
+                    <span className="text-white/80">Véhicule:</span>
+                    <span className="font-medium">{vehicle?.brand || 'N/A'} {vehicle?.model || ''} - {vehicle?.plate || 'N/A'}</span>
+                  </div>
+                </div>
               </div>
               <div className="flex gap-2 print:hidden">
                 <button onClick={() => window.print()} className="bg-white/20 hover:bg-white/30 p-3 rounded-lg transition">
@@ -218,6 +251,8 @@ export default function PublicInspectionReportShared() {
                 items={[
                   { label: 'Marque/Modèle', value: `${vehicle?.brand || 'N/A'} ${vehicle?.model || ''}` },
                   { label: 'Plaque', value: vehicle?.plate || 'N/A' },
+                  { label: 'VIN', value: vehicle?.vin || 'N/A' },
+                  { label: 'Année', value: vehicle?.year || 'N/A' },
                   { label: 'Type', value: mission?.vehicle_type || 'N/A' },
                   { label: 'Couleur', value: vehicle?.color || 'N/A' },
                 ]}
@@ -249,12 +284,38 @@ export default function PublicInspectionReportShared() {
             </div>
 
             {/* Métriques de transport */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 p-6 bg-gray-50 rounded-lg">
-              <MetricBox icon={User} label="Convoyeur" value={mission?.driver_name || 'N/A'} />
-              <MetricBox icon={Gauge} label="KM Parcourus" value={kmParcouru > 0 ? `${kmParcouru} km` : 'N/A'} />
-              <MetricBox icon={Clock} label="Temps Livraison" value={tempsLivraison > 0 ? `${tempsLivraison}h` : 'N/A'} />
-              <MetricBox icon={Phone} label="Contact Driver" value={mission?.driver_phone || 'N/A'} />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm">
+              <MetricBox icon={User} label="Convoyeur" value={mission?.driver_name || 'N/A'} color="blue" />
+              <MetricBox icon={Phone} label="Téléphone" value={mission?.driver_phone || 'N/A'} color="indigo" />
+              <MetricBox icon={Gauge} label="KM Parcourus" value={kmParcouru > 0 ? `${kmParcouru} km` : 'N/A'} color="green" />
+              <MetricBox icon={Clock} label="Temps Livraison" value={tempsLivraison > 0 ? `${tempsLivraison}h` : 'N/A'} color="amber" />
             </div>
+
+            {/* Informations Mission */}
+            {mission?.reference && (
+              <div className="mb-8 p-4 bg-gray-50 rounded-lg border border-gray-200">
+                <div className="flex items-center gap-3">
+                  <FileText className="w-5 h-5 text-gray-600" />
+                  <div>
+                    <div className="text-sm text-gray-500">Référence Mission</div>
+                    <div className="font-mono font-bold text-gray-900">{mission.reference}</div>
+                  </div>
+                  {mission.status && (
+                    <div className="ml-auto">
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        mission.status === 'completed' ? 'bg-green-100 text-green-700' :
+                        mission.status === 'in_progress' ? 'bg-blue-100 text-blue-700' :
+                        'bg-gray-100 text-gray-700'
+                      }`}>
+                        {mission.status === 'completed' ? '✓ Terminée' :
+                         mission.status === 'in_progress' ? '⏳ En cours' :
+                         mission.status}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -339,10 +400,18 @@ function InfoCard({ icon: Icon, title, items }: any) {
   );
 }
 
-function MetricBox({ icon: Icon, label, value }: any) {
+function MetricBox({ icon: Icon, label, value, color = 'blue' }: any) {
+  const colorClasses = {
+    blue: 'text-blue-600',
+    indigo: 'text-indigo-600',
+    green: 'text-green-600',
+    amber: 'text-amber-600',
+    purple: 'text-purple-600',
+  };
+
   return (
     <div className="text-center">
-      <Icon className="w-6 h-6 mx-auto mb-2 text-blue-600" />
+      <Icon className={`w-6 h-6 mx-auto mb-2 ${colorClasses[color] || colorClasses.blue}`} />
       <div className="text-xs text-gray-500 mb-1">{label}</div>
       <div className="text-lg font-bold text-gray-900">{value}</div>
     </div>
@@ -497,11 +566,96 @@ function InspectionCard({ title, inspection, color, onOpenPhoto }: any) {
           </Section>
         )}
 
+        {/* Dommages / Dégâts */}
+        {inspection.damages && inspection.damages.length > 0 && (
+          <Section title={`⚠️ Dommages Constatés (${inspection.damages.length})`} icon={XCircle}>
+            <div className="space-y-4">
+              {inspection.damages.map((damage: any) => (
+                <div key={damage.id} className={`border-l-4 rounded-lg p-4 ${
+                  damage.severity === 'critical' ? 'border-red-500 bg-red-50' :
+                  damage.severity === 'major' ? 'border-orange-500 bg-orange-50' :
+                  'border-yellow-500 bg-yellow-50'
+                }`}>
+                  <div className="flex items-start gap-4">
+                    {damage.photo_url && (
+                      <img 
+                        src={damage.photo_url} 
+                        alt={`Dommage ${damage.damage_type}`}
+                        className="w-24 h-24 object-cover rounded-lg cursor-pointer hover:ring-4 ring-blue-500 transition"
+                        onClick={() => openPhoto([{ url: damage.photo_url }], 0)}
+                      />
+                    )}
+                    <div className="flex-1">
+                      <div className="flex items-center gap-3 mb-2">
+                        <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
+                          damage.severity === 'critical' ? 'bg-red-600 text-white' :
+                          damage.severity === 'major' ? 'bg-orange-600 text-white' :
+                          'bg-yellow-600 text-white'
+                        }`}>
+                          {damage.severity === 'critical' ? '🚨 Critique' :
+                           damage.severity === 'major' ? '⚠️ Majeur' :
+                           '⚡ Mineur'}
+                        </span>
+                        <span className="text-sm font-semibold text-gray-700">
+                          {damage.damage_type === 'scratch' ? '🔹 Rayure' :
+                           damage.damage_type === 'dent' ? '🔸 Bosse' :
+                           damage.damage_type === 'crack' ? '💥 Fissure' :
+                           damage.damage_type === 'paint_damage' ? '🎨 Peinture' :
+                           damage.damage_type === 'broken_part' ? '🔧 Pièce cassée' :
+                           damage.damage_type}
+                        </span>
+                        {damage.location && (
+                          <span className="text-xs px-2 py-1 bg-white rounded border border-gray-300">
+                            📍 {damage.location}
+                          </span>
+                        )}
+                      </div>
+                      {damage.description && (
+                        <p className="text-sm text-gray-700 mb-2">{damage.description}</p>
+                      )}
+                      {damage.created_at && (
+                        <p className="text-xs text-gray-500">
+                          Constaté le {new Date(damage.created_at).toLocaleString('fr-FR')}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
         {/* Observations */}
         {inspection.notes && (
           <div className="bg-amber-50 border border-amber-200 rounded-lg p-4 print:break-inside-avoid">
             <h4 className="font-semibold text-amber-900 mb-2">📝 Observations</h4>
             <p className="text-amber-800 whitespace-pre-wrap text-sm">{inspection.notes}</p>
+          </div>
+        )}
+
+        {/* Position GPS */}
+        {(inspection.latitude || inspection.longitude) && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 print:break-inside-avoid">
+            <div className="flex items-center gap-2 mb-2">
+              <Navigation className="w-5 h-5 text-blue-700" />
+              <h4 className="font-semibold text-blue-900">Position GPS</h4>
+            </div>
+            <div className="text-sm text-blue-800 space-y-1">
+              <p>📍 Latitude: <span className="font-mono font-medium">{inspection.latitude || 'N/A'}</span></p>
+              <p>📍 Longitude: <span className="font-mono font-medium">{inspection.longitude || 'N/A'}</span></p>
+              {inspection.latitude && inspection.longitude && (
+                <a
+                  href={`https://www.google.com/maps?q=${inspection.latitude},${inspection.longitude}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 mt-2 text-blue-600 hover:text-blue-800 font-medium"
+                >
+                  <MapPin className="w-4 h-4" />
+                  Voir sur Google Maps
+                </a>
+              )}
+            </div>
           </div>
         )}
       </div>

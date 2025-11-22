@@ -98,12 +98,13 @@ const DashboardPage: React.FC = () => {
     if (!user) return;
 
     try {
-      // Profil convoyeur
-      const { data: profile } = await supabase
-        .from('driver_profiles')
-        .select('average_rating, total_km_driven')
-        .eq('user_id', user.id)
-        .single();
+      // Profil convoyeur - TABLE TEMPORAIREMENT DESACTIVEE
+      const profile = null;
+      // const { data: profile } = await supabase
+      //   .from('driver_profiles')
+      //   .select('average_rating, total_km_driven')
+      //   .eq('user_id', user.id)
+      //   .single();
 
       // Mes trajets actifs
       const { data: rides } = await supabase
@@ -202,11 +203,13 @@ const DashboardPage: React.FC = () => {
       // Fetch driver profiles
       const ridesWithDrivers = await Promise.all(
         (data || []).map(async (booking: any) => {
-          const { data: driver } = await supabase
-            .from('driver_profiles')
-            .select('full_name, photo_url, average_rating')
-            .eq('user_id', booking.ride.driver_id)
-            .single();
+          // TABLE driver_profiles TEMPORAIREMENT DESACTIVEE (n'existe pas)
+          const driver = null;
+          // const { data: driver } = await supabase
+          //   .from('driver_profiles')
+          //   .select('full_name, photo_url, average_rating')
+          //   .eq('user_id', booking.ride.driver_id)
+          //   .single();
 
           return {
             ...booking,

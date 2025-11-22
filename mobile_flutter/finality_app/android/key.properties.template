@@ -1,0 +1,8 @@
+# Signing configuration for release builds
+# DO NOT COMMIT THIS FILE TO VERSION CONTROL
+# Add this file to .gitignore
+
+storePassword=YOUR_KEYSTORE_PASSWORD_HERE
+keyPassword=YOUR_KEY_PASSWORD_HERE
+keyAlias=finality
+storeFile=../finality-release-key.jks

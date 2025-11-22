@@ -1,5 +1,70 @@
 /* Améliorations de visibilité et accessibilité */
 
+/* ==============================
+   CONTRASTES WCAG AA (4.5:1 minimum)
+   ============================== */
+
+/* Textes - Amélioration du contraste sur fond blanc */
+.text-slate-600 { color: #475569 !important; } /* Ratio 7.77:1 */
+.text-slate-500 { color: #334155 !important; } /* Ratio 10.27:1 */
+.text-gray-600 { color: #475569 !important; }
+.text-gray-500 { color: #334155 !important; }
+
+/* Liens et textes interactifs - Meilleur contraste */
+a:not(.bg-gradient-to-r) {
+  color: #0f766e !important; /* Teal-700 - Ratio 5.49:1 */
+}
+
+a:hover:not(.bg-gradient-to-r) {
+  color: #115e59 !important; /* Teal-800 - Ratio 6.77:1 */
+}
+
+/* Boutons secondaires - Amélioration du contraste */
+.border-slate-300 {
+  border-color: #94a3b8 !important; /* Plus visible */
+}
+
+/* États désactivés - Meilleur contraste */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  color: #475569 !important; /* Au lieu de gray-400 */
+  opacity: 0.7 !important;
+}
+
+/* Placeholders plus visibles */
+::placeholder {
+  color: #64748b !important; /* Slate-500 - Ratio 5.43:1 */
+  opacity: 1 !important;
+}
+
+/* ==============================
+   FOCUS VISIBLE - Navigation clavier
+   ============================== */
+
+/* Focus ring universel et très visible */
+*:focus-visible {
+  outline: 3px solid #14B8A6 !important;
+  outline-offset: 2px !important;
+}
+
+/* Focus pour les boutons principaux */
+button:focus-visible {
+  outline: 3px solid #0d9488 !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 6px rgba(20, 184, 166, 0.2) !important;
+}
+
+/* Focus pour les inputs */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #0d9488 !important;
+  outline-offset: 2px !important;
+  border-color: #0d9488 !important;
+}
+
 /* Sur mobile, améliore la lisibilité */
 @media (max-width: 1023px) {
   /* Augmente légèrement la taille de tous les textes sur mobile */

@@ -43,12 +43,12 @@ import AdminSupport from './pages/AdminSupport';
 import AccountSecurity from './pages/AccountSecurity';
 import PublicTrackingNew from './pages/PublicTrackingNew';
 import TrackingCommand from './pages/TrackingCommand';
-import RealtimeTracking from './pages/RealtimeTracking';
 import TeamMissions from './pages/TeamMissions';
 import InspectionDepartureNew from './pages/InspectionDepartureNew';
 import InspectionArrivalNew from './pages/InspectionArrivalNew';
 import InspectionReportsPremium from './pages/InspectionReportsPremium';
 import PublicInspectionReport from './pages/PublicInspectionReport';
+import TestSentry from './pages/TestSentry';
 import PublicInspectionReportShared from './pages/PublicInspectionReportShared';
 import PrivacyPolicy from './pages/legal/PrivacyPolicy';
 import TermsOfService from './pages/legal/TermsOfService';
@@ -113,6 +113,9 @@ function AppContent() {
             }
           />
 
+          {/* Test Sentry - Page de test pour monitorer les erreurs */}
+          <Route path="/test-sentry" element={<TestSentry />} />
+
           <Route
             path="/missions/create"
             element={
@@ -148,7 +151,7 @@ function AppContent() {
             path="/missions/:missionId/realtime"
             element={
               <ProtectedRoute>
-                <RealtimeTracking />
+                <MissionTracking />
               </ProtectedRoute>
             }
           />

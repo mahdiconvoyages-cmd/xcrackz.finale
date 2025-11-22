@@ -163,7 +163,7 @@ export async function getCompleteInspectionReport(
       try {
         const { data: photosV2, error: v2Error } = await supabase
           .from('inspection_photos_v2')
-          .select('id, full_url, thumbnail_url, photo_type, taken_at, note')
+          .select('id, full_url, thumbnail_url, photo_type, taken_at')
           .eq('inspection_id', inspection.id)
           .order('created_at', { ascending: true });
         
