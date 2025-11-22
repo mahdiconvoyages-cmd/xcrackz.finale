@@ -452,7 +452,7 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
     final crossAxisCount = screenWidth > 600 ? 3 : 2;
 
     return Scaffold(
-      backgroundColor: PremiumTheme.darkBg,
+      backgroundColor: PremiumTheme.lightBg,
       body: SafeArea(
         child: Column(
           children: [

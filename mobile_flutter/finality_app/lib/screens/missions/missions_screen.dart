@@ -101,7 +101,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PremiumTheme.darkBg,
+      backgroundColor: PremiumTheme.lightBg,
       drawer: const AppDrawer(),
       appBar: AppBar(
         flexibleSpace: Container(

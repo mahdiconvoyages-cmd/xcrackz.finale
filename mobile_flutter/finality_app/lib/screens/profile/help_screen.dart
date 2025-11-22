@@ -9,7 +9,7 @@ class HelpScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PremiumTheme.darkBg,
+      backgroundColor: PremiumTheme.lightBg,
       appBar: AppBar(
         title: Text(
           'Centre d\'aide',

@@ -58,7 +58,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final user = supabase.auth.currentUser;
 
     return Scaffold(
-      backgroundColor: PremiumTheme.darkBg,
+      backgroundColor: PremiumTheme.lightBg,
       appBar: AppBar(
         flexibleSpace: Container(
           decoration: BoxDecoration(

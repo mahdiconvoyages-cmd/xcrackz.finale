@@ -305,7 +305,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PremiumTheme.darkBg,
+      backgroundColor: PremiumTheme.lightBg,
       body: Column(
         children: [
           // Header compact avec progress
@@ -1564,7 +1564,7 @@ class SignaturePadDialog extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Dialog(
-      backgroundColor: const Color(0xFF1e293b),
+      backgroundColor: Colors.white,
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(

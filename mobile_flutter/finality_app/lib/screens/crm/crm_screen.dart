@@ -175,7 +175,7 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PremiumTheme.darkBg,
+      backgroundColor: PremiumTheme.lightBg,
       body: CustomScrollView(
         slivers: [
           // Animated AppBar

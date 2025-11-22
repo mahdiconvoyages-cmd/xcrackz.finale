@@ -329,12 +329,12 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Colors.white,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
+          icon: Icon(Icons.close, color: PremiumTheme.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(

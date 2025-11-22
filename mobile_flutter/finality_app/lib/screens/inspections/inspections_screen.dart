@@ -46,7 +46,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0f172a),
+      backgroundColor: PremiumTheme.lightBg,
       drawer: const AppDrawer(),
       appBar: AppBar(
         flexibleSpace: Container(

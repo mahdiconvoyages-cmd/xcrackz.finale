@@ -35,7 +35,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0f172a),
+      backgroundColor: PremiumTheme.lightBg,
       appBar: AppBar(
         flexibleSpace: Container(
           decoration: const BoxDecoration(
@@ -76,9 +76,9 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
             FloatingActionButton(
               heroTag: 'filter',
               mini: true,
-              backgroundColor: const Color(0xFF1e293b),
+              backgroundColor: Colors.white,
               onPressed: _showFilterModal,
-              child: const Icon(Icons.filter, color: Color(0xFF14b8a6)),
+              child: Icon(Icons.filter, color: PremiumTheme.primaryBlue),
             ),
             const SizedBox(height: 12),
           ],
@@ -370,7 +370,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
   void _showFilterModal() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: const Color(0xFF1e293b),
+      backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
         borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
       ),

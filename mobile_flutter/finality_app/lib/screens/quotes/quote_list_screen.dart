@@ -78,7 +78,7 @@ class _QuoteListScreenState extends State<QuoteListScreen>
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: PremiumTheme.darkBg,
+      backgroundColor: PremiumTheme.lightBg,
       body: Column(
         children: [
           // Stats Cards
