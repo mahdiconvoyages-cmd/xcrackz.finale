@@ -152,10 +152,12 @@ class _DashboardScreenState extends State<DashboardScreen>
                     expandedHeight: 100,
                     floating: false,
                     pinned: true,
+                    elevation: 0,
+                    shadowColor: Colors.transparent,
                     flexibleSpace: FlexibleSpaceBar(
                       background: Container(
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
@@ -164,6 +166,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                               Color(0xFFEFF6FF),
                             ],
                           ),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withOpacity(0.05),
+                              blurRadius: 10,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
                         ),
                         child: SafeArea(
                           child: Padding(
@@ -183,6 +192,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                                             style: PremiumTheme.bodySmall.copyWith(
                                               color: PremiumTheme.textSecondary,
                                               fontSize: 12,
+                                              fontWeight: FontWeight.w500,
+                                              shadows: [
+                                                Shadow(
+                                                  color: Colors.black.withOpacity(0.1),
+                                                  offset: const Offset(0, 1),
+                                                  blurRadius: 2,
+                                                ),
+                                              ],
                                             ),
                                           ),
                                           const SizedBox(height: 2),
@@ -193,6 +210,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                                             style: PremiumTheme.heading3.copyWith(
                                               color: PremiumTheme.textPrimary,
                                               fontSize: 18,
+                                              fontWeight: FontWeight.bold,
+                                              shadows: [
+                                                Shadow(
+                                                  color: Colors.black.withOpacity(0.15),
+                                                  offset: const Offset(0, 1),
+                                                  blurRadius: 3,
+                                                ),
+                                              ],
                                             ),
                                             overflow: TextOverflow.ellipsis,
                                           ),
@@ -336,18 +361,26 @@ class _DashboardScreenState extends State<DashboardScreen>
       child: Container(
         decoration: BoxDecoration(
           gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
             colors: isExpired 
-                ? [PremiumTheme.accentRed.withOpacity(0.8), PremiumTheme.accentRed]
+                ? [PremiumTheme.accentRed.withOpacity(0.9), PremiumTheme.accentRed]
                 : isExpiringSoon
-                    ? [PremiumTheme.accentAmber.withOpacity(0.8), PremiumTheme.accentAmber]
+                    ? [PremiumTheme.accentAmber.withOpacity(0.9), PremiumTheme.accentAmber]
                     : [PremiumTheme.primaryTeal, PremiumTheme.primaryBlue],
           ),
           borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
           boxShadow: [
             BoxShadow(
-              color: (isExpired ? PremiumTheme.accentRed : PremiumTheme.primaryTeal).withOpacity(0.3),
-              blurRadius: 20,
-              offset: const Offset(0, 8),
+              color: (isExpired ? PremiumTheme.accentRed : PremiumTheme.primaryTeal).withOpacity(0.4),
+              blurRadius: 24,
+              offset: const Offset(0, 10),
+              spreadRadius: 2,
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.08),
+              blurRadius: 8,
+              offset: const Offset(0, 4),
             ),
           ],
         ),
@@ -364,7 +397,16 @@ class _DashboardScreenState extends State<DashboardScreen>
                     Text(
                       'Crédits disponibles',
                       style: PremiumTheme.bodySmall.copyWith(
-                        color: Colors.white.withOpacity(0.95),
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                        letterSpacing: 0.5,
+                        shadows: [
+                          Shadow(
+                            color: Colors.black.withOpacity(0.3),
+                            offset: const Offset(0, 2),
+                            blurRadius: 4,
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 8),
@@ -375,13 +417,28 @@ class _DashboardScreenState extends State<DashboardScreen>
                           style: PremiumTheme.heading1.copyWith(
                             fontSize: 48,
                             color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withOpacity(0.4),
+                                offset: const Offset(0, 3),
+                                blurRadius: 8,
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(width: 8),
                         Icon(
                           Icons.account_balance_wallet,
-                          color: Colors.white.withOpacity(0.9),
+                          color: Colors.white,
                           size: 32,
+                          shadows: [
+                            Shadow(
+                              color: Colors.black.withOpacity(0.3),
+                              offset: const Offset(0, 2),
+                              blurRadius: 4,
+                            ),
+                          ],
                         ),
                       ],
                     ),
@@ -390,14 +447,29 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.25),
+                    color: Colors.white.withOpacity(0.3),
                     borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.2),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ],
                   ),
                   child: Text(
                     _plan,
                     style: PremiumTheme.body.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
+                      letterSpacing: 0.8,
+                      shadows: [
+                        Shadow(
+                          color: Colors.black.withOpacity(0.3),
+                          offset: const Offset(0, 1),
+                          blurRadius: 2,
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -430,7 +502,15 @@ class _DashboardScreenState extends State<DashboardScreen>
                                   ? 'Expire bientôt'
                                   : 'Abonnement actif',
                           style: PremiumTheme.bodySmall.copyWith(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white,
+                            fontWeight: FontWeight.w600,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withOpacity(0.3),
+                                offset: const Offset(0, 1),
+                                blurRadius: 2,
+                              ),
+                            ],
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -440,7 +520,14 @@ class _DashboardScreenState extends State<DashboardScreen>
                               : '$_daysRemaining jours restants',
                           style: PremiumTheme.body.copyWith(
                             color: Colors.white,
-                            fontWeight: FontWeight.w600,
+                            fontWeight: FontWeight.bold,
+                            shadows: [
+                              Shadow(
+                                color: Colors.black.withOpacity(0.4),
+                                offset: const Offset(0, 2),
+                                blurRadius: 4,
+                              ),
+                            ],
                           ),
                         ),
                         if (_subscriptionEndDate != null) ...[
@@ -488,7 +575,24 @@ class _DashboardScreenState extends State<DashboardScreen>
   }) {
     return FadeInAnimation(
       delay: const Duration(milliseconds: 100),
-      child: PremiumCard(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
+          boxShadow: [
+            BoxShadow(
+              color: color.withOpacity(0.2),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+              spreadRadius: 1,
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         child: Padding(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -496,8 +600,15 @@ class _DashboardScreenState extends State<DashboardScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.2),
+                  color: color.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: color.withOpacity(0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Icon(icon, color: color, size: 28),
               ),
@@ -506,13 +617,23 @@ class _DashboardScreenState extends State<DashboardScreen>
                 value,
                 style: PremiumTheme.heading2.copyWith(
                   fontSize: 28,
+                  fontWeight: FontWeight.bold,
+                  color: PremiumTheme.textPrimary,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.1),
+                      offset: const Offset(0, 2),
+                      blurRadius: 4,
+                    ),
+                  ],
                 ),
               ),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: PremiumTheme.bodySmall.copyWith(
-                  color: Colors.white60,
+                  color: PremiumTheme.textSecondary,
+                  fontWeight: FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -526,7 +647,24 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildProgressChart() {
     return FadeInAnimation(
       delay: const Duration(milliseconds: 200),
-      child: PremiumCard(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
+          boxShadow: [
+            BoxShadow(
+              color: PremiumTheme.primaryBlue.withOpacity(0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+              spreadRadius: 1,
+            ),
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
+        ),
         child: Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
@@ -534,43 +672,66 @@ class _DashboardScreenState extends State<DashboardScreen>
             children: [
               Text(
                 'Progression des missions',
-                style: PremiumTheme.heading4,
+                style: PremiumTheme.heading4.copyWith(
+                  color: PremiumTheme.textPrimary,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.08),
+                      offset: const Offset(0, 1),
+                      blurRadius: 2,
+                    ),
+                  ],
+                ),
               ),
               const SizedBox(height: 20),
-              Row(
-                children: [
-                  Expanded(
-                    flex: _completedMissions,
-                    child: Container(
-                      height: 8,
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          colors: [PremiumTheme.accentGreen, PremiumTheme.primaryTeal],
-                        ),
-                        borderRadius: BorderRadius.horizontal(left: Radius.circular(4)),
-                      ),
+              Container(
+                decoration: BoxDecoration(
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
                     ),
-                  ),
-                  if (_activeMissions > 0)
-                    Expanded(
-                      flex: _activeMissions,
-                      child: Container(
-                        height: 8,
-                        color: PremiumTheme.accentAmber,
-                      ),
-                    ),
-                  if (_totalMissions - _completedMissions - _activeMissions > 0)
-                    Expanded(
-                      flex: _totalMissions - _completedMissions - _activeMissions,
-                      child: Container(
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
-                          borderRadius: BorderRadius.horizontal(right: Radius.circular(4)),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    if (_completedMissions > 0)
+                      Expanded(
+                        flex: _completedMissions,
+                        child: Container(
+                          height: 10,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              colors: [PremiumTheme.accentGreen, PremiumTheme.primaryTeal],
+                            ),
+                            borderRadius: BorderRadius.horizontal(left: Radius.circular(5)),
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                    if (_activeMissions > 0)
+                      Expanded(
+                        flex: _activeMissions,
+                        child: Container(
+                          height: 10,
+                          color: PremiumTheme.accentAmber,
+                        ),
+                      ),
+                    if (_totalMissions - _completedMissions - _activeMissions > 0)
+                      Expanded(
+                        flex: _totalMissions - _completedMissions - _activeMissions,
+                        child: Container(
+                          height: 10,
+                          decoration: BoxDecoration(
+                            color: PremiumTheme.textSecondary.withOpacity(0.2),
+                            borderRadius: BorderRadius.horizontal(right: Radius.circular(5)),
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ),
               const SizedBox(height: 16),
               Row(
@@ -592,18 +753,26 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Row(
       children: [
         Container(
-          width: 12,
-          height: 12,
+          width: 14,
+          height: 14,
           decoration: BoxDecoration(
             color: color,
             shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: color.withOpacity(0.4),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
         ),
         const SizedBox(width: 8),
         Text(
           '$label ($value)',
           style: PremiumTheme.bodySmall.copyWith(
-            color: Colors.white70,
+            color: PremiumTheme.textSecondary,
+            fontWeight: FontWeight.w600,
           ),
         ),
       ],
@@ -662,25 +831,49 @@ class _DashboardScreenState extends State<DashboardScreen>
         child: Container(
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            gradient: LinearGradient(colors: gradient),
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: gradient,
+            ),
             borderRadius: BorderRadius.circular(PremiumTheme.radiusMD),
             boxShadow: [
               BoxShadow(
-                color: gradient[0].withOpacity(0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 6),
+                color: gradient[0].withOpacity(0.4),
+                blurRadius: 16,
+                offset: const Offset(0, 8),
+                spreadRadius: 1,
+              ),
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 4,
+                offset: const Offset(0, 2),
               ),
             ],
           ),
           child: Column(
             children: [
-              Icon(icon, color: Colors.white, size: 32),
-              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: Colors.white, size: 32),
+              ),
+              const SizedBox(height: 12),
               Text(
                 label,
                 style: PremiumTheme.bodySmall.copyWith(
                   color: Colors.white,
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.bold,
+                  shadows: [
+                    Shadow(
+                      color: Colors.black.withOpacity(0.3),
+                      offset: const Offset(0, 2),
+                      blurRadius: 4,
+                    ),
+                  ],
                 ),
                 textAlign: TextAlign.center,
               ),
