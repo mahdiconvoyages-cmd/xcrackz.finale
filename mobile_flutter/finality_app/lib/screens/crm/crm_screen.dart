@@ -37,15 +37,15 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
       isScrollControlled: true,
       builder: (context) => Container(
         decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              PremiumTheme.cardBg,
-              PremiumTheme.cardBgLight,
-            ],
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-          ),
+          color: Colors.white,
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.2),
+              blurRadius: 20,
+              offset: const Offset(0, -5),
+            ),
+          ],
         ),
         padding: const EdgeInsets.all(PremiumTheme.spaceLG),
         child: Column(
@@ -64,7 +64,18 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
             
             Text(
               'Créer un document',
-              style: PremiumTheme.heading3,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: const Color(0xFF1A1A1A),
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withOpacity(0.1),
+                    offset: const Offset(0, 1),
+                    blurRadius: 2,
+                  ),
+                ],
+              ),
             ),
             const SizedBox(height: PremiumTheme.spaceLG),
             

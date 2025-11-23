@@ -142,11 +142,34 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
           Expanded(
             child: FadeInAnimation(
               delay: Duration.zero,
-              child: _buildStatCard(
-                title: 'Total',
-                value: '${_stats['totalRevenue']?.toStringAsFixed(2) ?? '0.00'} €',
-                icon: Icons.euro_rounded,
-                gradient: [PremiumTheme.accentGreen, PremiumTheme.primaryTeal],
+              child: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [PremiumTheme.accentGreen, PremiumTheme.primaryTeal],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: PremiumTheme.accentGreen.withOpacity(0.4),
+                      blurRadius: 16,
+                      offset: const Offset(0, 8),
+                      spreadRadius: 1,
+                    ),
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 4,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: _buildStatCard(
+                  title: 'Total',
+                  value: '${_stats['totalRevenue']?.toStringAsFixed(2) ?? '0.00'} €',
+                  icon: Icons.euro_rounded,
+                  gradient: [PremiumTheme.accentGreen, PremiumTheme.primaryTeal],
+                ),
               ),
             ),
           ),

@@ -63,6 +63,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
         flexibleSpace: Container(
           decoration: BoxDecoration(
             gradient: PremiumTheme.tealGradient,
+            boxShadow: [
+              BoxShadow(
+                color: PremiumTheme.primaryTeal.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
         ),
         title: Row(
@@ -74,6 +81,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(8),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withOpacity(0.1),
+                    blurRadius: 4,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: SvgPicture.asset(
                 'assets/images/logo.svg',
@@ -81,7 +95,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            const Text('Profil'),
+            Text(
+              'Profil',
+              style: TextStyle(
+                fontWeight: FontWeight.bold,
+                shadows: [
+                  Shadow(
+                    color: Colors.black.withOpacity(0.3),
+                    offset: const Offset(0, 2),
+                    blurRadius: 4,
+                  ),
+                ],
+              ),
+            ),
           ],
         ),
       ),
