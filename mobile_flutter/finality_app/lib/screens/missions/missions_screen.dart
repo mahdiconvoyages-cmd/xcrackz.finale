@@ -115,14 +115,28 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
                 PremiumTheme.primaryIndigo,
               ],
             ),
+            boxShadow: [
+              BoxShadow(
+                color: PremiumTheme.primaryTeal.withOpacity(0.3),
+                blurRadius: 8,
+                offset: const Offset(0, 2),
+              ),
+            ],
           ),
         ),
-        title: const Text(
+        title: Text(
           'Mes Convoyages',
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 22,
             letterSpacing: 0.5,
+            shadows: [
+              Shadow(
+                color: Colors.black.withOpacity(0.3),
+                offset: const Offset(0, 2),
+                blurRadius: 4,
+              ),
+            ],
           ),
         ),
         centerTitle: false,
@@ -195,6 +209,18 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
                 color: PremiumTheme.primaryTeal.withOpacity(0.3),
                 width: 1,
               ),
+              boxShadow: [
+                BoxShadow(
+                  color: PremiumTheme.primaryTeal.withOpacity(0.15),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: Colors.black.withOpacity(0.05),
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
             ),
             padding: const EdgeInsets.all(12),
               child: Row(

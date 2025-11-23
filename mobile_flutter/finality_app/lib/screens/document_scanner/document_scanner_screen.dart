@@ -6,6 +6,7 @@ import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:image/image.dart' as img;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
+import 'package:share_plus/share_plus.dart';
 
 /// Professional document scanner matching web design
 /// Uses Dynamsoft-like interface with teal accents (#14B8A6)
@@ -31,6 +32,7 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
   bool _isEnhancing = false;
   bool _isExtractingText = false;
   bool _hasStartedScan = false;
+  String _documentName = 'Document';
 
   @override
   void initState() {
@@ -342,6 +344,161 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
     _startScanning();
   }
 
+  /// Share the scanned document
+  Future<void> _shareDocument() async {
+    if (_scannedImagePaths.isEmpty) return;
+
+    try {
+      final file = File(_scannedImagePaths[_currentImageIndex]);
+      await Share.shareXFiles(
+        [XFile(file.path)],
+        subject: _documentName,
+        text: 'Document scanné: $_documentName',
+      );
+    } catch (e) {
+      debugPrint('Share error: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du partage: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+  }
+
+  /// Rename the document
+  Future<void> _renameDocument() async {
+    final controller = TextEditingController(text: _documentName);
+    
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: const Color(0xFF374151),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF14B8A6).withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.drive_file_rename_outline,
+                      color: Color(0xFF14B8A6),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Renommer le document',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Nom du document',
+                  labelStyle: const TextStyle(color: Colors.white70),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFF14B8A6), width: 2),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFF1F2937),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white70,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    ),
+                    child: const Text(
+                      'ANNULER',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () {
+                      final name = controller.text.trim();
+                      if (name.isNotEmpty) {
+                        Navigator.of(context).pop(name);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF14B8A6),
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                    ),
+                    child: const Text(
+                      'RENOMMER',
+                      style: TextStyle(
+                        fontWeight: FontWeight.w600,
+                        fontSize: 14,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (newName != null && newName.isNotEmpty) {
+      setState(() {
+        _documentName = newName;
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Document renommé: $newName'),
+            backgroundColor: const Color(0xFF14B8A6),
+            behavior: SnackBarBehavior.floating,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -556,6 +713,50 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
                                 ),
                               ),
                             ),
+                          ),
+                          const SizedBox(height: 16),
+
+                          // Share and Rename buttons
+                          Row(
+                            children: [
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: _shareDocument,
+                                  icon: const Icon(Icons.share, size: 18),
+                                  label: const Text(
+                                    'Partager',
+                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF14B8A6),
+                                    side: const BorderSide(color: Color(0xFF14B8A6), width: 1.5),
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: OutlinedButton.icon(
+                                  onPressed: _renameDocument,
+                                  icon: const Icon(Icons.drive_file_rename_outline, size: 18),
+                                  label: const Text(
+                                    'Renommer',
+                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
+                                  ),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: const Color(0xFF8B5CF6),
+                                    side: const BorderSide(color: Color(0xFF8B5CF6), width: 1.5),
+                                    padding: const EdgeInsets.symmetric(vertical: 14),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 16),
 
