@@ -15,13 +15,13 @@ class PremiumUIHelper {
       borderRadius: BorderRadius.circular(borderRadius ?? 16),
       boxShadow: [
         BoxShadow(
-          color: (shadowColor ?? Colors.blue).withOpacity(0.15),
+          color: (shadowColor ?? Colors.blue).withValues(alpha: 0.15),
           blurRadius: 12,
           offset: const Offset(0, 6),
           spreadRadius: 1,
         ),
         BoxShadow(
-          color: Colors.black.withOpacity(0.05),
+          color: Colors.black.withValues(alpha: 0.05),
           blurRadius: 4,
           offset: const Offset(0, 2),
         ),
@@ -92,13 +92,13 @@ class PremiumUIHelper {
       borderRadius: BorderRadius.circular(borderRadius),
       boxShadow: [
         BoxShadow(
-          color: gradientColors.first.withOpacity(0.4),
+          color: gradientColors.first.withValues(alpha: 0.4),
           blurRadius: 16,
           offset: const Offset(0, 8),
           spreadRadius: 1,
         ),
         BoxShadow(
-          color: Colors.black.withOpacity(0.1),
+          color: Colors.black.withValues(alpha: 0.1),
           blurRadius: 4,
           offset: const Offset(0, 2),
         ),
@@ -112,11 +112,11 @@ class PremiumUIHelper {
     double borderRadius = 12,
   }) {
     return BoxDecoration(
-      color: color.withOpacity(0.15),
+      color: color.withValues(alpha: 0.15),
       borderRadius: BorderRadius.circular(borderRadius),
       boxShadow: [
         BoxShadow(
-          color: color.withOpacity(0.3),
+          color: color.withValues(alpha: 0.3),
           blurRadius: 6,
           offset: const Offset(0, 3),
         ),

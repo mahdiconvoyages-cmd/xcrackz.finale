@@ -73,13 +73,13 @@ class _AboutScreenState extends State<AboutScreen> {
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
                         colors: [
-                          PremiumTheme.primaryTeal.withOpacity(0.2),
-                          PremiumTheme.primaryBlue.withOpacity(0.2),
+                          PremiumTheme.primaryTeal.withValues(alpha: 0.2),
+                          PremiumTheme.primaryBlue.withValues(alpha: 0.2),
                         ],
                       ),
                       borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
                       border: Border.all(
-                        color: Colors.white.withOpacity(0.1),
+                        color: Colors.white.withValues(alpha: 0.1),
                       ),
                     ),
                     child: Column(
@@ -92,7 +92,7 @@ class _AboutScreenState extends State<AboutScreen> {
                             shape: BoxShape.circle,
                             boxShadow: [
                               BoxShadow(
-                                color: PremiumTheme.primaryTeal.withOpacity(0.5),
+                                color: PremiumTheme.primaryTeal.withValues(alpha: 0.5),
                                 blurRadius: 30,
                                 spreadRadius: 10,
                               ),
@@ -125,10 +125,10 @@ class _AboutScreenState extends State<AboutScreen> {
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.1),
+                            color: Colors.white.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: PremiumTheme.primaryTeal.withOpacity(0.5),
+                              color: PremiumTheme.primaryTeal.withValues(alpha: 0.5),
                             ),
                           ),
                           child: Text(
@@ -307,7 +307,7 @@ class _AboutScreenState extends State<AboutScreen> {
                           onTap: () => _launchUrl('https://www.finality-convoyage.fr/terms'),
                         ),
                         Divider(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withValues(alpha: 0.1),
                           height: 1,
                         ),
                         ListTile(
@@ -340,7 +340,7 @@ class _AboutScreenState extends State<AboutScreen> {
                           onTap: () => _launchUrl('https://www.finality-convoyage.fr/privacy'),
                         ),
                         Divider(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withValues(alpha: 0.1),
                           height: 1,
                         ),
                         ListTile(
@@ -469,7 +469,7 @@ class _AboutScreenState extends State<AboutScreen> {
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
+              color: color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(8),
             ),
             child: Icon(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/error_helper.dart';
 import '../../models/mission.dart';
 import '../../services/mission_service.dart';
 import '../../services/gps_tracking_service.dart';
@@ -42,7 +43,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
       setState(() => _isLoading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
+        SnackBar(content: Text(ErrorHelper.cleanError(e))),
       );
     }
   }
@@ -194,7 +195,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur: $e'),
+          content: Text(ErrorHelper.cleanError(e)),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
         ),
@@ -235,7 +236,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e')),
+          SnackBar(content: Text(ErrorHelper.cleanError(e))),
         );
       }
     }

@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import '../../utils/error_helper.dart';
 import '../../models/invoice.dart';
+import '../../models/client.dart';
 import '../../services/invoice_service.dart';
 import '../../services/insee_service.dart';
 import '../../widgets/siret_autocomplete_field.dart';
+import '../../widgets/client_selector.dart';
 
 class InvoiceFormScreen extends StatefulWidget {
   final Invoice? invoice;
@@ -27,6 +30,8 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   final _paymentTermsController = TextEditingController();
   
   CompanyInfo? _selectedCompany;
+  Client? _selectedClient;
+  bool _useExistingClient = true; // Nouveau: toggle entre client existant et saisie manuelle
   DateTime _invoiceDate = DateTime.now();
   DateTime? _dueDate;
   double _taxRate = 20.0;
@@ -181,7 +186,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
+        SnackBar(content: Text(ErrorHelper.cleanError(e))),
       );
     } finally {
       if (mounted) {
@@ -243,85 +248,156 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(
-              'Informations client',
-              style: Theme.of(context).textTheme.titleLarge,
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Informations client',
+                  style: Theme.of(context).textTheme.titleLarge,
+                ),
+                // Toggle entre client existant et saisie manuelle
+                SegmentedButton<bool>(
+                  segments: const [
+                    ButtonSegment(
+                      value: true,
+                      icon: Icon(Icons.person_search, size: 16),
+                      label: Text('Existant'),
+                    ),
+                    ButtonSegment(
+                      value: false,
+                      icon: Icon(Icons.edit, size: 16),
+                      label: Text('Manuel'),
+                    ),
+                  ],
+                  selected: {_useExistingClient},
+                  onSelectionChanged: (value) {
+                    setState(() => _useExistingClient = value.first);
+                  },
+                  style: ButtonStyle(
+                    visualDensity: VisualDensity.compact,
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                ),
+              ],
             ),
             const SizedBox(height: 16),
             
-            // Champ SIRET avec autocomplétion INSEE
-            SiretAutocompleteField(
-              controller: _clientSiretController,
-              onCompanySelected: (company) {
-                setState(() {
-                  _selectedCompany = company;
-                  if (company != null) {
-                    // Auto-remplir les champs avec les données INSEE
-                    _clientNameController.text = company.companyName ?? '';
-                    _clientAddressController.text = company.fullAddress;
-                    _clientVatController.text = company.vatNumber ?? '';
+            if (_useExistingClient) ...[
+              // Sélecteur de client existant
+              ClientSelector(
+                selectedClient: _selectedClient,
+                onClientSelected: (client) {
+                  setState(() {
+                    _selectedClient = client;
+                    // Auto-remplir les champs avec les données du client
+                    _clientNameController.text = client.displayName;
+                    _clientEmailController.text = client.email;
+                    _clientPhoneController.text = client.phone ?? '';
+                    _clientAddressController.text = client.fullAddress;
+                    _clientSiretController.text = client.siret ?? '';
+                    _clientVatController.text = client.tvaNumber ?? '';
+                  });
+                },
+              ),
+              if (_selectedClient != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.green.shade50,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade200),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle, color: Colors.green.shade700, size: 20),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Client "${_selectedClient!.displayName}" sélectionné',
+                          style: TextStyle(color: Colors.green.shade700),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ] else ...[
+              // Saisie manuelle
+              // Champ SIRET avec autocomplétion INSEE
+              SiretAutocompleteField(
+                controller: _clientSiretController,
+                onCompanySelected: (company) {
+                  setState(() {
+                    _selectedCompany = company;
+                    if (company != null) {
+                      // Auto-remplir les champs avec les données INSEE
+                      _clientNameController.text = company.companyName ?? '';
+                      _clientAddressController.text = company.fullAddress;
+                      _clientVatController.text = company.vatNumber ?? '';
+                    }
+                  });
+                },
+                label: 'SIRET (optionnel)',
+                hint: 'Recherche automatique via API INSEE',
+                required: false,
+              ),
+              
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _clientNameController,
+                decoration: const InputDecoration(
+                  labelText: 'Nom du client / Entreprise *',
+                  prefixIcon: Icon(Icons.person),
+                  helperText: 'Auto-rempli si SIRET saisi',
+                ),
+                validator: (value) {
+                  if (!_useExistingClient && (value == null || value.isEmpty)) {
+                    return 'Veuillez entrer le nom du client';
                   }
-                });
-              },
-              label: 'SIRET (optionnel)',
-              hint: 'Recherche automatique via API INSEE',
-              required: false,
-            ),
-            
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _clientNameController,
-              decoration: const InputDecoration(
-                labelText: 'Nom du client / Entreprise *',
-                prefixIcon: Icon(Icons.person),
-                helperText: 'Auto-rempli si SIRET saisi',
+                  return null;
+                },
               ),
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Veuillez entrer le nom du client';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _clientEmailController,
-              decoration: const InputDecoration(
-                labelText: 'Email',
-                prefixIcon: Icon(Icons.email),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _clientEmailController,
+                decoration: const InputDecoration(
+                  labelText: 'Email',
+                  prefixIcon: Icon(Icons.email),
+                ),
+                keyboardType: TextInputType.emailAddress,
               ),
-              keyboardType: TextInputType.emailAddress,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _clientPhoneController,
-              decoration: const InputDecoration(
-                labelText: 'Téléphone',
-                prefixIcon: Icon(Icons.phone),
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _clientPhoneController,
+                decoration: const InputDecoration(
+                  labelText: 'Téléphone',
+                  prefixIcon: Icon(Icons.phone),
+                ),
+                keyboardType: TextInputType.phone,
               ),
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _clientAddressController,
-              decoration: const InputDecoration(
-                labelText: 'Adresse',
-                prefixIcon: Icon(Icons.location_on),
-                helperText: 'Auto-rempli si SIRET saisi',
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _clientAddressController,
+                decoration: const InputDecoration(
+                  labelText: 'Adresse',
+                  prefixIcon: Icon(Icons.location_on),
+                  helperText: 'Auto-rempli si SIRET saisi',
+                ),
+                maxLines: 3,
               ),
-              maxLines: 3,
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: _clientVatController,
-              decoration: const InputDecoration(
-                labelText: 'Numéro de TVA intracommunautaire',
-                prefixIcon: Icon(Icons.receipt_long),
-                helperText: 'Auto-calculé si SIRET saisi',
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _clientVatController,
+                decoration: const InputDecoration(
+                  labelText: 'Numéro de TVA intracommunautaire',
+                  prefixIcon: Icon(Icons.receipt_long),
+                  helperText: 'Auto-calculé si SIRET saisi',
+                ),
+                readOnly: true,
+                enabled: false,
               ),
-              readOnly: true,
-              enabled: false,
-            ),
+            ],
           ],
         ),
       ),

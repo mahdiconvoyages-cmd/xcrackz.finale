@@ -6,7 +6,6 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
 import '../../widgets/signature_pad_widget.dart';
-import '../../widgets/inspection_report_link_dialog.dart';
 import '../document_scanner/document_scanner_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
@@ -237,14 +236,14 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
         gradient: LinearGradient(
           colors: [
             PremiumTheme.cardBg,
-            PremiumTheme.cardBg.withOpacity(0.8),
+            PremiumTheme.cardBg.withValues(alpha: 0.8),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -611,7 +610,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
         });
       }
 
-      // 5. Mettre à jour le statut de la mission
+      // 5. Mettre à jour le statut de la mission à 'completed' UNIQUEMENT après validation de l'inspection d'arrivée
       await supabase.from('missions').update({
         'status': 'completed',
         'updated_at': DateTime.now().toIso8601String(),
@@ -957,7 +956,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                                 child: Icon(
                                   Icons.camera_alt,
                                   size: 32,
-                                  color: Colors.white.withOpacity(0.7),
+                                  color: Colors.white.withValues(alpha: 0.7),
                                 ),
                               ),
                             ],
@@ -1476,11 +1475,15 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
             ),
             const SizedBox(height: 16),
             ListView.builder(
+              key: const ValueKey('scanned-documents-list'),
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
+              addAutomaticKeepAlives: true,
               itemCount: _scannedDocuments.length,
               itemBuilder: (context, index) {
+                final doc = _scannedDocuments[index];
                 return Container(
+                  key: ValueKey('doc-$index'),
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(

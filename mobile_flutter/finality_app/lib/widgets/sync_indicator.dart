@@ -103,9 +103,9 @@ class _SyncIndicatorState extends State<SyncIndicator> with SingleTickerProvider
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.1),
+        color: color.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withOpacity(0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -136,7 +136,7 @@ class _SyncIndicatorState extends State<SyncIndicator> with SingleTickerProvider
               height: 4,
               child: LinearProgressIndicator(
                 value: widget.progress,
-                backgroundColor: color.withOpacity(0.2),
+                backgroundColor: color.withValues(alpha: 0.2),
                 valueColor: AlwaysStoppedAnimation(color),
               ),
             ),

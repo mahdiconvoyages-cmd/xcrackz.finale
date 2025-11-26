@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-import '../services/gps_tracking_service.dart';
+import '../../services/gps_tracking_service.dart';
 import 'tracking_map_screen.dart';
 
 class TrackingListScreen extends StatefulWidget {
@@ -40,7 +40,7 @@ class _TrackingListScreenState extends State<TrackingListScreen> {
 
       // Appliquer filtres
       if (_filter == 'active') {
-        query = query.in_('status', ['active', 'in_progress']);
+        query = query.inFilter('status', ['active', 'in_progress']);
       } else if (_filter == 'completed') {
         query = query.eq('status', 'completed');
       }

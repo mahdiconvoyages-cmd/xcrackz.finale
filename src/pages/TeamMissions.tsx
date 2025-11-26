@@ -4,12 +4,11 @@ import {
   Users, MapPin, Plus, X, Search, Truck, Package, 
   TrendingUp, Calendar, Eye, Edit, Trash2, Play, CheckCircle, 
   FileText, Clock, DollarSign, Sparkles,
-  Filter, Grid, List, XCircle, Archive, ArchiveRestore, LogIn, UserPlus
+  Filter, Grid, List, Archive, LogIn, UserPlus
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
-import InspectionViewer from '../components/InspectionViewer';
 import { generateMissionPDF } from '../services/missionPdfGenerator';
 import JoinMissionModal from '../components/JoinMissionModal';
 import ShareCodeModal from '../components/ShareCodeModal';
@@ -41,32 +40,10 @@ interface Mission {
   archived?: boolean;
   share_code?: string;
   assigned_user_id?: string;
+  vehicle_type?: 'VL' | 'VU' | 'PL';
 }
 
-interface Contact {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  company_name: string;
-  role: string;
-  has_calendar_access: boolean;
-  is_active: boolean;
-}
-
-interface Assignment {
-  id: string;
-  mission_id: string;
-  contact_id: string;
-  payment_ht: number;
-  commission: number;
-  status: string;
-  assigned_at: string;
-  mission?: Mission;
-  contact?: Contact;
-}
-
-type TabType = 'missions' | 'received';
+type TabType = 'pending' | 'in_progress' | 'completed';
 type ViewMode = 'grid' | 'list';
 
 export default function TeamMissions() {
@@ -74,81 +51,46 @@ export default function TeamMissions() {
   const navigate = useNavigate();
   
   // ===== STATES =====
-  const [activeTab, setActiveTab] = useState<TabType>('missions');
+  const [activeTab, setActiveTab] = useState<TabType>('pending');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [missions, setMissions] = useState<Mission[]>([]);
-  const [receivedMissions, setReceivedMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Modals
-  const [showInspectionViewer, setShowInspectionViewer] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [showShareCodeModal, setShowShareCodeModal] = useState(false);
   
   // Selected items
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
-  const [inspectionMissionId, setInspectionMissionId] = useState<string | null>(null);
-  const [editingMission, setEditingMission] = useState<Mission | null>(null);
-  const [selectedAssignment, setSelectedAssignment] = useState<Assignment | null>(null);
   
   // Filters & Search
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showArchived, setShowArchived] = useState(false);
 
-  // ===== EFFECTS =====
-  useEffect(() => {
-    loadData();
-  }, [user, showArchived]);
-
-  // Synchronisation temps réel
-  useMissionsSync(user?.id || '', () => {
-    console.log('[TeamMissions] Realtime update - reloading missions');
-    loadMissions();
-  });
-
-  useInspectionsSync(user?.id || '', () => {
-    console.log('[TeamMissions] Realtime update - reloading inspections');
-    loadMissions();
-  });
-
   // ===== DATA LOADING =====
-  const loadData = async () => {
-    if (!user) return;
-    setLoading(true);
-
-    try {
-      await loadMissions();
-    } catch (error) {
-      console.error('Error loading data:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const loadMissions = async () => {
     if (!user) return;
     
-    // Charger les missions créées par l'utilisateur
-    let createdQuery = supabase
+    // Charger TOUTES les missions (créées + reçues) en une seule requête
+    let allMissionsQuery = supabase
       .from('missions')
       .select('*')
-      .eq('user_id', user.id);
+      .or(`user_id.eq.${user.id},assigned_user_id.eq.${user.id}`);
 
     if (!showArchived) {
-      createdQuery = createdQuery.or('archived.is.null,archived.eq.false');
+      allMissionsQuery = allMissionsQuery.or('archived.is.null,archived.eq.false');
     }
 
-    createdQuery = createdQuery.order('created_at', { ascending: false });
+    allMissionsQuery = allMissionsQuery.order('created_at', { ascending: false });
 
-    const { data: createdData, error: createdError } = await createdQuery;
+    const { data: allMissionsData, error: allMissionsError } = await allMissionsQuery;
 
-    if (createdError) throw createdError;
+    if (allMissionsError) throw allMissionsError;
     
     // Charger toutes les inspections pour ces missions
-    const missionIds = (createdData || []).map(m => m.id);
+    const missionIds = (allMissionsData || []).map(m => m.id);
     let inspections = [];
     
     if (missionIds.length > 0) {
@@ -160,8 +102,9 @@ export default function TeamMissions() {
       inspections = inspectionData || [];
     }
     
-    // Calculer le statut basé sur les inspections (fallback si status DB manquant) et filtrer les missions terminées
-    const processedCreatedData = (createdData || []).map(mission => {
+    // Calculer le statut basé sur les inspections (fallback si status DB manquant)
+    // NE PAS FILTRER les completed - on les affiche dans l'onglet Terminées
+    const processedMissions = (allMissionsData || []).map(mission => {
       // Utiliser le statut de la DB en priorité (mis à jour par mobile)
       let finalStatus = mission.status;
       
@@ -180,87 +123,44 @@ export default function TeamMissions() {
         }
       }
       
-      // Filtrer les missions terminées (ne pas afficher)
-      if (finalStatus === 'completed') {
-        return null;
-      }
-      
       return {
         ...mission,
         status: finalStatus
       };
-    }).filter(Boolean); // Supprimer les missions terminées (null)
+    });
     
-    setMissions(processedCreatedData || []);
-
-    // Charger les missions assignées à l'utilisateur (via share_code)
-    let receivedQuery = supabase
-      .from('missions')
-      .select('*')
-      .eq('assigned_user_id' as any, user.id);
-
-    if (!showArchived) {
-      receivedQuery = receivedQuery.or('archived.is.null,archived.eq.false');
-    }
-
-    receivedQuery = receivedQuery.order('created_at', { ascending: false });
-
-    const { data: receivedData, error: receivedError} = await receivedQuery;
-
-    if (receivedError) {
-      console.error('Error loading received missions:', receivedError);
-      // Ne pas bloquer si la colonne n'existe pas encore
-      if (!receivedError.message?.includes('assigned_user_id')) {
-        throw receivedError;
-      }
-    }
-    
-    // Charger les inspections pour les missions reçues
-    const receivedMissionIds = (receivedData || []).map(m => m.id);
-    let receivedInspections = [];
-    
-    if (receivedMissionIds.length > 0) {
-      const { data: receivedInspectionData } = await supabase
-        .from('vehicle_inspections')
-        .select('mission_id, inspection_type')
-        .in('mission_id', receivedMissionIds);
-      
-      receivedInspections = receivedInspectionData || [];
-    }
-    
-    // Même traitement pour les missions reçues
-    const processedReceivedData = (receivedData || []).map(mission => {
-      // Utiliser le statut de la DB en priorité (mis à jour par mobile)
-      let finalStatus = mission.status;
-      
-      // Fallback: calculer le statut si absent ou si 'pending' dans DB
-      if (!finalStatus || finalStatus === 'pending') {
-        const missionInspections = receivedInspections.filter(i => i.mission_id === mission.id);
-        const hasDepart = missionInspections.some(i => i.inspection_type === 'departure');
-        const hasArrival = missionInspections.some(i => i.inspection_type === 'arrival');
-        
-        if (hasDepart && hasArrival) {
-          finalStatus = 'completed';
-        } else if (hasDepart) {
-          finalStatus = 'in_progress';
-        } else {
-          finalStatus = 'pending';
-        }
-      }
-      
-      // Filtrer les missions terminées
-      if (finalStatus === 'completed') {
-        return null;
-      }
-      
-      return {
-        ...mission,
-        status: finalStatus
-      };
-    }).filter(Boolean);
-    
-    setReceivedMissions(processedReceivedData || []);
+    setMissions(processedMissions || []);
   };
+
+  const loadData = async () => {
+    if (!user) return;
+    setLoading(true);
+
+    try {
+      await loadMissions();
+    } catch (error) {
+      console.error('Error loading data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ===== EFFECTS =====
+  useEffect(() => {
+    loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user?.id, showArchived]);
+
+  // Synchronisation temps réel
+  useMissionsSync(user?.id || '', () => {
+    console.log('[TeamMissions] Realtime update - reloading missions');
+    loadMissions();
+  });
+
+  useInspectionsSync(user?.id || '', () => {
+    console.log('[TeamMissions] Realtime update - reloading inspections');
+    loadMissions();
+  });
 
   // ===== ACTIONS =====
   const handleStartInspection = async (mission: Mission) => {
@@ -303,49 +203,70 @@ export default function TeamMissions() {
     }
   };
 
-  const handleArchiveMission = async (mission: Mission) => {
-    const isArchiving = !mission.archived;
-    
-    if (isArchiving && mission.status !== 'completed' && mission.status !== 'cancelled') {
-      alert('⚠️ Seules les missions terminées ou annulées peuvent être archivées.');
-      return;
-    }
-
-    if (!confirm(`Êtes-vous sûr de vouloir ${isArchiving ? 'archiver' : 'désarchiver'} cette mission ?`)) return;
-
+  const handleArchiveMission = async (missionId: string, archive: boolean) => {
     try {
       const { error } = await supabase
         .from('missions')
-        .update({ archived: isArchiving })
-        .eq('id', mission.id);
+        .update({ archived: archive })
+        .eq('id', missionId);
 
       if (error) throw error;
       await loadMissions();
-      alert(`✅ Mission ${isArchiving ? 'archivée' : 'désarchivée'}`);
+      alert(archive ? '✅ Mission archivée' : '✅ Mission restaurée');
     } catch (error) {
       console.error('Error archiving mission:', error);
       alert('❌ Erreur lors de l\'archivage');
     }
   };
 
-  // ===== UTILS =====
+  const handleViewReport = async (missionId: string) => {
+    try {
+      // Afficher un loader
+      const loadingAlert = document.createElement('div');
+      loadingAlert.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+      loadingAlert.innerHTML = '<div class="bg-white rounded-xl p-6"><div class="animate-spin rounded-full h-12 w-12 border-4 border-teal-500 border-t-transparent"></div></div>';
+      document.body.appendChild(loadingAlert);
+
+      // Appeler la fonction RPC pour obtenir le token
+      const { data, error } = await supabase.rpc('create_or_get_inspection_share', {
+        p_mission_id: missionId,
+        p_report_type: 'complete',
+        p_user_id: user?.id
+      });
+
+      document.body.removeChild(loadingAlert);
+
+      if (error) throw error;
+
+      if (data && data.length > 0 && data[0].share_token) {
+        const token = data[0].share_token;
+        // Ouvrir le rapport public dans un nouvel onglet
+        window.open(`/rapport-inspection/${token}`, '_blank');
+      } else {
+        throw new Error('Token de rapport non trouvé');
+      }
+    } catch (error) {
+      console.error('Error viewing report:', error);
+      alert('❌ Erreur lors de l\'ouverture du rapport');
+    }
+  };
+
+  // ===== HELPERS =====
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'text-green-600 bg-green-500/10 border-green-500/30';
-      case 'in_progress': return 'text-blue-600 bg-blue-500/10 border-blue-500/30';
-      case 'assigned': return 'text-purple-600 bg-purple-500/10 border-purple-500/30';
-      case 'pending': return 'text-amber-600 bg-amber-500/10 border-amber-500/30';
-      case 'cancelled': return 'text-red-600 bg-red-500/10 border-red-500/30';
-      default: return 'text-slate-600 bg-slate-500/10 border-slate-500/30';
+      case 'pending': return 'bg-amber-100 border-amber-300 text-amber-800';
+      case 'in_progress': return 'bg-blue-100 border-blue-300 text-blue-800';
+      case 'completed': return 'bg-green-100 border-green-300 text-green-800';
+      case 'cancelled': return 'bg-red-100 border-red-300 text-red-800';
+      default: return 'bg-slate-100 border-slate-300 text-slate-800';
     }
   };
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'completed': return 'Terminée';
-      case 'in_progress': return 'En cours';
-      case 'assigned': return 'Assignée';
       case 'pending': return 'En attente';
+      case 'in_progress': return 'En cours';
+      case 'completed': return 'Terminée';
       case 'cancelled': return 'Annulée';
       default: return status;
     }
@@ -367,16 +288,16 @@ export default function TeamMissions() {
         return (
           <button
             onClick={() => handleStartInspection(mission)}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-amber-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
           >
-            <Play className="w-4 h-4" />
+            <TrendingUp className="w-4 h-4" />
             Continuer Inspection
           </button>
         );
       case 'completed':
         return (
           <button
-            onClick={() => navigate('/rapports-inspection')}
+            onClick={() => handleViewReport(mission.id)}
             className="inline-flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-green-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
           >
             <FileText className="w-4 h-4" />
@@ -388,14 +309,24 @@ export default function TeamMissions() {
     }
   };
 
-  // Filtered data
-  const filteredMissions = missions.filter(m => {
-    const matchesSearch = m.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         m.vehicle_brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         m.vehicle_model.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || m.status === statusFilter;
-    return matchesSearch && matchesStatus;
-  });
+  // Filtered data with proper sorting
+  const filteredMissions = missions
+    .filter(m => {
+      const matchesSearch = m.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           m.vehicle_brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           m.vehicle_model.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesStatus = statusFilter === 'all' || m.status === statusFilter;
+      const matchesTab = m.status === activeTab; // Filtrer par onglet actif
+      return matchesSearch && matchesStatus && matchesTab;
+    })
+    .sort((a, b) => {
+      // Tri du plus récent au plus ancien
+      // Pour les missions terminées, utiliser updated_at ou delivery_date
+      // Pour les autres, utiliser created_at
+      const dateA = new Date(a.updated_at || a.delivery_date || a.created_at).getTime();
+      const dateB = new Date(b.updated_at || b.delivery_date || b.created_at).getTime();
+      return dateB - dateA; // Plus récent en premier
+    });
 
   // Stats
   const stats = {
@@ -403,7 +334,6 @@ export default function TeamMissions() {
     pending: missions.filter(m => m.status === 'pending').length,
     inProgress: missions.filter(m => m.status === 'in_progress').length,
     completed: missions.filter(m => m.status === 'completed').length,
-    receivedMissions: receivedMissions.length,
   };
 
   // ===== LOADING STATE =====
@@ -453,43 +383,60 @@ export default function TeamMissions() {
       <div className="backdrop-blur-xl bg-white/80 border border-slate-200 rounded-2xl p-2 shadow-xl animate-in slide-in-from-bottom duration-500">
         <div className="flex gap-2 overflow-x-auto scrollbar-hide">
           <button
-            onClick={() => setActiveTab('missions')}
+            onClick={() => setActiveTab('pending')}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all duration-300 whitespace-nowrap ${
-              activeTab === 'missions'
-                ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg'
+              activeTab === 'pending'
+                ? 'bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <Truck className="w-5 h-5" />
-            Mes Missions
+            <Clock className="w-5 h-5" />
+            En attente
             <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-              activeTab === 'missions' ? 'bg-white/20' : 'bg-slate-200'
+              activeTab === 'pending' ? 'bg-white/20' : 'bg-slate-200'
             }`}>
-              {stats.totalMissions}
+              {stats.pending}
             </span>
           </button>
 
           <button
-            onClick={() => setActiveTab('received')}
+            onClick={() => setActiveTab('in_progress')}
             className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all duration-300 whitespace-nowrap ${
-              activeTab === 'received'
-                ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-lg'
+              activeTab === 'in_progress'
+                ? 'bg-gradient-to-r from-blue-500 to-cyan-500 text-white shadow-lg'
                 : 'text-slate-600 hover:bg-slate-100'
             }`}
           >
-            <Package className="w-5 h-5" />
-            Missions Reçues
+            <TrendingUp className="w-5 h-5" />
+            En cours
             <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-              activeTab === 'received' ? 'bg-white/20' : 'bg-slate-200'
+              activeTab === 'in_progress' ? 'bg-white/20' : 'bg-slate-200'
             }`}>
-              {stats.receivedMissions}
+              {stats.inProgress}
+            </span>
+          </button>
+
+          <button
+            onClick={() => setActiveTab('completed')}
+            className={`flex items-center gap-2 px-6 py-3 rounded-xl font-bold transition-all duration-300 whitespace-nowrap ${
+              activeTab === 'completed'
+                ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white shadow-lg'
+                : 'text-slate-600 hover:bg-slate-100'
+            }`}
+          >
+            <CheckCircle className="w-5 h-5" />
+            Terminées
+            <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
+              activeTab === 'completed' ? 'bg-white/20' : 'bg-slate-200'
+            }`}>
+              {stats.completed}
             </span>
           </button>
         </div>
       </div>
 
-      {/* ===== STATS CARDS ===== */}
-      {activeTab === 'missions' && (
+      {/* ===== STATS CARDS (uniquement pour onglet En attente) ===== */}
+      {activeTab === 'pending' && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-in slide-in-from-bottom duration-700">
           <div className="backdrop-blur-xl bg-gradient-to-br from-slate-500/10 to-slate-600/10 border border-slate-300 rounded-2xl p-6 hover:shadow-depth-xl transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between mb-3">
@@ -533,6 +480,28 @@ export default function TeamMissions() {
         </div>
       )}
 
+      {/* ===== JOIN MISSION BANNER (Compact) ===== */}
+      <div className="backdrop-blur-xl bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-300 rounded-2xl p-4 shadow-xl">
+        <div className="flex flex-col md:flex-row items-center gap-4">
+          <div className="flex items-center gap-3 flex-1">
+            <div className="p-3 bg-blue-500/20 rounded-xl">
+              <LogIn className="w-6 h-6 text-blue-600" />
+            </div>
+            <div>
+              <h3 className="font-bold text-slate-900">Rejoindre une mission</h3>
+              <p className="text-sm text-slate-600">Entrez le code de partage reçu</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setShowJoinModal(true)}
+            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5 whitespace-nowrap"
+          >
+            <UserPlus className="w-5 h-5" />
+            Entrer le code
+          </button>
+        </div>
+      </div>
+
       {/* ===== TOOLBAR (Search & Filters) ===== */}
       <div className="backdrop-blur-xl bg-white/80 border border-slate-200 rounded-2xl p-4 shadow-xl">
         <div className="flex flex-col md:flex-row gap-4 items-center">
@@ -541,7 +510,7 @@ export default function TeamMissions() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-teal-500 transition" />
             <input
               type="text"
-              placeholder={`Rechercher ${activeTab === 'missions' ? 'une mission' : 'un membre'}...`}
+              placeholder="Rechercher une mission..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-white/50 border border-slate-300 rounded-xl pl-10 pr-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
@@ -549,703 +518,291 @@ export default function TeamMissions() {
           </div>
 
           {/* Filters */}
-          {activeTab === 'missions' && (
-            <>
-              <div className="relative group">
-                <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <select
-                  value={statusFilter}
-                  onChange={(e) => setStatusFilter(e.target.value)}
-                  className="bg-white/50 border border-slate-300 rounded-xl pl-10 pr-8 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none cursor-pointer"
-                >
-                  <option value="all">Tous les statuts</option>
-                  <option value="pending">En attente</option>
-                  <option value="in_progress">En cours</option>
-                  <option value="assigned">Assignées</option>
-                  <option value="completed">Terminées</option>
-                  <option value="cancelled">Annulées</option>
-                </select>
-              </div>
+          <div className="relative group">
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="bg-white/50 border border-slate-300 rounded-xl pl-10 pr-8 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 appearance-none cursor-pointer"
+            >
+              <option value="all">Tous les statuts</option>
+              <option value="pending">En attente</option>
+              <option value="in_progress">En cours</option>
+              <option value="completed">Terminées</option>
+              <option value="cancelled">Annulées</option>
+            </select>
+          </div>
 
-              {/* Toggle Archives */}
-              <button
-                onClick={() => setShowArchived(!showArchived)}
-                className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-300 ${
-                  showArchived
-                    ? 'bg-amber-100 border-2 border-amber-400 text-amber-800 shadow-lg'
-                    : 'bg-white/50 border border-slate-300 text-slate-700 hover:bg-slate-50'
-                }`}
-                title={showArchived ? 'Masquer les archives' : 'Afficher les archives'}
-              >
-                {showArchived ? (
-                  <>
-                    <Archive className="w-5 h-5" />
-                    <span className="hidden sm:inline">Archives</span>
-                  </>
-                ) : (
-                  <>
-                    <Archive className="w-5 h-5" />
-                    <span className="hidden sm:inline">Archives</span>
-                  </>
-                )}
-              </button>
-            </>
-          )}
+          {/* Toggle Archives */}
+          <button
+            onClick={() => setShowArchived(!showArchived)}
+            className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-300 ${
+              showArchived
+                ? 'bg-amber-100 border-2 border-amber-400 text-amber-800 shadow-lg'
+                : 'bg-white/50 border border-slate-300 text-slate-700 hover:bg-slate-50'
+            }`}
+            title={showArchived ? 'Masquer les archives' : 'Afficher les archives'}
+          >
+            <Archive className="w-5 h-5" />
+            <span className="hidden sm:inline">Archives</span>
+          </button>
 
           {/* View Toggle */}
-          {activeTab === 'missions' && (
-            <div className="flex gap-2 bg-slate-100 rounded-xl p-1">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-2 rounded-lg transition ${viewMode === 'grid' ? 'bg-white shadow' : 'hover:bg-white/50'}`}
-              >
-                <Grid className="w-5 h-5" />
-              </button>
-              <button
-                onClick={() => setViewMode('list')}
-                className={`p-2 rounded-lg transition ${viewMode === 'list' ? 'bg-white shadow' : 'hover:bg-white/50'}`}
-              >
-                <List className="w-5 h-5" />
-              </button>
-            </div>
-          )}
+          <div className="flex gap-2 bg-slate-100 rounded-xl p-1">
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`p-2 rounded-lg transition ${viewMode === 'grid' ? 'bg-white shadow' : 'hover:bg-white/50'}`}
+            >
+              <Grid className="w-5 h-5" />
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`p-2 rounded-lg transition ${viewMode === 'list' ? 'bg-white shadow' : 'hover:bg-white/50'}`}
+            >
+              <List className="w-5 h-5" />
+            </button>
+          </div>
         </div>
       </div>
 
       {/* ===== TAB CONTENT ===== */}
       <div className="animate-in fade-in duration-500">
-        {/* MISSIONS TAB */}
-        {activeTab === 'missions' && (
-          <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
-            {filteredMissions.length === 0 ? (
-              <div className="col-span-full text-center py-16 backdrop-blur-xl bg-white/50 border border-slate-200 rounded-2xl">
-                <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-teal-500/20 to-cyan-500/20 rounded-2xl mb-4">
-                  <Truck className="w-10 h-10 text-teal-600" />
-                </div>
-                <p className="text-slate-600 mb-4 text-lg font-medium">Aucune mission trouvée</p>
-                <Link
-                  to="/missions/create"
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
-                >
-                  <Plus className="w-5 h-5" />
-                  Créer une Mission
-                </Link>
+        {/* MISSIONS GRID (Toutes les missions filtrées par onglet) */}
+        <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
+          {filteredMissions.length === 0 ? (
+            <div className="col-span-full text-center py-16 backdrop-blur-xl bg-white/50 border border-slate-200 rounded-2xl">
+              <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-teal-500/20 to-cyan-500/20 rounded-2xl mb-4">
+                <Truck className="w-10 h-10 text-teal-600" />
               </div>
-            ) : (
-              filteredMissions.map((mission, index) => (
-                <div
-                  key={mission.id}
-                  style={{ animationDelay: `${index * 50}ms` }}
-                  className={`backdrop-blur-xl border rounded-2xl p-6 hover:shadow-depth-xl transition-all duration-300 group animate-in slide-in-from-bottom ${
-                    mission.archived
-                      ? 'bg-slate-50/50 border-slate-300 opacity-75 hover:border-amber-400'
-                      : 'bg-white/80 border-slate-200 hover:border-teal-500/50'
-                  }`}
-                >
-                  {/* Mission Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={getVehicleImageUrl(mission.vehicle_image_url, mission.vehicle_type)}
-                        alt={`Véhicule ${mission.vehicle_type || 'VL'}`}
-                        className="w-14 h-14 rounded-xl object-cover border-2 border-teal-500/50 group-hover:scale-110 transition-transform duration-300"
-                      />
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-bold text-lg text-slate-900">{mission.reference}</h3>
-                          {mission.archived && (
-                            <span className="inline-flex items-center gap-1 px-2 py-1 bg-amber-100 text-amber-700 text-xs font-semibold rounded-lg border border-amber-300">
-                              <Archive className="w-3 h-3" />
-                              Archivée
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-slate-600 text-sm">
-                          {mission.vehicle_brand} {mission.vehicle_model}
-                          {mission.vehicle_plate && <span className="text-slate-400"> • {mission.vehicle_plate}</span>}
-                        </p>
+              <p className="text-slate-600 mb-4 text-lg font-medium">Aucune mission trouvée</p>
+              <Link
+                to="/missions/create"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all duration-300 hover:-translate-y-1"
+              >
+                <Plus className="w-5 h-5" />
+                Créer une mission
+              </Link>
+            </div>
+          ) : (
+            filteredMissions.map((mission, index) => (
+              <div
+                key={mission.id}
+                style={{ animationDelay: `${index * 50}ms` }}
+                className="group backdrop-blur-xl bg-white/80 border border-slate-200 rounded-2xl p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+              >
+                {/* Header */}
+                <div className="flex items-start justify-between mb-4">
+                  <div className="flex items-center gap-3 flex-1">
+                    <img
+                      src={getVehicleImageUrl(mission.vehicle_image_url, mission.vehicle_type)}
+                      alt={`Véhicule ${mission.vehicle_type || 'VL'}`}
+                      className="w-14 h-14 rounded-xl object-cover border-2 border-teal-500/50 group-hover:scale-110 transition-transform duration-300"
+                    />
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-bold text-lg text-slate-900">
+                          {mission.reference}
+                        </h3>
+                        {mission.assigned_user_id && mission.assigned_user_id !== mission.user_id && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg border border-blue-300">
+                            🎯 Reçue
+                          </span>
+                        )}
                       </div>
+                      <p className="text-slate-600 text-sm">
+                        {mission.vehicle_brand} {mission.vehicle_model}
+                        {mission.vehicle_plate && <span className="text-slate-400"> • {mission.vehicle_plate}</span>}
+                      </p>
                     </div>
+                  </div>
+                  <div className="text-right">
                     <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${getStatusColor(mission.status)}`}>
                       {getStatusLabel(mission.status)}
                     </span>
                   </div>
+                </div>
 
-                  {/* Progression visuelle */}
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
-                      <span>Progression</span>
-                      <span className="font-semibold">
-                        {mission.status === 'completed' ? '100%' : 
-                         mission.status === 'in_progress' ? '50%' : '0%'}
+                {/* Progression visuelle */}
+                <div className="mb-3">
+                  <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
+                    <span>Progression</span>
+                    <span className="font-semibold">
+                      {mission.status === 'completed' ? '100%' : 
+                       mission.status === 'in_progress' ? '50%' : '0%'}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                    <div 
+                      className={`h-full transition-all duration-500 ${
+                        mission.status === 'completed' ? 'bg-gradient-to-r from-green-500 to-emerald-500 w-full' :
+                        mission.status === 'in_progress' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 w-1/2' :
+                        'bg-gradient-to-r from-amber-500 to-orange-500 w-0'
+                      }`}
+                    />
+                  </div>
+                </div>
+
+                {/* Mission Details */}
+                <div className="space-y-2 mb-4">
+                  <div className="flex items-start gap-2 text-sm">
+                    <MapPin className="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0" />
+                    <span className="text-slate-600">{mission.pickup_address}</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-sm">
+                    <MapPin className="w-4 h-4 mt-0.5 text-red-500 flex-shrink-0" />
+                    <span className="text-slate-600">{mission.delivery_address}</span>
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 text-sm text-slate-600">
+                      <Calendar className="w-4 h-4" />
+                      {new Date(mission.pickup_date).toLocaleDateString('fr-FR')}
+                    </div>
+                    {mission.price > 0 && (
+                      <span className="text-xl font-black bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+                        {mission.price.toLocaleString('fr-FR')}€
                       </span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full transition-all duration-500 ${
-                          mission.status === 'completed' ? 'bg-gradient-to-r from-green-500 to-emerald-500 w-full' :
-                          mission.status === 'in_progress' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 w-1/2' :
-                          'bg-gradient-to-r from-amber-500 to-orange-500 w-0'
-                        }`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Progression visuelle */}
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
-                      <span>Progression</span>
-                      <span className="font-semibold">
-                        {mission.status === 'completed' ? '100%' : 
-                         mission.status === 'in_progress' ? '50%' : '0%'}
-                      </span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full transition-all duration-500 ${
-                          mission.status === 'completed' ? 'bg-gradient-to-r from-green-500 to-emerald-500 w-full' :
-                          mission.status === 'in_progress' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 w-1/2' :
-                          'bg-gradient-to-r from-amber-500 to-orange-500 w-0'
-                        }`}
-                      />
-                    </div>
-                  </div>
-
-                  {/* Mission Details */}
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-start gap-2 text-sm">
-                      <MapPin className="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0" />
-                      <span className="text-slate-600">{mission.pickup_address}</span>
-                    </div>
-                    <div className="flex items-start gap-2 text-sm">
-                      <MapPin className="w-4 h-4 mt-0.5 text-red-500 flex-shrink-0" />
-                      <span className="text-slate-600">{mission.delivery_address}</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(mission.pickup_date).toLocaleDateString('fr-FR')}
-                      </div>
-                      {mission.price > 0 && (
-                        <span className="text-xl font-black bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
-                          {mission.price.toLocaleString('fr-FR')}€
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Actions Principales */}
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {/* Bouton principal selon statut */}
-                    {getActionButton(mission)}
-                    
-                    {/* Voir Détails */}
-                    <button
-                      onClick={() => {
-                        setSelectedMission(mission);
-                        setShowDetailsModal(true);
-                      }}
-                      className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
-                    >
-                      <Eye className="w-4 h-4" />
-                      Détails
-                    </button>
-
-                    {/* Télécharger PDF */}
-                    <button
-                      onClick={async () => {
-                        try {
-                          await generateMissionPDF(mission);
-                          alert('✅ PDF généré avec succès !');
-                        } catch (error) {
-                          console.error('Erreur PDF:', error);
-                          alert('❌ Erreur lors de la génération du PDF');
-                        }
-                      }}
-                      className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
-                    >
-                      <FileText className="w-4 h-4" />
-                      PDF
-                    </button>
-                  </div>
-
-                  {/* Actions Secondaires */}
-                  <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200">
-                    <button
-                      onClick={() => {
-                        setSelectedMission(mission);
-                        setShowShareCodeModal(true);
-                      }}
-                      className="inline-flex items-center gap-2 bg-white border-2 border-teal-300 text-teal-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-teal-50 hover:shadow-md transition-all duration-300 text-xs"
-                    >
-                      <UserPlus className="w-3.5 h-3.5" />
-                      Partager
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setEditingMission(mission);
-                        setShowEditModal(true);
-                      }}
-                      className="inline-flex items-center gap-2 bg-white border-2 border-slate-300 text-slate-700 px-3 py-1.5 rounded-lg font-semibold hover:bg-slate-50 hover:shadow-md transition-all duration-300 text-xs"
-                    >
-                      <Edit className="w-3.5 h-3.5" />
-                      Modifier
-                    </button>
-
-                    {(mission.status === 'completed' || mission.status === 'cancelled') && (
-                      <button
-                        onClick={() => handleArchiveMission(mission)}
-                        className={`inline-flex items-center gap-2 border-2 px-3 py-1.5 rounded-lg font-semibold hover:shadow-md transition-all duration-300 text-xs ${
-                          mission.archived
-                            ? 'bg-amber-50 border-amber-400 text-amber-700 hover:bg-amber-100'
-                            : 'bg-white border-slate-300 text-slate-700 hover:bg-slate-50'
-                        }`}
-                        title={mission.archived ? 'Désarchiver' : 'Archiver'}
-                      >
-                        {mission.archived ? (
-                          <>
-                            <ArchiveRestore className="w-3.5 h-3.5" />
-                            Restaurer
-                          </>
-                        ) : (
-                          <>
-                            <Archive className="w-3.5 h-3.5" />
-                            Archiver
-                          </>
-                        )}
-                      </button>
                     )}
-
-                    <button
-                      onClick={() => handleDeleteMission(mission.id)}
-                      className="inline-flex items-center gap-2 bg-white border-2 border-red-300 text-red-600 px-3 py-1.5 rounded-lg font-semibold hover:bg-red-50 hover:shadow-md transition-all duration-300 text-xs ml-auto"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                      Supprimer
-                    </button>
                   </div>
                 </div>
-              ))
-            )}
-          </div>
-        )}
 
-        {/* RECEIVED MISSIONS TAB */}
-        {activeTab === 'received' && (
-          <div className="space-y-4">
-            {receivedMissions.length === 0 ? (
-              <div className="backdrop-blur-xl bg-white/80 border border-slate-200 rounded-2xl p-12 text-center">
-                <Package className="w-16 h-16 text-slate-300 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-slate-900 mb-2">
-                  Aucune mission reçue
-                </h3>
-                <p className="text-slate-600">
-                  Les missions partagées avec vous apparaîtront ici
-                </p>
-              </div>
-            ) : (
-              receivedMissions.map((mission, index) => (
-                <div
-                  key={mission.id}
-                  style={{ animationDelay: `${index * 50}ms` }}
-                  className="backdrop-blur-xl bg-white/80 border border-slate-200 rounded-2xl p-6 hover:shadow-xl transition-all duration-300"
-                >
-                  {/* Header */}
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-center gap-3">
-                      <img
-                        src={getVehicleImageUrl(mission.vehicle_image_url, mission.vehicle_type)}
-                        alt={`Véhicule ${mission.vehicle_type || 'VL'}`}
-                        className="w-14 h-14 rounded-xl object-cover border-2 border-orange-500/50 group-hover:scale-110 transition-transform duration-300"
-                      />
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <h3 className="font-bold text-lg text-slate-900">
-                            {mission.reference}
-                          </h3>
-                          <span className="inline-flex items-center gap-1 px-2 py-1 bg-orange-100 text-orange-700 text-xs font-semibold rounded-lg border border-orange-300">
-                            🎯 Reçue
-                          </span>
-                        </div>
-                        <p className="text-slate-600 text-sm">
-                          {mission.vehicle_brand} {mission.vehicle_model}
-                          {mission.vehicle_plate && <span className="text-slate-400"> • {mission.vehicle_plate}</span>}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <span className={`px-3 py-1.5 rounded-full text-xs font-bold border ${getStatusColor(mission.status)}`}>
-                        {getStatusLabel(mission.status)}
-                      </span>
-                    </div>
-                  </div>
+                {/* Actions Principales */}
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {/* Bouton principal selon statut */}
+                  {getActionButton(mission)}
+                  
+                  {/* Voir Détails */}
+                  <button
+                    onClick={() => {
+                      setSelectedMission(mission);
+                      setShowDetailsModal(true);
+                    }}
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                  >
+                    <Eye className="w-4 h-4" />
+                    Détails
+                  </button>
 
-                  {/* Progression visuelle */}
-                  <div className="mb-3">
-                    <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
-                      <span>Progression</span>
-                      <span className="font-semibold">
-                        {mission.status === 'completed' ? '100%' : 
-                         mission.status === 'in_progress' ? '50%' : '0%'}
-                      </span>
-                    </div>
-                    <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                      <div 
-                        className={`h-full transition-all duration-500 ${
-                          mission.status === 'completed' ? 'bg-gradient-to-r from-green-500 to-emerald-500 w-full' :
-                          mission.status === 'in_progress' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 w-1/2' :
-                          'bg-gradient-to-r from-amber-500 to-orange-500 w-0'
-                        }`}
-                      />
-                    </div>
-                  </div>
+                  {/* Télécharger PDF */}
+                  <button
+                    onClick={async () => {
+                      try {
+                        await generateMissionPDF(mission);
+                        alert('✅ PDF généré avec succès !');
+                      } catch (error) {
+                        console.error('Erreur PDF:', error);
+                        alert('❌ Erreur lors de la génération du PDF');
+                      }
+                    }}
+                    className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                  >
+                    <FileText className="w-4 h-4" />
+                    PDF
+                  </button>
+                </div>
 
-                  {/* Itinéraire */}
-                  <div className="space-y-2 mb-4">
-                    <div className="flex items-start gap-2 text-sm">
-                      <MapPin className="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0" />
-                      <div className="flex-1">
-                        <span className="text-slate-600">{mission.pickup_address}</span>
-                        {mission.pickup_contact_name && (
-                          <div className="text-xs text-slate-500 mt-1">
-                            📞 {mission.pickup_contact_name}
-                            {mission.pickup_contact_phone && ` • ${mission.pickup_contact_phone}`}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-start gap-2 text-sm">
-                      <MapPin className="w-4 h-4 mt-0.5 text-red-500 flex-shrink-0" />
-                      <div className="flex-1">
-                        <span className="text-slate-600">{mission.delivery_address}</span>
-                        {mission.delivery_contact_name && (
-                          <div className="text-xs text-slate-500 mt-1">
-                            📞 {mission.delivery_contact_name}
-                            {mission.delivery_contact_phone && ` • ${mission.delivery_contact_phone}`}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2 text-sm text-slate-600">
-                        <Calendar className="w-4 h-4" />
-                        {new Date(mission.pickup_date).toLocaleDateString('fr-FR')}
-                      </div>
-                      {mission.price > 0 && (
-                        <span className="text-xl font-black bg-gradient-to-r from-orange-600 to-amber-600 bg-clip-text text-transparent">
-                          {mission.price.toLocaleString('fr-FR')}€
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Notes */}
-                  {mission.notes && (
-                    <div className="mb-3 p-3 bg-blue-50 rounded-lg border border-blue-200">
-                      <p className="text-xs font-bold text-blue-900 mb-1">� Notes</p>
-                      <p className="text-sm text-blue-700">{mission.notes}</p>
-                    </div>
+                {/* Actions Secondaires */}
+                <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200">
+                  {mission.user_id === user?.id && (
+                    <>
+                      <button
+                        onClick={() => navigate(`/missions/edit/${mission.id}`)}
+                        className="inline-flex items-center gap-1 text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                      >
+                        <Edit className="w-3.5 h-3.5" />
+                        Modifier
+                      </button>
+                      <button
+                        onClick={() => {
+                          setSelectedMission(mission);
+                          setShowShareCodeModal(true);
+                        }}
+                        className="inline-flex items-center gap-1 text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                      >
+                        <Users className="w-3.5 h-3.5" />
+                        Partager
+                      </button>
+                      <button
+                        onClick={() => handleArchiveMission(mission.id, !mission.archived)}
+                        className="inline-flex items-center gap-1 text-amber-600 hover:bg-amber-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                      >
+                        <Archive className="w-3.5 h-3.5" />
+                        {mission.archived ? 'Restaurer' : 'Archiver'}
+                      </button>
+                      <button
+                        onClick={() => handleDeleteMission(mission.id)}
+                        className="inline-flex items-center gap-1 text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        Supprimer
+                      </button>
+                    </>
                   )}
-
-                  {/* Actions Principales */}
-                  <div className="flex flex-wrap gap-2 mb-3">
-                    {/* Bouton principal selon statut */}
-                    {getActionButton(mission)}
-                    
-                    {/* Voir Détails */}
-                    <button
-                      onClick={() => {
-                        setSelectedMission(mission);
-                        setShowDetailsModal(true);
-                      }}
-                      className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
-                    >
-                      <Eye className="w-4 h-4" />
-                      Détails
-                    </button>
-
-                    {/* Télécharger PDF */}
-                    <button
-                      onClick={async () => {
-                        try {
-                          await generateMissionPDF(mission);
-                          alert('✅ PDF généré avec succès !');
-                        } catch (error) {
-                          console.error('Erreur PDF:', error);
-                          alert('❌ Erreur lors de la génération du PDF');
-                        }
-                      }}
-                      className="inline-flex items-center gap-2 bg-gradient-to-r from-purple-500 to-pink-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-purple-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
-                    >
-                      <FileText className="w-4 h-4" />
-                      PDF
-                    </button>
-                  </div>
-
-                  {/* Actions Secondaires */}
-                  <div className="flex items-center justify-between pt-3 border-t border-slate-200">
-                    <div className="flex items-center gap-3 text-sm text-slate-600">
-                      {mission.distance && (
-                        <span className="flex items-center gap-1">
-                          <MapPin className="w-3.5 h-3.5" />
-                          {mission.distance} km
-                        </span>
-                      )}
-                      <span className="px-2 py-1 bg-slate-100 rounded-full text-xs">
-                        Statut: <strong>{getStatusLabel(mission.status)}</strong>
-                      </span>
-                    </div>
-                  </div>
                 </div>
-              ))
-            )}
-          </div>
-        )}
+              </div>
+            ))
+          )}
+        </div>
       </div>
 
       {/* ===== MODALS ===== */}
       
-      {/* Inspection Modal */}
-      {showInspectionViewer && inspectionMissionId && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50">
-          <div className="w-full h-full max-w-7xl max-h-screen p-4">
-            <div className="bg-white rounded-2xl shadow-2xl h-full flex flex-col">
-              <div className="flex items-center justify-between p-6 border-b border-slate-200">
-                <h2 className="text-2xl font-bold text-slate-900">Inspection Web</h2>
-                <button
-                  onClick={() => {
-                    setShowInspectionViewer(false);
-                    setInspectionMissionId(null);
-                    loadData();
-                  }}
-                  className="p-2 hover:bg-slate-100 rounded-lg transition"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-              <div className="flex-1 overflow-auto">
-                <InspectionViewer
-                  missionId={inspectionMissionId}
-                  onClose={() => {
-                    setShowInspectionViewer(false);
-                    setInspectionMissionId(null);
-                    loadData();
-                  }}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* MODAL EDIT MISSION + REASSIGN */}
-      {showEditModal && editingMission && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-8">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-black text-slate-900">Modifier Mission #{editingMission.reference}</h2>
-              <button
-                onClick={() => {
-                  setShowEditModal(false);
-                  setEditingMission(null);
-                }}
-                className="p-2 hover:bg-slate-100 rounded-xl transition-all"
-              >
-                <X className="w-6 h-6 text-slate-500" />
-              </button>
-            </div>
-
-            <div className="space-y-6">
-              {/* Mission Info */}
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                <p className="text-sm text-slate-600 mb-2"><strong>Véhicule:</strong> {editingMission.vehicle_brand} {editingMission.vehicle_model}</p>
-                <p className="text-sm text-slate-600 mb-2"><strong>Immatriculation:</strong> {editingMission.vehicle_plate}</p>
-                <p className="text-sm text-slate-600 mb-2"><strong>Départ:</strong> {editingMission.pickup_address}</p>
-                <p className="text-sm text-slate-600 mb-2"><strong>Arrivée:</strong> {editingMission.delivery_address}</p>
-                <p className="text-sm text-slate-600 mb-2"><strong>Date:</strong> {new Date(editingMission.pickup_date).toLocaleDateString('fr-FR')}</p>
-                <p className="text-sm text-slate-600"><strong>Statut:</strong> {getStatusLabel(editingMission.status)}</p>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  onClick={() => {
-                    setShowEditModal(false);
-                    setEditingMission(null);
-                  }}
-                  className="flex-1 px-6 py-3 border-2 border-slate-200 text-slate-700 rounded-xl font-bold hover:bg-slate-50 transition-all"
-                >
-                  Fermer
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Mission Details Modal */}
+      {/* Details Modal */}
       {showDetailsModal && selectedMission && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="backdrop-blur-xl bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6 animate-in zoom-in duration-300">
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-slate-900">📋 Détails de la Mission</h2>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-auto">
+            <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
+              <h2 className="text-2xl font-bold text-slate-900">Détails de la mission</h2>
               <button
                 onClick={() => {
                   setShowDetailsModal(false);
                   setSelectedMission(null);
-                  setSelectedAssignment(null);
                 }}
                 className="p-2 hover:bg-slate-100 rounded-lg transition"
               >
-                <X className="w-5 h-5" />
+                <X className="w-6 h-6" />
               </button>
             </div>
-
-            {/* Mission Info */}
-            <div className="space-y-6">
-              {/* Header */}
-              <div className="bg-gradient-to-r from-blue-50 to-cyan-50 rounded-xl p-6">
-                <h3 className="text-3xl font-bold text-blue-900 mb-2">{selectedMission.reference}</h3>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-blue-600 font-bold">Véhicule</p>
-                    <p className="text-blue-900">{selectedMission.vehicle_brand} {selectedMission.vehicle_model}</p>
-                    <p className="text-blue-700">{selectedMission.vehicle_plate}</p>
-                  </div>
-                  <div>
-                    <p className="text-blue-600 font-bold">Statut</p>
-                    <p className="text-blue-900 capitalize">{selectedMission.status}</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Itinéraire détaillé */}
+            <div className="p-6">
               <div className="grid md:grid-cols-2 gap-6">
-                {/* Départ */}
-                <div className="bg-green-50 rounded-xl p-6">
-                  <h4 className="text-green-900 font-bold mb-4 flex items-center gap-2">
-                    <MapPin className="w-5 h-5" /> Point de Départ
-                  </h4>
-                  <div className="space-y-3 text-sm">
-                    <div>
-                      <p className="text-green-600 font-bold">📍 Adresse</p>
-                      <p className="text-green-900">{selectedMission.pickup_address}</p>
-                    </div>
-                    <div>
-                      <p className="text-green-600 font-bold">📅 Date</p>
-                      <p className="text-green-900">
-                        {new Date(selectedMission.pickup_date).toLocaleString('fr-FR')}
-                      </p>
-                    </div>
-                    {selectedMission.pickup_contact_name && (
-                      <div>
-                        <p className="text-green-600 font-bold">📞 Contact</p>
-                        <p className="text-green-900">{selectedMission.pickup_contact_name}</p>
-                        {selectedMission.pickup_contact_phone && (
-                          <a 
-                            href={`tel:${selectedMission.pickup_contact_phone}`}
-                            className="text-green-600 hover:underline font-bold"
-                          >
-                            {selectedMission.pickup_contact_phone}
-                          </a>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                <div>
+                  <h3 className="font-bold text-lg mb-2">Informations Véhicule</h3>
+                  <p><strong>Marque:</strong> {selectedMission.vehicle_brand}</p>
+                  <p><strong>Modèle:</strong> {selectedMission.vehicle_model}</p>
+                  <p><strong>Plaque:</strong> {selectedMission.vehicle_plate}</p>
                 </div>
-
-                {/* Arrivée */}
-                <div className="bg-red-50 rounded-xl p-6">
-                  <h4 className="text-red-900 font-bold mb-4 flex items-center gap-2">
-                    <MapPin className="w-5 h-5" /> Point d'Arrivée
-                  </h4>
-                  <div className="space-y-3 text-sm">
-                    <div>
-                      <p className="text-red-600 font-bold">📍 Adresse</p>
-                      <p className="text-red-900">{selectedMission.delivery_address}</p>
-                    </div>
-                    <div>
-                      <p className="text-red-600 font-bold">📅 Date</p>
-                      <p className="text-red-900">
-                        {new Date(selectedMission.delivery_date).toLocaleString('fr-FR')}
-                      </p>
-                    </div>
-                    {selectedMission.delivery_contact_name && (
-                      <div>
-                        <p className="text-red-600 font-bold">📞 Contact</p>
-                        <p className="text-red-900">{selectedMission.delivery_contact_name}</p>
-                        {selectedMission.delivery_contact_phone && (
-                          <a 
-                            href={`tel:${selectedMission.delivery_contact_phone}`}
-                            className="text-red-600 hover:underline font-bold"
-                          >
-                            {selectedMission.delivery_contact_phone}
-                          </a>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                <div>
+                  <h3 className="font-bold text-lg mb-2">Trajet</h3>
+                  <p><strong>Départ:</strong> {selectedMission.pickup_address}</p>
+                  <p><strong>Arrivée:</strong> {selectedMission.delivery_address}</p>
+                  <p><strong>Date:</strong> {new Date(selectedMission.pickup_date).toLocaleDateString('fr-FR')}</p>
                 </div>
               </div>
-
-              {/* Notes */}
               {selectedMission.notes && (
-                <div className="bg-blue-50 rounded-xl p-6">
-                  <h4 className="text-blue-900 font-bold mb-2">📝 Notes</h4>
-                  <p className="text-blue-700">{selectedMission.notes}</p>
+                <div className="mt-4">
+                  <h3 className="font-bold text-lg mb-2">Notes</h3>
+                  <p className="text-slate-600">{selectedMission.notes}</p>
                 </div>
               )}
-
-              {/* Actions */}
-              <div className="flex gap-3 pt-6 border-t border-slate-200">
-                <button
-                  onClick={async () => {
-                    try {
-                      await generateMissionPDF(selectedMission, selectedAssignment || undefined);
-                    } catch (error) {
-                      console.error('Erreur génération PDF:', error);
-                      alert('❌ Erreur lors de la génération du PDF');
-                    }
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all"
-                >
-                  <FileText className="w-5 h-5" />
-                  Télécharger le PDF
-                </button>
-                <button
-                  onClick={() => {
-                    setShowDetailsModal(false);
-                    setSelectedAssignment(null);
-                    handleStartInspection(selectedMission);
-                  }}
-                  className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition-all"
-                >
-                  <Play className="w-5 h-5" />
-                  Commencer Inspection
-                </button>
-              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Modal Rejoindre Mission */}
-      <JoinMissionModal
-        isOpen={showJoinModal}
-        onClose={() => setShowJoinModal(false)}
-        onSuccess={(missionId) => {
-          // Recharger les missions après avoir rejoint
-          loadMissions();
-          setShowJoinModal(false);
-        }}
-      />
+      {/* Join Mission Modal */}
+      {showJoinModal && (
+        <JoinMissionModal
+          onClose={() => setShowJoinModal(false)}
+          onSuccess={() => {
+            setShowJoinModal(false);
+            loadData();
+          }}
+        />
+      )}
 
-      {/* Modal Partager Code */}
-      {showShareCodeModal && selectedMission && selectedMission.share_code && (
+      {/* Share Code Modal */}
+      {showShareCodeModal && selectedMission && (
         <ShareCodeModal
-          isOpen={showShareCodeModal}
-          shareCode={selectedMission.share_code}
-          missionReference={selectedMission.reference}
+          mission={selectedMission}
           onClose={() => {
             setShowShareCodeModal(false);
             setSelectedMission(null);
@@ -1255,3 +812,4 @@ export default function TeamMissions() {
     </div>
   );
 }
+

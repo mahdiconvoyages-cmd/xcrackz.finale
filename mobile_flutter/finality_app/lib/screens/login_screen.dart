@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../main.dart';
 import '../theme/premium_theme.dart';
 import '../widgets/premium/premium_widgets.dart';
@@ -106,8 +105,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
             end: Alignment.bottomRight,
             colors: [
               Colors.white,
-              PremiumTheme.primaryBlue.withOpacity(0.03),
-              PremiumTheme.primaryTeal.withOpacity(0.03),
+              PremiumTheme.primaryBlue.withValues(alpha: 0.03),
+              PremiumTheme.primaryTeal.withValues(alpha: 0.03),
               Colors.white,
             ],
             stops: const [0.0, 0.3, 0.7, 1.0],
@@ -133,7 +132,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                           gradient: PremiumTheme.tealGradient,
                           boxShadow: [
                             BoxShadow(
-                              color: PremiumTheme.primaryTeal.withOpacity(0.5),
+                              color: PremiumTheme.primaryTeal.withValues(alpha: 0.5),
                               blurRadius: 40,
                               spreadRadius: 10,
                             ),
@@ -148,8 +147,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               color: Colors.white,
                               shape: BoxShape.circle,
                             ),
-                            child: SvgPicture.asset(
-                              'assets/images/logo.svg',
+                            child: Image.asset(
+                              'assets/icons/logo.png',
                               fit: BoxFit.contain,
                             ),
                           ),
@@ -366,7 +365,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               children: [
                                 Expanded(
                                   child: Divider(
-                                    color: Colors.white.withOpacity(0.2),
+                                    color: Colors.white.withValues(alpha: 0.2),
                                     thickness: 1,
                                   ),
                                 ),
@@ -381,7 +380,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                                 ),
                                 Expanded(
                                   child: Divider(
-                                    color: Colors.white.withOpacity(0.2),
+                                    color: Colors.white.withValues(alpha: 0.2),
                                     thickness: 1,
                                   ),
                                 ),
@@ -405,7 +404,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                               style: OutlinedButton.styleFrom(
                                 padding: const EdgeInsets.symmetric(vertical: 16),
                                 side: BorderSide(
-                                  color: PremiumTheme.primaryTeal.withOpacity(0.5),
+                                  color: PremiumTheme.primaryTeal.withValues(alpha: 0.5),
                                   width: 2,
                                 ),
                                 shape: RoundedRectangleBorder(

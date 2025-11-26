@@ -90,7 +90,7 @@ class PremiumTheme {
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.04),
+          color: Colors.black.withValues(alpha: 0.04),
           blurRadius: blur,
           offset: const Offset(0, 2),
         ),
@@ -103,12 +103,12 @@ class PremiumTheme {
       gradient: gradient,
       borderRadius: BorderRadius.circular(20),
       border: Border.all(
-        color: Colors.white.withOpacity(0.3),
+        color: Colors.white.withValues(alpha: 0.3),
         width: 2,
       ),
       boxShadow: [
         BoxShadow(
-          color: Colors.black.withOpacity(0.2),
+          color: Colors.black.withValues(alpha: 0.2),
           blurRadius: 20,
           offset: const Offset(0, 8),
         ),
@@ -130,19 +130,19 @@ class PremiumTheme {
       boxShadow: pressed
           ? [
               BoxShadow(
-                color: Colors.black.withOpacity(0.2),
+                color: Colors.black.withValues(alpha: 0.2),
                 blurRadius: 10,
                 offset: const Offset(2, 2),
               ),
             ]
           : [
               BoxShadow(
-                color: Colors.white.withOpacity(0.05),
+                color: Colors.white.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(-5, -5),
               ),
               BoxShadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 blurRadius: 10,
                 offset: const Offset(5, 5),
               ),
@@ -156,7 +156,7 @@ class PremiumTheme {
   
   static List<BoxShadow> softShadow = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.08),
+      color: Colors.black.withValues(alpha: 0.08),
       blurRadius: 12,
       offset: const Offset(0, 4),
     ),
@@ -164,7 +164,7 @@ class PremiumTheme {
   
   static List<BoxShadow> mediumShadow = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.15),
+      color: Colors.black.withValues(alpha: 0.15),
       blurRadius: 20,
       offset: const Offset(0, 8),
     ),
@@ -172,7 +172,7 @@ class PremiumTheme {
   
   static List<BoxShadow> strongShadow = [
     BoxShadow(
-      color: Colors.black.withOpacity(0.25),
+      color: Colors.black.withValues(alpha: 0.25),
       blurRadius: 30,
       offset: const Offset(0, 12),
     ),
@@ -181,7 +181,7 @@ class PremiumTheme {
   static List<BoxShadow> glowShadow(Color color) {
     return [
       BoxShadow(
-        color: color.withOpacity(0.5),
+        color: color.withValues(alpha: 0.5),
         blurRadius: 20,
         offset: const Offset(0, 0),
       ),
@@ -464,9 +464,9 @@ class PremiumTheme {
     return BoxDecoration(
       gradient: LinearGradient(
         colors: [
-          Colors.white.withOpacity(0.05),
-          Colors.white.withOpacity(0.1),
-          Colors.white.withOpacity(0.05),
+          Colors.white.withValues(alpha: 0.05),
+          Colors.white.withValues(alpha: 0.1),
+          Colors.white.withValues(alpha: 0.05),
         ],
         stops: const [0.0, 0.5, 1.0],
         begin: Alignment.topLeft,

@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../services/realtime_service.dart';
@@ -168,7 +167,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           ),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
+                              color: Colors.black.withValues(alpha: 0.05),
                               blurRadius: 10,
                               offset: const Offset(0, 2),
                             ),
@@ -195,7 +194,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                               fontWeight: FontWeight.w500,
                                               shadows: [
                                                 Shadow(
-                                                  color: Colors.black.withOpacity(0.1),
+                                                  color: Colors.black.withValues(alpha: 0.1),
                                                   offset: const Offset(0, 1),
                                                   blurRadius: 2,
                                                 ),
@@ -213,7 +212,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                               fontWeight: FontWeight.bold,
                                               shadows: [
                                                 Shadow(
-                                                  color: Colors.black.withOpacity(0.15),
+                                                  color: Colors.black.withValues(alpha: 0.15),
                                                   offset: const Offset(0, 1),
                                                   blurRadius: 3,
                                                 ),
@@ -364,21 +363,21 @@ class _DashboardScreenState extends State<DashboardScreen>
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: isExpired 
-                ? [PremiumTheme.accentRed.withOpacity(0.9), PremiumTheme.accentRed]
+                ? [PremiumTheme.accentRed.withValues(alpha: 0.9), PremiumTheme.accentRed]
                 : isExpiringSoon
-                    ? [PremiumTheme.accentAmber.withOpacity(0.9), PremiumTheme.accentAmber]
+                    ? [PremiumTheme.accentAmber.withValues(alpha: 0.9), PremiumTheme.accentAmber]
                     : [PremiumTheme.primaryTeal, PremiumTheme.primaryBlue],
           ),
           borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
           boxShadow: [
             BoxShadow(
-              color: (isExpired ? PremiumTheme.accentRed : PremiumTheme.primaryTeal).withOpacity(0.4),
+              color: (isExpired ? PremiumTheme.accentRed : PremiumTheme.primaryTeal).withValues(alpha: 0.4),
               blurRadius: 24,
               offset: const Offset(0, 10),
               spreadRadius: 2,
             ),
             BoxShadow(
-              color: Colors.black.withOpacity(0.08),
+              color: Colors.black.withValues(alpha: 0.08),
               blurRadius: 8,
               offset: const Offset(0, 4),
             ),
@@ -402,7 +401,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         letterSpacing: 0.5,
                         shadows: [
                           Shadow(
-                            color: Colors.black.withOpacity(0.3),
+                            color: Colors.black.withValues(alpha: 0.3),
                             offset: const Offset(0, 2),
                             blurRadius: 4,
                           ),
@@ -420,7 +419,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             fontWeight: FontWeight.bold,
                             shadows: [
                               Shadow(
-                                color: Colors.black.withOpacity(0.4),
+                                color: Colors.black.withValues(alpha: 0.4),
                                 offset: const Offset(0, 3),
                                 blurRadius: 8,
                               ),
@@ -434,7 +433,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           size: 32,
                           shadows: [
                             Shadow(
-                              color: Colors.black.withOpacity(0.3),
+                              color: Colors.black.withValues(alpha: 0.3),
                               offset: const Offset(0, 2),
                               blurRadius: 4,
                             ),
@@ -447,11 +446,11 @@ class _DashboardScreenState extends State<DashboardScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.3),
+                    color: Colors.white.withValues(alpha: 0.3),
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.2),
+                        color: Colors.black.withValues(alpha: 0.2),
                         blurRadius: 8,
                         offset: const Offset(0, 2),
                       ),
@@ -465,7 +464,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                       letterSpacing: 0.8,
                       shadows: [
                         Shadow(
-                          color: Colors.black.withOpacity(0.3),
+                          color: Colors.black.withValues(alpha: 0.3),
                           offset: const Offset(0, 1),
                           blurRadius: 2,
                         ),
@@ -477,7 +476,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             ),
             if (_hasActiveSubscription) ...[
               const SizedBox(height: 16),
-              Divider(color: Colors.white.withOpacity(0.3)),
+              Divider(color: Colors.white.withValues(alpha: 0.3)),
               const SizedBox(height: 16),
               Row(
                 children: [
@@ -506,7 +505,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             fontWeight: FontWeight.w600,
                             shadows: [
                               Shadow(
-                                color: Colors.black.withOpacity(0.3),
+                                color: Colors.black.withValues(alpha: 0.3),
                                 offset: const Offset(0, 1),
                                 blurRadius: 2,
                               ),
@@ -523,7 +522,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             fontWeight: FontWeight.bold,
                             shadows: [
                               Shadow(
-                                color: Colors.black.withOpacity(0.4),
+                                color: Colors.black.withValues(alpha: 0.4),
                                 offset: const Offset(0, 2),
                                 blurRadius: 4,
                               ),
@@ -535,7 +534,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           Text(
                             'Expire le ${DateFormat('dd/MM/yyyy').format(_subscriptionEndDate!)}',
                             style: PremiumTheme.bodySmall.copyWith(
-                              color: Colors.white.withOpacity(0.8),
+                              color: Colors.white.withValues(alpha: 0.8),
                               fontSize: 12,
                             ),
                           ),
@@ -581,13 +580,13 @@ class _DashboardScreenState extends State<DashboardScreen>
           borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
           boxShadow: [
             BoxShadow(
-              color: color.withOpacity(0.2),
+              color: color.withValues(alpha: 0.2),
               blurRadius: 12,
               offset: const Offset(0, 6),
               spreadRadius: 1,
             ),
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -600,11 +599,11 @@ class _DashboardScreenState extends State<DashboardScreen>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withOpacity(0.15),
+                  color: color.withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(12),
                   boxShadow: [
                     BoxShadow(
-                      color: color.withOpacity(0.3),
+                      color: color.withValues(alpha: 0.3),
                       blurRadius: 8,
                       offset: const Offset(0, 4),
                     ),
@@ -621,7 +620,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   color: PremiumTheme.textPrimary,
                   shadows: [
                     Shadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       offset: const Offset(0, 2),
                       blurRadius: 4,
                     ),
@@ -653,13 +652,13 @@ class _DashboardScreenState extends State<DashboardScreen>
           borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
           boxShadow: [
             BoxShadow(
-              color: PremiumTheme.primaryBlue.withOpacity(0.1),
+              color: PremiumTheme.primaryBlue.withValues(alpha: 0.1),
               blurRadius: 12,
               offset: const Offset(0, 6),
               spreadRadius: 1,
             ),
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -677,7 +676,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   fontWeight: FontWeight.bold,
                   shadows: [
                     Shadow(
-                      color: Colors.black.withOpacity(0.08),
+                      color: Colors.black.withValues(alpha: 0.08),
                       offset: const Offset(0, 1),
                       blurRadius: 2,
                     ),
@@ -690,7 +689,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   borderRadius: BorderRadius.circular(8),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -725,7 +724,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         child: Container(
                           height: 10,
                           decoration: BoxDecoration(
-                            color: PremiumTheme.textSecondary.withOpacity(0.2),
+                            color: PremiumTheme.textSecondary.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.horizontal(right: Radius.circular(5)),
                           ),
                         ),
@@ -760,7 +759,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: color.withOpacity(0.4),
+                color: color.withValues(alpha: 0.4),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -839,13 +838,13 @@ class _DashboardScreenState extends State<DashboardScreen>
             borderRadius: BorderRadius.circular(PremiumTheme.radiusMD),
             boxShadow: [
               BoxShadow(
-                color: gradient[0].withOpacity(0.4),
+                color: gradient[0].withValues(alpha: 0.4),
                 blurRadius: 16,
                 offset: const Offset(0, 8),
                 spreadRadius: 1,
               ),
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 4,
                 offset: const Offset(0, 2),
               ),
@@ -856,7 +855,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               Container(
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(icon, color: Colors.white, size: 32),
@@ -869,7 +868,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   fontWeight: FontWeight.bold,
                   shadows: [
                     Shadow(
-                      color: Colors.black.withOpacity(0.3),
+                      color: Colors.black.withValues(alpha: 0.3),
                       offset: const Offset(0, 2),
                       blurRadius: 4,
                     ),
@@ -954,7 +953,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.2),
+              color: color.withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Icon(icon, color: color, size: 20),

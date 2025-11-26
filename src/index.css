@@ -1,3 +1,5 @@
+/* 🎨 xCrackz Design System */
+@import './styles/design-system.css';
 /* Import unified theme */
 @import './styles/unified-theme.css';
 /* Import responsive utilities */

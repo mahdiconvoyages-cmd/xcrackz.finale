@@ -38,7 +38,7 @@ class PdfService {
     final now = DateTime.now();
     final dateStr = DateFormat('yyyy-MM-dd HH:mm').format(now);
     
-    pdf.info = pw.Info(
+    pdf.info = pw.DocumentInfo(
       title: title ?? 'Document scanné',
       author: 'XCrackz Finality',
       subject: documentType ?? 'Document',

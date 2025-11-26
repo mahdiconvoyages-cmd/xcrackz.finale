@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../main.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
@@ -162,7 +161,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                               gradient: PremiumTheme.primaryGradient,
                               boxShadow: [
                                 BoxShadow(
-                                  color: PremiumTheme.primaryTeal.withOpacity(0.5),
+                                  color: PremiumTheme.primaryTeal.withValues(alpha: 0.5),
                                   blurRadius: 20,
                                   spreadRadius: 5,
                                 ),
@@ -294,7 +293,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                 vertical: 6,
                               ),
                               decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.1),
+                                color: Colors.white.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(12),
                               ),
                               child: Text(
@@ -359,7 +358,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         side: BorderSide(
-                          color: Colors.white.withOpacity(0.3),
+                          color: Colors.white.withValues(alpha: 0.3),
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(PremiumTheme.radiusMD),

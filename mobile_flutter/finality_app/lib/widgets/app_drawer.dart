@@ -7,7 +7,6 @@ import '../screens/sharing/public_sharing_screen.dart';
 import '../screens/debug/debug_tools_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/login_screen.dart';
-import '../main.dart';
 
 /// Sidebar moderne avec design amélioré et icônes colorées
 class AppDrawer extends StatelessWidget {
@@ -27,7 +26,7 @@ class AppDrawer extends StatelessWidget {
             padding: const EdgeInsets.fromLTRB(24, 60, 24, 24),
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [Color(0xFF0066FF).withOpacity(0.1), Colors.white],
+                colors: [Color(0xFF0066FF).withValues(alpha: 0.1), Colors.white],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
@@ -45,7 +44,7 @@ class AppDrawer extends StatelessWidget {
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(0.2),
+                            color: Colors.black.withValues(alpha: 0.2),
                             blurRadius: 8,
                             offset: const Offset(0, 4),
                           ),
@@ -73,7 +72,7 @@ class AppDrawer extends StatelessWidget {
                         );
                       },
                       style: IconButton.styleFrom(
-                        backgroundColor: Color(0xFF0066FF).withOpacity(0.1),
+                        backgroundColor: Color(0xFF0066FF).withValues(alpha: 0.1),
                       ),
                     ),
                   ],
@@ -305,7 +304,7 @@ class AppDrawer extends StatelessWidget {
         leading: Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: iconColor.withOpacity(0.15),
+            color: iconColor.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: iconColor, size: 22),

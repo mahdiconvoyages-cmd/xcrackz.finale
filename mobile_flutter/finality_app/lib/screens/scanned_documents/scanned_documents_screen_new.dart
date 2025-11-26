@@ -1,11 +1,9 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../main.dart';
 import '../document_scanner/document_scanner_screen.dart';
 import '../../theme/premium_theme.dart';
-import '../../widgets/premium/premium_widgets.dart';
 
 /// Modern Scanner Screen - Responsive Samsung Android
 /// Design moderne avec grid/list view, filtres, search, actions rapides
@@ -471,7 +469,7 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
                       Container(
                         padding: const EdgeInsets.all(8),
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.2),
+                          color: Colors.white.withValues(alpha: 0.2),
                           borderRadius: BorderRadius.circular(12),
                         ),
                         child: const Icon(
@@ -495,7 +493,7 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
                           color: Colors.white,
                         ),
                         style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(0.2),
+                          backgroundColor: Colors.white.withValues(alpha: 0.2),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -503,7 +501,7 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
                         onPressed: _loadDocuments,
                         icon: const Icon(Icons.refresh, color: Colors.white),
                         style: IconButton.styleFrom(
-                          backgroundColor: Colors.white.withOpacity(0.2),
+                          backgroundColor: Colors.white.withValues(alpha: 0.2),
                         ),
                       ),
                     ],
@@ -528,7 +526,7 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
                             )
                           : null,
                       filled: true,
-                      fillColor: Colors.white.withOpacity(0.15),
+                      fillColor: Colors.white.withValues(alpha: 0.15),
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(PremiumTheme.radiusMD),
                         borderSide: BorderSide.none,

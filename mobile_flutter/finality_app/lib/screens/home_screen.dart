@@ -1,12 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'dart:async';
-import '../main.dart';
 import '../providers/credits_provider.dart';
 import '../providers/subscription_provider.dart';
 import '../services/deep_link_service.dart';
 import '../services/mission_tracking_monitor.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/offline_indicator.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'missions/missions_screen.dart';
 import 'missions/mission_create_screen_new.dart';
@@ -66,9 +66,16 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       drawer: const AppDrawer(),
-      body: IndexedStack(
-        index: _currentIndex,
-        children: _screens,
+      body: Column(
+        children: [
+          const OfflineIndicator(),
+          Expanded(
+            child: IndexedStack(
+              index: _currentIndex,
+              children: _screens,
+            ),
+          ),
+        ],
       ),
       floatingActionButton: _currentIndex == 1 // Missions tab
           ? FloatingActionButton.extended(

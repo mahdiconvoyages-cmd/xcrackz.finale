@@ -5,7 +5,6 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
 import '../../widgets/signature_pad_widget.dart';
-import '../../widgets/inspection_report_link_dialog.dart';
 import '../document_scanner/document_scanner_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
@@ -388,7 +387,7 @@ class _InspectionDepartureScreenState
         });
       }
 
-      // 4. Mettre à jour le statut de la mission
+      // 4. Mettre à jour le statut de la mission à 'in_progress' UNIQUEMENT après validation de l'inspection de départ
       await supabase.from('missions').update({
         'status': 'in_progress',
       }).eq('id', widget.missionId);
@@ -404,7 +403,7 @@ class _InspectionDepartureScreenState
         Navigator.pop(context, true);
       }
     } catch (e) {
-      _showError('Erreur lors de l\'enregistrement: $e');
+      _showError('Erreur lors de l\'enregistrement de l\'inspection');
     } finally {
       setState(() => _isLoading = false);
     }
@@ -504,14 +503,14 @@ class _InspectionDepartureScreenState
         gradient: LinearGradient(
           colors: [
             PremiumTheme.cardBg,
-            PremiumTheme.cardBg.withOpacity(0.8),
+            PremiumTheme.cardBg.withValues(alpha: 0.8),
           ],
           begin: Alignment.topCenter,
           end: Alignment.bottomCenter,
         ),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.2),
+            color: Colors.black.withValues(alpha: 0.2),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -812,7 +811,7 @@ class _InspectionDepartureScreenState
                     activeTrackColor: const Color(0xFF14B8A6),
                     inactiveTrackColor: const Color(0xFF374151),
                     thumbColor: const Color(0xFF14B8A6),
-                    overlayColor: const Color(0xFF14B8A6).withOpacity(0.2),
+                    overlayColor: const Color(0xFF14B8A6).withValues(alpha: 0.2),
                     trackHeight: 8,
                     thumbShape:
                         const RoundSliderThumbShape(enabledThumbRadius: 12),
@@ -956,7 +955,7 @@ class _InspectionDepartureScreenState
                                 child: Icon(
                                   Icons.camera_alt,
                                   size: 32,
-                                  color: Colors.white.withOpacity(0.7),
+                                  color: Colors.white.withValues(alpha: 0.7),
                                 ),
                               ),
                             ],

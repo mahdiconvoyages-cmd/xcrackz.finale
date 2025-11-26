@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import '../../models/invoice.dart';
 import '../../services/invoice_service.dart';
 import 'invoice_detail_screen.dart';
-import 'invoice_form_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
 
@@ -103,12 +102,17 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
                         backgroundColor: PremiumTheme.cardBg,
                         color: PremiumTheme.primaryIndigo,
                         child: ListView.builder(
+                          key: const ValueKey('invoices-list'),
                           padding: const EdgeInsets.all(16),
+                          cacheExtent: 500.0,
+                          addAutomaticKeepAlives: true,
                           itemCount: _invoices.length,
                           itemBuilder: (context, index) {
+                            final invoice = _invoices[index];
                             return FadeInAnimation(
+                              key: ValueKey('invoice-fade-${invoice.id}'),
                               delay: Duration(milliseconds: index * 50),
-                              child: _buildInvoiceCard(_invoices[index]),
+                              child: _buildInvoiceCard(invoice),
                             );
                           },
                         ),
@@ -152,13 +156,13 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
                   borderRadius: BorderRadius.circular(16),
                   boxShadow: [
                     BoxShadow(
-                      color: PremiumTheme.accentGreen.withOpacity(0.4),
+                      color: PremiumTheme.accentGreen.withValues(alpha: 0.4),
                       blurRadius: 16,
                       offset: const Offset(0, 8),
                       spreadRadius: 1,
                     ),
                     BoxShadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       blurRadius: 4,
                       offset: const Offset(0, 2),
                     ),
@@ -215,7 +219,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
         borderRadius: BorderRadius.circular(PremiumTheme.radiusMD),
         boxShadow: [
           BoxShadow(
-            color: gradient[0].withOpacity(0.3),
+            color: gradient[0].withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -239,7 +243,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
           Text(
             title,
             style: PremiumTheme.bodySmall.copyWith(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 12,
             ),
           ),
@@ -314,7 +318,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
           gradient: isSelected
               ? LinearGradient(
                   colors: color != null
-                      ? [color, color.withOpacity(0.8)]
+                      ? [color, color.withValues(alpha: 0.8)]
                       : [PremiumTheme.primaryIndigo, PremiumTheme.primaryPurple],
                 )
               : null,
@@ -323,7 +327,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
           border: Border.all(
             color: isSelected
                 ? Colors.transparent
-                : Colors.white.withOpacity(0.1),
+                : Colors.white.withValues(alpha: 0.1),
           ),
         ),
         child: Text(
@@ -404,7 +408,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.2),
+                    color: statusColor.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -425,7 +429,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
               ],
             ),
             const SizedBox(height: 12),
-            Divider(color: Colors.white.withOpacity(0.1), height: 1),
+            Divider(color: Colors.white.withValues(alpha: 0.1), height: 1),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -489,7 +493,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen>
                     onPressed: () => _cancelInvoice(invoice),
                     icon: const Icon(Icons.cancel, color: PremiumTheme.accentRed),
                     style: IconButton.styleFrom(
-                      backgroundColor: PremiumTheme.accentRed.withOpacity(0.2),
+                      backgroundColor: PremiumTheme.accentRed.withValues(alpha: 0.2),
                     ),
                   ),
                 ],

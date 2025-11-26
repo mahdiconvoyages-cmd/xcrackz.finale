@@ -1,19 +1,44 @@
+import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/mission.dart';
 import 'gps_tracking_service.dart';
+import 'offline_service.dart';
+import 'connectivity_service.dart';
+import '../utils/logger.dart';
 
 class MissionService {
   final SupabaseClient _supabase = Supabase.instance.client;
   final GPSTrackingService _gpsService = GPSTrackingService();
+  final OfflineService _offlineService = OfflineService();
+  final ConnectivityService _connectivityService = ConnectivityService();
+  
+  bool _isInitialized = false;
+  
+  Future<void> _ensureInitialized() async {
+    if (!_isInitialized) {
+      await _offlineService.initialize();
+      _isInitialized = true;
+      logger.i('MissionService: OfflineService initialized');
+    }
+  }
 
   // Get all missions FOR CURRENT USER ONLY
   Future<List<Mission>> getMissions({String? status}) async {
+    await _ensureInitialized();
+    
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) {
         throw Exception('Utilisateur non connecté');
       }
 
+      // Si offline, retourner le cache
+      if (_connectivityService.isOffline) {
+        logger.w('MissionService: Offline - returning cached missions');
+        return await _offlineService.getCachedMissions(status: status);
+      }
+
+      // Si online, récupérer depuis Supabase
       var query = _supabase
           .from('missions')
           .select()
@@ -24,23 +49,56 @@ class MissionService {
       }
       
       final response = await query.order('created_at', ascending: false);
-      return (response as List).map((json) => Mission.fromJson(json)).toList();
+      final missions = (response as List).map((json) => Mission.fromJson(json)).toList();
+      
+      // Mettre en cache pour offline
+      for (final mission in missions) {
+        await _offlineService.cacheMission(mission);
+      }
+      logger.d('MissionService: Cached ${missions.length} missions');
+      
+      return missions;
     } catch (e) {
-      throw Exception('Erreur lors du chargement des missions: $e');
+      // En cas d'erreur réseau, fallback sur le cache
+      logger.e('MissionService: Error loading missions, fallback to cache: $e');
+      return await _offlineService.getCachedMissions(status: status);
     }
   }
 
   // Get mission by ID
   Future<Mission> getMissionById(String id) async {
+    await _ensureInitialized();
+    
     try {
+      // Essayer le cache d'abord (plus rapide)
+      final cached = await _offlineService.getCachedMissions();
+      final cachedMission = cached.where((m) => m.id == id).firstOrNull;
+      
+      if (_connectivityService.isOffline && cachedMission != null) {
+        logger.w('MissionService: Offline - returning cached mission $id');
+        return cachedMission;
+      }
+
+      // Si online, récupérer depuis Supabase
       final response = await _supabase
           .from('missions')
           .select()
           .eq('id', id)
           .single();
 
-      return Mission.fromJson(response);
+      final mission = Mission.fromJson(response);
+      await _offlineService.cacheMission(mission);
+      
+      return mission;
     } catch (e) {
+      // Fallback sur cache si erreur
+      final cached = await _offlineService.getCachedMissions();
+      final cachedMission = cached.where((m) => m.id == id).firstOrNull;
+      if (cachedMission != null) {
+        logger.w('MissionService: Error, returning cached mission');
+        return cachedMission;
+      }
+      logger.e('MissionService: Error loading mission: $e');
       throw Exception('Erreur lors du chargement de la mission: $e');
     }
   }
@@ -67,22 +125,74 @@ class MissionService {
 
   // Create mission
   Future<Mission> createMission(Map<String, dynamic> missionData) async {
+    await _ensureInitialized();
+    
     try {
+      // Si offline, ajouter à la queue
+      if (_connectivityService.isOffline) {
+        logger.w('MissionService: Offline - queueing create action');
+        final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
+        missionData['id'] = tempId;
+        
+        await _offlineService.queueAction(OfflineAction(
+          type: ActionType.create,
+          tableName: 'missions',
+          itemId: tempId,
+          data: missionData,
+        ));
+        
+        // Créer mission temporaire pour UI
+        final tempMission = Mission.fromJson(missionData);
+        await _offlineService.cacheMission(tempMission);
+        return tempMission;
+      }
+
+      // Si online, créer directement
       final response = await _supabase
           .from('missions')
           .insert(missionData)
           .select()
           .single();
 
-      return Mission.fromJson(response);
+      final mission = Mission.fromJson(response);
+      await _offlineService.cacheMission(mission);
+      logger.i('MissionService: Mission created and cached');
+      
+      return mission;
     } catch (e) {
+      logger.e('MissionService: Error creating mission: $e');
       throw Exception('Erreur lors de la création de la mission: $e');
     }
   }
 
   // Update mission
   Future<Mission> updateMission(String id, Map<String, dynamic> updates) async {
+    await _ensureInitialized();
+    
     try {
+      // Si offline, ajouter à la queue
+      if (_connectivityService.isOffline) {
+        logger.w('MissionService: Offline - queueing update action');
+        await _offlineService.queueAction(OfflineAction(
+          type: ActionType.update,
+          tableName: 'missions',
+          itemId: id,
+          data: updates,
+        ));
+        
+        // Mettre à jour le cache local
+        final cached = await _offlineService.getCachedMissions();
+        final mission = cached.where((m) => m.id == id).firstOrNull;
+        if (mission != null) {
+          final updatedJson = mission.toJson()..addAll(updates);
+          final updatedMission = Mission.fromJson(updatedJson);
+          await _offlineService.cacheMission(updatedMission);
+          return updatedMission;
+        }
+        throw Exception('Mission introuvable dans le cache');
+      }
+
+      // Si online, mettre à jour directement
       final response = await _supabase
           .from('missions')
           .update(updates)
@@ -90,8 +200,13 @@ class MissionService {
           .select()
           .single();
 
-      return Mission.fromJson(response);
+      final mission = Mission.fromJson(response);
+      await _offlineService.cacheMission(mission);
+      logger.i('MissionService: Mission updated and cached');
+      
+      return mission;
     } catch (e) {
+      logger.e('MissionService: Error updating mission: $e');
       throw Exception('Erreur lors de la mise à jour de la mission: $e');
     }
   }
@@ -200,29 +315,56 @@ class MissionService {
         throw Exception('Utilisateur non connecté');
       }
 
-      // Find mission by share code
-      final response = await _supabase
-          .from('missions')
-          .select()
-          .eq('share_code', shareCode)
-          .maybeSingle();
+      // Nettoyer le code (enlever les tirets et espaces, convertir en majuscules)
+      final cleanedCode = shareCode.replaceAll(RegExp(r'[^A-Z0-9]'), '').toUpperCase();
 
-      if (response == null) {
-        throw Exception('Mission introuvable avec ce code');
+      if (cleanedCode.length != 8) {
+        throw Exception('Code invalide. Format attendu: XZ-ABC-123 (8 caractères)');
       }
 
-      final missionId = response['id'] as String;
+      // Utiliser la fonction RPC claim_mission comme l'app Expo
+      final response = await _supabase.rpc('claim_mission', params: {
+        'p_code': cleanedCode,
+        'p_user_id': userId,
+      });
 
-      // Assign mission to current user
-      await _supabase
-          .from('missions')
-          .update({
-            'assigned_user_id': userId,
-            'status': 'assigned',
-            'updated_at': DateTime.now().toIso8601String(),
-          })
-          .eq('id', missionId);
+      // La fonction RPC retourne un JSON avec success/error
+      if (response == null) {
+        throw Exception('Aucune réponse du serveur');
+      }
+
+      // Parser la réponse
+      dynamic result = response;
+      if (result is String) {
+        try {
+          result = jsonDecode(result);
+        } catch (e) {
+          // Si c'est déjà un objet, garder tel quel
+        }
+      }
+      
+      if (result is List && result.isNotEmpty) {
+        result = result[0];
+      }
+
+      if (result is Map) {
+        if (result['success'] == true) {
+          // Succès - mission rejointe
+          return;
+        } else {
+          // Erreur retournée par la fonction
+          throw Exception(result['message'] ?? result['error'] ?? 'Impossible de rejoindre la mission');
+        }
+      } else if (result == true) {
+        // Succès simple
+        return;
+      }
+
+      throw Exception('Réponse invalide du serveur');
     } catch (e) {
+      if (e is Exception) {
+        rethrow;
+      }
       throw Exception('Erreur lors de la jonction à la mission: $e');
     }
   }

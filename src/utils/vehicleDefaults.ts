@@ -4,6 +4,11 @@
  */
 
 /**
+ * Types de véhicules disponibles
+ */
+export const vehicleTypes = ['VL', 'VU', 'PL'] as const;
+
+/**
  * Retourne l'URL de l'image par défaut selon le type de véhicule
  * Utilisé quand vehicle_image_url est null/undefined
  */

@@ -1,11 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import '../../utils/error_helper.dart';
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../services/image_filter_service.dart';
 import '../../services/pdf_service.dart';
 import '../../services/supabase_service.dart';
 import '../../widgets/sync_indicator.dart';
+import '../../theme/premium_theme.dart';
 
 /// Professional Document Scanner Pro - Matching Expo ScannerProScreen
 /// Features: Multi-page, Filters, PDF Generation, Upload, Share
@@ -101,7 +103,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
           Container(
             padding: const EdgeInsets.all(32),
             decoration: BoxDecoration(
-              color: const Color(0xFF14b8a6).withOpacity(0.1),
+              color: const Color(0xFF14b8a6).withValues(alpha: 0.1),
               shape: BoxShape.circle,
             ),
             child: const Icon(
@@ -124,7 +126,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
             'Scanner professionnel multi-pages\navec filtres et génération PDF',
             textAlign: TextAlign.center,
             style: TextStyle(
-              color: Colors.white.withOpacity(0.7),
+              color: Colors.white.withValues(alpha: 0.7),
               fontSize: 14,
             ),
           ),
@@ -159,7 +161,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
               Text(
                 feature['text'] as String,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.8),
+                  color: Colors.white.withValues(alpha: 0.8),
                   fontSize: 14,
                 ),
               ),
@@ -332,7 +334,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur scan: $e'),
+          content: Text(ErrorHelper.cleanError(e)),
           backgroundColor: Colors.red,
         ),
       );
@@ -425,7 +427,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
     return ListTile(
       leading: Icon(icon, color: const Color(0xFF14b8a6)),
       title: Text(title, style: const TextStyle(color: Colors.white)),
-      subtitle: Text(subtitle, style: TextStyle(color: Colors.white.withOpacity(0.6))),
+      subtitle: Text(subtitle, style: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
       onTap: () {
         Navigator.pop(context);
         _applyFilter(filter);
@@ -464,7 +466,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
       setState(() => _isProcessing = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur filtre: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: Colors.red),
       );
     }
   }
@@ -537,7 +539,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
       
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: Colors.red),
       );
     }
   }
@@ -551,7 +553,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
       final imageFiles = _pages.map((p) => p.imageFile).toList();
       final pdfFile = await PdfService.generatePDFFromPages(imageFiles);
 
-      await Share.shareXFiles(
+      await SharePlus.instance.shareXFiles(
         [XFile(pdfFile.path)],
         text: 'Document scanné (${_pages.length} page${_pages.length > 1 ? 's' : ''})',
       );
@@ -561,7 +563,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
       setState(() => _isProcessing = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur partage: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: Colors.red),
       );
     }
   }

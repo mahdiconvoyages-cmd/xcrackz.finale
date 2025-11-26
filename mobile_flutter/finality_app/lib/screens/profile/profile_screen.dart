@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../main.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
@@ -65,7 +64,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             gradient: PremiumTheme.tealGradient,
             boxShadow: [
               BoxShadow(
-                color: PremiumTheme.primaryTeal.withOpacity(0.3),
+                color: PremiumTheme.primaryTeal.withValues(alpha: 0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -83,7 +82,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -101,7 +100,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 fontWeight: FontWeight.bold,
                 shadows: [
                   Shadow(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     offset: const Offset(0, 2),
                     blurRadius: 4,
                   ),
@@ -148,7 +147,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             gradient: PremiumTheme.primaryGradient,
                             boxShadow: [
                               BoxShadow(
-                                color: PremiumTheme.primaryTeal.withOpacity(0.5),
+                                color: PremiumTheme.primaryTeal.withValues(alpha: 0.5),
                                 blurRadius: 20,
                                 spreadRadius: 5,
                                 offset: const Offset(0, 5),
@@ -183,7 +182,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Text(
                           user?.email ?? 'Email non disponible',
                           style: PremiumTheme.body.copyWith(
-                            color: Colors.white.withOpacity(0.9),
+                            color: Colors.white.withValues(alpha: 0.9),
                           ),
                         ),
                         const SizedBox(height: 12),
@@ -193,10 +192,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             vertical: 8,
                           ),
                           decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
+                            color: Colors.white.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: Colors.white.withOpacity(0.3),
+                              color: Colors.white.withValues(alpha: 0.3),
                               width: 1,
                             ),
                           ),
@@ -238,13 +237,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             icon: const Icon(Icons.edit, size: 18),
                             label: const Text('Modifier le profil'),
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.white.withOpacity(0.2),
+                              backgroundColor: Colors.white.withValues(alpha: 0.2),
                               foregroundColor: Colors.white,
                               padding: const EdgeInsets.symmetric(vertical: 12),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(12),
                                 side: BorderSide(
-                                  color: Colors.white.withOpacity(0.3),
+                                  color: Colors.white.withValues(alpha: 0.3),
                                 ),
                               ),
                             ),
@@ -328,10 +327,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   delay: const Duration(milliseconds: 500),
                   child: Container(
                     decoration: BoxDecoration(
-                      color: PremiumTheme.cardBg.withOpacity(0.5),
+                      color: PremiumTheme.cardBg.withValues(alpha: 0.5),
                       borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
                       border: Border.all(
-                        color: PremiumTheme.accentRed.withOpacity(0.5),
+                        color: PremiumTheme.accentRed.withValues(alpha: 0.5),
                         width: 2,
                       ),
                     ),
@@ -391,7 +390,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             borderRadius: BorderRadius.circular(12),
             boxShadow: [
               BoxShadow(
-                color: gradientColors[0].withOpacity(0.3),
+                color: gradientColors[0].withValues(alpha: 0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 4),
               ),

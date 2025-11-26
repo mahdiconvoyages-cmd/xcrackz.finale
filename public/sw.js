@@ -1,7 +1,7 @@
 // Service Worker pour xCrackz PWA
 // Cache les assets statiques et permet le mode hors ligne
 
-const CACHE_VERSION = 'v2-uber-gps'; // CHANGÉ pour forcer mise à jour
+const CACHE_VERSION = 'v3-cache-fix-2025'; // CHANGÉ pour forcer mise à jour - 26/11/2025
 const CACHE_NAME = `xcrackz-${CACHE_VERSION}`;
 const STATIC_CACHE = `xcrackz-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `xcrackz-dynamic-${CACHE_VERSION}`;

@@ -1,6 +1,8 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:http/http.dart' as http;
 import '../../main.dart';
 import '../document_scanner/document_scanner_screen.dart';
 
@@ -93,6 +95,232 @@ class _ScannedDocumentsScreenState extends State<ScannedDocumentsScreen> {
               debugPrint('Error saving document: $e');
             }
           },
+        ),
+      ),
+    );
+  }
+
+  Future<void> _shareDocument(Map<String, dynamic> doc) async {
+    try {
+      final response = await http.get(Uri.parse(doc['document_url']));
+      final tempDir = await getTemporaryDirectory();
+      final fileName = 'document_${doc['id']}.jpg';
+      final file = File('${tempDir.path}/$fileName');
+      await file.writeAsBytes(response.bodyBytes);
+
+      await SharePlus.instance.shareXFiles(
+        [XFile(file.path)],
+        subject: doc['document_title'] ?? 'Document scanné',
+        text: 'Document scanné le ${_formatDate(doc['created_at'])}',
+      );
+    } catch (e) {
+      debugPrint('Error sharing document: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors du partage: $e'),
+            backgroundColor: const Color(0xFFEF4444),
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _renameDocument(Map<String, dynamic> doc) async {
+    final controller = TextEditingController(
+      text: doc['document_title'] ?? 'Document',
+    );
+    
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (context) => Dialog(
+        backgroundColor: const Color(0xFF1F2937),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF14B8A6).withValues(alpha: 0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(
+                      Icons.drive_file_rename_outline,
+                      color: Color(0xFF14B8A6),
+                      size: 24,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  const Text(
+                    'Renommer le document',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 20),
+              TextField(
+                controller: controller,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                decoration: InputDecoration(
+                  labelText: 'Nom du document',
+                  labelStyle: const TextStyle(color: Colors.white70),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFF4B5563)),
+                  ),
+                  focusedBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                    borderSide: const BorderSide(color: Color(0xFF14B8A6), width: 2),
+                  ),
+                  filled: true,
+                  fillColor: const Color(0xFF374151),
+                ),
+              ),
+              const SizedBox(height: 24),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.end,
+                children: [
+                  TextButton(
+                    onPressed: () => Navigator.of(context).pop(),
+                    style: TextButton.styleFrom(
+                      foregroundColor: Colors.white70,
+                    ),
+                    child: const Text('ANNULER'),
+                  ),
+                  const SizedBox(width: 12),
+                  ElevatedButton(
+                    onPressed: () {
+                      final name = controller.text.trim();
+                      if (name.isNotEmpty) {
+                        Navigator.of(context).pop(name);
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF14B8A6),
+                    ),
+                    child: const Text('RENOMMER'),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    if (newName != null && newName.isNotEmpty) {
+      try {
+        await supabase
+            .from('inspection_documents')
+            .update({'document_title': newName})
+            .eq('id', doc['id']);
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Document renommé: $newName'),
+              backgroundColor: const Color(0xFF14B8A6),
+            ),
+          );
+          _loadDocuments();
+        }
+      } catch (e) {
+        debugPrint('Error renaming: $e');
+      }
+    }
+  }
+
+  void _showDocumentOptions(Map<String, dynamic> doc) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        decoration: const BoxDecoration(
+          color: Color(0xFF1F2937),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.white24,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 20),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF14B8A6).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.share, color: Color(0xFF14B8A6)),
+              ),
+              title: const Text(
+                'Partager',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _shareDocument(doc);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.drive_file_rename_outline, color: Color(0xFF8B5CF6)),
+              ),
+              title: const Text(
+                'Renommer',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _renameDocument(doc);
+              },
+            ),
+            ListTile(
+              leading: Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEF4444).withValues(alpha: 0.2),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: const Icon(Icons.delete_outline, color: Color(0xFFEF4444)),
+              ),
+              title: const Text(
+                'Supprimer',
+                style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+              ),
+              onTap: () {
+                Navigator.pop(context);
+                _deleteDocument(doc['id'].toString(), doc['document_url']);
+              },
+            ),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
+          ],
         ),
       ),
     );
@@ -319,6 +547,7 @@ class _ScannedDocumentsScreenState extends State<ScannedDocumentsScreen> {
                     final doc = _documents[index];
                     return GestureDetector(
                       onTap: () => _viewDocument(doc),
+                      onLongPress: () => _showDocumentOptions(doc),
                       child: Card(
                         color: const Color(0xFF1F2937),
                         shape: RoundedRectangleBorder(
@@ -348,45 +577,97 @@ class _ScannedDocumentsScreenState extends State<ScannedDocumentsScreen> {
                             ),
                             Padding(
                               padding: const EdgeInsets.all(8),
-                              child: Row(
+                              child: Column(
                                 children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          'Document #${doc['id']}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 12,
-                                            fontWeight: FontWeight.w600,
-                                          ),
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              doc['document_title'] ?? 'Document #${doc['id']}',
+                                              style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                            const SizedBox(height: 4),
+                                            Text(
+                                              _formatDate(doc['created_at']),
+                                              style: const TextStyle(
+                                                color: Colors.white54,
+                                                fontSize: 10,
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(
-                                          _formatDate(doc['created_at']),
-                                          style: const TextStyle(
-                                            color: Colors.white54,
-                                            fontSize: 10,
-                                          ),
-                                        ),
-                                      ],
-                                    ),
+                                      ),
+                                    ],
                                   ),
-                                  IconButton(
-                                    icon: const Icon(
-                                      Icons.delete_outline,
-                                      color: Color(0xFFEF4444),
-                                      size: 20,
-                                    ),
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints(),
-                                    onPressed: () => _deleteDocument(
-                                      doc['id'].toString(),
-                                      doc['document_url'],
-                                    ),
+                                  const SizedBox(height: 8),
+                                  // Boutons d'action
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          onPressed: () => _shareDocument(doc),
+                                          icon: const Icon(Icons.share, size: 16),
+                                          label: const Text(
+                                            'Partager',
+                                            style: TextStyle(fontSize: 11),
+                                          ),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: const Color(0xFF14B8A6),
+                                            side: const BorderSide(
+                                              color: Color(0xFF14B8A6),
+                                              width: 1,
+                                            ),
+                                            padding: const EdgeInsets.symmetric(vertical: 8),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: OutlinedButton.icon(
+                                          onPressed: () => _renameDocument(doc),
+                                          icon: const Icon(Icons.drive_file_rename_outline, size: 16),
+                                          label: const Text(
+                                            'Renommer',
+                                            style: TextStyle(fontSize: 11),
+                                          ),
+                                          style: OutlinedButton.styleFrom(
+                                            foregroundColor: const Color(0xFF8B5CF6),
+                                            side: const BorderSide(
+                                              color: Color(0xFF8B5CF6),
+                                              width: 1,
+                                            ),
+                                            padding: const EdgeInsets.symmetric(vertical: 8),
+                                            shape: RoundedRectangleBorder(
+                                              borderRadius: BorderRadius.circular(6),
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 6),
+                                      IconButton(
+                                        onPressed: () => _deleteDocument(
+                                          doc['id'].toString(),
+                                          doc['document_url'],
+                                        ),
+                                        icon: const Icon(Icons.delete_outline),
+                                        color: const Color(0xFFEF4444),
+                                        iconSize: 20,
+                                        padding: EdgeInsets.zero,
+                                        constraints: const BoxConstraints(),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),

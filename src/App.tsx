@@ -20,17 +20,8 @@ import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import MissionCreate from './pages/MissionCreate';
 import MissionView from './pages/MissionView';
-import Contacts from './pages/Contacts_PREMIUM';
 import Clients from './pages/Clients';
 import Billing from './pages/Billing';
-import DriverProfilePage from './pages/DriverProfilePage';
-import DashboardProPage from './pages/DashboardProPage';
-import CarpoolingMapPage from './pages/CarpoolingMapPage';
-import AdvancedSearchPage from './pages/AdvancedSearchPage';
-import MessagesPage from './pages/MessagesPage';
-import PublishRideSimplePage from './pages/PublishRideSimplePage';
-import RideDetailsSimplePage from './pages/RideDetailsSimplePage';
-import BookingRequestsPage from './pages/BookingRequestsPage';
 import QuoteGenerator from './pages/QuoteGenerator';
 import CRM from './pages/CRM';
 import Settings from './pages/Settings';
@@ -44,9 +35,8 @@ import AccountSecurity from './pages/AccountSecurity';
 import PublicTrackingNew from './pages/PublicTrackingNew';
 import TrackingCommand from './pages/TrackingCommand';
 import TeamMissions from './pages/TeamMissions';
-import InspectionDepartureNew from './pages/InspectionDepartureNew';
+import InspectionDeparturePerfect from './pages/InspectionDeparturePerfect';
 import InspectionArrivalNew from './pages/InspectionArrivalNew';
-import InspectionReportsPremium from './pages/InspectionReportsPremium';
 import PublicInspectionReport from './pages/PublicInspectionReport';
 import TestSentry from './pages/TestSentry';
 import PublicInspectionReportShared from './pages/PublicInspectionReportShared';
@@ -60,6 +50,7 @@ import MissionDetail from './pages/MissionDetail';
 import ScannerHomePage from './pages/ScannerHomePage';
 import ProfessionalScannerPage from './pages/ProfessionalScannerPage';
 import MyDocuments from './pages/MyDocuments';
+import MissionEdit from './pages/MissionEdit';
 
 function AppContent() {
   return (
@@ -82,11 +73,25 @@ function AppContent() {
         <Route path="/rapport-inspection/:token" element={<PublicInspectionReportShared />} />
         <Route path="/inspection/report/:inspectionId" element={<PublicInspectionReport />} />
         <Route path="/mission/:missionId" element={<MissionDetail />} />
-        <Route path="/scanner" element={<ScannerHomePage />} />
-        <Route path="/scanner-pro" element={<ProfessionalScannerPage />} />
+        <Route path="/scanner" element={
+          <ProtectedRoute>
+            <Layout>
+              <ScannerHomePage />
+            </Layout>
+          </ProtectedRoute>
+        } />
+        <Route path="/scanner-pro" element={
+          <ProtectedRoute>
+            <Layout>
+              <ProfessionalScannerPage />
+            </Layout>
+          </ProtectedRoute>
+        } />
         <Route path="/mes-documents" element={
           <ProtectedRoute>
-            <MyDocuments />
+            <Layout>
+              <MyDocuments />
+            </Layout>
           </ProtectedRoute>
         } />
 
@@ -122,6 +127,17 @@ function AppContent() {
               <ProtectedRoute>
                 <Layout>
                   <MissionCreate />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/missions/edit/:missionId"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <MissionEdit />
                 </Layout>
               </ProtectedRoute>
             }
@@ -168,17 +184,6 @@ function AppContent() {
           />
 
           <Route
-            path="/contacts"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <Contacts />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
             path="/clients"
             element={
               <ProtectedRoute>
@@ -216,7 +221,7 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <InspectionDepartureNew />
+                  <InspectionDeparturePerfect />
                 </Layout>
               </ProtectedRoute>
             }
@@ -228,17 +233,6 @@ function AppContent() {
               <ProtectedRoute>
                 <Layout>
                   <InspectionArrivalNew />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/rapports-inspection"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <InspectionReportsPremium />
                 </Layout>
               </ProtectedRoute>
             }
@@ -261,108 +255,6 @@ function AppContent() {
               <ProtectedRoute>
                 <Layout>
                   <QuoteGenerator />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/covoiturage"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <DashboardProPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/covoiturage/recherche"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <AdvancedSearchPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/covoiturage/publier"
-            element={
-              <ProtectedRoute>
-                <PublishRideSimplePage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/covoiturage/trajet/:rideId"
-            element={
-              <ProtectedRoute>
-                <RideDetailsSimplePage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/covoiturage/mes-trajets"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <DashboardProPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/covoiturage/carte"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <CarpoolingMapPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/covoiturage/messages"
-            element={
-              <ProtectedRoute>
-                <MessagesPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/covoiturage/demandes"
-            element={
-              <ProtectedRoute>
-                <BookingRequestsPage />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/covoiturage/dashboard"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <DashboardProPage />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/covoiturage/profil/:userId"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <DriverProfilePage />
                 </Layout>
               </ProtectedRoute>
             }

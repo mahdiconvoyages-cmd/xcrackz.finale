@@ -592,9 +592,9 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF14B8A6).withOpacity(0.1),
+              color: const Color(0xFF14B8A6).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF14B8A6).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFF14B8A6).withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
@@ -774,9 +774,9 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF14B8A6).withOpacity(0.1),
+              color: const Color(0xFF14B8A6).withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF14B8A6).withOpacity(0.3)),
+              border: Border.all(color: const Color(0xFF14B8A6).withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
@@ -1113,7 +1113,7 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
           color: const Color(0xFF1E293B),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 10,
               offset: const Offset(0, -5),
             ),

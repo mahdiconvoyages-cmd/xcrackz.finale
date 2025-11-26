@@ -2,6 +2,7 @@
 let cv = null;
 let isOpenCvLoaded = false;
 let isLoading = false;
+let loadAttempted = false; // Empêcher les tentatives multiples
 
 // URLs alternatives pour OpenCV.js (de la plus rapide à la plus lente)
 const OPENCV_URLS = [
@@ -13,8 +14,16 @@ let currentUrlIndex = 0;
 
 // Charger OpenCV.js avec retry sur différents CDN
 function loadOpenCV() {
-  if (isLoading || isOpenCvLoaded) return;
+  // Éviter double chargement qui cause l'erreur "Cannot register public name twice"
+  if (isLoading || isOpenCvLoaded || loadAttempted) {
+    if (isOpenCvLoaded) {
+      self.postMessage({ type: 'ready' });
+    }
+    return;
+  }
+  
   isLoading = true;
+  loadAttempted = true;
 
   const tryLoadFromUrl = (urlIndex) => {
     if (urlIndex >= OPENCV_URLS.length) {
@@ -30,6 +39,15 @@ function loadOpenCV() {
     console.log(`Attempting to load OpenCV from: ${url}`);
 
     try {
+      // Vérifier si cv est déjà défini (double chargement)
+      if (typeof cv !== 'undefined' && cv.getBuildInformation) {
+        isOpenCvLoaded = true;
+        isLoading = false;
+        self.postMessage({ type: 'ready' });
+        console.log('OpenCV already loaded');
+        return;
+      }
+      
       // Charger le script OpenCV.js
       importScripts(url);
       
@@ -54,6 +72,14 @@ function loadOpenCV() {
         }
       }, 20000);
     } catch (error) {
+      // Si l'erreur est "Cannot register", OpenCV est déjà chargé
+      if (error.message && error.message.includes('Cannot register')) {
+        console.log('OpenCV already registered, using existing instance');
+        isOpenCvLoaded = true;
+        isLoading = false;
+        self.postMessage({ type: 'ready' });
+        return;
+      }
       console.error(`Failed to load from ${url}:`, error);
       isLoading = false;
       tryLoadFromUrl(urlIndex + 1);

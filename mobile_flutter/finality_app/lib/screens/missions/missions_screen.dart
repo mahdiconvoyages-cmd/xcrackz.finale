@@ -1,15 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart' as url_launcher;
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../main.dart';
 import '../../models/mission.dart';
 import '../../services/mission_service.dart';
 import '../../services/gps_tracking_service.dart';
 import 'package:intl/intl.dart';
+import '../../utils/error_helper.dart';
 import 'mission_create_screen_new.dart';
 import '../../widgets/app_drawer.dart';
-import '../../widgets/join_mission_modal.dart';
 import '../inspections/inspection_departure_screen.dart';
 import '../inspections/inspection_arrival_screen.dart';
 import '../profile/profile_screen.dart';
@@ -93,7 +93,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
       setState(() => _isLoading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
+        SnackBar(content: Text(ErrorHelper.cleanError(e))),
       );
     }
   }
@@ -117,7 +117,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
             ),
             boxShadow: [
               BoxShadow(
-                color: PremiumTheme.primaryTeal.withOpacity(0.3),
+                color: PremiumTheme.primaryTeal.withValues(alpha: 0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -132,7 +132,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
             letterSpacing: 0.5,
             shadows: [
               Shadow(
-                color: Colors.black.withOpacity(0.3),
+                color: Colors.black.withValues(alpha: 0.3),
                 offset: const Offset(0, 2),
                 blurRadius: 4,
               ),
@@ -200,23 +200,23 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  PremiumTheme.primaryTeal.withOpacity(0.1),
-                  PremiumTheme.primaryBlue.withOpacity(0.1),
+                  PremiumTheme.primaryTeal.withValues(alpha: 0.1),
+                  PremiumTheme.primaryBlue.withValues(alpha: 0.1),
                 ],
               ),
               borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
               border: Border.all(
-                color: PremiumTheme.primaryTeal.withOpacity(0.3),
+                color: PremiumTheme.primaryTeal.withValues(alpha: 0.3),
                 width: 1,
               ),
               boxShadow: [
                 BoxShadow(
-                  color: PremiumTheme.primaryTeal.withOpacity(0.15),
+                  color: PremiumTheme.primaryTeal.withValues(alpha: 0.15),
                   blurRadius: 12,
                   offset: const Offset(0, 4),
                 ),
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 4,
                   offset: const Offset(0, 2),
                 ),
@@ -238,11 +238,11 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
                         ),
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(PremiumTheme.radiusMD),
-                          borderSide: BorderSide(color: PremiumTheme.textSecondary.withOpacity(0.2)),
+                          borderSide: BorderSide(color: PremiumTheme.textSecondary.withValues(alpha: 0.2)),
                         ),
                         enabledBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(PremiumTheme.radiusMD),
-                          borderSide: BorderSide(color: PremiumTheme.textSecondary.withOpacity(0.2)),
+                          borderSide: BorderSide(color: PremiumTheme.textSecondary.withValues(alpha: 0.2)),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(PremiumTheme.radiusMD),
@@ -326,13 +326,13 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
             Icon(
               Icons.assignment_outlined,
               size: 64,
-              color: Colors.white.withOpacity(0.3),
+              color: Colors.white.withValues(alpha: 0.3),
             ),
             const SizedBox(height: 16),
             Text(
               'Aucune mission',
               style: TextStyle(
-                color: Colors.white.withOpacity(0.7),
+                color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 16,
               ),
             ),
@@ -345,6 +345,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
       onRefresh: _loadMissions,
       child: _isGridView 
         ? GridView.builder(
+            key: ValueKey('missions-grid-$status'),
             padding: const EdgeInsets.all(16),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
@@ -352,16 +353,29 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
             ),
+            cacheExtent: 500.0,
+            addAutomaticKeepAlives: true,
             itemCount: filteredMissions.length,
             itemBuilder: (context, index) {
-              return _MissionGridCard(mission: filteredMissions[index]);
+              final mission = filteredMissions[index];
+              return _MissionGridCard(
+                key: ValueKey('grid-${mission.id}'),
+                mission: mission,
+              );
             },
           )
         : ListView.builder(
+            key: ValueKey('missions-list-$status'),
             padding: const EdgeInsets.all(16),
+            cacheExtent: 500.0,
+            addAutomaticKeepAlives: true,
             itemCount: filteredMissions.length,
             itemBuilder: (context, index) {
-              return _MissionCard(mission: filteredMissions[index]);
+              final mission = filteredMissions[index];
+              return _MissionCard(
+                key: ValueKey('card-${mission.id}'),
+                mission: mission,
+              );
             },
           ),
     );
@@ -393,7 +407,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur: $e'),
+          content: Text(ErrorHelper.cleanError(e)),
           backgroundColor: Colors.red,
         ),
       );
@@ -420,7 +434,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
         Container(
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.2),
+            color: color.withValues(alpha: 0.2),
             borderRadius: BorderRadius.circular(10),
           ),
           child: Icon(icon, color: color, size: 20),
@@ -451,7 +465,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
 class _MissionGridCard extends StatelessWidget {
   final Mission mission;
 
-  const _MissionGridCard({required this.mission});
+  const _MissionGridCard({super.key, required this.mission});
 
   static Color _getStatusColor(String status) {
     switch (status) {
@@ -499,7 +513,7 @@ class _MissionGridCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                 decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.2),
+                  color: statusColor.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -534,7 +548,7 @@ class _MissionGridCard extends StatelessWidget {
               Text(
                 mission.deliveryAddress ?? 'Arrivée',
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.7),
+                  color: Colors.white.withValues(alpha: 0.7),
                   fontSize: 12,
                 ),
                 maxLines: 2,
@@ -554,7 +568,7 @@ class _MissionGridCard extends StatelessWidget {
                       child: Text(
                         mission.vehicleType!,
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.6),
+                          color: Colors.white.withValues(alpha: 0.6),
                           fontSize: 11,
                         ),
                         maxLines: 1,
@@ -575,7 +589,7 @@ class _MissionGridCard extends StatelessWidget {
 class _MissionCard extends StatelessWidget {
   final Mission mission;
 
-  const _MissionCard({required this.mission});
+  const _MissionCard({super.key, required this.mission});
 
   static Color _getStatusColor(String status) {
     switch (status) {
@@ -614,17 +628,17 @@ class _MissionCard extends StatelessWidget {
         gradient: LinearGradient(
           colors: [
             PremiumTheme.cardBg,
-            PremiumTheme.cardBg.withOpacity(0.9),
+            PremiumTheme.cardBg.withValues(alpha: 0.9),
           ],
         ),
         borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
         border: Border.all(
-          color: statusColor.withOpacity(0.3),
+          color: statusColor.withValues(alpha: 0.3),
           width: 1.5,
         ),
         boxShadow: [
           BoxShadow(
-            color: statusColor.withOpacity(0.1),
+            color: statusColor.withValues(alpha: 0.1),
             blurRadius: 12,
             offset: const Offset(0, 4),
           ),
@@ -649,7 +663,7 @@ class _MissionCard extends StatelessWidget {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        colors: [statusColor, statusColor.withOpacity(0.7)],
+                        colors: [statusColor, statusColor.withValues(alpha: 0.7)],
                       ),
                       borderRadius: BorderRadius.circular(12),
                     ),
@@ -697,10 +711,10 @@ class _MissionCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.05),
+                  color: Colors.white.withValues(alpha: 0.05),
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: Colors.white.withOpacity(0.1),
+                    color: Colors.white.withValues(alpha: 0.1),
                   ),
                 ),
                 child: Row(
@@ -790,7 +804,7 @@ class _MissionCard extends StatelessWidget {
                         gradient: LinearGradient(
                           colors: [
                             PremiumTheme.accentGreen,
-                            PremiumTheme.accentGreen.withOpacity(0.8),
+                            PremiumTheme.accentGreen.withValues(alpha: 0.8),
                           ],
                         ),
                         borderRadius: BorderRadius.circular(8),
@@ -911,83 +925,228 @@ class _MissionCard extends StatelessWidget {
                 const Divider(color: Color(0xFF334155)),
                 const SizedBox(height: 12),
                 
-                // Bouton pour partager le rapport de départ avec le client
+                // Bouton pour le rapport de départ avec menu
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () async {
-                      try {
-                        // Afficher un loader
-                        if (!context.mounted) return;
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (context) => const Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        );
-
-                        // Appeler le RPC pour créer/obtenir le token
-                        final supabase = Supabase.instance.client;
-                        final userId = supabase.auth.currentUser?.id;
-                        if (userId == null) throw Exception('Non connecté');
-
-                        final result = await supabase.rpc(
-                          'create_or_get_inspection_share',
-                          params: {
-                            'p_mission_id': mission.id,
-                            'p_report_type': 'departure',
-                            'p_user_id': userId,
-                          },
-                        );
-
-                        if (!context.mounted) return;
-                        Navigator.pop(context); // Fermer le loader
-
-                        if (result != null && result is List && result.isNotEmpty) {
-                          final token = result[0]['share_token'] as String;
-                          final reportUrl = 'https://www.xcrackz.com/rapport-inspection/$token';
-                          final Uri url = Uri.parse(reportUrl);
-
-                          try {
-                            await url_launcher.launchUrl(
-                              url,
-                              mode: url_launcher.LaunchMode.externalApplication,
-                            );
-                          } catch (launchError) {
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Erreur ouverture: $launchError'),
-                                backgroundColor: const Color(0xFFEF4444),
-                                behavior: SnackBarBehavior.floating,
+                      // Afficher le menu de choix
+                      if (!context.mounted) return;
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: const Color(0xFF1F2937),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        builder: (bottomSheetContext) => Container(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 4,
+                                margin: const EdgeInsets.only(bottom: 20),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                  borderRadius: BorderRadius.circular(2),
+                                ),
                               ),
-                            );
-                          }
-                        } else {
-                          throw Exception('Aucun token retourné');
-                        }
-                      } catch (e) {
-                        if (!context.mounted) return;
-                        // Fermer le loader si encore ouvert
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Row(
-                              children: [
-                                const Icon(Icons.error, color: Colors.white),
-                                const SizedBox(width: 12),
-                                Expanded(child: Text('Erreur: $e')),
-                              ],
-                            ),
-                            backgroundColor: const Color(0xFFEF4444),
-                            behavior: SnackBarBehavior.floating,
+                              const Text(
+                                '📋 Rapport de départ',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Choisissez une action',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              
+                              // Option 1: Ouvrir dans le navigateur
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF374151),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFF14B8A6).withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF14B8A6).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.open_in_browser, color: Color(0xFF14B8A6), size: 24),
+                                ),
+                                title: const Text(
+                                  'Ouvrir dans le navigateur',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: const Text(
+                                  'Voir le rapport en ligne',
+                                  style: TextStyle(
+                                    color: Color(0xFF9CA3AF),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                onTap: () async {
+                                  Navigator.pop(bottomSheetContext);
+                                  try {
+                                    if (!context.mounted) return;
+                                    showDialog(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (context) => const Center(child: CircularProgressIndicator()),
+                                    );
+
+                                    final supabase = Supabase.instance.client;
+                                    final userId = supabase.auth.currentUser?.id;
+                                    if (userId == null) throw Exception('Non connecté');
+
+                                    final result = await supabase.rpc(
+                                      'create_or_get_inspection_share',
+                                      params: {
+                                        'p_mission_id': mission.id,
+                                        'p_report_type': 'departure',
+                                        'p_user_id': userId,
+                                      },
+                                    );
+
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+
+                                    if (result != null && result is List && result.isNotEmpty) {
+                                      final token = result[0]['share_token'] as String;
+                                      final reportUrl = 'https://www.xcrackz.com/rapport-inspection/$token';
+                                      await url_launcher.launchUrl(Uri.parse(reportUrl), mode: url_launcher.LaunchMode.externalApplication);
+                                    }
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: const Color(0xFFEF4444)),
+                                    );
+                                  }
+                                },
+                              ),
+                              ),
+                              
+                              // Option 2: Partager le lien
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF374151),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.share, color: Color(0xFF8B5CF6), size: 24),
+                                ),
+                                title: const Text(
+                                  'Partager le lien',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: const Text(
+                                  'Envoyer par WhatsApp, Email, etc.',
+                                  style: TextStyle(
+                                    color: Color(0xFF9CA3AF),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                onTap: () async {
+                                  Navigator.pop(bottomSheetContext);
+                                  try {
+                                    if (!context.mounted) return;
+                                    showDialog(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (context) => const Center(child: CircularProgressIndicator()),
+                                    );
+
+                                    final supabase = Supabase.instance.client;
+                                    final userId = supabase.auth.currentUser?.id;
+                                    if (userId == null) throw Exception('Non connecté');
+
+                                    final result = await supabase.rpc(
+                                      'create_or_get_inspection_share',
+                                      params: {
+                                        'p_mission_id': mission.id,
+                                        'p_report_type': 'departure',
+                                        'p_user_id': userId,
+                                      },
+                                    );
+
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+
+                                    if (result != null && result is List && result.isNotEmpty) {
+                                      final token = result[0]['share_token'] as String;
+                                      final reportUrl = 'https://www.xcrackz.com/rapport-inspection/$token';
+                                      final vehicleInfo = mission.vehicleType ?? 'Véhicule';
+                                      await SharePlus.instance.share(ShareParams(text: '📋 Rapport de départ - $vehicleInfo\n$reportUrl'));
+                                      
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Row(
+                                            children: [
+                                              Icon(Icons.check_circle, color: Colors.white),
+                                              SizedBox(width: 12),
+                                              Text('Lien partagé'),
+                                            ],
+                                          ),
+                                          backgroundColor: Color(0xFF14B8A6),
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: const Color(0xFFEF4444)),
+                                    );
+                                  }
+                                },
+                              ),
+                              ),
+                              
+                              const SizedBox(height: 20),
+                            ],
                           ),
-                        );
-                      }
+                        ),
+                      );
                     },
-                    icon: const Icon(Icons.share, size: 20),
-                    label: const Text('📤 Partager rapport de départ'),
+                    icon: const Icon(Icons.description, size: 20),
+                    label: const Text('📋 Rapport de départ'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF8B5CF6),
                       foregroundColor: Colors.white,
@@ -1007,98 +1166,228 @@ class _MissionCard extends StatelessWidget {
                 const Divider(color: Color(0xFF334155)),
                 const SizedBox(height: 12),
                 
-                // Bouton pour générer et ouvrir le rapport public
+                // Bouton pour le rapport complet avec menu
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () async {
-                      try {
-                        // Afficher un loader
-                        if (!context.mounted) return;
-                        showDialog(
-                          context: context,
-                          barrierDismissible: false,
-                          builder: (context) => const Center(
-                            child: CircularProgressIndicator(),
-                          ),
-                        );
-
-                        // Appeler le RPC pour créer/obtenir le token
-                        final supabase = Supabase.instance.client;
-                        final userId = supabase.auth.currentUser?.id;
-                        if (userId == null) throw Exception('Non connecté');
-
-                        final result = await supabase.rpc(
-                          'create_or_get_inspection_share',
-                          params: {
-                            'p_mission_id': mission.id,
-                            'p_report_type': 'complete',
-                            'p_user_id': userId,
-                          },
-                        );
-
-                        if (!context.mounted) return;
-                        Navigator.pop(context); // Fermer le loader
-
-                        if (result != null && result is List && result.isNotEmpty) {
-                          final token = result[0]['share_token'] as String;
-                          final reportUrl = 'https://www.xcrackz.com/rapport-inspection/$token';
-                          final Uri url = Uri.parse(reportUrl);
-
-                          try {
-                            await url_launcher.launchUrl(
-                              url,
-                              mode: url_launcher.LaunchMode.externalApplication,
-                            );
-                            
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Row(
-                                  children: [
-                                    Icon(Icons.check_circle, color: Colors.white),
-                                    SizedBox(width: 12),
-                                    Text('Rapport ouvert dans le navigateur'),
-                                  ],
+                      // Afficher le menu de choix
+                      if (!context.mounted) return;
+                      showModalBottomSheet(
+                        context: context,
+                        backgroundColor: const Color(0xFF1F2937),
+                        shape: const RoundedRectangleBorder(
+                          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                        ),
+                        builder: (bottomSheetContext) => Container(
+                          padding: const EdgeInsets.all(24),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Container(
+                                width: 40,
+                                height: 4,
+                                margin: const EdgeInsets.only(bottom: 20),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.3),
+                                  borderRadius: BorderRadius.circular(2),
                                 ),
-                                backgroundColor: Color(0xFF14B8A6),
-                                behavior: SnackBarBehavior.floating,
                               ),
-                            );
-                          } catch (launchError) {
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text('Erreur ouverture: $launchError'),
-                                backgroundColor: const Color(0xFFEF4444),
-                                behavior: SnackBarBehavior.floating,
+                              const Text(
+                                '📊 Rapport complet',
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
                               ),
-                            );
-                          }
-                        } else {
-                          throw Exception('Aucun token retourné');
-                        }
-                      } catch (e) {
-                        if (!context.mounted) return;
-                        // Fermer le loader si encore ouvert
-                        Navigator.pop(context);
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Row(
-                              children: [
-                                const Icon(Icons.error, color: Colors.white),
-                                const SizedBox(width: 12),
-                                Expanded(child: Text('Erreur: $e')),
-                              ],
-                            ),
-                            backgroundColor: const Color(0xFFEF4444),
-                            behavior: SnackBarBehavior.floating,
+                              const SizedBox(height: 8),
+                              Text(
+                                'Choisissez une action',
+                                style: TextStyle(
+                                  color: Colors.white.withValues(alpha: 0.7),
+                                  fontSize: 14,
+                                ),
+                              ),
+                              const SizedBox(height: 24),
+                              
+                              // Option 1: Ouvrir dans le navigateur
+                              Container(
+                                margin: const EdgeInsets.only(bottom: 12),
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF374151),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFF14B8A6).withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF14B8A6).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.open_in_browser, color: Color(0xFF14B8A6), size: 24),
+                                ),
+                                title: const Text(
+                                  'Ouvrir dans le navigateur',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: const Text(
+                                  'Voir le rapport en ligne',
+                                  style: TextStyle(
+                                    color: Color(0xFF9CA3AF),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                onTap: () async {
+                                  Navigator.pop(bottomSheetContext);
+                                  try {
+                                    if (!context.mounted) return;
+                                    showDialog(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (context) => const Center(child: CircularProgressIndicator()),
+                                    );
+
+                                    final supabase = Supabase.instance.client;
+                                    final userId = supabase.auth.currentUser?.id;
+                                    if (userId == null) throw Exception('Non connecté');
+
+                                    final result = await supabase.rpc(
+                                      'create_or_get_inspection_share',
+                                      params: {
+                                        'p_mission_id': mission.id,
+                                        'p_report_type': 'complete',
+                                        'p_user_id': userId,
+                                      },
+                                    );
+
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+
+                                    if (result != null && result is List && result.isNotEmpty) {
+                                      final token = result[0]['share_token'] as String;
+                                      final reportUrl = 'https://www.xcrackz.com/rapport-inspection/$token';
+                                      await url_launcher.launchUrl(Uri.parse(reportUrl), mode: url_launcher.LaunchMode.externalApplication);
+                                    }
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: const Color(0xFFEF4444)),
+                                    );
+                                  }
+                                },
+                              ),
+                              ),
+                              
+                              // Option 2: Partager le lien
+                              Container(
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFF374151),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.3),
+                                  ),
+                                ),
+                                child: ListTile(
+                                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                                leading: Container(
+                                  padding: const EdgeInsets.all(12),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF8B5CF6).withValues(alpha: 0.2),
+                                    borderRadius: BorderRadius.circular(10),
+                                  ),
+                                  child: const Icon(Icons.share, color: Color(0xFF8B5CF6), size: 24),
+                                ),
+                                title: const Text(
+                                  'Partager le lien',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                subtitle: const Text(
+                                  'Envoyer par WhatsApp, Email, etc.',
+                                  style: TextStyle(
+                                    color: Color(0xFF9CA3AF),
+                                    fontSize: 13,
+                                  ),
+                                ),
+                                onTap: () async {
+                                  Navigator.pop(bottomSheetContext);
+                                  try {
+                                    if (!context.mounted) return;
+                                    showDialog(
+                                      context: context,
+                                      barrierDismissible: false,
+                                      builder: (context) => const Center(child: CircularProgressIndicator()),
+                                    );
+
+                                    final supabase = Supabase.instance.client;
+                                    final userId = supabase.auth.currentUser?.id;
+                                    if (userId == null) throw Exception('Non connecté');
+
+                                    final result = await supabase.rpc(
+                                      'create_or_get_inspection_share',
+                                      params: {
+                                        'p_mission_id': mission.id,
+                                        'p_report_type': 'complete',
+                                        'p_user_id': userId,
+                                      },
+                                    );
+
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+
+                                    if (result != null && result is List && result.isNotEmpty) {
+                                      final token = result[0]['share_token'] as String;
+                                      final reportUrl = 'https://www.xcrackz.com/rapport-inspection/$token';
+                                      final vehicleInfo = mission.vehicleType ?? 'Véhicule';
+                                      await SharePlus.instance.share(ShareParams(text: '✅ Rapport complet - $vehicleInfo\n$reportUrl'));
+                                      
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context).showSnackBar(
+                                        const SnackBar(
+                                          content: Row(
+                                            children: [
+                                              Icon(Icons.check_circle, color: Colors.white),
+                                              SizedBox(width: 12),
+                                              Text('Lien partagé'),
+                                            ],
+                                          ),
+                                          backgroundColor: Color(0xFF14B8A6),
+                                          behavior: SnackBarBehavior.floating,
+                                        ),
+                                      );
+                                    }
+                                  } catch (e) {
+                                    if (!context.mounted) return;
+                                    Navigator.pop(context);
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: const Color(0xFFEF4444)),
+                                    );
+                                  }
+                                },
+                              ),
+                              ),
+                              
+                              const SizedBox(height: 20),
+                            ],
                           ),
-                        );
-                      }
+                        ),
+                      );
                     },
-                    icon: const Icon(Icons.public, size: 20),
-                    label: const Text('📊 Rapport public'),
+                    icon: const Icon(Icons.description, size: 20),
+                    label: const Text('📊 Rapport complet'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF14B8A6),
                       foregroundColor: Colors.white,
@@ -1139,10 +1428,10 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: color.withOpacity(0.3),
+          color: color.withValues(alpha: 0.3),
           width: 1,
         ),
       ),
@@ -1166,3 +1455,4 @@ class _InfoChip extends StatelessWidget {
     );
   }
 }
+

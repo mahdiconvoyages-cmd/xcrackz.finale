@@ -114,7 +114,7 @@ class _AnimatedStatCardState extends State<AnimatedStatCard>
         child: PremiumCard(
           onTap: widget.onTap,
           gradient: LinearGradient(
-            colors: [widget.color, widget.color.withOpacity(0.7)],
+            colors: [widget.color, widget.color.withValues(alpha: 0.7)],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
           ),
@@ -124,7 +124,7 @@ class _AnimatedStatCardState extends State<AnimatedStatCard>
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   shape: BoxShape.circle,
                 ),
                 child: Icon(
@@ -145,7 +145,7 @@ class _AnimatedStatCardState extends State<AnimatedStatCard>
               Text(
                 widget.label,
                 style: PremiumTheme.bodySmall.copyWith(
-                  color: Colors.white.withOpacity(0.9),
+                  color: Colors.white.withValues(alpha: 0.9),
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -436,7 +436,7 @@ class _ProgressRingPainter extends CustomPainter {
 
     // Background circle
     final bgPaint = Paint()
-      ..color = color.withOpacity(0.2)
+      ..color = color.withValues(alpha: 0.2)
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round;
@@ -446,7 +446,7 @@ class _ProgressRingPainter extends CustomPainter {
     // Progress arc
     final progressPaint = Paint()
       ..shader = LinearGradient(
-        colors: [color, color.withOpacity(0.6)],
+        colors: [color, color.withValues(alpha: 0.6)],
       ).createShader(Rect.fromCircle(center: center, radius: radius))
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke

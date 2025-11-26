@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/error_helper.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 import 'package:flutter/rendering.dart';
@@ -113,7 +114,7 @@ class _SignaturePadWidgetState extends State<SignaturePadWidget> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
+        SnackBar(content: Text(ErrorHelper.cleanError(e))),
       );
     }
   }
@@ -374,7 +375,7 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
       
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Erreur lors de la capture: $e'),
+          content: Text(ErrorHelper.cleanError(e)),
           backgroundColor: Colors.red,
           duration: const Duration(seconds: 3),
         ),

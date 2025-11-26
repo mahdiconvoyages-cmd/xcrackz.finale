@@ -3,6 +3,8 @@ import '../invoices/invoice_list_screen.dart';
 import '../invoices/invoice_form_screen.dart';
 import '../quotes/quote_list_screen.dart';
 import '../quotes/quote_form_screen.dart';
+import 'client_list_screen.dart';
+import 'client_detail_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
 
@@ -21,7 +23,7 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -41,7 +43,7 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
           borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.2),
+              color: Colors.black.withValues(alpha: 0.2),
               blurRadius: 20,
               offset: const Offset(0, -5),
             ),
@@ -70,7 +72,7 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
                 color: const Color(0xFF1A1A1A),
                 shadows: [
                   Shadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     offset: const Offset(0, 1),
                     blurRadius: 2,
                   ),
@@ -121,6 +123,31 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
                       builder: (context) => const QuoteFormScreen(),
                     ),
                   );
+                },
+              ),
+            ),
+            const SizedBox(height: PremiumTheme.spaceMD),
+            
+            // Client Option
+            FadeInAnimation(
+              delay: const Duration(milliseconds: 300),
+              child: _buildMenuOption(
+                context,
+                icon: Icons.person_add_rounded,
+                gradient: PremiumTheme.customGradient([
+                  const Color(0xFF06B6D4),
+                  const Color(0xFF0EA5E9),
+                ]),
+                title: 'Nouveau Client',
+                subtitle: 'Ajouter un nouveau client',
+                onTap: () {
+                  Navigator.pop(context);
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => const ClientDetailScreen(),
+                    ),
+                  ).then((_) => setState(() {}));
                 },
               ),
             ),
@@ -214,7 +241,7 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
                         width: 200,
                         height: 200,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.1),
+                          color: Colors.white.withValues(alpha: 0.1),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -226,7 +253,7 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
                         width: 150,
                         height: 150,
                         decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.05),
+                          color: Colors.white.withValues(alpha: 0.05),
                           shape: BoxShape.circle,
                         ),
                       ),
@@ -244,7 +271,7 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
                                 Container(
                                   padding: const EdgeInsets.all(12),
                                   decoration: BoxDecoration(
-                                    color: Colors.white.withOpacity(0.2),
+                                    color: Colors.white.withValues(alpha: 0.2),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: const Icon(
@@ -267,7 +294,7 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
                                       Text(
                                         'Gestion clients',
                                         style: PremiumTheme.bodySmall.copyWith(
-                                          color: Colors.white.withOpacity(0.9),
+                                          color: Colors.white.withValues(alpha: 0.9),
                                         ),
                                       ),
                                     ],
@@ -300,6 +327,10 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
                   ),
                   tabs: const [
                     Tab(
+                      icon: Icon(Icons.people_rounded),
+                      text: 'Clients',
+                    ),
+                    Tab(
                       icon: Icon(Icons.receipt_long_rounded),
                       text: 'Factures',
                     ),
@@ -317,9 +348,12 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
           SliverFillRemaining(
             child: TabBarView(
               controller: _tabController,
-              children: const [
-                InvoiceListScreen(),
-                QuoteListScreen(),
+              children: [
+                ClientListScreen(
+                  onClientCreated: () => setState(() {}),
+                ),
+                const InvoiceListScreen(),
+                const QuoteListScreen(),
               ],
             ),
           ),

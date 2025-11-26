@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/error_helper.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -46,7 +47,7 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
       setState(() => _isLoading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
+        SnackBar(content: Text(ErrorHelper.cleanError(e))),
       );
     }
   }
@@ -509,7 +510,7 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
+        SnackBar(content: Text(ErrorHelper.cleanError(e))),
       );
     }
   }
@@ -525,7 +526,7 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
+        SnackBar(content: Text(ErrorHelper.cleanError(e))),
       );
     }
   }
@@ -541,7 +542,7 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
+        SnackBar(content: Text(ErrorHelper.cleanError(e))),
       );
     }
   }
@@ -579,7 +580,7 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
+        SnackBar(content: Text(ErrorHelper.cleanError(e))),
       );
     }
   }
@@ -598,14 +599,16 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
       final file = File('${dir.path}/${_quote!.quoteNumber}.pdf');
       await file.writeAsBytes(bytes);
       
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        subject: 'Devis ${_quote!.quoteNumber}',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          text: 'Devis ${_quote!.quoteNumber}',
+        ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur partage: $e')),
+        SnackBar(content: Text(ErrorHelper.cleanError(e))),
       );
     }
   }
@@ -626,7 +629,7 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur téléchargement: $e')),
+        SnackBar(content: Text(ErrorHelper.cleanError(e))),
       );
     }
   }

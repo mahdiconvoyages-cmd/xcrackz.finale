@@ -1,5 +1,6 @@
 class Mission {
   final String id;
+  final String? reference;
   final String? pickupAddress;
   final String? deliveryAddress;
   final String? pickupCity;
@@ -31,6 +32,7 @@ class Mission {
 
   Mission({
     required this.id,
+    this.reference,
     this.pickupAddress,
     this.deliveryAddress,
     this.pickupCity,
@@ -64,6 +66,7 @@ class Mission {
   factory Mission.fromJson(Map<String, dynamic> json) {
     return Mission(
       id: json['id'] as String,
+      reference: json['reference'] as String?,
       pickupAddress: json['pickup_address'] as String?,
       deliveryAddress: json['delivery_address'] as String?,
       pickupCity: json['pickup_city'] as String?,
@@ -98,6 +101,7 @@ class Mission {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'reference': reference,
       'pickup_address': pickupAddress,
       'delivery_address': deliveryAddress,
       'pickup_city': pickupCity,

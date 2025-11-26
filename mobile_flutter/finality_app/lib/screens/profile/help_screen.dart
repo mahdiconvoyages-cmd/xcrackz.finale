@@ -38,13 +38,13 @@ class HelpScreen extends StatelessWidget {
               decoration: BoxDecoration(
                 gradient: LinearGradient(
                   colors: [
-                    PremiumTheme.primaryIndigo.withOpacity(0.2),
-                    PremiumTheme.primaryPurple.withOpacity(0.2),
+                    PremiumTheme.primaryIndigo.withValues(alpha: 0.2),
+                    PremiumTheme.primaryPurple.withValues(alpha: 0.2),
                   ],
                 ),
                 borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
                 border: Border.all(
-                  color: Colors.white.withOpacity(0.1),
+                  color: Colors.white.withValues(alpha: 0.1),
                 ),
               ),
               child: Column(

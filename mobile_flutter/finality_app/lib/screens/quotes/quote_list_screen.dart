@@ -3,7 +3,6 @@ import 'package:intl/intl.dart';
 import '../../models/quote.dart';
 import '../../services/quote_service.dart';
 import 'quote_detail_screen.dart';
-import 'quote_form_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
 
@@ -103,12 +102,17 @@ class _QuoteListScreenState extends State<QuoteListScreen>
                         backgroundColor: PremiumTheme.cardBg,
                         color: PremiumTheme.primaryPurple,
                         child: ListView.builder(
+                          key: const ValueKey('quotes-list'),
                           padding: const EdgeInsets.all(16),
+                          cacheExtent: 500.0,
+                          addAutomaticKeepAlives: true,
                           itemCount: _quotes.length,
                           itemBuilder: (context, index) {
+                            final quote = _quotes[index];
                             return FadeInAnimation(
+                              key: ValueKey('quote-fade-${quote.id}'),
                               delay: Duration(milliseconds: index * 50),
-                              child: _buildQuoteCard(_quotes[index]),
+                              child: _buildQuoteCard(quote),
                             );
                           },
                         ),
@@ -192,7 +196,7 @@ class _QuoteListScreenState extends State<QuoteListScreen>
         borderRadius: BorderRadius.circular(PremiumTheme.radiusMD),
         boxShadow: [
           BoxShadow(
-            color: gradient[0].withOpacity(0.3),
+            color: gradient[0].withValues(alpha: 0.3),
             blurRadius: 12,
             offset: const Offset(0, 6),
           ),
@@ -216,7 +220,7 @@ class _QuoteListScreenState extends State<QuoteListScreen>
           Text(
             title,
             style: PremiumTheme.bodySmall.copyWith(
-              color: Colors.white.withOpacity(0.9),
+              color: Colors.white.withValues(alpha: 0.9),
               fontSize: 12,
             ),
           ),
@@ -291,14 +295,14 @@ class _QuoteListScreenState extends State<QuoteListScreen>
           gradient: isSelected
               ? LinearGradient(
                   colors: color != null
-                      ? [color, color.withOpacity(0.8)]
+                      ? [color, color.withValues(alpha: 0.8)]
                       : [PremiumTheme.primaryPurple, PremiumTheme.primaryIndigo],
                 )
               : null,
           color: isSelected ? null : PremiumTheme.cardBg,
           borderRadius: BorderRadius.circular(20),
           border: Border.all(
-            color: isSelected ? Colors.transparent : Colors.white.withOpacity(0.1),
+            color: isSelected ? Colors.transparent : Colors.white.withValues(alpha: 0.1),
           ),
         ),
         child: Text(
@@ -379,7 +383,7 @@ class _QuoteListScreenState extends State<QuoteListScreen>
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                   decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.2),
+                    color: statusColor.withValues(alpha: 0.2),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -400,7 +404,7 @@ class _QuoteListScreenState extends State<QuoteListScreen>
               ],
             ),
             const SizedBox(height: 12),
-            Divider(color: Colors.white.withOpacity(0.1), height: 1),
+            Divider(color: Colors.white.withValues(alpha: 0.1), height: 1),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,

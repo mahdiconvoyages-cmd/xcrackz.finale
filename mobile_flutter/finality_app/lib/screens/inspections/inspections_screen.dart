@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import '../../utils/error_helper.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import '../../models/inspection.dart';
 import '../../services/inspection_service.dart';
 import 'inspection_departure_screen.dart';
 import 'inspection_arrival_screen.dart';
 import '../../widgets/app_drawer.dart';
+import '../../theme/premium_theme.dart';
 
 class InspectionsScreen extends StatefulWidget {
   const InspectionsScreen({super.key});
@@ -38,7 +40,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
       setState(() => _isLoading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: $e')),
+        SnackBar(content: Text(ErrorHelper.cleanError(e))),
       );
     }
   }
@@ -58,7 +60,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
             ),
             boxShadow: [
               BoxShadow(
-                color: const Color(0xFF14b8a6).withOpacity(0.3),
+                color: const Color(0xFF14b8a6).withValues(alpha: 0.3),
                 blurRadius: 8,
                 offset: const Offset(0, 2),
               ),
@@ -76,7 +78,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
                 borderRadius: BorderRadius.circular(8),
                 boxShadow: [
                   BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     blurRadius: 4,
                     offset: const Offset(0, 2),
                   ),
@@ -95,7 +97,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
                 fontSize: 20,
                 shadows: [
                   Shadow(
-                    color: Colors.black.withOpacity(0.3),
+                    color: Colors.black.withValues(alpha: 0.3),
                     offset: const Offset(0, 2),
                     blurRadius: 4,
                   ),
@@ -125,11 +127,11 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
             Container(
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: const Color(0xFF14b8a6).withOpacity(0.1),
+                color: const Color(0xFF14b8a6).withValues(alpha: 0.1),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF14b8a6).withOpacity(0.2),
+                    color: const Color(0xFF14b8a6).withValues(alpha: 0.2),
                     blurRadius: 12,
                     offset: const Offset(0, 4),
                   ),
@@ -150,7 +152,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
                 color: const Color(0xFF1A1A1A),
                 shadows: [
                   Shadow(
-                    color: Colors.black.withOpacity(0.1),
+                    color: Colors.black.withValues(alpha: 0.1),
                     offset: const Offset(0, 1),
                     blurRadius: 2,
                   ),
@@ -174,11 +176,15 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
     return RefreshIndicator(
       onRefresh: _loadInspections,
       child: ListView.builder(
+        key: const ValueKey('inspections-list'),
         padding: const EdgeInsets.all(16),
+        cacheExtent: 500.0,
+        addAutomaticKeepAlives: true,
         itemCount: _inspections.length,
         itemBuilder: (context, index) {
           final inspection = _inspections[index];
           return Card(
+            key: ValueKey('inspection-${inspection.id}'),
             margin: const EdgeInsets.only(bottom: 12),
             child: ListTile(
               leading: Icon(
@@ -218,7 +224,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
             borderRadius: BorderRadius.circular(16),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.1),
+                color: Colors.black.withValues(alpha: 0.1),
                 blurRadius: 20,
                 offset: const Offset(0, 10),
               ),
@@ -237,7 +243,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
                   color: const Color(0xFF1A1A1A),
                   shadows: [
                     Shadow(
-                      color: Colors.black.withOpacity(0.1),
+                      color: Colors.black.withValues(alpha: 0.1),
                       offset: const Offset(0, 1),
                       blurRadius: 2,
                     ),
@@ -261,7 +267,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFF14b8a6).withOpacity(0.3)),
+                    border: Border.all(color: const Color(0xFF14b8a6).withValues(alpha: 0.3)),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -269,7 +275,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF14b8a6).withOpacity(0.15),
+                          color: const Color(0xFF14b8a6).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.logout, color: Color(0xFF14b8a6)),
@@ -320,7 +326,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
                 child: Container(
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFF8B5CF6).withOpacity(0.3)),
+                    border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.3)),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Row(
@@ -328,7 +334,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
                       Container(
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF8B5CF6).withOpacity(0.15),
+                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: const Icon(Icons.login, color: Color(0xFF8B5CF6)),

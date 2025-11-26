@@ -64,7 +64,7 @@ class AppTheme {
       cardTheme: CardThemeData(
         color: surfaceDark,
         elevation: 4,
-        shadowColor: Colors.black.withOpacity(0.3),
+        shadowColor: Colors.black.withValues(alpha: 0.3),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
         ),
@@ -149,7 +149,7 @@ class AppTheme {
       
       // Divider
       dividerTheme: DividerThemeData(
-        color: surfaceMedium.withOpacity(0.5),
+        color: surfaceMedium.withValues(alpha: 0.5),
         thickness: 1,
         space: 1,
       ),

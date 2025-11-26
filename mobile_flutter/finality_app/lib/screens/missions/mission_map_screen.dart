@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../utils/error_helper.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:geolocator/geolocator.dart';
 import '../../models/mission.dart';
@@ -84,7 +85,7 @@ class _MissionMapScreenState extends State<MissionMapScreen> {
       setState(() => _isLoading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur carte: $e')),
+        SnackBar(content: Text(ErrorHelper.cleanError(e))),
       );
     }
   }

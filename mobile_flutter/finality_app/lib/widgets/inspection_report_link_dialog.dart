@@ -30,7 +30,7 @@ class InspectionReportLinkDialog extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: const Color(0xFF14B8A6).withOpacity(0.2),
+                color: const Color(0xFF14B8A6).withValues(alpha: 0.2),
                 shape: BoxShape.circle,
               ),
               child: const Icon(
@@ -71,7 +71,7 @@ class InspectionReportLinkDialog extends StatelessWidget {
                 color: const Color(0xFF0f172a),
                 borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: const Color(0xFF14B8A6).withOpacity(0.3),
+                  color: const Color(0xFF14B8A6).withValues(alpha: 0.3),
                   width: 1,
                 ),
               ),
@@ -117,7 +117,7 @@ class InspectionReportLinkDialog extends StatelessWidget {
                 Expanded(
                   child: ElevatedButton.icon(
                     onPressed: () {
-                      Share.share(
+                      SharePlus.instance.share(
                         'Voici le rapport d\'inspection de votre véhicule :\n\n$_publicLink',
                         subject: 'Rapport d\'inspection xCrackz',
                       );

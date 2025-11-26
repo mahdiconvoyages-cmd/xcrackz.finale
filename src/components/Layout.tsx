@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import FloatingParticles from './FloatingParticles';
 import ChatAssistant from './ChatAssistant';
-import { LayoutDashboard, Users, Car, Settings, LogOut, Menu, X, CircleUser as UserCircle, MapPin, ShoppingBag, Shield, Building2, ClipboardCheck, MessageCircle, Smartphone, Camera } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, LogOut, Menu, X, CircleUser as UserCircle, MapPin, ShoppingBag, Shield, Building2, MessageCircle, Smartphone, Camera } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdmin } from '../hooks/useAdmin';
 import { useState, useEffect } from 'react';
@@ -151,10 +151,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/team-missions', icon: Users, label: 'Équipe & Missions', color: 'text-teal-400', hoverColor: 'group-hover:text-teal-300' },
     { path: '/tracking', icon: MapPin, label: 'Tracking', color: 'text-green-400', hoverColor: 'group-hover:text-green-300' },
     { path: '/scanner', icon: Camera, label: 'Scanner Documents', color: 'text-orange-400', hoverColor: 'group-hover:text-orange-300' },
-    { path: '/contacts', icon: Users, label: 'Contacts', color: 'text-violet-400', hoverColor: 'group-hover:text-violet-300' },
     { path: '/crm', icon: Building2, label: 'CRM & Commercial', color: 'text-indigo-400', hoverColor: 'group-hover:text-indigo-300' },
-    { path: '/rapports-inspection', icon: ClipboardCheck, label: 'Rapports Inspection', color: 'text-purple-400', hoverColor: 'group-hover:text-purple-300' },
-    { path: '/covoiturage', icon: Car, label: 'Covoiturage', color: 'text-cyan-400', hoverColor: 'group-hover:text-cyan-300' },
     { path: '/shop', icon: ShoppingBag, label: 'Boutique', color: 'text-emerald-400', hoverColor: 'group-hover:text-emerald-300' },
   ];
 

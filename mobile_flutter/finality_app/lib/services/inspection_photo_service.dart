@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:typed_data';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/inspection_photo.dart';
 import '../models/inspection_damage.dart';
@@ -16,7 +17,7 @@ class InspectionPhotoService {
       final response = await _supabase
           .from('inspection_photos_v2')
           .select('*')
-          .eq('inspection_id', inspectionId);
+          .eq('inspection_id', inspectionId)
           .order('created_at', ascending: true);
 
       return (response as List)
@@ -99,7 +100,7 @@ class InspectionPhotoService {
 
       await _supabase.storage
           .from('inspection-photos')
-          .uploadBinary(path, photoBytes);
+          .uploadBinary(path, Uint8List.fromList(photoBytes));
 
       // 2. Obtenir l'URL publique
       final publicUrl = _supabase.storage
@@ -269,10 +270,11 @@ class InspectionPhotoService {
     try {
       final response = await _supabase
           .from('inspection_photos_v2')
-          .select('id', const FetchOptions(count: CountOption.exact))
-          .eq('inspection_id', inspectionId);
+          .select('id')
+          .eq('inspection_id', inspectionId)
+          .count();
 
-      return (response as PostgrestResponse).count ?? 0;
+      return response.count ?? 0;
     } catch (e) {
       throw Exception('Erreur lors du comptage des photos: $e');
     }
@@ -283,10 +285,11 @@ class InspectionPhotoService {
     try {
       final response = await _supabase
           .from('inspection_damages')
-          .select('id', const FetchOptions(count: CountOption.exact))
-          .eq('inspection_id', inspectionId);
+          .select('id')
+          .eq('inspection_id', inspectionId)
+          .count();
 
-      return (response as PostgrestResponse).count ?? 0;
+      return response.count ?? 0;
     } catch (e) {
       throw Exception('Erreur lors du comptage des dommages: $e');
     }

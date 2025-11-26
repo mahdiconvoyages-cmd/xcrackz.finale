@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:provider/provider.dart' as provider;
 import 'screens/splash_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/login_screen.dart';
@@ -8,31 +10,63 @@ import 'screens/home_screen.dart';
 import 'providers/credits_provider.dart';
 import 'providers/subscription_provider.dart';
 import 'services/sync_service.dart';
+import 'services/connectivity_service.dart';
+import 'services/offline_service.dart';
 import 'theme/premium_theme.dart';
+import 'utils/logger.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  await Supabase.initialize(
-    url: 'https://bfrkthzovwpjrvqktdjn.supabase.co',
-    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmcmt0aHpvdndwanJ2cWt0ZGpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5NzgwNzgsImV4cCI6MjA3NTU1NDA3OH0.ml0TkLYk53U6CqP_iCc8XkZMusFCSI-nYOS0WyV43Nc',
-  );
+  // Initialiser le logger
+  logger.init();
+  logger.i('🚀 Starting Xcrackz app...');
 
-  runApp(const XcrackzApp());
+  try {
+    // Charger les variables d'environnement
+    await dotenv.load(fileName: ".env");
+    logger.i('✅ Environment variables loaded');
+  } catch (e) {
+    logger.w('⚠️ Could not load .env file, using fallback');
+  }
+
+  // Initialiser Supabase avec credentials sécurisés
+  final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? 'https://bfrkthzovwpjrvqktdjn.supabase.co';
+  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? 
+    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmcmt0aHpvdndwanJ2cWt0ZGpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5NzgwNzgsImV4cCI6MjA3NTU1NDA3OH0.ml0TkLYk53U6CqP_iCc8XkZMusFCSI-nYOS0WyV43Nc';
+
+  await Supabase.initialize(
+    url: supabaseUrl,
+    anonKey: supabaseAnonKey,
+  );
+  
+  logger.i('✅ Supabase initialized');
+  
+  // Initialiser OfflineService
+  final offlineService = OfflineService();
+  await offlineService.initialize();
+  logger.i('✅ OfflineService initialized');
+
+  runApp(
+    const ProviderScope(
+      child: XcrackzApp(),
+    ),
+  );
 }
 
 final supabase = Supabase.instance.client;
 
-class XcrackzApp extends StatelessWidget {
+class XcrackzApp extends ConsumerWidget {
   const XcrackzApp({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    return MultiProvider(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return provider.MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => CreditsProvider()),
-        ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
-        Provider(create: (_) => SyncService()),
+        provider.ChangeNotifierProvider(create: (_) => CreditsProvider()),
+        provider.ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
+        provider.ChangeNotifierProvider(create: (_) => ConnectivityService()),
+        provider.Provider(create: (_) => SyncService()),
       ],
       child: SyncProvider(
         syncService: SyncService(),

@@ -16,9 +16,10 @@ class SharingUtils {
     final message = 'Rejoignez mon trajet: $tripTitle\n$link';
 
     try {
-      await Share.share(
-        message,
-        subject: 'Invitation trajet - Finality',
+      await SharePlus.instance.share(
+        ShareParams(
+          text: message,
+        ),
       );
     } catch (e) {
       if (context.mounted) {
@@ -42,9 +43,10 @@ class SharingUtils {
     final message = 'Découvrez cette mission: $missionTitle\n$link';
 
     try {
-      await Share.share(
-        message,
-        subject: 'Partage mission - Finality',
+      await SharePlus.instance.share(
+        ShareParams(
+          text: message,
+        ),
       );
     } catch (e) {
       if (context.mounted) {

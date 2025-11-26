@@ -350,10 +350,11 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
 
     try {
       final file = File(_scannedImagePaths[_currentImageIndex]);
-      await Share.shareXFiles(
-        [XFile(file.path)],
-        subject: _documentName,
-        text: 'Document scanné: $_documentName',
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          text: 'Document scanné: $_documentName',
+        ),
       );
     } catch (e) {
       debugPrint('Share error: $e');
@@ -390,7 +391,7 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
                   Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF14B8A6).withOpacity(0.2),
+                      color: const Color(0xFF14B8A6).withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(
