@@ -479,52 +479,62 @@ export default function DashboardPremium() {
                 </div>
               </div>
               
-              {(creditInfo.endDate || creditInfo.daysRemaining > 0 || creditInfo.isExpired) && (
-                <>
-                  <div className="h-px bg-white/20 my-5" />
-                  
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                    <div className="flex items-center gap-3">
-                      {creditInfo.isExpired ? (
-                        <AlertTriangle className="w-5 h-5 text-white" />
-                      ) : creditInfo.isExpiringSoon ? (
-                        <AlertTriangle className="w-5 h-5 text-white" />
-                      ) : (
-                        <Calendar className="w-5 h-5 text-white/80" />
-                      )}
-                      <div>
-                        <p className="text-white font-semibold">
-                          {creditInfo.isExpired ? 'Abonnement expiré' : creditInfo.isExpiringSoon ? 'Expire bientôt' : 'Abonnement actif'}
-                        </p>
-                        <p className="text-white/80 text-sm">
-                          {creditInfo.isExpired 
-                            ? 'Renouvelez dès maintenant' 
-                            : `${creditInfo.daysRemaining} jours restants`}
-                        </p>
-                        {creditInfo.endDate && (
-                          <p className="text-white/60 text-xs mt-1">
-                            Expire le {creditInfo.endDate.toLocaleDateString('fr-FR')}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <Link to="/shop">
-                      <motion.button
-                        className={`px-5 py-2.5 rounded-xl font-semibold transition-all ${
-                          creditInfo.isExpired || creditInfo.isExpiringSoon
-                            ? 'bg-white text-red-600 hover:bg-white/90'
-                            : 'bg-white/20 text-white hover:bg-white/30'
-                        }`}
-                        whileHover={{ scale: 1.02 }}
-                        whileTap={{ scale: 0.98 }}
-                      >
-                        {creditInfo.isExpired ? 'Renouveler' : 'Gérer'}
-                      </motion.button>
-                    </Link>
+              <div className="h-px bg-white/20 my-5" />
+              
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  {creditInfo.isExpired ? (
+                    <AlertTriangle className="w-5 h-5 text-white" />
+                  ) : creditInfo.isExpiringSoon ? (
+                    <AlertTriangle className="w-5 h-5 text-white" />
+                  ) : creditInfo.plan === 'Gratuit' ? (
+                    <Sparkles className="w-5 h-5 text-white/80" />
+                  ) : (
+                    <Calendar className="w-5 h-5 text-white/80" />
+                  )}
+                  <div>
+                    <p className="text-white font-semibold">
+                      {creditInfo.isExpired 
+                        ? 'Abonnement expiré' 
+                        : creditInfo.isExpiringSoon 
+                          ? 'Expire bientôt' 
+                          : creditInfo.plan === 'Gratuit'
+                            ? 'Plan Gratuit'
+                            : 'Abonnement actif'}
+                    </p>
+                    <p className="text-white/80 text-sm">
+                      {creditInfo.isExpired 
+                        ? 'Renouvelez dès maintenant'
+                        : creditInfo.plan === 'Gratuit'
+                          ? 'Passez à Pro pour plus de crédits'
+                          : creditInfo.daysRemaining > 0
+                            ? `${creditInfo.daysRemaining} jours restants`
+                            : 'Illimité'}
+                    </p>
+                    {creditInfo.endDate && (
+                      <p className="text-white/60 text-xs mt-1">
+                        Expire le {creditInfo.endDate.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}
+                      </p>
+                    )}
                   </div>
-                </>
-              )}
+                </div>
+                
+                <Link to="/shop">
+                  <motion.button
+                    className={`px-5 py-2.5 rounded-xl font-semibold transition-all ${
+                      creditInfo.isExpired || creditInfo.isExpiringSoon
+                        ? 'bg-white text-red-600 hover:bg-white/90'
+                        : creditInfo.plan === 'Gratuit'
+                          ? 'bg-white text-teal-600 hover:bg-white/90'
+                          : 'bg-white/20 text-white hover:bg-white/30'
+                    }`}
+                    whileHover={{ scale: 1.02 }}
+                    whileTap={{ scale: 0.98 }}
+                  >
+                    {creditInfo.isExpired ? 'Renouveler' : creditInfo.plan === 'Gratuit' ? 'Passer à Pro' : 'Gérer'}
+                  </motion.button>
+                </Link>
+              </div>
             </div>
           </div>
         </motion.div>
