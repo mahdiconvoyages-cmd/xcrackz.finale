@@ -1,11 +1,12 @@
-// @ts-nocheck - Dashboard Premium - Reproduction exacte du Flutter
+// @ts-nocheck - Dashboard Premium - Responsive Mobile + Desktop
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { 
   Truck, Users, CheckCircle, TrendingUp, Calendar,
   Wallet, AlertTriangle, Plus, UserPlus, Camera,
-  ChevronRight, User, RefreshCw
+  ChevronRight, User, RefreshCw, DollarSign, FileText,
+  Clock, Activity, BarChart3, ArrowUpRight, ArrowDownRight
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -17,6 +18,12 @@ interface DashboardStats {
   totalMissions: number;
   totalContacts: number;
   completionRate: number;
+  totalRevenue: number;
+  monthlyRevenue: number;
+  totalInvoices: number;
+  paidInvoices: number;
+  pendingInvoices: number;
+  growthRate: number;
 }
 
 interface CreditInfo {
@@ -38,14 +45,32 @@ interface RecentActivity {
   color: string;
 }
 
+interface RecentMission {
+  id: string;
+  reference: string;
+  status: string;
+  vehicle_brand: string;
+  vehicle_model: string;
+  price: number;
+  created_at: string;
+}
+
 // Animation variants
 const fadeIn = {
   hidden: { opacity: 0, y: 20 },
   visible: (delay: number) => ({
     opacity: 1,
     y: 0,
-    transition: { delay: delay * 0.1, duration: 0.5, ease: "easeOut" }
+    transition: { delay: delay * 0.08, duration: 0.4, ease: "easeOut" }
   })
+};
+
+const containerVariants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: { staggerChildren: 0.06, delayChildren: 0.1 }
+  }
 };
 
 export default function DashboardPremium() {
@@ -61,6 +86,12 @@ export default function DashboardPremium() {
     totalMissions: 0,
     totalContacts: 0,
     completionRate: 0,
+    totalRevenue: 0,
+    monthlyRevenue: 0,
+    totalInvoices: 0,
+    paidInvoices: 0,
+    pendingInvoices: 0,
+    growthRate: 0,
   });
   const [creditInfo, setCreditInfo] = useState<CreditInfo>({
     credits: 0,
@@ -72,6 +103,7 @@ export default function DashboardPremium() {
     isExpired: false,
   });
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
+  const [recentMissions, setRecentMissions] = useState<RecentMission[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -85,6 +117,7 @@ export default function DashboardPremium() {
       .channel('dashboard-realtime')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` }, () => loadDashboardData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'missions', filter: `user_id=eq.${user.id}` }, () => loadDashboardData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'invoices', filter: `user_id=eq.${user.id}` }, () => loadDashboardData())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -144,13 +177,35 @@ export default function DashboardPremium() {
       // Load missions stats
       const { data: missions } = await supabase
         .from('missions')
-        .select('status')
+        .select('status, company_commission, bonus_amount, created_at')
         .or(`user_id.eq.${user.id},assigned_user_id.eq.${user.id}`);
 
       const totalMissions = missions?.length || 0;
       const activeMissions = missions?.filter(m => m.status === 'in_progress').length || 0;
       const completedMissions = missions?.filter(m => m.status === 'completed').length || 0;
       const completionRate = totalMissions > 0 ? (completedMissions / totalMissions) * 100 : 0;
+      
+      const totalRevenue = missions?.filter(m => m.status === 'completed')
+        .reduce((sum, m) => sum + (m.company_commission || 0) + (m.bonus_amount || 0), 0) || 0;
+
+      // Monthly revenue
+      const currentMonth = now.getMonth();
+      const currentYear = now.getFullYear();
+      const monthlyMissions = missions?.filter(m => {
+        const d = new Date(m.created_at);
+        return d.getMonth() === currentMonth && d.getFullYear() === currentYear && m.status === 'completed';
+      }) || [];
+      const monthlyRevenue = monthlyMissions.reduce((sum, m) => sum + (m.company_commission || 0) + (m.bonus_amount || 0), 0);
+
+      // Previous month for growth
+      const prevMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const prevYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+      const prevMonthMissions = missions?.filter(m => {
+        const d = new Date(m.created_at);
+        return d.getMonth() === prevMonth && d.getFullYear() === prevYear && m.status === 'completed';
+      }) || [];
+      const prevMonthRevenue = prevMonthMissions.reduce((sum, m) => sum + (m.company_commission || 0) + (m.bonus_amount || 0), 0);
+      const growthRate = prevMonthRevenue > 0 ? ((monthlyRevenue - prevMonthRevenue) / prevMonthRevenue) * 100 : 0;
 
       // Load contacts
       const { count: contactsCount } = await supabase
@@ -158,23 +213,49 @@ export default function DashboardPremium() {
         .select('id', { count: 'exact', head: true })
         .eq('user_id', user.id);
 
+      // Load invoices
+      const { data: invoices } = await supabase
+        .from('invoices')
+        .select('status')
+        .eq('user_id', user.id);
+
+      const totalInvoices = invoices?.length || 0;
+      const paidInvoices = invoices?.filter(i => i.status === 'paid').length || 0;
+      const pendingInvoices = invoices?.filter(i => i.status !== 'paid' && i.status !== 'cancelled').length || 0;
+
       setStats({
         activeMissions,
         completedMissions,
         totalMissions,
         totalContacts: contactsCount || 0,
         completionRate,
+        totalRevenue,
+        monthlyRevenue,
+        totalInvoices,
+        paidInvoices,
+        pendingInvoices,
+        growthRate,
       });
 
+      // Load recent missions for desktop view
+      const { data: recentMissionsData } = await supabase
+        .from('missions')
+        .select('id, reference, status, vehicle_brand, vehicle_model, price, created_at')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      setRecentMissions(recentMissionsData || []);
+
       // Load recent activities
-      const { data: recentMissions } = await supabase
+      const { data: recentMissionsForActivity } = await supabase
         .from('missions')
         .select('id, status, pickup_address, delivery_address, created_at')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false })
         .limit(3);
 
-      const activities: RecentActivity[] = (recentMissions || []).map(m => ({
+      const activities: RecentActivity[] = (recentMissionsForActivity || []).map(m => ({
         id: m.id,
         icon: m.status === 'completed' ? 'check' : m.status === 'in_progress' ? 'truck' : 'clock',
         title: m.status === 'completed' ? 'Mission complétée' : m.status === 'in_progress' ? 'Mission en cours' : 'Mission en attente',
@@ -213,11 +294,21 @@ export default function DashboardPremium() {
     return 'À l\'instant';
   };
 
+  const getStatusConfig = (status: string) => {
+    const configs: Record<string, { color: string; bg: string; label: string }> = {
+      completed: { color: 'text-emerald-600', bg: 'bg-emerald-100', label: 'Terminée' },
+      in_progress: { color: 'text-blue-600', bg: 'bg-blue-100', label: 'En cours' },
+      pending: { color: 'text-amber-600', bg: 'bg-amber-100', label: 'En attente' },
+      cancelled: { color: 'text-red-600', bg: 'bg-red-100', label: 'Annulée' },
+    };
+    return configs[status] || configs.pending;
+  };
+
   const pendingMissions = stats.totalMissions - stats.completedMissions - stats.activeMissions;
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-blue-50/50 flex items-center justify-center">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-teal-50/20 to-blue-50/30 flex items-center justify-center">
         <div className="flex flex-col items-center gap-4">
           <div className="w-12 h-12 border-4 border-teal-200 border-t-teal-500 rounded-full animate-spin" />
           <p className="text-slate-500">Chargement...</p>
@@ -227,31 +318,46 @@ export default function DashboardPremium() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-white via-blue-50/30 to-blue-50/50">
-      {/* Header - Exactly like Flutter */}
-      <div className="bg-gradient-to-br from-white via-slate-50 to-blue-50 shadow-sm">
-        <div className="max-w-4xl mx-auto px-4 py-4">
+    <motion.div 
+      className="min-h-screen bg-gradient-to-br from-slate-50 via-teal-50/20 to-blue-50/30"
+      initial="hidden"
+      animate="visible"
+      variants={containerVariants}
+    >
+      {/* Header */}
+      <div className="bg-white/80 backdrop-blur-sm border-b border-slate-200/50 sticky top-0 z-10">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-xs text-slate-500 font-medium">{getGreeting()}</p>
-              <h1 className="text-lg font-bold text-slate-800">
+              <p className="text-xs sm:text-sm text-slate-500 font-medium">{getGreeting()}</p>
+              <h1 className="text-lg sm:text-2xl font-bold text-slate-800">
                 {firstName ? `${firstName} ${lastName}` : user?.email}
               </h1>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 sm:gap-3">
               <motion.button
                 onClick={handleRefresh}
-                className="p-2 rounded-full hover:bg-slate-100 transition-colors"
+                className="p-2 sm:p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors"
                 whileTap={{ scale: 0.95 }}
               >
-                <RefreshCw className={`w-5 h-5 text-blue-600 ${refreshing ? 'animate-spin' : ''}`} />
+                <RefreshCw className={`w-4 h-4 sm:w-5 sm:h-5 text-slate-600 ${refreshing ? 'animate-spin' : ''}`} />
               </motion.button>
+              <Link to="/missions/new">
+                <motion.button
+                  className="hidden sm:flex items-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-semibold shadow-lg shadow-teal-500/25"
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Plus className="w-5 h-5" />
+                  Nouvelle mission
+                </motion.button>
+              </Link>
               <motion.button
                 onClick={() => navigate('/settings')}
-                className="p-2 rounded-full hover:bg-slate-100 transition-colors"
+                className="p-2 sm:p-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 transition-colors"
                 whileTap={{ scale: 0.95 }}
               >
-                <User className="w-5 h-5 text-blue-600" />
+                <User className="w-4 h-4 sm:w-5 sm:h-5 text-slate-600" />
               </motion.button>
             </div>
           </div>
@@ -259,331 +365,327 @@ export default function DashboardPremium() {
       </div>
 
       {/* Content */}
-      <div className="max-w-4xl mx-auto px-4 py-6 space-y-6">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
         
-        {/* Credits Card - Exactly like Flutter */}
-        <motion.div
-          custom={0}
-          initial="hidden"
-          animate="visible"
-          variants={fadeIn}
-        >
-          <div 
-            className={`relative overflow-hidden rounded-2xl p-6 ${
-              creditInfo.isExpired 
-                ? 'bg-gradient-to-br from-red-500/90 to-red-600' 
-                : creditInfo.isExpiringSoon 
-                  ? 'bg-gradient-to-br from-amber-500/90 to-amber-600'
-                  : 'bg-gradient-to-br from-teal-500 to-blue-600'
-            }`}
-            style={{
-              boxShadow: creditInfo.isExpired 
-                ? '0 10px 24px rgba(239, 68, 68, 0.4), 0 4px 8px rgba(0,0,0,0.08)'
-                : creditInfo.isExpiringSoon
-                  ? '0 10px 24px rgba(245, 158, 11, 0.4), 0 4px 8px rgba(0,0,0,0.08)'
-                  : '0 10px 24px rgba(20, 184, 166, 0.4), 0 4px 8px rgba(0,0,0,0.08)'
-            }}
-          >
-            <div className="flex justify-between items-start">
-              <div>
-                <p className="text-white/80 text-sm font-semibold tracking-wide drop-shadow-sm">
-                  Crédits disponibles
-                </p>
-                <div className="flex items-center gap-2 mt-2">
-                  <span className="text-5xl font-bold text-white drop-shadow-md">
-                    {creditInfo.credits}
-                  </span>
-                  <Wallet className="w-8 h-8 text-white drop-shadow-sm" />
-                </div>
-              </div>
-              
-              <div 
-                className="px-4 py-2 bg-white/30 rounded-full shadow-md"
-              >
-                <span className="text-white font-bold tracking-wider drop-shadow-sm">
-                  {creditInfo.plan}
-                </span>
-              </div>
-            </div>
-
-            {creditInfo.hasActiveSubscription && (
-              <>
-                <div className="h-px bg-white/30 my-5" />
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    {creditInfo.isExpired ? (
-                      <AlertTriangle className="w-5 h-5 text-white" />
-                    ) : creditInfo.isExpiringSoon ? (
-                      <AlertTriangle className="w-5 h-5 text-white" />
-                    ) : (
-                      <Calendar className="w-5 h-5 text-white" />
-                    )}
-                    <div>
-                      <p className="text-white font-semibold drop-shadow-sm">
-                        {creditInfo.isExpired 
-                          ? 'Abonnement expiré' 
-                          : creditInfo.isExpiringSoon 
-                            ? 'Expire bientôt' 
-                            : 'Abonnement actif'}
-                      </p>
-                      <p className="text-white font-bold drop-shadow-md">
-                        {creditInfo.isExpired 
-                          ? 'Renouvelez dès maintenant' 
-                          : `${creditInfo.daysRemaining} jours restants`}
-                      </p>
-                      {creditInfo.endDate && (
-                        <p className="text-white/80 text-xs mt-1">
-                          Expire le {creditInfo.endDate.toLocaleDateString('fr-FR')}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  
-                  <Link to="/shop">
-                    <motion.button
-                      className={`px-4 py-2 rounded-xl font-semibold ${
-                        creditInfo.isExpired 
-                          ? 'bg-white text-red-600' 
-                          : 'bg-white text-teal-600'
-                      }`}
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      {creditInfo.isExpired ? 'Renouveler' : 'Gérer'}
-                    </motion.button>
-                  </Link>
-                </div>
-              </>
-            )}
-
-            {!creditInfo.hasActiveSubscription && (
-              <>
-                <div className="h-px bg-white/30 my-5" />
-                <div className="flex items-center justify-between">
-                  <p className="text-white/80 text-sm">Passez à Pro pour plus de crédits</p>
-                  <Link to="/shop">
-                    <motion.button
-                      className="px-4 py-2 bg-white text-teal-600 rounded-xl font-semibold"
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                    >
-                      Passer à Pro
-                    </motion.button>
-                  </Link>
-                </div>
-              </>
-            )}
-          </div>
-        </motion.div>
-
-        {/* Quick Stats - 2x2 Grid like Flutter */}
-        <div className="grid grid-cols-2 gap-3">
-          {[
-            { icon: Truck, label: 'Missions actives', value: stats.activeMissions, color: '#14b8a6' },
-            { icon: CheckCircle, label: 'Complétées', value: stats.completedMissions, color: '#22c55e' },
-            { icon: Users, label: 'Contacts CRM', value: stats.totalContacts, color: '#3b82f6' },
-            { icon: TrendingUp, label: 'Taux succès', value: `${stats.completionRate.toFixed(0)}%`, color: '#8b5cf6' },
-          ].map((stat, i) => (
-            <motion.div
-              key={stat.label}
-              custom={i + 1}
-              initial="hidden"
-              animate="visible"
-              variants={fadeIn}
-              className="bg-white rounded-2xl p-5 text-center"
+        {/* Top Section: Credits + Quick Stats (Desktop: side by side) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Credits Card */}
+          <motion.div variants={fadeIn} custom={0} className="lg:col-span-1">
+            <div 
+              className={`relative overflow-hidden rounded-2xl p-5 sm:p-6 h-full ${
+                creditInfo.isExpired 
+                  ? 'bg-gradient-to-br from-red-500 to-red-600' 
+                  : creditInfo.isExpiringSoon 
+                    ? 'bg-gradient-to-br from-amber-500 to-orange-500'
+                    : 'bg-gradient-to-br from-teal-500 to-blue-600'
+              }`}
               style={{
-                boxShadow: `0 6px 12px ${stat.color}20, 0 2px 4px rgba(0,0,0,0.05)`
+                boxShadow: creditInfo.isExpired 
+                  ? '0 10px 24px rgba(239, 68, 68, 0.35)'
+                  : creditInfo.isExpiringSoon
+                    ? '0 10px 24px rgba(245, 158, 11, 0.35)'
+                    : '0 10px 24px rgba(20, 184, 166, 0.35)'
               }}
             >
-              <div 
-                className="w-12 h-12 mx-auto rounded-xl flex items-center justify-center mb-3"
-                style={{ 
-                  backgroundColor: `${stat.color}15`,
-                  boxShadow: `0 4px 8px ${stat.color}30`
-                }}
-              >
-                <stat.icon className="w-7 h-7" style={{ color: stat.color }} />
+              {/* Decorative */}
+              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full blur-2xl -translate-y-1/2 translate-x-1/2" />
+              
+              <div className="relative z-10">
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <p className="text-white/80 text-xs sm:text-sm font-medium">Crédits disponibles</p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-4xl sm:text-5xl font-bold text-white">{creditInfo.credits}</span>
+                      <Wallet className="w-7 h-7 text-white/80" />
+                    </div>
+                  </div>
+                  <span className="px-3 py-1.5 bg-white/25 rounded-full text-white font-bold text-xs">
+                    {creditInfo.plan}
+                  </span>
+                </div>
+
+                <div className="h-px bg-white/20 my-4" />
+
+                {creditInfo.hasActiveSubscription ? (
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      {creditInfo.isExpired ? (
+                        <AlertTriangle className="w-4 h-4 text-white flex-shrink-0" />
+                      ) : (
+                        <Calendar className="w-4 h-4 text-white/80 flex-shrink-0" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-white text-sm font-medium truncate">
+                          {creditInfo.isExpired ? 'Expiré' : `${creditInfo.daysRemaining}j restants`}
+                        </p>
+                        {creditInfo.endDate && (
+                          <p className="text-white/70 text-xs truncate">
+                            {creditInfo.endDate.toLocaleDateString('fr-FR')}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <Link to="/shop">
+                      <button className="px-3 py-1.5 bg-white text-teal-600 rounded-lg text-sm font-semibold whitespace-nowrap">
+                        {creditInfo.isExpired ? 'Renouveler' : 'Gérer'}
+                      </button>
+                    </Link>
+                  </div>
+                ) : (
+                  <div className="flex items-center justify-between">
+                    <p className="text-white/80 text-sm">Passez à Pro</p>
+                    <Link to="/shop">
+                      <button className="px-3 py-1.5 bg-white text-teal-600 rounded-lg text-sm font-semibold">
+                        Upgrade
+                      </button>
+                    </Link>
+                  </div>
+                )}
               </div>
-              <p className="text-2xl font-bold text-slate-800 drop-shadow-sm">{stat.value}</p>
-              <p className="text-xs text-slate-500 font-semibold mt-1">{stat.label}</p>
-            </motion.div>
-          ))}
+            </div>
+          </motion.div>
+
+          {/* Stats Cards - Desktop: 2 columns, Mobile: 2 columns */}
+          <motion.div variants={fadeIn} custom={1} className="lg:col-span-2">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4 h-full">
+              {[
+                { icon: Truck, label: 'Missions actives', value: stats.activeMissions, color: '#14b8a6' },
+                { icon: CheckCircle, label: 'Complétées', value: stats.completedMissions, color: '#22c55e' },
+                { icon: Users, label: 'Contacts', value: stats.totalContacts, color: '#3b82f6' },
+                { icon: TrendingUp, label: 'Taux succès', value: `${stats.completionRate.toFixed(0)}%`, color: '#8b5cf6' },
+              ].map((stat) => (
+                <div 
+                  key={stat.label}
+                  className="bg-white rounded-xl sm:rounded-2xl p-4 sm:p-5 flex flex-col items-center justify-center text-center"
+                  style={{ boxShadow: `0 4px 12px ${stat.color}15` }}
+                >
+                  <div 
+                    className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center mb-2 sm:mb-3"
+                    style={{ backgroundColor: `${stat.color}15` }}
+                  >
+                    <stat.icon className="w-5 h-5 sm:w-6 sm:h-6" style={{ color: stat.color }} />
+                  </div>
+                  <p className="text-xl sm:text-2xl font-bold text-slate-800">{stat.value}</p>
+                  <p className="text-[10px] sm:text-xs text-slate-500 font-medium mt-0.5">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          </motion.div>
         </div>
 
-        {/* Progress Chart - Like Flutter */}
-        <motion.div
-          custom={5}
-          initial="hidden"
-          animate="visible"
-          variants={fadeIn}
-          className="bg-white rounded-2xl p-6"
-          style={{
-            boxShadow: '0 6px 12px rgba(59, 130, 246, 0.1), 0 2px 4px rgba(0,0,0,0.05)'
-          }}
-        >
-          <h3 className="text-lg font-bold text-slate-800 drop-shadow-sm mb-5">
-            Progression des missions
-          </h3>
+        {/* Middle Section: Revenue + Progress (Desktop: side by side) */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           
-          {/* Progress Bar */}
-          <div className="h-3 rounded-lg overflow-hidden flex shadow-inner" style={{ backgroundColor: '#e2e8f0' }}>
-            {stats.completedMissions > 0 && (
-              <motion.div
-                className="h-full bg-gradient-to-r from-green-500 to-teal-500"
-                initial={{ width: 0 }}
-                animate={{ width: `${(stats.completedMissions / Math.max(stats.totalMissions, 1)) * 100}%` }}
-                transition={{ duration: 0.8, delay: 0.3 }}
-              />
-            )}
-            {stats.activeMissions > 0 && (
-              <motion.div
-                className="h-full bg-amber-500"
-                initial={{ width: 0 }}
-                animate={{ width: `${(stats.activeMissions / Math.max(stats.totalMissions, 1)) * 100}%` }}
-                transition={{ duration: 0.8, delay: 0.5 }}
-              />
-            )}
-          </div>
+          {/* Revenue Stats - Desktop only expanded */}
+          <motion.div variants={fadeIn} custom={2} className="bg-white rounded-2xl p-5 sm:p-6" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+            <div className="flex items-center justify-between mb-5">
+              <h3 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+                <DollarSign className="w-5 h-5 text-emerald-500" />
+                Revenus
+              </h3>
+              <span className={`flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-full ${
+                stats.growthRate >= 0 ? 'text-emerald-600 bg-emerald-50' : 'text-red-600 bg-red-50'
+              }`}>
+                {stats.growthRate >= 0 ? <ArrowUpRight className="w-3 h-3" /> : <ArrowDownRight className="w-3 h-3" />}
+                {stats.growthRate >= 0 ? '+' : ''}{stats.growthRate.toFixed(0)}%
+              </span>
+            </div>
 
-          {/* Legend */}
-          <div className="flex justify-between mt-4">
-            {[
-              { label: 'Complétées', color: '#22c55e', value: stats.completedMissions },
-              { label: 'En cours', color: '#f59e0b', value: stats.activeMissions },
-              { label: 'Pending', color: '#cbd5e1', value: pendingMissions },
-            ].map(item => (
-              <div key={item.label} className="flex items-center gap-2">
-                <div 
-                  className="w-3 h-3 rounded-full"
-                  style={{ 
-                    backgroundColor: item.color,
-                    boxShadow: `0 2px 4px ${item.color}40`
-                  }}
-                />
-                <span className="text-xs text-slate-500 font-semibold">
-                  {item.label} ({item.value})
-                </span>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4">
+                <p className="text-xs text-slate-500 font-medium">Total</p>
+                <p className="text-2xl sm:text-3xl font-bold text-emerald-600">{stats.totalRevenue.toLocaleString('fr-FR')}€</p>
               </div>
-            ))}
-          </div>
-        </motion.div>
+              <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl p-4">
+                <p className="text-xs text-slate-500 font-medium">Ce mois</p>
+                <p className="text-2xl sm:text-3xl font-bold text-blue-600">{stats.monthlyRevenue.toLocaleString('fr-FR')}€</p>
+              </div>
+            </div>
 
-        {/* Quick Actions - Like Flutter */}
-        <div>
-          <h3 className="text-lg font-bold text-slate-800 mb-4">Actions rapides</h3>
-          <div className="grid grid-cols-2 gap-3">
-            <motion.div
-              custom={6}
-              initial="hidden"
-              animate="visible"
-              variants={fadeIn}
-            >
-              <Link to="/missions/new">
-                <div 
-                  className="rounded-2xl p-5 text-center bg-gradient-to-br from-teal-500 to-blue-600"
-                  style={{
-                    boxShadow: '0 8px 16px rgba(20, 184, 166, 0.4), 0 2px 4px rgba(0,0,0,0.1)'
-                  }}
-                >
-                  <div className="w-12 h-12 mx-auto bg-white/20 rounded-xl flex items-center justify-center mb-3">
-                    <Plus className="w-8 h-8 text-white" />
-                  </div>
-                  <p className="text-white font-bold text-sm drop-shadow-md">Nouvelle mission</p>
+            {/* Invoice stats */}
+            <div className="mt-4 pt-4 border-t border-slate-100">
+              <div className="flex items-center justify-between text-sm">
+                <div className="flex items-center gap-2">
+                  <FileText className="w-4 h-4 text-slate-400" />
+                  <span className="text-slate-600">{stats.totalInvoices} factures</span>
                 </div>
-              </Link>
-            </motion.div>
+                <div className="flex items-center gap-3">
+                  <span className="flex items-center gap-1 text-emerald-600">
+                    <CheckCircle className="w-3.5 h-3.5" />
+                    {stats.paidInvoices}
+                  </span>
+                  <span className="flex items-center gap-1 text-amber-600">
+                    <Clock className="w-3.5 h-3.5" />
+                    {stats.pendingInvoices}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </motion.div>
 
-            <motion.div
-              custom={7}
-              initial="hidden"
-              animate="visible"
-              variants={fadeIn}
-            >
-              <Link to="/crm?tab=clients&action=new">
-                <div 
-                  className="rounded-2xl p-5 text-center bg-gradient-to-br from-indigo-500 to-purple-600"
-                  style={{
-                    boxShadow: '0 8px 16px rgba(99, 102, 241, 0.4), 0 2px 4px rgba(0,0,0,0.1)'
-                  }}
-                >
-                  <div className="w-12 h-12 mx-auto bg-white/20 rounded-xl flex items-center justify-center mb-3">
-                    <UserPlus className="w-8 h-8 text-white" />
-                  </div>
-                  <p className="text-white font-bold text-sm drop-shadow-md">Nouveau client</p>
+          {/* Progress Chart */}
+          <motion.div variants={fadeIn} custom={3} className="bg-white rounded-2xl p-5 sm:p-6" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+            <h3 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2 mb-5">
+              <BarChart3 className="w-5 h-5 text-blue-500" />
+              Progression des missions
+            </h3>
+            
+            {/* Progress Bar */}
+            <div className="h-4 rounded-full overflow-hidden flex bg-slate-100">
+              {stats.completedMissions > 0 && (
+                <motion.div
+                  className="h-full bg-gradient-to-r from-emerald-500 to-teal-500"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(stats.completedMissions / Math.max(stats.totalMissions, 1)) * 100}%` }}
+                  transition={{ duration: 0.8, delay: 0.3 }}
+                />
+              )}
+              {stats.activeMissions > 0 && (
+                <motion.div
+                  className="h-full bg-amber-500"
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(stats.activeMissions / Math.max(stats.totalMissions, 1)) * 100}%` }}
+                  transition={{ duration: 0.8, delay: 0.5 }}
+                />
+              )}
+            </div>
+
+            {/* Legend */}
+            <div className="flex flex-wrap gap-4 mt-4">
+              {[
+                { label: 'Complétées', color: '#22c55e', value: stats.completedMissions },
+                { label: 'En cours', color: '#f59e0b', value: stats.activeMissions },
+                { label: 'En attente', color: '#cbd5e1', value: pendingMissions },
+              ].map(item => (
+                <div key={item.label} className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full" style={{ backgroundColor: item.color }} />
+                  <span className="text-xs sm:text-sm text-slate-600">{item.label} ({item.value})</span>
                 </div>
-              </Link>
-            </motion.div>
-          </div>
+              ))}
+            </div>
+
+            {/* Total */}
+            <div className="mt-4 pt-4 border-t border-slate-100 flex items-center justify-between">
+              <span className="text-sm text-slate-500">Total missions</span>
+              <span className="text-2xl font-bold text-slate-800">{stats.totalMissions}</span>
+            </div>
+          </motion.div>
         </div>
 
-        {/* Recent Activity - Like Flutter */}
-        <motion.div
-          custom={8}
-          initial="hidden"
-          animate="visible"
-          variants={fadeIn}
-          className="bg-white rounded-2xl p-6"
-          style={{
-            boxShadow: '0 6px 12px rgba(0,0,0,0.05), 0 2px 4px rgba(0,0,0,0.03)'
-          }}
-        >
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-lg font-bold text-slate-800">Activité récente</h3>
-            <Link to="/missions" className="text-sm text-teal-600 font-semibold hover:underline flex items-center gap-1">
-              Voir tout
-              <ChevronRight className="w-4 h-4" />
-            </Link>
-          </div>
-
-          {recentActivities.length === 0 ? (
-            <div className="text-center py-8">
-              <div className="w-14 h-14 bg-slate-100 rounded-xl flex items-center justify-center mx-auto mb-3">
-                <Truck className="w-7 h-7 text-slate-400" />
-              </div>
-              <p className="text-slate-500 text-sm">Aucune activité récente</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {recentActivities.map((activity, i) => {
-                const colors: Record<string, string> = {
-                  green: '#22c55e',
-                  amber: '#f59e0b',
-                  blue: '#3b82f6',
-                  purple: '#8b5cf6',
-                };
-                const color = colors[activity.color] || colors.blue;
-                const icons: Record<string, any> = {
-                  check: CheckCircle,
-                  truck: Truck,
-                  clock: Calendar,
-                  camera: Camera,
-                };
-                const Icon = icons[activity.icon] || Truck;
-
-                return (
-                  <div key={activity.id || i} className="flex items-center gap-4">
-                    <div 
-                      className="p-2.5 rounded-xl"
-                      style={{ backgroundColor: `${color}20` }}
-                    >
-                      <Icon className="w-5 h-5" style={{ color }} />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-semibold text-slate-800">{activity.title}</p>
-                      <p className="text-xs text-slate-500 truncate">{activity.subtitle}</p>
-                    </div>
-                    <span className="text-xs text-slate-400 whitespace-nowrap">{activity.time}</span>
+        {/* Bottom Section: Quick Actions + Recent (Desktop: side by side) */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          {/* Quick Actions */}
+          <motion.div variants={fadeIn} custom={4}>
+            <h3 className="text-base sm:text-lg font-bold text-slate-800 mb-4">Actions rapides</h3>
+            <div className="grid grid-cols-2 gap-3">
+              <Link to="/missions/new">
+                <motion.div 
+                  className="rounded-xl sm:rounded-2xl p-4 sm:p-5 text-center bg-gradient-to-br from-teal-500 to-blue-600 cursor-pointer"
+                  style={{ boxShadow: '0 8px 20px rgba(20, 184, 166, 0.35)' }}
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto bg-white/20 rounded-xl flex items-center justify-center mb-2 sm:mb-3">
+                    <Plus className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
                   </div>
-                );
-              })}
+                  <p className="text-white font-bold text-xs sm:text-sm">Nouvelle mission</p>
+                </motion.div>
+              </Link>
+
+              <Link to="/crm?tab=clients&action=new">
+                <motion.div 
+                  className="rounded-xl sm:rounded-2xl p-4 sm:p-5 text-center bg-gradient-to-br from-indigo-500 to-purple-600 cursor-pointer"
+                  style={{ boxShadow: '0 8px 20px rgba(99, 102, 241, 0.35)' }}
+                  whileHover={{ scale: 1.02, y: -2 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <div className="w-10 h-10 sm:w-12 sm:h-12 mx-auto bg-white/20 rounded-xl flex items-center justify-center mb-2 sm:mb-3">
+                    <UserPlus className="w-6 h-6 sm:w-7 sm:h-7 text-white" />
+                  </div>
+                  <p className="text-white font-bold text-xs sm:text-sm">Nouveau client</p>
+                </motion.div>
+              </Link>
             </div>
-          )}
-        </motion.div>
+          </motion.div>
+
+          {/* Recent Missions - Expanded for desktop */}
+          <motion.div variants={fadeIn} custom={5} className="lg:col-span-2 bg-white rounded-2xl p-5 sm:p-6" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-teal-500" />
+                Missions récentes
+              </h3>
+              <Link to="/missions" className="text-sm text-teal-600 font-semibold hover:underline flex items-center gap-1">
+                Voir tout
+                <ChevronRight className="w-4 h-4" />
+              </Link>
+            </div>
+
+            {recentMissions.length === 0 ? (
+              <div className="text-center py-8">
+                <Truck className="w-12 h-12 text-slate-300 mx-auto mb-3" />
+                <p className="text-slate-500">Aucune mission récente</p>
+                <Link to="/missions/new" className="text-teal-600 text-sm font-semibold hover:underline mt-2 inline-block">
+                  Créer une mission
+                </Link>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                {recentMissions.map((mission) => {
+                  const config = getStatusConfig(mission.status);
+                  return (
+                    <Link 
+                      key={mission.id} 
+                      to="/missions"
+                      className="flex items-center gap-4 p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition-colors group"
+                    >
+                      <div className={`p-2 rounded-lg ${config.bg}`}>
+                        <Truck className={`w-4 h-4 ${config.color}`} />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-800 text-sm">{mission.reference}</span>
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${config.bg} ${config.color}`}>
+                            {config.label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-slate-500 truncate">
+                          {mission.vehicle_brand} {mission.vehicle_model}
+                        </p>
+                      </div>
+                      <div className="text-right hidden sm:block">
+                        {mission.price > 0 && (
+                          <p className="font-bold text-teal-600">{mission.price}€</p>
+                        )}
+                        <p className="text-xs text-slate-400">{getTimeAgo(mission.created_at)}</p>
+                      </div>
+                      <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-teal-500 transition-colors" />
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </motion.div>
+        </div>
+
+        {/* Mobile Quick Actions FAB */}
+        <div className="sm:hidden fixed bottom-6 right-6 z-50">
+          <Link to="/missions/new">
+            <motion.button
+              className="w-14 h-14 rounded-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-500/40 flex items-center justify-center"
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              <Plus className="w-6 h-6" />
+            </motion.button>
+          </Link>
+        </div>
 
         {/* Spacer */}
-        <div className="h-8" />
+        <div className="h-20 sm:h-8" />
       </div>
-    </div>
+    </motion.div>
   );
 }
