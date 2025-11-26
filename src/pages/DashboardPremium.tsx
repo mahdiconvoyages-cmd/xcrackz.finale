@@ -500,7 +500,7 @@ export default function DashboardPremium() {
               animate="visible"
               variants={fadeIn}
             >
-              <Link to="/contacts/new">
+              <Link to="/crm?tab=clients&action=new">
                 <div 
                   className="rounded-2xl p-5 text-center bg-gradient-to-br from-indigo-500 to-purple-600"
                   style={{
@@ -510,7 +510,7 @@ export default function DashboardPremium() {
                   <div className="w-12 h-12 mx-auto bg-white/20 rounded-xl flex items-center justify-center mb-3">
                     <UserPlus className="w-8 h-8 text-white" />
                   </div>
-                  <p className="text-white font-bold text-sm drop-shadow-md">Nouveau contact</p>
+                  <p className="text-white font-bold text-sm drop-shadow-md">Nouveau client</p>
                 </div>
               </Link>
             </motion.div>
