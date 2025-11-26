@@ -17,7 +17,7 @@ import Login from './pages/Login';
 import CookieConsent from './components/CookieConsent';
 import Register from './pages/Register';
 import ForgotPassword from './pages/ForgotPassword';
-import Dashboard from './pages/Dashboard';
+import DashboardPremium from './pages/DashboardPremium';
 import MissionCreate from './pages/MissionCreate';
 import MissionView from './pages/MissionView';
 import Clients from './pages/Clients';
@@ -100,7 +100,7 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <Dashboard />
+                  <DashboardPremium />
                 </Layout>
               </ProtectedRoute>
             }
