@@ -791,6 +791,7 @@ export default function TeamMissions() {
       {/* Join Mission Modal */}
       {showJoinModal && (
         <JoinMissionModal
+          isOpen={showJoinModal}
           onClose={() => setShowJoinModal(false)}
           onSuccess={() => {
             setShowJoinModal(false);

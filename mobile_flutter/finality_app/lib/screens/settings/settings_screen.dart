@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
+import '../../l10n/app_localizations.dart';
+import '../../providers/locale_provider.dart';
 
-class SettingsScreen extends StatefulWidget {
-  const SettingsScreen({Key? key}) : super(key: key);
+class SettingsScreen extends ConsumerStatefulWidget {
+  const SettingsScreen({super.key});
 
   @override
-  State<SettingsScreen> createState() => _SettingsScreenState();
+  ConsumerState<SettingsScreen> createState() => _SettingsScreenState();
 }
 
-class _SettingsScreenState extends State<SettingsScreen> {
-  String _selectedLanguage = 'Français';
+class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _locationEnabled = true;
   bool _locationPermissionGranted = true;
   bool _backgroundLocationGranted = false;
@@ -33,7 +35,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
       final prefs = await SharedPreferences.getInstance();
       
       // Charger les préférences
-      _selectedLanguage = prefs.getString('language') ?? 'Français';
       _notificationsEnabled = prefs.getBool('notifications') ?? true;
       _darkMode = prefs.getBool('darkMode') ?? true;
       
@@ -48,23 +49,25 @@ class _SettingsScreenState extends State<SettingsScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Erreur chargement paramètres: $e');
+      debugPrint('Erreur chargement paramètres: $e');
       setState(() => _isLoading = false);
     }
   }
 
   Future<void> _saveLanguage(String language) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('language', language);
-    setState(() => _selectedLanguage = language);
+    // Utiliser le LocaleProvider Riverpod pour changer la langue immédiatement
+    await ref.read(localeNotifierProvider.notifier).setLocaleByCode(
+      AppLocalizations.getCodeFromName(language),
+    );
     
     if (mounted) {
+      final l10n = AppLocalizations.of(context);
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Langue changée: $language (Redémarrez l\'app pour appliquer)'),
+          content: Text('${l10n.language}: $language ✓'),
           backgroundColor: PremiumTheme.primaryTeal,
           behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 3),
+          duration: const Duration(seconds: 2),
         ),
       );
     }
@@ -200,13 +203,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   // Section Langue
                   _buildSectionCard(
                     icon: Icons.language,
-                    title: 'Langue de l\'application',
+                    title: AppLocalizations.of(context).language,
                     gradientColors: [PremiumTheme.primaryBlue, PremiumTheme.primaryIndigo],
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Sélectionnez votre langue:',
+                          AppLocalizations.of(context).selectLanguage,
                           style: PremiumTheme.body.copyWith(
                             color: Colors.white70,
                           ),
@@ -221,26 +224,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                               color: Colors.white.withValues(alpha: 0.2),
                             ),
                           ),
-                          child: DropdownButtonHideUnderline(
-                            child: DropdownButton<String>(
-                              value: _selectedLanguage,
-                              isExpanded: true,
-                              dropdownColor: PremiumTheme.cardBg,
-                              style: PremiumTheme.body,
-                              icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
-                              items: ['Français', 'English', 'العربية', 'Español']
-                                  .map((String value) {
-                                return DropdownMenuItem<String>(
-                                  value: value,
-                                  child: Text(value),
-                                );
-                              }).toList(),
-                              onChanged: (String? newValue) {
-                                if (newValue != null) {
-                                  _saveLanguage(newValue);
-                                }
-                              },
-                            ),
+                          child: Builder(
+                            builder: (context) {
+                              final locale = ref.watch(localeNotifierProvider);
+                              final languageName = AppLocalizations.getNameFromCode(locale.languageCode);
+                              return DropdownButtonHideUnderline(
+                                child: DropdownButton<String>(
+                                  value: languageName,
+                                  isExpanded: true,
+                                  dropdownColor: PremiumTheme.cardBg,
+                                  style: PremiumTheme.body,
+                                  icon: const Icon(Icons.arrow_drop_down, color: Colors.white),
+                                  items: AppLocalizations.languageNames.values
+                                      .map((String value) {
+                                    return DropdownMenuItem<String>(
+                                      value: value,
+                                      child: Text(value),
+                                    );
+                                  }).toList(),
+                                  onChanged: (String? newValue) {
+                                    if (newValue != null) {
+                                      _saveLanguage(newValue);
+                                    }
+                                  },
+                                ),
+                              );
+                            },
                           ),
                         ),
                       ],

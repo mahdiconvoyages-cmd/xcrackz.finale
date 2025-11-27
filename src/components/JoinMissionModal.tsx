@@ -17,6 +17,7 @@ export default function JoinMissionModal({ isOpen, onClose, onSuccess }: JoinMis
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState(false);
+  const [alreadyJoined, setAlreadyJoined] = useState(false);
 
   if (!isOpen) return null;
 
@@ -81,7 +82,7 @@ export default function JoinMissionModal({ isOpen, onClose, onSuccess }: JoinMis
       console.log('✅ Mission rejointe avec succès!', data);
 
       // Succès!
-      const already = !!data.alreadyJoined;
+      setAlreadyJoined(!!data.alreadyJoined);
       setSuccess(true);
       
       // Attendre un peu avant de fermer
@@ -120,6 +121,7 @@ export default function JoinMissionModal({ isOpen, onClose, onSuccess }: JoinMis
     setCode('');
     setError('');
     setSuccess(false);
+    setAlreadyJoined(false);
     onClose();
   };
 
@@ -169,10 +171,10 @@ export default function JoinMissionModal({ isOpen, onClose, onSuccess }: JoinMis
                 <CheckCircle className="w-10 h-10 text-green-600" />
               </div>
               <h3 className="text-xl font-bold text-gray-900 mb-2">
-                {already ? 'Déjà présente' : 'Mission ajoutée!'}
+                {alreadyJoined ? 'Déjà présente' : 'Mission ajoutée!'}
               </h3>
               <p className="text-gray-600">
-                {already ? 'Cette mission était déjà dans votre liste.' : 'La mission a été ajoutée à votre liste avec succès.'}
+                {alreadyJoined ? 'Cette mission était déjà dans votre liste.' : 'La mission a été ajoutée à votre liste avec succès.'}
               </p>
             </div>
           ) : (

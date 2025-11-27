@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
 import '../providers/credits_provider.dart';
 import '../providers/subscription_provider.dart';
@@ -7,20 +7,21 @@ import '../services/deep_link_service.dart';
 import '../services/mission_tracking_monitor.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/offline_indicator.dart';
+import '../utils/logger.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'missions/missions_screen.dart';
 import 'missions/mission_create_screen_new.dart';
 import 'crm/crm_screen.dart';
 import 'scanned_documents/scanned_documents_screen_new.dart';
 
-class HomeScreen extends StatefulWidget {
+class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   int _currentIndex = 0;
   final DeepLinkService _deepLinkService = DeepLinkService();
   final MissionTrackingMonitor _trackingMonitor = MissionTrackingMonitor();
@@ -31,8 +32,9 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
     // Initialize providers
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<CreditsProvider>().initialize();
-      context.read<SubscriptionProvider>().initialize();
+      // Initialiser les providers Riverpod
+      ref.read(creditsProvider.notifier).initialize();
+      ref.read(subscriptionProvider.notifier).initialize();
       
       // Initialize deep linking
       _deepLinkService.initialize();
@@ -44,7 +46,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _trackingMonitor.startMonitoring();
       _trackingMonitor.syncTrackingState();
       
-      print('✅ Surveillance tracking GPS initialisée');
+      logger.i('✅ Surveillance tracking GPS initialisée');
     });
   }
 

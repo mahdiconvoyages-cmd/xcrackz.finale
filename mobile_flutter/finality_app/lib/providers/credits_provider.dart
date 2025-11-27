@@ -1,91 +1,124 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:riverpod_annotation/riverpod_annotation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_credits.dart';
 import '../services/credits_service.dart';
+import '../utils/logger.dart';
 
-class CreditsProvider with ChangeNotifier {
-  final CreditsService _creditsService = CreditsService();
-  final SupabaseClient _supabase = Supabase.instance.client;
+part 'credits_provider.g.dart';
 
-  UserCredits? _userCredits;
-  List<CreditTransaction> _transactions = [];
-  Map<String, dynamic> _stats = {};
-  bool _isLoading = false;
-  String? _error;
+/// Provider pour le service de crédits
+@riverpod
+CreditsService creditsService(Ref ref) {
+  return CreditsService();
+}
 
-  // Getters
-  UserCredits? get userCredits => _userCredits;
-  int get credits => _userCredits?.credits ?? 0;
-  List<CreditTransaction> get transactions => _transactions;
-  Map<String, dynamic> get stats => _stats;
-  bool get isLoading => _isLoading;
-  String? get error => _error;
+/// État des crédits utilisateur
+class CreditsState {
+  final UserCredits? userCredits;
+  final List<CreditTransaction> transactions;
+  final Map<String, dynamic> stats;
+  final bool isLoading;
+  final String? error;
+
+  const CreditsState({
+    this.userCredits,
+    this.transactions = const [],
+    this.stats = const {},
+    this.isLoading = false,
+    this.error,
+  });
+
+  int get credits => userCredits?.credits ?? 0;
   bool get hasCredits => credits > 0;
 
-  // Initialize and fetch credits
+  CreditsState copyWith({
+    UserCredits? userCredits,
+    List<CreditTransaction>? transactions,
+    Map<String, dynamic>? stats,
+    bool? isLoading,
+    String? error,
+  }) {
+    return CreditsState(
+      userCredits: userCredits ?? this.userCredits,
+      transactions: transactions ?? this.transactions,
+      stats: stats ?? this.stats,
+      isLoading: isLoading ?? this.isLoading,
+      error: error,
+    );
+  }
+}
+
+/// Provider Riverpod pour les crédits
+@riverpod
+class Credits extends _$Credits {
+  CreditsService get _service => ref.read(creditsServiceProvider);
+  SupabaseClient get _supabase => Supabase.instance.client;
+
+  @override
+  CreditsState build() {
+    // Initialiser automatiquement si l'utilisateur est connecté
+    final user = _supabase.auth.currentUser;
+    if (user != null) {
+      _initialize(user.id);
+    }
+    return const CreditsState();
+  }
+
+  Future<void> _initialize(String userId) async {
+    state = state.copyWith(isLoading: true);
+    
+    try {
+      final userCredits = await _service.getUserCredits(userId);
+      final transactions = await _service.getTransactionHistory(userId: userId);
+      final stats = await _service.getTransactionStats(userId);
+      
+      state = CreditsState(
+        userCredits: userCredits,
+        transactions: transactions,
+        stats: stats,
+        isLoading: false,
+      );
+      
+      logger.i('✅ Credits initialized: ${state.credits} credits');
+    } catch (e, stack) {
+      logger.e('❌ Failed to initialize credits', e, stack);
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
+  }
+
+  /// Initialiser les crédits
   Future<void> initialize() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return;
-
-    await fetchCredits(user.id);
-    await fetchTransactionHistory(user.id);
-    await fetchStats(user.id);
+    await _initialize(user.id);
   }
 
-  // Fetch user credits
-  Future<void> fetchCredits(String userId) async {
-    try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
-
-      _userCredits = await _creditsService.getUserCredits(userId);
-      
-      _isLoading = false;
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      notifyListeners();
-    }
-  }
-
-  // Fetch transaction history
-  Future<void> fetchTransactionHistory(String userId, {int? limit}) async {
-    try {
-      _transactions = await _creditsService.getTransactionHistory(
-        userId: userId,
-        limit: limit,
-      );
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-
-  // Fetch statistics
-  Future<void> fetchStats(String userId) async {
-    try {
-      _stats = await _creditsService.getTransactionStats(userId);
-      notifyListeners();
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
-    }
-  }
-
-  // Refresh all data
+  /// Rafraîchir les données
   Future<void> refresh() async {
     final user = _supabase.auth.currentUser;
     if (user == null) return;
-
-    await fetchCredits(user.id);
-    await fetchTransactionHistory(user.id);
-    await fetchStats(user.id);
+    
+    state = state.copyWith(isLoading: true);
+    
+    try {
+      final userCredits = await _service.getUserCredits(user.id);
+      final transactions = await _service.getTransactionHistory(userId: user.id);
+      final stats = await _service.getTransactionStats(user.id);
+      
+      state = CreditsState(
+        userCredits: userCredits,
+        transactions: transactions,
+        stats: stats,
+        isLoading: false,
+      );
+    } catch (e, stack) {
+      logger.e('❌ Failed to refresh credits', e, stack);
+      state = state.copyWith(isLoading: false, error: e.toString());
+    }
   }
 
-  // Add credits
+  /// Ajouter des crédits
   Future<bool> addCredits({
     required int amount,
     required String type,
@@ -96,12 +129,10 @@ class CreditsProvider with ChangeNotifier {
     final user = _supabase.auth.currentUser;
     if (user == null) return false;
 
-    try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
+    state = state.copyWith(isLoading: true, error: null);
 
-      _userCredits = await _creditsService.addCredits(
+    try {
+      final userCredits = await _service.addCredits(
         userId: user.id,
         amount: amount,
         type: type,
@@ -110,21 +141,29 @@ class CreditsProvider with ChangeNotifier {
         referenceId: referenceId,
       );
 
-      await fetchTransactionHistory(user.id, limit: 20);
-      await fetchStats(user.id);
+      final transactions = await _service.getTransactionHistory(
+        userId: user.id,
+        limit: 20,
+      );
+      final stats = await _service.getTransactionStats(user.id);
 
-      _isLoading = false;
-      notifyListeners();
+      state = CreditsState(
+        userCredits: userCredits,
+        transactions: transactions,
+        stats: stats,
+        isLoading: false,
+      );
+      
+      logger.i('✅ Added $amount credits');
       return true;
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      notifyListeners();
+    } catch (e, stack) {
+      logger.e('❌ Failed to add credits', e, stack);
+      state = state.copyWith(isLoading: false, error: e.toString());
       return false;
     }
   }
 
-  // Spend credits
+  /// Dépenser des crédits
   Future<bool> spendCredits({
     required int amount,
     required String description,
@@ -134,12 +173,10 @@ class CreditsProvider with ChangeNotifier {
     final user = _supabase.auth.currentUser;
     if (user == null) return false;
 
-    try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
+    state = state.copyWith(isLoading: true, error: null);
 
-      _userCredits = await _creditsService.spendCredits(
+    try {
+      final userCredits = await _service.spendCredits(
         userId: user.id,
         amount: amount,
         description: description,
@@ -147,29 +184,36 @@ class CreditsProvider with ChangeNotifier {
         referenceId: referenceId,
       );
 
-      await fetchTransactionHistory(user.id, limit: 20);
-      await fetchStats(user.id);
+      final transactions = await _service.getTransactionHistory(
+        userId: user.id,
+        limit: 20,
+      );
+      final stats = await _service.getTransactionStats(user.id);
 
-      _isLoading = false;
-      notifyListeners();
+      state = CreditsState(
+        userCredits: userCredits,
+        transactions: transactions,
+        stats: stats,
+        isLoading: false,
+      );
+      
+      logger.i('✅ Spent $amount credits');
       return true;
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      notifyListeners();
+    } catch (e, stack) {
+      logger.e('❌ Failed to spend credits', e, stack);
+      state = state.copyWith(isLoading: false, error: e.toString());
       return false;
     }
   }
 
-  // Check if user has enough credits
+  /// Vérifier si l'utilisateur a assez de crédits
   Future<bool> hasEnoughCredits(int requiredAmount) async {
     final user = _supabase.auth.currentUser;
     if (user == null) return false;
-
-    return await _creditsService.hasEnoughCredits(user.id, requiredAmount);
+    return await _service.hasEnoughCredits(user.id, requiredAmount);
   }
 
-  // Purchase credits
+  /// Acheter des crédits
   Future<bool> purchaseCredits({
     required int amount,
     required String paymentId,
@@ -177,32 +221,27 @@ class CreditsProvider with ChangeNotifier {
     final user = _supabase.auth.currentUser;
     if (user == null) return false;
 
-    try {
-      _isLoading = true;
-      _error = null;
-      notifyListeners();
+    state = state.copyWith(isLoading: true, error: null);
 
-      _userCredits = await _creditsService.purchaseCredits(
+    try {
+      await _service.purchaseCredits(
         userId: user.id,
         amount: amount,
         paymentId: paymentId,
       );
 
-      await fetchTransactionHistory(user.id, limit: 20);
-      await fetchStats(user.id);
-
-      _isLoading = false;
-      notifyListeners();
+      await refresh();
+      
+      logger.i('✅ Purchased $amount credits');
       return true;
-    } catch (e) {
-      _error = e.toString();
-      _isLoading = false;
-      notifyListeners();
+    } catch (e, stack) {
+      logger.e('❌ Failed to purchase credits', e, stack);
+      state = state.copyWith(isLoading: false, error: e.toString());
       return false;
     }
   }
 
-  // Add bonus credits
+  /// Ajouter des crédits bonus
   Future<bool> addBonusCredits({
     required int amount,
     required String reason,
@@ -211,37 +250,55 @@ class CreditsProvider with ChangeNotifier {
     if (user == null) return false;
 
     try {
-      _userCredits = await _creditsService.addBonusCredits(
+      await _service.addBonusCredits(
         userId: user.id,
         amount: amount,
         reason: reason,
       );
-
-      await fetchTransactionHistory(user.id, limit: 20);
-      await fetchStats(user.id);
-
-      notifyListeners();
+      await refresh();
+      
+      logger.i('✅ Added $amount bonus credits');
       return true;
-    } catch (e) {
-      _error = e.toString();
-      notifyListeners();
+    } catch (e, stack) {
+      logger.e('❌ Failed to add bonus credits', e, stack);
+      state = state.copyWith(error: e.toString());
       return false;
     }
   }
 
-  // Clear error
+  /// Effacer l'erreur
   void clearError() {
-    _error = null;
-    notifyListeners();
+    state = state.copyWith(error: null);
   }
 
-  // Reset provider
+  /// Réinitialiser le provider
   void reset() {
-    _userCredits = null;
-    _transactions = [];
-    _stats = {};
-    _isLoading = false;
-    _error = null;
-    notifyListeners();
+    state = const CreditsState();
   }
+}
+
+// ==============================================
+// COMPATIBILITÉ AVEC L'ANCIEN CODE
+// ==============================================
+
+/// Wrapper pour compatibilité avec Provider (context.read/watch)
+/// À utiliser temporairement pendant la migration
+class CreditsProvider {
+  final WidgetRef _ref;
+  
+  CreditsProvider(this._ref);
+  
+  CreditsState get state => _ref.watch(creditsProvider);
+  int get credits => state.credits;
+  bool get isLoading => state.isLoading;
+  String? get error => state.error;
+  bool get hasCredits => state.hasCredits;
+  UserCredits? get userCredits => state.userCredits;
+  List<CreditTransaction> get transactions => state.transactions;
+  Map<String, dynamic> get stats => state.stats;
+  
+  Future<void> initialize() => _ref.read(creditsProvider.notifier).initialize();
+  Future<void> refresh() => _ref.read(creditsProvider.notifier).refresh();
+  void clearError() => _ref.read(creditsProvider.notifier).clearError();
+  void reset() => _ref.read(creditsProvider.notifier).reset();
 }

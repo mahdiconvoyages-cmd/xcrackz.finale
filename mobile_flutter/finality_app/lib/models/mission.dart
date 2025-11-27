@@ -133,6 +133,7 @@ class Mission {
 
   Mission copyWith({
     String? id,
+    String? reference,
     String? pickupAddress,
     String? deliveryAddress,
     String? pickupCity,
@@ -157,11 +158,14 @@ class Mission {
     String? clientEmail,
     String? notes,
     double? price,
+    String? publicTrackingLink,
+    String? reportId,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
     return Mission(
       id: id ?? this.id,
+      reference: reference ?? this.reference,
       pickupAddress: pickupAddress ?? this.pickupAddress,
       deliveryAddress: deliveryAddress ?? this.deliveryAddress,
       pickupCity: pickupCity ?? this.pickupCity,
@@ -186,6 +190,8 @@ class Mission {
       clientEmail: clientEmail ?? this.clientEmail,
       notes: notes ?? this.notes,
       price: price ?? this.price,
+      publicTrackingLink: publicTrackingLink ?? this.publicTrackingLink,
+      reportId: reportId ?? this.reportId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

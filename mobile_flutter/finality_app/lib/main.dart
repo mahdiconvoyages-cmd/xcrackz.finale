@@ -1,19 +1,18 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
-import 'package:provider/provider.dart' as provider;
 import 'screens/splash_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
-import 'providers/credits_provider.dart';
-import 'providers/subscription_provider.dart';
+import 'providers/locale_provider.dart';
 import 'services/sync_service.dart';
-import 'services/connectivity_service.dart';
 import 'services/offline_service.dart';
 import 'theme/premium_theme.dart';
 import 'utils/logger.dart';
+import 'l10n/app_localizations.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -22,18 +21,25 @@ Future<void> main() async {
   logger.init();
   logger.i('🚀 Starting Xcrackz app...');
 
+  // Charger les variables d'environnement (OBLIGATOIRE)
   try {
-    // Charger les variables d'environnement
     await dotenv.load(fileName: ".env");
     logger.i('✅ Environment variables loaded');
   } catch (e) {
-    logger.w('⚠️ Could not load .env file, using fallback');
+    logger.f('❌ FATAL: Could not load .env file. Please create .env with SUPABASE_URL and SUPABASE_ANON_KEY');
+    throw Exception('Missing .env file with Supabase credentials');
   }
 
-  // Initialiser Supabase avec credentials sécurisés
-  final supabaseUrl = dotenv.env['SUPABASE_URL'] ?? 'https://bfrkthzovwpjrvqktdjn.supabase.co';
-  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'] ?? 
-    'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmcmt0aHpvdndwanJ2cWt0ZGpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5NzgwNzgsImV4cCI6MjA3NTU1NDA3OH0.ml0TkLYk53U6CqP_iCc8XkZMusFCSI-nYOS0WyV43Nc';
+  // Vérifier que les credentials sont présents
+  final supabaseUrl = dotenv.env['SUPABASE_URL'];
+  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
+  
+  if (supabaseUrl == null || supabaseUrl.isEmpty) {
+    throw Exception('SUPABASE_URL is required in .env file');
+  }
+  if (supabaseAnonKey == null || supabaseAnonKey.isEmpty) {
+    throw Exception('SUPABASE_ANON_KEY is required in .env file');
+  }
 
   await Supabase.initialize(
     url: supabaseUrl,
@@ -54,125 +60,44 @@ Future<void> main() async {
   );
 }
 
-final supabase = Supabase.instance.client;
+/// Client Supabase global (pour compatibilité)
+SupabaseClient get supabase => Supabase.instance.client;
 
 class XcrackzApp extends ConsumerWidget {
   const XcrackzApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    return provider.MultiProvider(
-      providers: [
-        provider.ChangeNotifierProvider(create: (_) => CreditsProvider()),
-        provider.ChangeNotifierProvider(create: (_) => SubscriptionProvider()),
-        provider.ChangeNotifierProvider(create: (_) => ConnectivityService()),
-        provider.Provider(create: (_) => SyncService()),
-      ],
-      child: SyncProvider(
-        syncService: SyncService(),
-        child: MaterialApp(
-          title: 'Xcrackz - Convoyages',
-          debugShowCheckedModeBanner: false,
-          theme: PremiumTheme.darkTheme,
-          darkTheme: PremiumTheme.darkTheme,
-          themeMode: ThemeMode.light,
-          initialRoute: '/',
-          routes: {
-            '/': (context) => const SplashScreen(),
-            '/onboarding': (context) => const OnboardingScreen(),
-            '/login': (context) => const LoginScreen(),
-            '/home': (context) => const HomeScreen(),
-          },
-        ),
+    // Écouter le provider de locale
+    final locale = ref.watch(localeProvider);
+    
+    return SyncProvider(
+      syncService: SyncService(),
+      child: MaterialApp(
+        title: 'Xcrackz - Convoyages',
+        debugShowCheckedModeBanner: false,
+        theme: PremiumTheme.darkTheme,
+        darkTheme: PremiumTheme.darkTheme,
+        themeMode: ThemeMode.light,
+        
+        // Localisation
+        locale: locale,
+        supportedLocales: AppLocalizations.supportedLocales,
+        localizationsDelegates: const [
+          AppLocalizations.delegate,
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        
+        initialRoute: '/',
+        routes: {
+          '/': (context) => const SplashScreen(),
+          '/onboarding': (context) => const OnboardingScreen(),
+          '/login': (context) => const LoginScreen(),
+          '/home': (context) => const HomeScreen(),
+        },
       ),
-    );
-  }
-}
-
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
-
-  // This widget is the home page of your application. It is stateful, meaning
-  // that it has a State object (defined below) that contains fields that affect
-  // how it looks.
-
-  // This class is the configuration for the state. It holds the values (in this
-  // case the title) provided by the parent (in this case the App widget) and
-  // used by the build method of the State. Fields in a Widget subclass are
-  // always marked "final".
-
-  final String title;
-
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
-
-class _MyHomePageState extends State<MyHomePage> {
-  int _counter = 0;
-
-  void _incrementCounter() {
-    setState(() {
-      // This call to setState tells the Flutter framework that something has
-      // changed in this State, which causes it to rerun the build method below
-      // so that the display can reflect the updated values. If we changed
-      // _counter without calling setState(), then the build method would not be
-      // called again, and so nothing would appear to happen.
-      _counter++;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    // This method is rerun every time setState is called, for instance as done
-    // by the _incrementCounter method above.
-    //
-    // The Flutter framework has been optimized to make rerunning build methods
-    // fast, so that you can just rebuild anything that needs updating rather
-    // than having to individually change instances of widgets.
-    return Scaffold(
-      appBar: AppBar(
-        // TRY THIS: Try changing the color here to a specific color (to
-        // Colors.amber, perhaps?) and trigger a hot reload to see the AppBar
-        // change color while the other colors stay the same.
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        // Here we take the value from the MyHomePage object that was created by
-        // the App.build method, and use it to set our appbar title.
-        title: Text(widget.title),
-      ),
-      body: Center(
-        // Center is a layout widget. It takes a single child and positions it
-        // in the middle of the parent.
-        child: Column(
-          // Column is also a layout widget. It takes a list of children and
-          // arranges them vertically. By default, it sizes itself to fit its
-          // children horizontally, and tries to be as tall as its parent.
-          //
-          // Column has various properties to control how it sizes itself and
-          // how it positions its children. Here we use mainAxisAlignment to
-          // center the children vertically; the main axis here is the vertical
-          // axis because Columns are vertical (the cross axis would be
-          // horizontal).
-          //
-          // TRY THIS: Invoke "debug painting" (choose the "Toggle Debug Paint"
-          // action in the IDE, or press "p" in the console), to see the
-          // wireframe for each widget.
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: <Widget>[
-            const Text(
-              'You have pushed the button this many times:',
-            ),
-            Text(
-              '$_counter',
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: _incrementCounter,
-        tooltip: 'Increment',
-        child: const Icon(Icons.add),
-      ), // This trailing comma makes auto-formatting nicer for build methods.
     );
   }
 }
