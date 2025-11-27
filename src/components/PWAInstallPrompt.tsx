@@ -1,10 +1,10 @@
 /**
- * Composant PWA Install Prompt
- * Affiche un bouton pour installer l'application sur mobile/desktop
+ * Composant PWA Install Prompt - Version Minimaliste
+ * Toast balayable pour installer l'application sur mobile/desktop
  */
 
-import { useState, useEffect } from 'react';
-import { Download, X, Smartphone } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { Download, X } from 'lucide-react';
 
 interface BeforeInstallPromptEvent extends Event {
   prompt(): Promise<void>;
@@ -15,6 +15,10 @@ export default function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
   const [isInstalled, setIsInstalled] = useState(false);
+  const [isDismissing, setIsDismissing] = useState(false);
+  const [swipeOffset, setSwipeOffset] = useState(0);
+  const touchStartX = useRef(0);
+  const toastRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     // Vérifier si déjà installé
@@ -23,16 +27,26 @@ export default function PWAInstallPrompt() {
       return;
     }
 
+    // Vérifier si déjà refusé récemment (7 jours)
+    const dismissed = localStorage.getItem('pwa-dismissed');
+    if (dismissed) {
+      const dismissedTime = parseInt(dismissed, 10);
+      const sevenDays = 7 * 24 * 60 * 60 * 1000;
+      if (Date.now() - dismissedTime < sevenDays) {
+        return;
+      }
+    }
+
     // Écouter l'événement beforeinstallprompt
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       const promptEvent = e as BeforeInstallPromptEvent;
       setDeferredPrompt(promptEvent);
       
-      // Afficher le prompt après 3 secondes
+      // Afficher le prompt après 5 secondes
       setTimeout(() => {
         setShowPrompt(true);
-      }, 3000);
+      }, 5000);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
@@ -42,7 +56,6 @@ export default function PWAInstallPrompt() {
       setIsInstalled(true);
       setShowPrompt(false);
       setDeferredPrompt(null);
-      console.log('✅ PWA installée avec succès !');
     });
 
     return () => {
@@ -50,19 +63,37 @@ export default function PWAInstallPrompt() {
     };
   }, []);
 
+  // Gestion du swipe
+  const handleTouchStart = (e: React.TouchEvent) => {
+    touchStartX.current = e.touches[0].clientX;
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    const currentX = e.touches[0].clientX;
+    const diff = currentX - touchStartX.current;
+    // Permettre seulement le swipe vers la droite
+    if (diff > 0) {
+      setSwipeOffset(diff);
+    }
+  };
+
+  const handleTouchEnd = () => {
+    // Si swipé plus de 100px, fermer
+    if (swipeOffset > 100) {
+      handleDismiss();
+    } else {
+      setSwipeOffset(0);
+    }
+  };
+
   const handleInstallClick = async () => {
     if (!deferredPrompt) return;
 
-    // Afficher le prompt d'installation natif
     deferredPrompt.prompt();
-
-    // Attendre la réponse de l'utilisateur
     const { outcome } = await deferredPrompt.userChoice;
     
     if (outcome === 'accepted') {
-      console.log('✅ Utilisateur a accepté l\'installation');
-    } else {
-      console.log('❌ Utilisateur a refusé l\'installation');
+      console.log('✅ PWA installée');
     }
 
     setDeferredPrompt(null);
@@ -70,9 +101,13 @@ export default function PWAInstallPrompt() {
   };
 
   const handleDismiss = () => {
-    setShowPrompt(false);
-    // Réafficher dans 7 jours
-    localStorage.setItem('pwa-dismissed', Date.now().toString());
+    setIsDismissing(true);
+    setTimeout(() => {
+      setShowPrompt(false);
+      setIsDismissing(false);
+      setSwipeOffset(0);
+      localStorage.setItem('pwa-dismissed', Date.now().toString());
+    }, 300);
   };
 
   // Ne rien afficher si déjà installé ou pas de prompt
@@ -81,92 +116,63 @@ export default function PWAInstallPrompt() {
   }
 
   return (
-    <>
-      {/* Bannière mobile (top) */}
-      <div className="fixed top-0 left-0 right-0 z-50 lg:hidden">
-        <div className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white p-4 shadow-2xl">
-          <div className="flex items-start gap-3">
-            <div className="flex-shrink-0 w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center">
-              <Smartphone className="w-6 h-6" />
-            </div>
-            
-            <div className="flex-1 min-w-0">
-              <h3 className="font-bold text-sm mb-1">Installer xCrackz</h3>
-              <p className="text-xs text-white/90 mb-3">
-                Installez l'application sur votre téléphone pour un accès rapide et hors ligne
-              </p>
-              
-              <div className="flex gap-2">
-                <button
-                  onClick={handleInstallClick}
-                  className="flex-1 bg-white text-teal-600 px-4 py-2 rounded-lg font-semibold text-sm hover:bg-white/90 transition-all flex items-center justify-center gap-2"
-                >
-                  <Download className="w-4 h-4" />
-                  Installer
-                </button>
-                <button
-                  onClick={handleDismiss}
-                  className="px-3 py-2 bg-white/20 rounded-lg hover:bg-white/30 transition-all"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Carte desktop (bottom-right) */}
-      <div className="hidden lg:block fixed bottom-6 right-6 z-50 max-w-sm">
-        <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 overflow-hidden">
-          <div className="bg-gradient-to-r from-teal-500 to-cyan-500 p-4">
-            <div className="flex items-center gap-3 text-white">
-              <div className="w-12 h-12 bg-white/20 rounded-xl flex items-center justify-center flex-shrink-0">
-                <Download className="w-6 h-6" />
-              </div>
-              <div className="flex-1">
-                <h3 className="font-bold">Installer xCrackz</h3>
-                <p className="text-sm text-white/90">Application Web Progressive</p>
-              </div>
-              <button
-                onClick={handleDismiss}
-                className="text-white/80 hover:text-white transition-colors"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+    <div
+      ref={toastRef}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      className={`fixed bottom-4 left-4 right-4 md:left-auto md:right-6 md:bottom-6 md:w-auto md:max-w-xs z-50 transition-all duration-300 ${
+        isDismissing ? 'opacity-0 translate-x-full' : 'opacity-100'
+      }`}
+      style={{
+        transform: swipeOffset > 0 ? `translateX(${swipeOffset}px)` : undefined,
+        opacity: swipeOffset > 0 ? Math.max(0, 1 - swipeOffset / 150) : undefined
+      }}
+    >
+      <div className="bg-slate-900/95 backdrop-blur-xl text-white rounded-xl shadow-2xl border border-slate-700/50 overflow-hidden">
+        <div className="flex items-center gap-3 p-3">
+          {/* Icône */}
+          <div className="w-9 h-9 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-lg flex items-center justify-center flex-shrink-0 shadow-lg shadow-teal-500/30">
+            <Download className="w-4 h-4" />
           </div>
           
-          <div className="p-4">
-            <p className="text-sm text-slate-600 mb-4">
-              Installez xCrackz pour un accès rapide depuis votre bureau et une expérience optimisée.
-            </p>
-            
-            <div className="space-y-2 mb-4">
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <div className="w-1.5 h-1.5 bg-teal-500 rounded-full"></div>
-                Lancement depuis le bureau
-              </div>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <div className="w-1.5 h-1.5 bg-teal-500 rounded-full"></div>
-                Fonctionne hors ligne
-              </div>
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <div className="w-1.5 h-1.5 bg-teal-500 rounded-full"></div>
-                Mises à jour automatiques
-              </div>
-            </div>
-            
+          {/* Texte */}
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-medium truncate">Installer xCrackz</p>
+            <p className="text-xs text-slate-400 hidden md:block">Accès rapide • Hors ligne</p>
+          </div>
+          
+          {/* Boutons */}
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={handleInstallClick}
-              className="w-full bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-4 py-3 rounded-xl font-semibold hover:from-teal-600 hover:to-cyan-600 transition-all shadow-lg shadow-teal-500/30 flex items-center justify-center gap-2"
+              className="px-3 py-1.5 bg-gradient-to-r from-teal-500 to-cyan-500 text-white text-xs font-semibold rounded-lg hover:from-teal-600 hover:to-cyan-600 transition-all shadow-lg shadow-teal-500/20"
             >
-              <Download className="w-5 h-5" />
-              Installer maintenant
+              Installer
+            </button>
+            <button
+              onClick={handleDismiss}
+              className="p-1.5 text-slate-400 hover:text-white hover:bg-slate-700/50 rounded-lg transition-all"
+              aria-label="Fermer"
+            >
+              <X className="w-4 h-4" />
             </button>
           </div>
         </div>
+        
+        {/* Indicateur de swipe sur mobile */}
+        <div className="md:hidden h-0.5 bg-slate-700">
+          <div 
+            className="h-full bg-gradient-to-r from-teal-500 to-cyan-500 transition-all duration-100"
+            style={{ width: `${Math.min(100, (swipeOffset / 100) * 100)}%` }}
+          />
+        </div>
       </div>
-    </>
+      
+      {/* Hint swipe sur mobile */}
+      <p className="md:hidden text-center text-[10px] text-slate-500 mt-1">
+        Balayer pour fermer →
+      </p>
+    </div>
   );
 }
