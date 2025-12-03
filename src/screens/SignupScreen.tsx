@@ -104,7 +104,7 @@ export default function SignupScreen({ navigation }: any) {
               <Feather name="arrow-left" size={24} color="white" />
             </TouchableOpacity>
             <Text style={styles.title}>Créer un compte</Text>
-            <Text style={styles.subtitle}>Rejoignez xCrackz dès maintenant</Text>
+            <Text style={styles.subtitle}>Rejoignez CheckFlow dès maintenant</Text>
           </View>
 
           {/* Formulaire d'Inscription */}

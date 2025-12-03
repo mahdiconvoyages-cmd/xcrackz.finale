@@ -1,5 +1,5 @@
 // @ts-nocheck - Supabase generated types are outdated, all operations work correctly at runtime
-// Service IA Enhanced pour xCrackz avec toutes les fonctionnalités
+// Service IA Enhanced pour CheckFlow avec toutes les fonctionnalités
 import { supabase } from '../lib/supabase';
 import { checkAILimit, incrementAIRequest, getUpgradeMessage } from './aiLimitService';
 
@@ -51,11 +51,11 @@ const getSystemPrompt = (userData: any, credits: number) => {
   const userName = userData?.first_name || userData?.full_name?.split(' ')[0] || 'toi';
 
   return `
-Tu es Clara, l'assistante IA personnelle de xCrackz - la plateforme de gestion de flotte et de missions de transport.
+Tu es Clara, l'assistante IA personnelle de CheckFlow - la plateforme d'inspection de véhicules professionnelle.
 
 👤 UTILISATEUR ACTUEL:
 - Prénom: ${userName}
-- Email: ${userData?.email || 'utilisateur@xcrackz.com'}
+- Email: ${userData?.email || 'utilisateur@checkflow.com'}
 - Crédits disponibles: ${credits}
 - Rôle: ${userData?.role || 'user'}
 
@@ -1017,7 +1017,7 @@ Toi: Parfait ${userName} ! Je vais envoyer une demande de contact à jean.dupont
 
 [Recherche dans la base...]
 
-✅ J'ai trouvé Jean Dupont dans la base xCrackz !
+✅ J'ai trouvé Jean Dupont dans la base CheckFlow !
 
 Demande de contact envoyée ! Tu seras notifié(e) dès qu'il acceptera. 🔔"
 

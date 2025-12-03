@@ -68,15 +68,15 @@ export default function LoginScreen({ navigation }: any) {
           {/* Header avec Logo */}
           <View style={styles.header}>
             <LinearGradient
-              colors={['#3b82f6', '#2563eb']}
+              colors={['#14b8a6', '#0d9488']}
               style={styles.logoContainer}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
             >
-              <Text style={styles.logoText}>XZ</Text>
+              <Text style={styles.logoText}>CF</Text>
             </LinearGradient>
-            <Text style={styles.title}>xCrackz</Text>
-            <Text style={styles.subtitle}>Gestion de convoyage intelligente</Text>
+            <Text style={styles.title}>CheckFlow</Text>
+            <Text style={styles.subtitle}>Inspections véhicules professionnelles</Text>
           </View>
 
           {/* Formulaire de Connexion */}

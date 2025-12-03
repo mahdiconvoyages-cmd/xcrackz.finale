@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Mission ' . $mission['reference'] . ' - FleetCheck')
+@section('title', 'Mission ' . $mission['reference'] . ' - CheckFlow')
 
 @section('content')
 <div class="mb-8">

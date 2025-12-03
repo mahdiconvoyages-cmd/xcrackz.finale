@@ -1,5 +1,5 @@
 /**
- * Service de Covoiturage Complet - xCrackz
+ * Service de Covoiturage Complet - CheckFlow
  * 
  * Fonctionnalités :
  * - Rechercher des trajets disponibles

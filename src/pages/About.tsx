@@ -7,11 +7,11 @@ export default function About() {
       <nav className="fixed top-0 left-0 right-0 z-50 bg-slate-900/20 backdrop-blur-xl border-b border-white/10 shadow-lg">
         <div className="container mx-auto px-6 py-4 flex justify-between items-center">
           <Link to="/" className="flex items-center gap-3 hover:scale-105 transition-transform group">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-lg group-hover:shadow-blue-500/50 transition-shadow">
-              <span className="text-white font-black text-lg">XZ</span>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center shadow-lg group-hover:shadow-teal-500/50 transition-shadow">
+              <span className="text-white font-black text-lg">CF</span>
             </div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">
-              xCrackz
+              CheckFlow
             </h1>
           </Link>
           <Link
@@ -30,7 +30,7 @@ export default function About() {
             Qui sommes-nous ?
           </h1>
           <p className="text-xl text-center text-slate-300 mb-16">
-            L'histoire d'une équipe passionnée qui révolutionne le convoyage automobile
+            L'histoire d'une équipe passionnée qui révolutionne l'inspection de véhicules
           </p>
 
           <section className="mb-16 bg-white/5 backdrop-blur-xl border border-white/20 p-8 rounded-2xl">
@@ -42,13 +42,13 @@ export default function About() {
             </div>
             <div className="space-y-4 text-slate-300">
               <p>
-                xCrackz est né en 2024 d'un constat simple : les professionnels du convoyage automobile manquaient cruellement d'outils modernes et adaptés à leur activité. Entre les feuilles de calcul Excel dispersées, les photos perdues dans les téléphones et la facturation manuelle chronophage, il était temps de proposer une solution complète et intuitive.
+                CheckFlow est né en 2024 d'un constat simple : les professionnels de l'inspection automobile manquaient cruellement d'outils modernes et adaptés à leur activité. Entre les feuilles de calcul Excel dispersées, les photos perdues dans les téléphones et la facturation manuelle chronophage, il était temps de proposer une solution complète et intuitive.
               </p>
               <p>
                 Notre équipe fondatrice, composée d'experts en logistique automobile et de développeurs passionnés, a travaillé pendant plus d'un an pour créer la plateforme SaaS la plus complète du marché. Chaque fonctionnalité a été pensée et testée avec de vrais professionnels du terrain.
               </p>
               <p>
-                Aujourd'hui, xCrackz accompagne des centaines de convoyeurs indépendants et d'entreprises de toute taille à travers la France et l'Europe. Notre mission ? Simplifier votre quotidien pour que vous puissiez vous concentrer sur l'essentiel : votre métier.
+                Aujourd'hui, CheckFlow accompagne des centaines d'inspecteurs indépendants et d'entreprises de toute taille à travers la France et l'Europe. Notre mission ? Simplifier votre quotidien pour que vous puissiez vous concentrer sur l'essentiel : votre métier.
               </p>
             </div>
           </section>
@@ -96,7 +96,7 @@ export default function About() {
                 Nous croyons fermement que la technologie doit être au service des professionnels, pas l'inverse. Notre vision est de créer un écosystème complet où chaque acteur du convoyage automobile peut trouver les outils dont il a besoin pour développer son activité.
               </p>
               <p className="text-lg">
-                Au-delà d'une simple plateforme de gestion, xCrackz ambitionne de devenir le réseau social professionnel du convoyage, où convoyeurs, entreprises et clients peuvent se rencontrer, échanger et collaborer en toute confiance.
+                Au-delà d'une simple plateforme de gestion, CheckFlow ambitionne de devenir la référence de l'inspection véhicule, où inspecteurs, entreprises et clients peuvent se rencontrer, échanger et collaborer en toute confiance.
               </p>
             </div>
           </section>
@@ -147,7 +147,7 @@ export default function About() {
           <section className="text-center bg-gradient-to-r from-teal-500/20 to-cyan-500/20 backdrop-blur-xl border border-teal-500/30 p-12 rounded-3xl">
             <h2 className="text-3xl font-bold mb-4">Rejoignez l'aventure</h2>
             <p className="text-xl text-slate-300 mb-8">
-              Faites partie de la communauté xCrackz et transformez votre activité de convoyage
+              Faites partie de la communauté CheckFlow et transformez votre activité d'inspection
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link
@@ -157,7 +157,7 @@ export default function About() {
                 Créer mon compte gratuit
               </Link>
               <a
-                href="mailto:contact@xcrackz.fr"
+                href="mailto:contact@checkflow.fr"
                 className="bg-white/5 backdrop-blur-md border-2 border-white/20 px-10 py-4 rounded-lg text-white font-bold text-lg hover:bg-white/10 transition"
               >
                 Nous contacter

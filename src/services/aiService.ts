@@ -58,7 +58,7 @@ export async function sendAIMessage(
         'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': window.location.origin,
-        'X-Title': 'xcrackz AI Assistant',
+        'X-Title': 'CheckFlow AI Assistant',
       }
     };
 
@@ -117,13 +117,13 @@ export async function sendAIMessage(
   }
 }
 
-// Assistant conversationnel pour xcrackz
-export async function askXcrackzAssistant(
+// Assistant conversationnel pour CheckFlow
+export async function askCheckFlowAssistant(
   userQuestion: string,
   context?: any,
   conversationHistory?: AIMessage[]
 ): Promise<string> {
-  const systemPrompt = `Tu es l'assistant IA de xcrackz, une plateforme de gestion de flotte de véhicules.
+  const systemPrompt = `Tu es l'assistant IA de CheckFlow, une plateforme d'inspection de véhicules.
 
 🎯 TES COMPÉTENCES:
 - Gestion de missions de transport
@@ -170,7 +170,7 @@ export async function analyzeIntent(userInput: string): Promise<{
   confidence: number;
   action?: string;
 }> {
-  const systemPrompt = `Tu es un système d'analyse d'intentions pour xcrackz.
+  const systemPrompt = `Tu es un système d'analyse d'intentions pour CheckFlow.
 
 INTENTIONS POSSIBLES:
 - create_mission: Créer une nouvelle mission

@@ -32,10 +32,10 @@ class EmailService
             $this->mailer->addAddress($toEmail);
 
             $this->mailer->isHTML(true);
-            $this->mailer->Subject = "{$inviterName} vous invite sur FleetCheck";
+            $this->mailer->Subject = "{$inviterName} vous invite sur CheckFlow";
 
             $this->mailer->Body = $this->getInvitationTemplate($inviterName, $inviteLink);
-            $this->mailer->AltBody = "{$inviterName} vous invite à rejoindre FleetCheck. Cliquez sur ce lien: {$inviteLink}";
+            $this->mailer->AltBody = "{$inviterName} vous invite à rejoindre CheckFlow. Cliquez sur ce lien: {$inviteLink}";
 
             return $this->mailer->send();
         } catch (Exception $e) {
@@ -77,7 +77,7 @@ class EmailService
             $this->mailer->addAddress($toEmail);
 
             $this->mailer->isHTML(true);
-            $this->mailer->Subject = "Facture {$invoice['invoice_number']} - FleetCheck";
+            $this->mailer->Subject = "Facture {$invoice['invoice_number']} - CheckFlow";
 
             $this->mailer->Body = $this->getInvoiceTemplate($invoice);
 
@@ -110,18 +110,18 @@ class EmailService
 <body>
     <div class="container">
         <div class="header">
-            <h1>Invitation FleetCheck</h1>
+            <h1>Invitation CheckFlow</h1>
         </div>
         <div class="content">
             <h2>Bonjour,</h2>
-            <p><strong>{$inviterName}</strong> vous invite à rejoindre FleetCheck, la plateforme de gestion de convoyage automobile.</p>
-            <p>FleetCheck vous permet de gérer vos missions de convoyage, suivre vos véhicules, et collaborer avec votre équipe en toute simplicité.</p>
+            <p><strong>{$inviterName}</strong> vous invite à rejoindre CheckFlow, la plateforme de gestion de convoyage automobile.</p>
+            <p>CheckFlow vous permet de gérer vos missions de convoyage, suivre vos véhicules, et collaborer avec votre équipe en toute simplicité.</p>
             <a href="{$inviteLink}" class="button">Accepter l'invitation</a>
             <p>Si le bouton ne fonctionne pas, copiez ce lien dans votre navigateur :<br>
             <a href="{$inviteLink}">{$inviteLink}</a></p>
         </div>
         <div class="footer">
-            <p>© 2025 FleetCheck. Tous droits réservés.</p>
+            <p>© 2025 CheckFlow. Tous droits réservés.</p>
         </div>
     </div>
 </body>
@@ -205,7 +205,7 @@ HTML;
             <div class="total">{$invoice['total_ttc']} € TTC</div>
             <p>Date d'échéance: {$invoice['due_date']}</p>
             <p>Merci de votre confiance.</p>
-            <p>Cordialement,<br>L'équipe FleetCheck</p>
+            <p>Cordialement,<br>L'équipe CheckFlow</p>
         </div>
     </div>
 </body>

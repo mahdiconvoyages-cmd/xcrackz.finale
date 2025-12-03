@@ -72,7 +72,7 @@ class HelpScreen extends StatelessWidget {
                   Text(
                     'Trouvez rapidement des réponses à vos questions',
                     style: PremiumTheme.bodySmall.copyWith(
-                      color: Colors.white60,
+                      color: PremiumTheme.textSecondary,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -226,7 +226,7 @@ class HelpScreen extends StatelessWidget {
                     Text(
                       'Regardez nos tutoriels pour maîtriser l\'application',
                       style: PremiumTheme.bodySmall.copyWith(
-                        color: Colors.white60,
+                        color: PremiumTheme.textSecondary,
                       ),
                       textAlign: TextAlign.center,
                     ),
@@ -282,15 +282,15 @@ class HelpScreen extends StatelessWidget {
               fontWeight: FontWeight.w600,
             ),
           ),
-          iconColor: Colors.white,
-          collapsedIconColor: Colors.white70,
+          iconColor: PremiumTheme.textPrimary,
+          collapsedIconColor: PremiumTheme.textSecondary,
           children: [
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
               child: Text(
                 answer,
                 style: PremiumTheme.bodySmall.copyWith(
-                  color: Colors.white70,
+                  color: PremiumTheme.textSecondary,
                   height: 1.5,
                 ),
               ),
@@ -334,7 +334,7 @@ class HelpScreen extends StatelessWidget {
         ),
         trailing: Icon(
           Icons.arrow_forward_ios,
-          color: Colors.white70,
+          color: PremiumTheme.textSecondary,
           size: 16,
         ),
         onTap: onTap,

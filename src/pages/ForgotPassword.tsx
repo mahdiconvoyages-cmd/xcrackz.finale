@@ -58,7 +58,7 @@ export default function ForgotPassword() {
       <div className="w-full max-w-md">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent mb-2">
-            xcrackz
+            CheckFlow
           </h1>
           <p className="text-slate-400">Réinitialiser votre mot de passe</p>
         </div>

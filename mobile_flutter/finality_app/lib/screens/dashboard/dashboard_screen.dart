@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import '../../l10n/app_localizations.dart';
 import '../../services/realtime_service.dart';
 import '../profile/profile_screen.dart';
 import '../../theme/premium_theme.dart';
@@ -134,7 +135,8 @@ class _DashboardScreenState extends State<DashboardScreen>
   @override
   Widget build(BuildContext context) {
     final user = supabase.auth.currentUser;
-    final greeting = _getGreeting();
+    final l10n = AppLocalizations.of(context);
+    final greeting = _getGreeting(context);
 
     return Scaffold(
       backgroundColor: PremiumTheme.lightBg,
@@ -205,7 +207,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                           Text(
                                             _firstName.isNotEmpty
                                                 ? '$_firstName $_lastName'
-                                                : user?.email ?? 'Utilisateur',
+                                                : user?.email ?? l10n.user,
                                             style: PremiumTheme.heading3.copyWith(
                                               color: PremiumTheme.textPrimary,
                                               fontSize: 18,
@@ -250,7 +252,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
                         // Crédits et Abonnement
-                        _buildCreditsCard(),
+                        _buildCreditsCard(l10n),
                         const SizedBox(height: 16),
 
                         // Stats rapides
@@ -259,7 +261,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             Expanded(
                               child: _buildQuickStat(
                                 icon: Icons.assignment,
-                                label: 'Missions actives',
+                                label: l10n.activeMissions,
                                 value: _activeMissions.toString(),
                                 color: PremiumTheme.primaryTeal,
                               ),
@@ -268,7 +270,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             Expanded(
                               child: _buildQuickStat(
                                 icon: Icons.check_circle,
-                                label: 'Complétées',
+                                label: l10n.completed,
                                 value: _completedMissions.toString(),
                                 color: PremiumTheme.accentGreen,
                               ),
@@ -282,7 +284,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             Expanded(
                               child: _buildQuickStat(
                                 icon: Icons.people,
-                                label: 'Contacts CRM',
+                                label: l10n.clients,
                                 value: _totalContacts.toString(),
                                 color: PremiumTheme.primaryBlue,
                               ),
@@ -291,7 +293,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             Expanded(
                               child: _buildQuickStat(
                                 icon: Icons.trending_up,
-                                label: 'Taux succès',
+                                label: l10n.successRate,
                                 value: '${_completionRate.toStringAsFixed(0)}%',
                                 color: PremiumTheme.primaryPurple,
                               ),
@@ -302,17 +304,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const SizedBox(height: 24),
 
                         // Graphique de progression
-                        _buildProgressChart(),
+                        _buildProgressChart(l10n),
 
                         const SizedBox(height: 24),
 
                         // Actions rapides
-                        _buildQuickActions(),
+                        _buildQuickActions(l10n),
 
                         const SizedBox(height: 24),
 
                         // Activité récente
-                        _buildRecentActivity(),
+                        _buildRecentActivity(l10n),
 
                         const SizedBox(height: 32),
                       ]),
@@ -351,7 +353,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildCreditsCard() {
+  Widget _buildCreditsCard(AppLocalizations l10n) {
     final isExpiringSoon = _daysRemaining < 7 && _daysRemaining > 0;
     final isExpired = _daysRemaining <= 0 && _hasActiveSubscription;
 
@@ -394,7 +396,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'Crédits disponibles',
+                      l10n.creditsAvailable,
                       style: PremiumTheme.bodySmall.copyWith(
                         color: Colors.white,
                         fontWeight: FontWeight.w600,
@@ -496,10 +498,10 @@ class _DashboardScreenState extends State<DashboardScreen>
                       children: [
                         Text(
                           isExpired
-                              ? 'Abonnement expiré'
+                              ? l10n.subscriptionExpired
                               : isExpiringSoon
-                                  ? 'Expire bientôt'
-                                  : 'Abonnement actif',
+                                  ? l10n.expiresShort
+                                  : l10n.subscriptionActive,
                           style: PremiumTheme.bodySmall.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.w600,
@@ -515,8 +517,8 @@ class _DashboardScreenState extends State<DashboardScreen>
                         const SizedBox(height: 4),
                         Text(
                           isExpired
-                              ? 'Renouvelez dès maintenant'
-                              : '$_daysRemaining jours restants',
+                              ? l10n.renewNow
+                              : '$_daysRemaining ${l10n.daysRemaining}',
                           style: PremiumTheme.body.copyWith(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -555,7 +557,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: Text(isExpired ? 'Renouveler' : 'Gérer'),
+                    child: Text(isExpired ? l10n.renew : l10n.manage),
                   ),
                 ],
               ),
@@ -578,53 +580,46 @@ class _DashboardScreenState extends State<DashboardScreen>
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
+          border: Border.all(
+            color: color.withValues(alpha: 0.3),
+            width: 1.5,
+          ),
           boxShadow: [
             BoxShadow(
-              color: color.withValues(alpha: 0.2),
+              color: color.withValues(alpha: 0.15),
               blurRadius: 12,
               offset: const Offset(0, 6),
               spreadRadius: 1,
             ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
-            ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(20),
+          padding: const EdgeInsets.all(16),
           child: Column(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.15),
-                  borderRadius: BorderRadius.circular(12),
-                  boxShadow: [
-                    BoxShadow(
-                      color: color.withValues(alpha: 0.3),
-                      blurRadius: 8,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  gradient: LinearGradient(
+                    colors: [color.withValues(alpha: 0.15), color.withValues(alpha: 0.05)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(
+                    color: color.withValues(alpha: 0.3),
+                    width: 1,
+                  ),
                 ),
-                child: Icon(icon, color: color, size: 28),
+                child: Icon(icon, color: color, size: 26),
               ),
               const SizedBox(height: 12),
               Text(
                 value,
                 style: PremiumTheme.heading2.copyWith(
-                  fontSize: 28,
+                  fontSize: 26,
                   fontWeight: FontWeight.bold,
-                  color: PremiumTheme.textPrimary,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      offset: const Offset(0, 2),
-                      blurRadius: 4,
-                    ),
-                  ],
+                  color: color,
                 ),
               ),
               const SizedBox(height: 4),
@@ -633,6 +628,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                 style: PremiumTheme.bodySmall.copyWith(
                   color: PremiumTheme.textSecondary,
                   fontWeight: FontWeight.w600,
+                  fontSize: 12,
                 ),
                 textAlign: TextAlign.center,
               ),
@@ -643,45 +639,49 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildProgressChart() {
+  Widget _buildProgressChart(AppLocalizations l10n) {
     return FadeInAnimation(
       delay: const Duration(milliseconds: 200),
       child: Container(
         decoration: BoxDecoration(
           color: Colors.white,
           borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
+          border: Border.all(
+            color: PremiumTheme.primaryBlue.withValues(alpha: 0.2),
+            width: 1.5,
+          ),
           boxShadow: [
             BoxShadow(
               color: PremiumTheme.primaryBlue.withValues(alpha: 0.1),
               blurRadius: 12,
               offset: const Offset(0, 6),
-              spreadRadius: 1,
-            ),
-            BoxShadow(
-              color: Colors.black.withValues(alpha: 0.05),
-              blurRadius: 4,
-              offset: const Offset(0, 2),
             ),
           ],
         ),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(
-                'Progression des missions',
-                style: PremiumTheme.heading4.copyWith(
-                  color: PremiumTheme.textPrimary,
-                  fontWeight: FontWeight.bold,
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.08),
-                      offset: const Offset(0, 1),
-                      blurRadius: 2,
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(8),
+                    decoration: BoxDecoration(
+                      gradient: PremiumTheme.primaryGradient,
+                      borderRadius: BorderRadius.circular(10),
                     ),
-                  ],
-                ),
+                    child: const Icon(Icons.trending_up, color: Colors.white, size: 20),
+                  ),
+                  const SizedBox(width: 12),
+                  Text(
+                    l10n.missionsProgress,
+                    style: PremiumTheme.heading4.copyWith(
+                      color: PremiumTheme.textPrimary,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
               ),
               const SizedBox(height: 20),
               Container(
@@ -736,9 +736,9 @@ class _DashboardScreenState extends State<DashboardScreen>
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  _buildLegendItem('Complétées', PremiumTheme.accentGreen, _completedMissions),
-                  _buildLegendItem('En cours', PremiumTheme.accentAmber, _activeMissions),
-                  _buildLegendItem('Pending', Colors.white30, _totalMissions - _completedMissions - _activeMissions),
+                  _buildLegendItem(l10n.completed, PremiumTheme.accentGreen, _completedMissions),
+                  _buildLegendItem(l10n.inProgress, PremiumTheme.accentAmber, _activeMissions),
+                  _buildLegendItem(l10n.pending, Colors.grey.shade400, _totalMissions - _completedMissions - _activeMissions),
                 ],
               ),
             ],
@@ -778,12 +778,12 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildQuickActions() {
+  Widget _buildQuickActions(AppLocalizations l10n) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          'Actions rapides',
+          l10n.quickActions,
           style: PremiumTheme.heading4,
         ),
         const SizedBox(height: 16),
@@ -792,7 +792,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             Expanded(
               child: _buildActionButton(
                 icon: Icons.add,
-                label: 'Nouvelle mission',
+                label: l10n.newMission,
                 gradient: [PremiumTheme.primaryTeal, PremiumTheme.primaryBlue],
                 onTap: () {
                   // Navigate to create mission
@@ -803,7 +803,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             Expanded(
               child: _buildActionButton(
                 icon: Icons.person_add,
-                label: 'Nouveau contact',
+                label: l10n.newContact,
                 gradient: [PremiumTheme.primaryIndigo, PremiumTheme.primaryPurple],
                 onTap: () {
                   // Navigate to add contact
@@ -883,28 +883,61 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  Widget _buildRecentActivity() {
+  Widget _buildRecentActivity(AppLocalizations l10n) {
     return FadeInAnimation(
       delay: const Duration(milliseconds: 400),
-      child: PremiumCard(
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
+          border: Border.all(
+            color: PremiumTheme.primaryPurple.withValues(alpha: 0.2),
+            width: 1.5,
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: PremiumTheme.primaryPurple.withValues(alpha: 0.1),
+              blurRadius: 12,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(
-                    'Activité récente',
-                    style: PremiumTheme.heading4,
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [PremiumTheme.primaryPurple, PremiumTheme.primaryIndigo],
+                          ),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: const Icon(Icons.history, color: Colors.white, size: 20),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        l10n.recentActivity,
+                        style: PremiumTheme.heading4.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
                   ),
                   TextButton(
                     onPressed: () {},
                     child: Text(
-                      'Voir tout',
+                      l10n.seeAll,
                       style: PremiumTheme.bodySmall.copyWith(
                         color: PremiumTheme.primaryTeal,
+                        fontWeight: FontWeight.w600,
                       ),
                     ),
                   ),
@@ -913,23 +946,23 @@ class _DashboardScreenState extends State<DashboardScreen>
               const SizedBox(height: 16),
               _buildActivityItem(
                 icon: Icons.check_circle,
-                title: 'Mission complétée',
+                title: l10n.missionCompleted,
                 subtitle: 'Paris → Lyon',
-                time: 'Il y a 2h',
+                time: '${l10n.ago} 2h',
                 color: PremiumTheme.accentGreen,
               ),
               _buildActivityItem(
                 icon: Icons.person_add,
-                title: 'Nouveau contact',
-                subtitle: 'Client ajouté au CRM',
-                time: 'Il y a 5h',
+                title: l10n.newContact,
+                subtitle: l10n.clientAddedCRM,
+                time: '${l10n.ago} 5h',
                 color: PremiumTheme.primaryBlue,
               ),
               _buildActivityItem(
                 icon: Icons.camera_alt,
-                title: 'Inspection départ',
-                subtitle: 'Véhicule documenté',
-                time: 'Hier',
+                title: l10n.departureInspectionShort,
+                subtitle: l10n.vehicleDocumented,
+                time: l10n.yesterday,
                 color: PremiumTheme.primaryPurple,
               ),
             ],
@@ -946,15 +979,26 @@ class _DashboardScreenState extends State<DashboardScreen>
     required String time,
     required Color color,
   }) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
+    return Container(
+      margin: const EdgeInsets.only(bottom: 12),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.grey.shade50,
+        borderRadius: BorderRadius.circular(12),
+        border: Border(
+          left: BorderSide(color: color, width: 3),
+        ),
+      ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.2),
+              gradient: LinearGradient(
+                colors: [color.withValues(alpha: 0.2), color.withValues(alpha: 0.1)],
+              ),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: color.withValues(alpha: 0.3)),
             ),
             child: Icon(icon, color: color, size: 20),
           ),
@@ -963,20 +1007,36 @@ class _DashboardScreenState extends State<DashboardScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title, style: PremiumTheme.body),
+                Text(
+                  title, 
+                  style: PremiumTheme.body.copyWith(
+                    color: PremiumTheme.textPrimary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 2),
                 Text(
                   subtitle,
                   style: PremiumTheme.bodySmall.copyWith(
-                    color: Colors.white60,
+                    color: PremiumTheme.textSecondary,
                   ),
                 ),
               ],
             ),
           ),
-          Text(
-            time,
-            style: PremiumTheme.bodySmall.copyWith(
-              color: Colors.white38,
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              time,
+              style: PremiumTheme.bodySmall.copyWith(
+                color: color,
+                fontWeight: FontWeight.w500,
+                fontSize: 11,
+              ),
             ),
           ),
         ],
@@ -984,10 +1044,11 @@ class _DashboardScreenState extends State<DashboardScreen>
     );
   }
 
-  String _getGreeting() {
+  String _getGreeting(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     final hour = DateTime.now().hour;
-    if (hour < 12) return 'Bonjour';
-    if (hour < 18) return 'Bon après-midi';
-    return 'Bonsoir';
+    if (hour < 12) return l10n.goodMorning;
+    if (hour < 18) return l10n.goodAfternoon;
+    return l10n.goodEvening;
   }
 }

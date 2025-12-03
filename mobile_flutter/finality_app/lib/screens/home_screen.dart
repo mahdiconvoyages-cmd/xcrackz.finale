@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:async';
+import '../l10n/app_localizations.dart';
 import '../providers/credits_provider.dart';
 import '../providers/subscription_provider.dart';
 import '../services/deep_link_service.dart';
@@ -90,7 +91,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 );
               },
               icon: const Icon(Icons.add_road),
-              label: const Text('Nouvelle mission'),
+              label: Text(AppLocalizations.of(context).newMission),
               backgroundColor: const Color(0xFF8B5CF6),
               foregroundColor: Colors.white,
               elevation: 4,
@@ -101,26 +102,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onDestinationSelected: (index) {
           setState(() => _currentIndex = index);
         },
-        destinations: const [
+        destinations: [
           NavigationDestination(
-            icon: Icon(Icons.dashboard_outlined),
-            selectedIcon: Icon(Icons.dashboard),
-            label: 'Dashboard',
+            icon: const Icon(Icons.dashboard_outlined),
+            selectedIcon: const Icon(Icons.dashboard),
+            label: AppLocalizations.of(context).dashboard,
           ),
           NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
-            label: 'Missions',
+            icon: const Icon(Icons.assignment_outlined),
+            selectedIcon: const Icon(Icons.assignment),
+            label: AppLocalizations.of(context).missions,
           ),
           NavigationDestination(
-            icon: Icon(Icons.receipt_long_outlined),
-            selectedIcon: Icon(Icons.receipt_long),
-            label: 'CRM',
+            icon: const Icon(Icons.receipt_long_outlined),
+            selectedIcon: const Icon(Icons.receipt_long),
+            label: AppLocalizations.of(context).crm,
           ),
           NavigationDestination(
-            icon: Icon(Icons.document_scanner_outlined),
-            selectedIcon: Icon(Icons.document_scanner),
-            label: 'Scanner',
+            icon: const Icon(Icons.document_scanner_outlined),
+            selectedIcon: const Icon(Icons.document_scanner),
+            label: AppLocalizations.of(context).scanner,
           ),
         ],
       ),

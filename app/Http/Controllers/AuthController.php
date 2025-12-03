@@ -97,7 +97,7 @@ class AuthController extends Controller
             'profile' => $profileData
         ]);
 
-        return redirect('/dashboard')->with('success', 'Inscription réussie ! Bienvenue sur FleetCheck.');
+        return redirect('/dashboard')->with('success', 'Inscription réussie ! Bienvenue sur CheckFlow.');
     }
 
     public function logout()

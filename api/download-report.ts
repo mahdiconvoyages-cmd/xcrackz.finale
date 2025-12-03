@@ -214,7 +214,7 @@ function generateReportText(data: any): string {
   text += '\n═══════════════════════════════════════════════════════\n';
   text += `Rapport consulté ${view_count || 0} fois\n`;
   text += `Généré le ${new Date().toLocaleString('fr-FR')}\n`;
-  text += 'Propulsé par xCrackz - https://xcrackz.com\n';
+  text += 'Propulsé par CheckFlow - https://checkflow.fr\n';
   text += '═══════════════════════════════════════════════════════\n';
 
   return text;

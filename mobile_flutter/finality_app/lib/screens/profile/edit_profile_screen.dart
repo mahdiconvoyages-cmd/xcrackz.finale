@@ -276,13 +276,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                                   Text(
                                     'Email',
                                     style: PremiumTheme.bodySmall.copyWith(
-                                      color: Colors.white60,
+                                      color: PremiumTheme.textSecondary,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
                                     supabase.auth.currentUser?.email ?? '',
-                                    style: PremiumTheme.body,
+                                    style: PremiumTheme.body.copyWith(color: PremiumTheme.textPrimary),
                                   ),
                                 ],
                               ),
@@ -358,7 +358,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       style: OutlinedButton.styleFrom(
                         padding: const EdgeInsets.symmetric(vertical: 16),
                         side: BorderSide(
-                          color: Colors.white.withValues(alpha: 0.3),
+                          color: PremiumTheme.textTertiary,
                         ),
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(PremiumTheme.radiusMD),
@@ -367,7 +367,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                       child: Text(
                         'Annuler',
                         style: PremiumTheme.body.copyWith(
-                          color: Colors.white70,
+                          color: PremiumTheme.textSecondary,
                         ),
                       ),
                     ),
@@ -394,7 +394,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         decoration: InputDecoration(
           labelText: label,
           labelStyle: PremiumTheme.bodySmall.copyWith(
-            color: Colors.white60,
+            color: PremiumTheme.textSecondary,
           ),
           prefixIcon: Container(
             margin: const EdgeInsets.all(12),

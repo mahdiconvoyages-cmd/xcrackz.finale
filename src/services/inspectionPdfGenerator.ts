@@ -574,7 +574,7 @@ export const generateInspectionPDF = async (
     doc.setFontSize(7);
     doc.setFont('helvetica', 'normal');
   doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
-    doc.text('XCRACKZ - Rapport d\'inspection vehicule', pageWidth / 2, footerY + 5, { align: 'center' });
+    doc.text('CHECKFLOW - Rapport d\'inspection vehicule', pageWidth / 2, footerY + 5, { align: 'center' });
     doc.text(`Page ${i}/${totalPages}`, pageWidth - margin, footerY + 5, { align: 'right' });
     doc.text(`Genere le ${new Date().toLocaleDateString('fr-FR')}`, margin, footerY + 5);
   }

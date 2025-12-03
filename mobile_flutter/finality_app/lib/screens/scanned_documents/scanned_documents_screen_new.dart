@@ -1,6 +1,10 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:http/http.dart' as http;
+import 'package:path_provider/path_provider.dart';
+import '../../l10n/app_localizations.dart';
 import '../../main.dart';
 import '../document_scanner/document_scanner_screen.dart';
 import '../../theme/premium_theme.dart';
@@ -186,23 +190,23 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFF1F2937),
+        backgroundColor: Colors.white,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        title: const Row(
+        title: Row(
           children: [
             Icon(Icons.warning_amber_rounded, color: Color(0xFFF59E0B), size: 28),
             SizedBox(width: 12),
-            Text('Supprimer le document', style: TextStyle(color: Colors.white, fontSize: 18)),
+            Text('Supprimer le document', style: TextStyle(color: PremiumTheme.textPrimary, fontSize: 18)),
           ],
         ),
-        content: const Text(
+        content: Text(
           'Cette action est irréversible. Voulez-vous vraiment supprimer ce document ?',
-          style: TextStyle(color: Colors.white70, fontSize: 15),
+          style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 15),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Annuler', style: TextStyle(color: Colors.white70)),
+            child: Text('Annuler', style: TextStyle(color: PremiumTheme.textSecondary)),
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
@@ -256,6 +260,86 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
     }
   }
 
+  Future<void> _shareDocument(Map<String, dynamic> doc) async {
+    final documentUrl = doc['document_url'];
+    final documentTitle = doc['document_title'] ?? 'Document scanné';
+    
+    if (documentUrl == null) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error_outline, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Aucune image à partager'),
+              ],
+            ),
+            backgroundColor: Color(0xFFEF4444),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+      return;
+    }
+
+    // Show loading
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(color: Color(0xFF14B8A6)),
+      ),
+    );
+
+    try {
+      // Download the image
+      final response = await http.get(Uri.parse(documentUrl));
+      
+      if (response.statusCode == 200) {
+        // Get temp directory
+        final tempDir = await getTemporaryDirectory();
+        final fileName = '${documentTitle.replaceAll(RegExp(r'[^\w\s-]'), '_')}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+        final file = File('${tempDir.path}/$fileName');
+        
+        // Save the image
+        await file.writeAsBytes(response.bodyBytes);
+        
+        // Close loading dialog
+        if (mounted) Navigator.of(context).pop();
+        
+        // Share the file
+        await Share.shareXFiles(
+          [XFile(file.path)],
+          text: 'Document: $documentTitle',
+          subject: documentTitle,
+        );
+      } else {
+        throw Exception('Échec du téléchargement: ${response.statusCode}');
+      }
+    } catch (e) {
+      // Close loading dialog
+      if (mounted) Navigator.of(context).pop();
+      
+      debugPrint('Error sharing document: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                const Icon(Icons.error_outline, color: Colors.white),
+                const SizedBox(width: 12),
+                Expanded(child: Text('Erreur de partage: $e')),
+              ],
+            ),
+            backgroundColor: const Color(0xFFEF4444),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
+  }
+
   void _viewDocument(Map<String, dynamic> doc) {
     showDialog(
       context: context,
@@ -264,7 +348,7 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
         insetPadding: const EdgeInsets.all(16),
         child: Container(
           decoration: BoxDecoration(
-            color: const Color(0xFF111827),
+            color: Colors.white,
             borderRadius: BorderRadius.circular(20),
           ),
           child: Column(
@@ -334,7 +418,7 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
                                 ),
                               );
                             },
-                            errorBuilder: (context, error, stackTrace) => const Center(
+                            errorBuilder: (context, error, stackTrace) => Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
@@ -342,17 +426,17 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
                                   SizedBox(height: 16),
                                   Text(
                                     'Erreur de chargement',
-                                    style: TextStyle(color: Colors.white70),
+                                    style: TextStyle(color: PremiumTheme.textSecondary),
                                   ),
                                 ],
                               ),
                             ),
                           ),
                         )
-                      : const Center(
+                      : Center(
                           child: Text(
                             'Aucune image disponible',
-                            style: TextStyle(color: Colors.white70),
+                            style: TextStyle(color: PremiumTheme.textSecondary),
                           ),
                         ),
                 ),
@@ -362,20 +446,20 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(16),
-                  decoration: const BoxDecoration(
-                    color: Color(0xFF1F2937),
+                  decoration: BoxDecoration(
+                    color: PremiumTheme.cardBgLight,
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Row(
+                      Row(
                         children: [
                           Icon(Icons.text_fields, color: Color(0xFF14B8A6), size: 20),
                           SizedBox(width: 8),
                           Text(
                             'Texte extrait',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: PremiumTheme.textPrimary,
                               fontSize: 14,
                               fontWeight: FontWeight.w600,
                             ),
@@ -385,7 +469,7 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
                       const SizedBox(height: 8),
                       Text(
                         doc['extracted_text'],
-                        style: const TextStyle(color: Colors.white70, fontSize: 13),
+                        style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 13),
                         maxLines: 5,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -396,13 +480,21 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
               // Actions
               Container(
                 padding: const EdgeInsets.all(16),
-                decoration: const BoxDecoration(
-                  color: Color(0xFF1F2937),
-                  borderRadius: BorderRadius.vertical(bottom: Radius.circular(20)),
+                decoration: BoxDecoration(
+                  color: PremiumTheme.cardBgLight,
+                  borderRadius: const BorderRadius.vertical(bottom: Radius.circular(20)),
                 ),
                 child: Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
+                    TextButton.icon(
+                      onPressed: () {
+                        Navigator.pop(context);
+                        _shareDocument(doc);
+                      },
+                      icon: const Icon(Icons.share, color: Color(0xFF14B8A6)),
+                      label: const Text('Partager', style: TextStyle(color: Color(0xFF14B8A6))),
+                    ),
                     TextButton.icon(
                       onPressed: () {
                         Navigator.pop(context);
@@ -448,6 +540,7 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery.of(context).size.width;
     final crossAxisCount = screenWidth > 600 ? 3 : 2;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: PremiumTheme.lightBg,
@@ -480,7 +573,7 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
                       ),
                       const SizedBox(width: 12),
                       Text(
-                        'Mes Documents',
+                        l10n.myDocuments,
                         style: PremiumTheme.heading2.copyWith(
                           color: Colors.white,
                         ),
@@ -513,7 +606,7 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
                     onChanged: (value) => _applyFilters(),
                     style: const TextStyle(color: Colors.white),
                     decoration: InputDecoration(
-                      hintText: 'Rechercher un document...',
+                      hintText: l10n.searchDocument,
                       hintStyle: const TextStyle(color: Colors.white54),
                       prefixIcon: const Icon(Icons.search, color: Colors.white70),
                       suffixIcon: _searchController.text.isNotEmpty
@@ -547,25 +640,41 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
 
             // Tabs modernisés
             Container(
+              margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               decoration: BoxDecoration(
-                color: PremiumTheme.cardBg,
-                boxShadow: PremiumTheme.softShadow,
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                boxShadow: [
+                  BoxShadow(
+                    color: PremiumTheme.primaryTeal.withValues(alpha: 0.1),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: TabBar(
                 controller: _tabController,
-                indicatorColor: PremiumTheme.primaryTeal,
-                indicatorWeight: 3,
-                labelColor: PremiumTheme.primaryTeal,
+                indicator: BoxDecoration(
+                  borderRadius: BorderRadius.circular(12),
+                  gradient: PremiumTheme.tealGradient,
+                ),
+                indicatorSize: TabBarIndicatorSize.tab,
+                labelColor: Colors.white,
                 unselectedLabelColor: PremiumTheme.textSecondary,
                 labelStyle: PremiumTheme.body.copyWith(
-                  fontWeight: FontWeight.w600,
+                  fontWeight: FontWeight.bold,
                   fontSize: 13,
                 ),
-                tabs: const [
-                  Tab(text: 'Tous'),
-                  Tab(text: 'Factures'),
-                  Tab(text: 'Contrats'),
-                  Tab(text: 'Autres'),
+                unselectedLabelStyle: PremiumTheme.body.copyWith(
+                  fontWeight: FontWeight.w500,
+                  fontSize: 13,
+                ),
+                dividerColor: Colors.transparent,
+                tabs: [
+                  Tab(text: l10n.all),
+                  Tab(text: l10n.invoices),
+                  Tab(text: l10n.contracts),
+                  Tab(text: l10n.others),
                 ],
               ),
             ),
@@ -577,7 +686,7 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
                       child: CircularProgressIndicator(color: Color(0xFF14B8A6)),
                     )
                   : _filteredDocuments.isEmpty
-                      ? _buildEmptyState()
+                      ? _buildEmptyState(l10n)
                       : RefreshIndicator(
                           onRefresh: _loadDocuments,
                           color: const Color(0xFF14B8A6),
@@ -593,9 +702,9 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
         onPressed: _scanNewDocument,
         backgroundColor: const Color(0xFF14B8A6),
         icon: const Icon(Icons.document_scanner, color: Colors.white),
-        label: const Text(
-          'Scanner',
-          style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
+        label: Text(
+          l10n.scanner,
+          style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600),
         ),
       ),
     );
@@ -630,163 +739,281 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
   }
 
   Widget _buildGridCard(Map<String, dynamic> doc) {
-    return InkWell(
-      onTap: () => _viewDocument(doc),
-      child: Container(
-        decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: const Color(0xFF334155)),
+    final docType = doc['document_type'] ?? 'generic';
+    final typeColor = docType == 'invoice' ? PremiumTheme.primaryIndigo 
+                     : docType == 'contract' ? PremiumTheme.primaryPurple 
+                     : PremiumTheme.primaryTeal;
+    
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: typeColor.withValues(alpha: 0.3),
+          width: 1.5,
         ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Image preview
-            Expanded(
-              child: Container(
-                decoration: const BoxDecoration(
-                  color: Color(0xFF0F172A),
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-                ),
-                child: doc['document_url'] != null
-                    ? ClipRRect(
-                        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-                        child: Image.network(
-                          doc['document_url'],
-                          fit: BoxFit.cover,
-                          width: double.infinity,
-                          errorBuilder: (context, error, stackTrace) => const Center(
-                            child: Icon(Icons.broken_image, color: Colors.white38, size: 48),
+        boxShadow: [
+          BoxShadow(
+            color: typeColor.withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _viewDocument(doc),
+          borderRadius: BorderRadius.circular(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Image preview
+              Expanded(
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                  ),
+                  child: Stack(
+                    children: [
+                      if (doc['document_url'] != null)
+                        ClipRRect(
+                          borderRadius: const BorderRadius.vertical(top: Radius.circular(15)),
+                          child: Image.network(
+                            doc['document_url'],
+                            fit: BoxFit.cover,
+                            width: double.infinity,
+                            height: double.infinity,
+                            errorBuilder: (context, error, stackTrace) => Center(
+                              child: Icon(Icons.broken_image, color: Colors.grey.shade400, size: 48),
+                            ),
+                          ),
+                        )
+                      else
+                        Center(
+                          child: Text(
+                            _getDocumentIcon(doc['document_type']),
+                            style: const TextStyle(fontSize: 48),
                           ),
                         ),
-                      )
-                    : Center(
-                        child: Text(
-                          _getDocumentIcon(doc['document_type']),
-                          style: const TextStyle(fontSize: 48),
+                      // Type badge
+                      Positioned(
+                        top: 8,
+                        left: 8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: typeColor,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Text(
+                            docType == 'invoice' ? '🧾' : docType == 'contract' ? '📄' : '📋',
+                            style: const TextStyle(fontSize: 12),
+                          ),
                         ),
-                      ),
-              ),
-            ),
-            // Info
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    doc['document_title'] ?? 'Document',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatDate(doc['created_at']),
-                    style: const TextStyle(color: Colors.white54, fontSize: 11),
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      IconButton(
-                        onPressed: () => _deleteDocument(doc),
-                        icon: const Icon(Icons.delete, color: Color(0xFFEF4444), size: 20),
-                        padding: EdgeInsets.zero,
-                        constraints: const BoxConstraints(),
                       ),
                     ],
                   ),
-                ],
+                ),
               ),
-            ),
-          ],
+              // Info
+              Padding(
+                padding: const EdgeInsets.all(12),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      doc['document_title'] ?? 'Document',
+                      style: TextStyle(
+                        color: PremiumTheme.textPrimary,
+                        fontSize: 14,
+                        fontWeight: FontWeight.bold,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      _formatDate(doc['created_at']),
+                      style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 11),
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: PremiumTheme.primaryTeal.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: InkWell(
+                            onTap: () => _shareDocument(doc),
+                            child: Icon(Icons.share, color: PremiumTheme.primaryTeal, size: 18),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.all(6),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: InkWell(
+                            onTap: () => _deleteDocument(doc),
+                            child: const Icon(Icons.delete, color: Color(0xFFEF4444), size: 18),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   Widget _buildListCard(Map<String, dynamic> doc) {
+    final docType = doc['document_type'] ?? 'generic';
+    final typeColor = docType == 'invoice' ? PremiumTheme.primaryIndigo 
+                     : docType == 'contract' ? PremiumTheme.primaryPurple 
+                     : PremiumTheme.primaryTeal;
+    
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF1E293B),
+        color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFF334155)),
-      ),
-      child: ListTile(
-        onTap: () => _viewDocument(doc),
-        contentPadding: const EdgeInsets.all(12),
-        leading: Container(
-          width: 60,
-          height: 60,
-          decoration: BoxDecoration(
-            color: const Color(0xFF0F172A),
-            borderRadius: BorderRadius.circular(12),
+        border: Border.all(
+          color: typeColor.withValues(alpha: 0.25),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: typeColor.withValues(alpha: 0.08),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
           ),
-          child: doc['document_url'] != null
-              ? ClipRRect(
-                  borderRadius: BorderRadius.circular(12),
-                  child: Image.network(
-                    doc['document_url'],
-                    fit: BoxFit.cover,
-                    errorBuilder: (context, error, stackTrace) => Center(
-                      child: Text(
-                        _getDocumentIcon(doc['document_type']),
-                        style: const TextStyle(fontSize: 28),
-                      ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: () => _viewDocument(doc),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                // Image preview
+                Container(
+                  width: 60,
+                  height: 60,
+                  decoration: BoxDecoration(
+                    color: Colors.grey.shade100,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: typeColor.withValues(alpha: 0.2),
                     ),
                   ),
-                )
-              : Center(
-                  child: Text(
-                    _getDocumentIcon(doc['document_type']),
-                    style: const TextStyle(fontSize: 28),
+                  child: doc['document_url'] != null
+                      ? ClipRRect(
+                          borderRadius: BorderRadius.circular(11),
+                          child: Image.network(
+                            doc['document_url'],
+                            fit: BoxFit.cover,
+                            width: 60,
+                            height: 60,
+                            errorBuilder: (context, error, stackTrace) => Center(
+                              child: Text(
+                                _getDocumentIcon(doc['document_type']),
+                                style: const TextStyle(fontSize: 28),
+                              ),
+                            ),
+                          ),
+                        )
+                      : Center(
+                          child: Text(
+                            _getDocumentIcon(doc['document_type']),
+                            style: const TextStyle(fontSize: 28),
+                          ),
+                        ),
+                ),
+                const SizedBox(width: 12),
+                // Info
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        doc['document_title'] ?? 'Document',
+                        style: TextStyle(
+                          color: PremiumTheme.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        _formatDate(doc['created_at']),
+                        style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 12),
+                      ),
+                      if (doc['extracted_text'] != null && doc['extracted_text'].toString().isNotEmpty) ...[
+                        const SizedBox(height: 4),
+                        Text(
+                          doc['extracted_text'],
+                          style: TextStyle(color: PremiumTheme.textTertiary, fontSize: 11),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
                   ),
                 ),
-        ),
-        title: Text(
-          doc['document_title'] ?? 'Document',
-          style: const TextStyle(
-            color: Colors.white,
-            fontSize: 15,
-            fontWeight: FontWeight.w600,
-          ),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 4),
-            Text(
-              _formatDate(doc['created_at']),
-              style: const TextStyle(color: Colors.white54, fontSize: 12),
+                // Actions
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: PremiumTheme.primaryTeal.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: InkWell(
+                        onTap: () => _shareDocument(doc),
+                        child: Icon(Icons.share, color: PremiumTheme.primaryTeal, size: 20),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: InkWell(
+                        onTap: () => _deleteDocument(doc),
+                        child: const Icon(Icons.delete, color: Color(0xFFEF4444), size: 20),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-            if (doc['extracted_text'] != null && doc['extracted_text'].toString().isNotEmpty) ...[
-              const SizedBox(height: 4),
-              Text(
-                doc['extracted_text'],
-                style: const TextStyle(color: Colors.white38, fontSize: 11),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ],
-          ],
-        ),
-        trailing: IconButton(
-          onPressed: () => _deleteDocument(doc),
-          icon: const Icon(Icons.delete, color: Color(0xFFEF4444)),
+          ),
         ),
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(AppLocalizations l10n) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -794,39 +1021,61 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
           Container(
             padding: const EdgeInsets.all(24),
             decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
+              gradient: LinearGradient(
+                colors: [
+                  PremiumTheme.primaryTeal.withValues(alpha: 0.1),
+                  PremiumTheme.primaryBlue.withValues(alpha: 0.1),
+                ],
+              ),
               shape: BoxShape.circle,
-              border: Border.all(color: const Color(0xFF334155), width: 2),
+              border: Border.all(
+                color: PremiumTheme.primaryTeal.withValues(alpha: 0.3), 
+                width: 2,
+              ),
             ),
-            child: const Icon(
+            child: Icon(
               Icons.document_scanner,
               size: 64,
-              color: Color(0xFF14B8A6),
+              color: PremiumTheme.primaryTeal,
             ),
           ),
           const SizedBox(height: 24),
-          const Text(
-            'Aucun document',
+          Text(
+            l10n.noDocument,
             style: TextStyle(
-              color: Colors.white,
+              color: PremiumTheme.textPrimary,
               fontSize: 20,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
-            'Scannez votre premier document',
-            style: TextStyle(color: Colors.white54, fontSize: 14),
+          Text(
+            l10n.scanFirstDocument,
+            style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 14),
           ),
           const SizedBox(height: 24),
-          ElevatedButton.icon(
-            onPressed: _scanNewDocument,
-            icon: const Icon(Icons.add, color: Colors.white),
-            label: const Text('Scanner un document', style: TextStyle(color: Colors.white)),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF14B8A6),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          Container(
+            decoration: BoxDecoration(
+              gradient: PremiumTheme.tealGradient,
+              borderRadius: BorderRadius.circular(12),
+              boxShadow: [
+                BoxShadow(
+                  color: PremiumTheme.primaryTeal.withValues(alpha: 0.3),
+                  blurRadius: 12,
+                  offset: const Offset(0, 4),
+                ),
+              ],
+            ),
+            child: ElevatedButton.icon(
+              onPressed: _scanNewDocument,
+              icon: const Icon(Icons.add, color: Colors.white),
+              label: Text(l10n.scanDocument, style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.transparent,
+                shadowColor: Colors.transparent,
+                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
             ),
           ),
         ],

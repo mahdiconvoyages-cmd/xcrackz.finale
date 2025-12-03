@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Contacts - FleetCheck')
+@section('title', 'Contacts - CheckFlow')
 
 @section('content')
 <div class="mb-8">

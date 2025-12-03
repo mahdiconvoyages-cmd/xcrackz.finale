@@ -247,7 +247,7 @@ export default function Register() {
               
               <h1 className="text-6xl lg:text-7xl font-black mb-4">
                 <span className="bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                  xCrackz
+                  CHECKFLOW
                 </span>
               </h1>
               
@@ -365,7 +365,7 @@ export default function Register() {
             <div className="lg:hidden text-center mb-8 animate-in fade-in zoom-in duration-500">
               <h1 className="text-5xl font-black mb-3">
                 <span className="bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                  xCrackz
+                  CHECKFLOW
                 </span>
               </h1>
               <p className="text-slate-400 text-lg font-semibold">Créez votre compte gratuit</p>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>@yield('title', 'FleetCheck - Gestion de Convoyage')</title>
+    <title>@yield('title', 'CheckFlow - Gestion de Convoyage')</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -111,7 +111,7 @@
     @auth
     <div class="sidebar">
         <div class="p-6">
-            <h1 class="text-2xl font-bold" style="color: var(--primary);">FleetCheck</h1>
+            <h1 class="text-2xl font-bold" style="color: var(--primary);">CheckFlow</h1>
             <p class="text-sm text-gray-400 mt-1">{{ session('profile')['full_name'] ?? 'Utilisateur' }}</p>
         </div>
 

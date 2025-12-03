@@ -40,7 +40,7 @@ export default function MobileDownload() {
   const VERSION = latestVersion?.version_name || ENV_ANDROID_VERSION;
 
   const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.finality.app'; // À publier
-  const APP_STORE_URL = 'https://apps.apple.com/app/xcrackz/id123456789'; // À publier
+  const APP_STORE_URL = 'https://apps.apple.com/app/CheckFlow/id123456789'; // À publier
 
   const handleDownloadAPK = async () => {
     setDownloading(true);
@@ -56,7 +56,7 @@ export default function MobileDownload() {
       // Télécharger le fichier
       const link = document.createElement('a');
       link.href = ANDROID_APK_URL;
-      link.download = 'xcrackz.apk';
+      link.download = 'CheckFlow.apk';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
@@ -91,7 +91,7 @@ export default function MobileDownload() {
             Application Mobile
           </h1>
           <p className="text-xl text-slate-600 max-w-2xl mx-auto">
-            Téléchargez l'application xCrackz sur votre smartphone pour gérer vos missions en déplacement
+            Téléchargez l'application CheckFlow sur votre smartphone pour gérer vos missions en déplacement
           </p>
         </div>
 

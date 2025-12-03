@@ -30,11 +30,11 @@ export const supabase = (() => {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storageKey: 'xcrackz-auth', // Clé unique pour éviter les conflits
+        storageKey: 'checkflow-auth', // Clé unique pour éviter les conflits
       },
       global: {
         headers: {
-          'x-application-name': 'xcrackz-web',
+          'x-application-name': 'checkflow-web',
         },
       },
     });

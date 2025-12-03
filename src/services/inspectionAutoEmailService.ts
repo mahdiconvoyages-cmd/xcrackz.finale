@@ -46,9 +46,9 @@ interface EmailResult {
 // ==========================================
 
 const EMAIL_CONFIG = {
-  fromEmail: 'noreply@fleetcheck.fr',
-  fromName: 'FleetCheck - Gestion de Transport',
-  replyTo: 'contact@fleetcheck.fr',
+  fromEmail: 'noreply@CheckFlow.fr',
+  fromName: 'CheckFlow - Gestion de Transport',
+  replyTo: 'contact@CheckFlow.fr',
 };
 
 // ==========================================
@@ -235,7 +235,7 @@ function generateDepartureEmailTemplate(data: InspectionEmailData): string {
     </div>
     
     <div class="footer">
-      <p><strong>FleetCheck</strong> - Solution professionnelle de gestion de transport</p>
+      <p><strong>CheckFlow</strong> - Solution professionnelle de gestion de transport</p>
       <p>Cet email a été généré automatiquement. Merci de ne pas y répondre directement.</p>
     </div>
   </div>
@@ -455,7 +455,7 @@ function generateArrivalEmailTemplate(data: InspectionEmailData): string {
     </div>
     
     <div class="footer">
-      <p><strong>FleetCheck</strong> - Solution professionnelle de gestion de transport</p>
+      <p><strong>CheckFlow</strong> - Solution professionnelle de gestion de transport</p>
       <p>Cet email a été généré automatiquement. Merci de ne pas y répondre directement.</p>
     </div>
   </div>

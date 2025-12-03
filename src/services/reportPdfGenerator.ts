@@ -378,7 +378,7 @@ export function generateInspectionReportHTML(data: InspectionData): string {
         <p>Mission ${data.missionRef}</p>
       </div>
       <div class="header-right">
-        <div class="logo">xcrackz</div>
+        <div class="logo">CHECKFLOW</div>
         <div class="date">
           ${new Date(data.date).toLocaleDateString('fr-FR', {
             weekday: 'long',
@@ -498,7 +498,7 @@ export function generateInspectionReportHTML(data: InspectionData): string {
     </div>
 
     <div class="footer">
-      Ce rapport d'inspection a été généré automatiquement par xcrackz<br>
+      Ce rapport d'inspection a été généré automatiquement par CHECKFLOW<br>
       Document confidentiel - ${new Date().toLocaleDateString('fr-FR')}
     </div>
   </div>

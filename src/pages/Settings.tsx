@@ -418,7 +418,7 @@ export default function Settings() {
               <li>Droit à la limitation du traitement</li>
             </ul>
             <p className="text-sm text-blue-700 mt-3">
-              Pour exercer ces droits, contactez-nous à : <a href="mailto:dpo@xcrackz.fr" className="underline font-semibold">dpo@xcrackz.fr</a>
+              Pour exercer ces droits, contactez-nous à : <a href="mailto:dpo@CHECKFLOW.fr" className="underline font-semibold">dpo@CHECKFLOW.fr</a>
             </p>
           </div>
         </div>

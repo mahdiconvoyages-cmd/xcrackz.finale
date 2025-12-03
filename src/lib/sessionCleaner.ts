@@ -10,7 +10,7 @@ export async function cleanInvalidSession() {
       // Si erreur de session, déconnecter
       await supabase.auth.signOut();
       // Nettoyer le storage local
-      localStorage.removeItem('xcrackz-auth');
+      localStorage.removeItem('checkflow-auth');
       window.location.href = '/login';
       return;
     }
@@ -31,7 +31,7 @@ export async function cleanInvalidSession() {
       if (refreshError) {
         console.error('Failed to refresh session:', refreshError);
         await supabase.auth.signOut();
-        localStorage.removeItem('xcrackz-auth');
+        localStorage.removeItem('checkflow-auth');
         window.location.href = '/login';
       }
     }

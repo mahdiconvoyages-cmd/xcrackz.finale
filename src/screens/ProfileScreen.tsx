@@ -311,7 +311,7 @@ export default function ProfileScreen({ navigation }: any) {
               'information',
               'À propos',
               'Version 1.0.0',
-              () => Alert.alert('xcrackz Mobile', 'Version 1.0.0\n© 2025 xcrackz'),
+              () => Alert.alert('CheckFlow Mobile', 'Version 1.0.0\n© 2025 CheckFlow'),
               undefined,
               '#6366f1'
             )}
@@ -343,7 +343,7 @@ export default function ProfileScreen({ navigation }: any) {
           </LinearGradient>
         </TouchableOpacity>
 
-        <Text style={styles.version}>xcrackz Mobile v1.0.0</Text>
+        <Text style={styles.version}>CheckFlow Mobile v1.0.0</Text>
         <View style={{ height: 40 }} />
       </ScrollView>
     </SafeAreaView>

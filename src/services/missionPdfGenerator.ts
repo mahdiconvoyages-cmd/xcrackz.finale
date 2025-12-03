@@ -377,7 +377,7 @@ export async function generateMissionPDF(mission: Mission, assignment?: Assignme
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(colors.gray[0], colors.gray[1], colors.gray[2]);
-  doc.text('XCRACKZ - Solution de gestion de transport', pageWidth / 2, footerY + 5, { align: 'center' });
+  doc.text('CHECKFLOW - Solution de gestion de transport', pageWidth / 2, footerY + 5, { align: 'center' });
   doc.text(`Page 1/1`, pageWidth - margin, footerY + 5, { align: 'right' });
   doc.text(`Genere le ${new Date().toLocaleDateString('fr-FR')}`, margin, footerY + 5);
 

@@ -40,7 +40,7 @@ export default function Terms() {
             <div>
               <h3 className="font-black text-teal-900 mb-2">Information importante</h3>
               <p className="text-teal-800 text-sm leading-relaxed">
-                En utilisant xCrackz, vous acceptez l'ensemble des conditions ci-dessous. 
+                En utilisant CHECKFLOW, vous acceptez l'ensemble des conditions ci-dessous. 
                 Veuillez les lire attentivement avant de créer un compte.
               </p>
             </div>
@@ -57,11 +57,11 @@ export default function Terms() {
             <div className="prose prose-slate max-w-none">
               <p className="text-slate-700 leading-relaxed mb-4">
                 Les présentes Conditions Générales d'Utilisation (CGU) régissent l'accès et l'utilisation 
-                de la plateforme <strong>xCrackz</strong>, une solution SaaS de gestion de convoyage automobile 
+                de la plateforme <strong>CHECKFLOW</strong>, une solution SaaS de gestion de convoyage automobile 
                 et de suivi GPS en temps réel.
               </p>
               <p className="text-slate-700 leading-relaxed">
-                La plateforme est éditée par <strong>xCrackz</strong>, société dont le siège social est situé en France.
+                La plateforme est éditée par <strong>CHECKFLOW</strong>, société dont le siège social est situé en France.
               </p>
             </div>
           </section>
@@ -78,7 +78,7 @@ export default function Terms() {
               <div className="bg-slate-50 rounded-lg p-4">
                 <h3 className="font-bold text-slate-900 mb-1">Utilisateur</h3>
                 <p className="text-slate-700 text-sm">
-                  Toute personne physique ou morale utilisant la plateforme xCrackz.
+                  Toute personne physique ou morale utilisant la plateforme CHECKFLOW.
                 </p>
               </div>
               <div className="bg-slate-50 rounded-lg p-4">
@@ -122,8 +122,8 @@ export default function Terms() {
               <h3 className="text-lg font-bold text-slate-900 mb-2">3.2 Sécurité du compte</h3>
               <ul className="list-disc pl-6 space-y-2 text-slate-700 mb-4">
                 <li>Vous êtes responsable de la confidentialité de votre mot de passe.</li>
-                <li>Vous devez informer xCrackz immédiatement de toute utilisation non autorisée.</li>
-                <li>xCrackz se réserve le droit de suspendre ou supprimer un compte en cas d'activité suspecte.</li>
+                <li>Vous devez informer CHECKFLOW immédiatement de toute utilisation non autorisée.</li>
+                <li>CHECKFLOW se réserve le droit de suspendre ou supprimer un compte en cas d'activité suspecte.</li>
               </ul>
 
               <h3 className="text-lg font-bold text-slate-900 mb-2">3.3 Protection contre les comptes multiples</h3>
@@ -208,8 +208,8 @@ export default function Terms() {
             </h2>
             <div className="prose prose-slate max-w-none">
               <p className="text-slate-700 leading-relaxed mb-4">
-                Tous les éléments de la plateforme xCrackz (logiciel, graphismes, textes, logos, icônes, etc.) 
-                sont protégés par le droit d'auteur et appartiennent à xCrackz ou à ses partenaires.
+                Tous les éléments de la plateforme CHECKFLOW (logiciel, graphismes, textes, logos, icônes, etc.) 
+                sont protégés par le droit d'auteur et appartiennent à CHECKFLOW ou à ses partenaires.
               </p>
               <p className="text-slate-700 leading-relaxed">
                 Toute reproduction, représentation, modification, publication, adaptation de tout ou partie 
@@ -229,7 +229,7 @@ export default function Terms() {
             </h2>
             <div className="prose prose-slate max-w-none">
               <p className="text-slate-700 leading-relaxed mb-4">
-                xCrackz s'engage à protéger vos données personnelles conformément au Règlement Général 
+                CHECKFLOW s'engage à protéger vos données personnelles conformément au Règlement Général 
                 sur la Protection des Données (RGPD).
               </p>
               <p className="text-slate-700 leading-relaxed">
@@ -253,13 +253,13 @@ export default function Terms() {
             <div className="prose prose-slate max-w-none">
               <h3 className="text-lg font-bold text-slate-900 mb-2">8.1 Disponibilité du service</h3>
               <p className="text-slate-700 leading-relaxed mb-4">
-                xCrackz s'efforce de maintenir la plateforme accessible 24h/24, 7j/7, mais ne garantit pas 
+                CHECKFLOW s'efforce de maintenir la plateforme accessible 24h/24, 7j/7, mais ne garantit pas 
                 une disponibilité ininterrompue. Des maintenances programmées ou imprévues peuvent survenir.
               </p>
 
               <h3 className="text-lg font-bold text-slate-900 mb-2">8.2 Limitation de responsabilité</h3>
               <p className="text-slate-700 leading-relaxed">
-                xCrackz ne pourra être tenu responsable des dommages directs ou indirects résultant de :
+                CHECKFLOW ne pourra être tenu responsable des dommages directs ou indirects résultant de :
               </p>
               <ul className="list-disc pl-6 space-y-2 text-slate-700 mb-4">
                 <li>L'utilisation ou l'impossibilité d'utiliser la plateforme</li>
@@ -271,7 +271,7 @@ export default function Terms() {
 
               <h3 className="text-lg font-bold text-slate-900 mb-2">8.3 Relations entre utilisateurs</h3>
               <p className="text-slate-700 leading-relaxed">
-                xCrackz est un simple intermédiaire technique. Les relations contractuelles entre 
+                CHECKFLOW est un simple intermédiaire technique. Les relations contractuelles entre 
                 donneurs d'ordre et convoyeurs relèvent de leur seule responsabilité.
               </p>
             </div>
@@ -292,9 +292,9 @@ export default function Terms() {
                 Les crédits non utilisés seront perdus sans remboursement.
               </p>
 
-              <h3 className="text-lg font-bold text-slate-900 mb-2">9.2 Par xCrackz</h3>
+              <h3 className="text-lg font-bold text-slate-900 mb-2">9.2 Par CHECKFLOW</h3>
               <p className="text-slate-700 leading-relaxed">
-                xCrackz se réserve le droit de suspendre ou supprimer un compte en cas de :
+                CHECKFLOW se réserve le droit de suspendre ou supprimer un compte en cas de :
               </p>
               <ul className="list-disc pl-6 space-y-2 text-slate-700">
                 <li>Non-respect des présentes CGU</li>
@@ -315,7 +315,7 @@ export default function Terms() {
             </h2>
             <div className="prose prose-slate max-w-none">
               <p className="text-slate-700 leading-relaxed">
-                xCrackz se réserve le droit de modifier les présentes CGU à tout moment. 
+                CHECKFLOW se réserve le droit de modifier les présentes CGU à tout moment. 
                 Les utilisateurs seront informés par email des modifications importantes. 
                 La poursuite de l'utilisation de la plateforme après modification vaudra acceptation des nouvelles CGU.
               </p>
@@ -355,13 +355,13 @@ export default function Terms() {
               </p>
               <div className="space-y-2">
                 <p className="text-slate-900 font-semibold">
-                  📧 Email : <a href="mailto:contact@xcrackz.com" className="text-teal-600 hover:underline">contact@xcrackz.com</a>
+                  📧 Email : <a href="mailto:contact@CHECKFLOW.com" className="text-teal-600 hover:underline">contact@CHECKFLOW.com</a>
                 </p>
                 <p className="text-slate-900 font-semibold">
                   💬 Support : <Link to="/support" className="text-teal-600 hover:underline">Page Support</Link>
                 </p>
                 <p className="text-slate-900 font-semibold">
-                  🏢 Société : xCrackz - France
+                  🏢 Société : CHECKFLOW - France
                 </p>
               </div>
             </div>

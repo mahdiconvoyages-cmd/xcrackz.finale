@@ -126,7 +126,7 @@ export default function ScannerScreen({ navigation }: any) {
       const pdfBase64 = btoa(String.fromCharCode(...pdfBytes));
 
       // Créer le fichier PDF dans le cache
-      const fileName = `xcrackz_Scan_${Date.now()}.pdf`;
+      const fileName = `checkflow_Scan_${Date.now()}.pdf`;
       const fileUri = (FileSystem as any).documentDirectory + fileName;
 
       await FileSystem.writeAsStringAsync(fileUri, pdfBase64, {

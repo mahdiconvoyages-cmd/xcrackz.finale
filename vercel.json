@@ -7,12 +7,12 @@
   "redirects": [
     {
       "source": "/:path*",
-      "destination": "https://www.xcrackz.com/:path*",
+      "destination": "https://www.checkflow.fr/:path*",
       "permanent": true,
       "has": [
         {
           "type": "host",
-          "value": "xcrackz.com"
+          "value": "checkflow.fr"
         }
       ]
     }

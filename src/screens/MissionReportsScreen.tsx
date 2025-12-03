@@ -182,7 +182,7 @@ export default function MissionReportsScreen() {
         return;
       }
 
-      const subject = encodeURIComponent('Rapport de missions XCrackz');
+      const subject = encodeURIComponent('Rapport de missions CheckFlow');
       const body = encodeURIComponent(
         `Bonjour,\n\nVoici le rapport de missions :\n\n` +
         `Nombre total : ${missionsToExport.length}\n` +

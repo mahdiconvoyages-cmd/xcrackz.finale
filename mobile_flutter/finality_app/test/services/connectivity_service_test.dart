@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:xcrackz_app/services/connectivity_service.dart';
+import 'package:checkflow_app/services/connectivity_service.dart';
 
 void main() {
   late ConnectivityService connectivityService;

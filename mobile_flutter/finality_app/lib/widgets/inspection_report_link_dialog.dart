@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 
 /// Affiche un dialog avec le lien public du rapport d'inspection
-/// Format: https://app.xcrackz.com/inspection-report/{inspection_id}
+/// Format: https://app.checkflow.fr/inspection-report/{inspection_id}
 class InspectionReportLinkDialog extends StatelessWidget {
   final String inspectionId;
   final String reportType; // 'departure' ou 'arrival' ou 'complete'
@@ -14,7 +14,7 @@ class InspectionReportLinkDialog extends StatelessWidget {
     this.reportType = 'complete',
   });
 
-  String get _publicLink => 'https://app.xcrackz.com/inspection-report/$inspectionId';
+  String get _publicLink => 'https://app.checkflow.fr/inspection-report/$inspectionId';
 
   @override
   Widget build(BuildContext context) {
@@ -119,7 +119,7 @@ class InspectionReportLinkDialog extends StatelessWidget {
                     onPressed: () {
                       SharePlus.instance.share(
                         'Voici le rapport d\'inspection de votre véhicule :\n\n$_publicLink',
-                        subject: 'Rapport d\'inspection xCrackz',
+                        subject: 'Rapport d\'inspection CheckFlow',
                       );
                     },
                     icon: const Icon(Icons.share),

@@ -212,6 +212,112 @@ class AppLocalizations {
   String get contactInfo => get('contactInfo');
   String get address => get('address');
   String get notes => get('notes');
+  
+  // Dashboard supplémentaire
+  String get creditsAvailable => get('creditsAvailable');
+  String get successRate => get('successRate');
+  String get missionsProgress => get('missionsProgress');
+  String get seeAll => get('seeAll');
+  String get missionCompleted => get('missionCompleted');
+  String get newContact => get('newContact');
+  String get clientAddedCRM => get('clientAddedCRM');
+  String get departureInspectionShort => get('departureInspectionShort');
+  String get vehicleDocumented => get('vehicleDocumented');
+  String get subscriptionExpired => get('subscriptionExpired');
+  String get expiresShort => get('expiresShort');
+  String get subscriptionActive => get('subscriptionActive');
+  String get renewNow => get('renewNow');
+  String get renew => get('renew');
+  String get manage => get('manage');
+  String get goodMorning => get('goodMorning');
+  String get goodAfternoon => get('goodAfternoon');
+  String get goodEvening => get('goodEvening');
+  String get user => get('user');
+  String get errorLoadingDashboard => get('errorLoadingDashboard');
+  String get ago => get('ago');
+  String get hours => get('hours');
+  String get yesterday => get('yesterday');
+  
+  // Missions supplémentaire
+  String get myConvoys => get('myConvoys');
+  String get listView => get('listView');
+  String get gridView => get('gridView');
+  String get missionCode => get('missionCode');
+  String get join => get('join');
+  String get enterCode => get('enterCode');
+  String get missionJoined => get('missionJoined');
+  
+  // Profil supplémentaire
+  String get professionalDriver => get('professionalDriver');
+  String get emailNotAvailable => get('emailNotAvailable');
+  String get managePreferences => get('managePreferences');
+  String get manageSubscription => get('manageSubscription');
+  String get helpCenter => get('helpCenter');
+  String get versionInfo => get('versionInfo');
+  
+  // CRM supplémentaire
+  String get createDocument => get('createDocument');
+  String get newInvoice => get('newInvoice');
+  String get createClientInvoice => get('createClientInvoice');
+  String get newQuote => get('newQuote');
+  String get createClientQuote => get('createClientQuote');
+  String get addNewClient => get('addNewClient');
+  String get clientManagement => get('clientManagement');
+  String get invoices => get('invoices');
+  String get quotes => get('quotes');
+  String get create => get('create');
+  
+  // Documents scannés
+  String get myDocuments => get('myDocuments');
+  String get documentSaved => get('documentSaved');
+  String get deleteDocument => get('deleteDocument');
+  String get actionIrreversible => get('actionIrreversible');
+  String get documentDeleted => get('documentDeleted');
+  String get noImageToShare => get('noImageToShare');
+  String get share => get('share');
+  String get extractedText => get('extractedText');
+  String get noImageAvailable => get('noImageAvailable');
+  String get loadingError => get('loadingError');
+  String get unknownDate => get('unknownDate');
+  String get invalidDate => get('invalidDate');
+  String get noDocument => get('noDocument');
+  String get scanFirstDocument => get('scanFirstDocument');
+  String get scanDocument => get('scanDocument');
+  String get all => get('all');
+  String get contracts => get('contracts');
+  String get others => get('others');
+  String get searchDocument => get('searchDocument');
+  String get scanner => get('scanner');
+  
+  // Aide
+  String get helpCenterTitle => get('helpCenterTitle');
+  String get howCanWeHelp => get('howCanWeHelp');
+  String get findAnswers => get('findAnswers');
+  String get faq => get('faq');
+  String get needMoreHelp => get('needMoreHelp');
+  String get website => get('website');
+  
+  // À propos
+  String get aboutTitle => get('aboutTitle');
+  String get professionalConvoy => get('professionalConvoy');
+  String get aboutApp => get('aboutApp');
+  
+  // Abonnements
+  String get subscriptions => get('subscriptions');
+  String get availablePlans => get('availablePlans');
+  String get choosePlan => get('choosePlan');
+  String get popular => get('popular');
+  String get current => get('current');
+  String get perMonth => get('perMonth');
+  String get perYear => get('perYear');
+  String get currentPlan => get('currentPlan');
+  String get choosePlanBtn => get('choosePlanBtn');
+  String get confirmSubscription => get('confirmSubscription');
+  String get paymentInProgress => get('paymentInProgress');
+  String get free => get('free');
+  String get basic => get('basic');
+  String get pro => get('pro');
+  String get enterprise => get('enterprise');
 }
 
 // ============ TRADUCTIONS FRANÇAISES ============
@@ -367,6 +473,112 @@ const Map<String, String> _frenchTranslations = {
   'contactInfo': 'Coordonnées',
   'address': 'Adresse',
   'notes': 'Notes',
+  
+  // Dashboard supplémentaire
+  'creditsAvailable': 'Crédits disponibles',
+  'successRate': 'Taux succès',
+  'missionsProgress': 'Progression des missions',
+  'seeAll': 'Voir tout',
+  'missionCompleted': 'Mission complétée',
+  'newContact': 'Nouveau contact',
+  'clientAddedCRM': 'Client ajouté au CRM',
+  'departureInspectionShort': 'Inspection départ',
+  'vehicleDocumented': 'Véhicule documenté',
+  'subscriptionExpired': 'Abonnement expiré',
+  'expiresShort': 'Expire bientôt',
+  'subscriptionActive': 'Abonnement actif',
+  'renewNow': 'Renouvelez dès maintenant',
+  'renew': 'Renouveler',
+  'manage': 'Gérer',
+  'goodMorning': 'Bonjour',
+  'goodAfternoon': 'Bon après-midi',
+  'goodEvening': 'Bonsoir',
+  'user': 'Utilisateur',
+  'errorLoadingDashboard': 'Erreur chargement dashboard',
+  'ago': 'Il y a',
+  'hours': 'heures',
+  'yesterday': 'Hier',
+  
+  // Missions supplémentaire
+  'myConvoys': 'Mes Convoyages',
+  'listView': 'Vue Liste',
+  'gridView': 'Vue Grille',
+  'missionCode': 'Code de mission...',
+  'join': 'Rejoindre',
+  'enterCode': 'Veuillez entrer un code',
+  'missionJoined': 'Mission rejointe avec succès!',
+  
+  // Profil supplémentaire
+  'professionalDriver': 'Convoyeur Professionnel',
+  'emailNotAvailable': 'Email non disponible',
+  'managePreferences': 'Gérer vos préférences',
+  'manageSubscription': 'Gérer votre abonnement',
+  'helpCenter': 'Centre d\'aide et support',
+  'versionInfo': 'Version et informations',
+  
+  // CRM supplémentaire
+  'createDocument': 'Créer un document',
+  'newInvoice': 'Nouvelle Facture',
+  'createClientInvoice': 'Créer une facture client',
+  'newQuote': 'Nouveau Devis',
+  'createClientQuote': 'Créer un devis client',
+  'addNewClient': 'Ajouter un nouveau client',
+  'clientManagement': 'Gestion clients',
+  'invoices': 'Factures',
+  'quotes': 'Devis',
+  'create': 'Créer',
+  
+  // Documents scannés
+  'myDocuments': 'Mes Documents',
+  'documentSaved': 'Document enregistré avec succès',
+  'deleteDocument': 'Supprimer le document',
+  'actionIrreversible': 'Cette action est irréversible. Voulez-vous vraiment supprimer ce document ?',
+  'documentDeleted': 'Document supprimé',
+  'noImageToShare': 'Aucune image à partager',
+  'share': 'Partager',
+  'extractedText': 'Texte extrait',
+  'noImageAvailable': 'Aucune image disponible',
+  'loadingError': 'Erreur de chargement',
+  'unknownDate': 'Date inconnue',
+  'invalidDate': 'Date invalide',
+  'noDocument': 'Aucun document',
+  'scanFirstDocument': 'Scannez votre premier document',
+  'scanDocument': 'Scanner un document',
+  'all': 'Tous',
+  'contracts': 'Contrats',
+  'others': 'Autres',
+  'searchDocument': 'Rechercher un document...',
+  'scanner': 'Scanner',
+  
+  // Aide
+  'helpCenterTitle': 'Centre d\'aide',
+  'howCanWeHelp': 'Comment pouvons-nous vous aider ?',
+  'findAnswers': 'Trouvez rapidement des réponses...',
+  'faq': 'Questions Fréquentes',
+  'needMoreHelp': 'Besoin d\'aide supplémentaire ?',
+  'website': 'Site Web',
+  
+  // À propos
+  'aboutTitle': 'À propos',
+  'professionalConvoy': 'Convoyage Professionnel',
+  'aboutApp': 'À propos de l\'application',
+  
+  // Abonnements
+  'subscriptions': 'Abonnements',
+  'availablePlans': 'Plans disponibles',
+  'choosePlan': 'Choisissez le plan qui correspond à vos besoins',
+  'popular': 'POPULAIRE',
+  'current': 'ACTUEL',
+  'perMonth': '/mois',
+  'perYear': '/an',
+  'currentPlan': 'Plan actuel',
+  'choosePlanBtn': 'Choisir ce plan',
+  'confirmSubscription': 'Confirmer l\'abonnement',
+  'paymentInProgress': 'Paiement en cours de développement...',
+  'free': 'Gratuit',
+  'basic': 'Basique',
+  'pro': 'Pro',
+  'enterprise': 'Entreprise',
 };
 
 // ============ TRADUCTIONS ANGLAISES ============
@@ -522,6 +734,112 @@ const Map<String, String> _englishTranslations = {
   'contactInfo': 'Contact info',
   'address': 'Address',
   'notes': 'Notes',
+  
+  // Dashboard additional
+  'creditsAvailable': 'Credits available',
+  'successRate': 'Success rate',
+  'missionsProgress': 'Missions progress',
+  'seeAll': 'See all',
+  'missionCompleted': 'Mission completed',
+  'newContact': 'New contact',
+  'clientAddedCRM': 'Client added to CRM',
+  'departureInspectionShort': 'Departure inspection',
+  'vehicleDocumented': 'Vehicle documented',
+  'subscriptionExpired': 'Subscription expired',
+  'expiresShort': 'Expires soon',
+  'subscriptionActive': 'Subscription active',
+  'renewNow': 'Renew now',
+  'renew': 'Renew',
+  'manage': 'Manage',
+  'goodMorning': 'Good morning',
+  'goodAfternoon': 'Good afternoon',
+  'goodEvening': 'Good evening',
+  'user': 'User',
+  'errorLoadingDashboard': 'Error loading dashboard',
+  'ago': 'ago',
+  'hours': 'hours',
+  'yesterday': 'Yesterday',
+  
+  // Missions additional
+  'myConvoys': 'My Convoys',
+  'listView': 'List View',
+  'gridView': 'Grid View',
+  'missionCode': 'Mission code...',
+  'join': 'Join',
+  'enterCode': 'Please enter a code',
+  'missionJoined': 'Mission joined successfully!',
+  
+  // Profile additional
+  'professionalDriver': 'Professional Driver',
+  'emailNotAvailable': 'Email not available',
+  'managePreferences': 'Manage your preferences',
+  'manageSubscription': 'Manage your subscription',
+  'helpCenter': 'Help center and support',
+  'versionInfo': 'Version and information',
+  
+  // CRM additional
+  'createDocument': 'Create document',
+  'newInvoice': 'New Invoice',
+  'createClientInvoice': 'Create client invoice',
+  'newQuote': 'New Quote',
+  'createClientQuote': 'Create client quote',
+  'addNewClient': 'Add new client',
+  'clientManagement': 'Client management',
+  'invoices': 'Invoices',
+  'quotes': 'Quotes',
+  'create': 'Create',
+  
+  // Scanned documents
+  'myDocuments': 'My Documents',
+  'documentSaved': 'Document saved successfully',
+  'deleteDocument': 'Delete document',
+  'actionIrreversible': 'This action is irreversible. Do you really want to delete this document?',
+  'documentDeleted': 'Document deleted',
+  'noImageToShare': 'No image to share',
+  'share': 'Share',
+  'extractedText': 'Extracted text',
+  'noImageAvailable': 'No image available',
+  'loadingError': 'Loading error',
+  'unknownDate': 'Unknown date',
+  'invalidDate': 'Invalid date',
+  'noDocument': 'No document',
+  'scanFirstDocument': 'Scan your first document',
+  'scanDocument': 'Scan a document',
+  'all': 'All',
+  'contracts': 'Contracts',
+  'others': 'Others',
+  'searchDocument': 'Search a document...',
+  'scanner': 'Scanner',
+  
+  // Help
+  'helpCenterTitle': 'Help Center',
+  'howCanWeHelp': 'How can we help you?',
+  'findAnswers': 'Find answers quickly...',
+  'faq': 'Frequently Asked Questions',
+  'needMoreHelp': 'Need more help?',
+  'website': 'Website',
+  
+  // About
+  'aboutTitle': 'About',
+  'professionalConvoy': 'Professional Convoy',
+  'aboutApp': 'About the application',
+  
+  // Subscriptions
+  'subscriptions': 'Subscriptions',
+  'availablePlans': 'Available plans',
+  'choosePlan': 'Choose the plan that fits your needs',
+  'popular': 'POPULAR',
+  'current': 'CURRENT',
+  'perMonth': '/month',
+  'perYear': '/year',
+  'currentPlan': 'Current plan',
+  'choosePlanBtn': 'Choose this plan',
+  'confirmSubscription': 'Confirm subscription',
+  'paymentInProgress': 'Payment in progress...',
+  'free': 'Free',
+  'basic': 'Basic',
+  'pro': 'Pro',
+  'enterprise': 'Enterprise',
 };
 
 // ============ TRADUCTIONS ARABES ============
@@ -677,6 +995,112 @@ const Map<String, String> _arabicTranslations = {
   'contactInfo': 'معلومات الاتصال',
   'address': 'العنوان',
   'notes': 'ملاحظات',
+  
+  // Dashboard additional
+  'creditsAvailable': 'الرصيد المتاح',
+  'successRate': 'معدل النجاح',
+  'missionsProgress': 'تقدم المهام',
+  'seeAll': 'عرض الكل',
+  'missionCompleted': 'المهمة مكتملة',
+  'newContact': 'جهة اتصال جديدة',
+  'clientAddedCRM': 'تمت إضافة العميل',
+  'departureInspectionShort': 'فحص المغادرة',
+  'vehicleDocumented': 'تم توثيق المركبة',
+  'subscriptionExpired': 'انتهى الاشتراك',
+  'expiresShort': 'ينتهي قريباً',
+  'subscriptionActive': 'اشتراك نشط',
+  'renewNow': 'جدد الآن',
+  'renew': 'تجديد',
+  'manage': 'إدارة',
+  'goodMorning': 'صباح الخير',
+  'goodAfternoon': 'مساء الخير',
+  'goodEvening': 'مساء الخير',
+  'user': 'مستخدم',
+  'errorLoadingDashboard': 'خطأ في تحميل لوحة التحكم',
+  'ago': 'منذ',
+  'hours': 'ساعات',
+  'yesterday': 'أمس',
+  
+  // Missions additional
+  'myConvoys': 'قوافلي',
+  'listView': 'عرض القائمة',
+  'gridView': 'عرض الشبكة',
+  'missionCode': 'رمز المهمة...',
+  'join': 'انضمام',
+  'enterCode': 'الرجاء إدخال رمز',
+  'missionJoined': 'تم الانضمام للمهمة بنجاح!',
+  
+  // Profile additional
+  'professionalDriver': 'سائق محترف',
+  'emailNotAvailable': 'البريد غير متاح',
+  'managePreferences': 'إدارة التفضيلات',
+  'manageSubscription': 'إدارة الاشتراك',
+  'helpCenter': 'مركز المساعدة',
+  'versionInfo': 'معلومات الإصدار',
+  
+  // CRM additional
+  'createDocument': 'إنشاء مستند',
+  'newInvoice': 'فاتورة جديدة',
+  'createClientInvoice': 'إنشاء فاتورة عميل',
+  'newQuote': 'عرض سعر جديد',
+  'createClientQuote': 'إنشاء عرض سعر',
+  'addNewClient': 'إضافة عميل جديد',
+  'clientManagement': 'إدارة العملاء',
+  'invoices': 'الفواتير',
+  'quotes': 'عروض الأسعار',
+  'create': 'إنشاء',
+  
+  // Scanned documents
+  'myDocuments': 'مستنداتي',
+  'documentSaved': 'تم حفظ المستند بنجاح',
+  'deleteDocument': 'حذف المستند',
+  'actionIrreversible': 'هذا الإجراء لا رجعة فيه. هل تريد حذف هذا المستند؟',
+  'documentDeleted': 'تم حذف المستند',
+  'noImageToShare': 'لا توجد صورة للمشاركة',
+  'share': 'مشاركة',
+  'extractedText': 'النص المستخرج',
+  'noImageAvailable': 'لا توجد صورة',
+  'loadingError': 'خطأ في التحميل',
+  'unknownDate': 'تاريخ غير معروف',
+  'invalidDate': 'تاريخ غير صالح',
+  'noDocument': 'لا توجد مستندات',
+  'scanFirstDocument': 'امسح مستندك الأول',
+  'scanDocument': 'مسح مستند',
+  'all': 'الكل',
+  'contracts': 'العقود',
+  'others': 'أخرى',
+  'searchDocument': 'البحث عن مستند...',
+  'scanner': 'الماسح',
+  
+  // Help
+  'helpCenterTitle': 'مركز المساعدة',
+  'howCanWeHelp': 'كيف يمكننا مساعدتك؟',
+  'findAnswers': 'ابحث عن إجابات...',
+  'faq': 'الأسئلة الشائعة',
+  'needMoreHelp': 'تحتاج مساعدة إضافية؟',
+  'website': 'الموقع',
+  
+  // About
+  'aboutTitle': 'حول',
+  'professionalConvoy': 'قافلة محترفة',
+  'aboutApp': 'حول التطبيق',
+  
+  // Subscriptions
+  'subscriptions': 'الاشتراكات',
+  'availablePlans': 'الخطط المتاحة',
+  'choosePlan': 'اختر الخطة المناسبة لك',
+  'popular': 'شائع',
+  'current': 'الحالي',
+  'perMonth': '/شهر',
+  'perYear': '/سنة',
+  'currentPlan': 'الخطة الحالية',
+  'choosePlanBtn': 'اختر هذه الخطة',
+  'confirmSubscription': 'تأكيد الاشتراك',
+  'paymentInProgress': 'الدفع قيد التطوير...',
+  'free': 'مجاني',
+  'basic': 'أساسي',
+  'pro': 'احترافي',
+  'enterprise': 'مؤسسة',
 };
 
 // ============ TRADUCTIONS ESPAGNOLES ============
@@ -832,6 +1256,112 @@ const Map<String, String> _spanishTranslations = {
   'contactInfo': 'Información de contacto',
   'address': 'Dirección',
   'notes': 'Notas',
+  
+  // Dashboard additional
+  'creditsAvailable': 'Créditos disponibles',
+  'successRate': 'Tasa de éxito',
+  'missionsProgress': 'Progreso de misiones',
+  'seeAll': 'Ver todo',
+  'missionCompleted': 'Misión completada',
+  'newContact': 'Nuevo contacto',
+  'clientAddedCRM': 'Cliente añadido al CRM',
+  'departureInspectionShort': 'Inspección de salida',
+  'vehicleDocumented': 'Vehículo documentado',
+  'subscriptionExpired': 'Suscripción expirada',
+  'expiresShort': 'Expira pronto',
+  'subscriptionActive': 'Suscripción activa',
+  'renewNow': 'Renovar ahora',
+  'renew': 'Renovar',
+  'manage': 'Gestionar',
+  'goodMorning': 'Buenos días',
+  'goodAfternoon': 'Buenas tardes',
+  'goodEvening': 'Buenas noches',
+  'user': 'Usuario',
+  'errorLoadingDashboard': 'Error al cargar el panel',
+  'ago': 'hace',
+  'hours': 'horas',
+  'yesterday': 'Ayer',
+  
+  // Missions additional
+  'myConvoys': 'Mis Convoyes',
+  'listView': 'Vista Lista',
+  'gridView': 'Vista Cuadrícula',
+  'missionCode': 'Código de misión...',
+  'join': 'Unirse',
+  'enterCode': 'Por favor ingrese un código',
+  'missionJoined': '¡Misión unida con éxito!',
+  
+  // Profile additional
+  'professionalDriver': 'Conductor Profesional',
+  'emailNotAvailable': 'Email no disponible',
+  'managePreferences': 'Gestionar preferencias',
+  'manageSubscription': 'Gestionar suscripción',
+  'helpCenter': 'Centro de ayuda',
+  'versionInfo': 'Versión e información',
+  
+  // CRM additional
+  'createDocument': 'Crear documento',
+  'newInvoice': 'Nueva Factura',
+  'createClientInvoice': 'Crear factura de cliente',
+  'newQuote': 'Nuevo Presupuesto',
+  'createClientQuote': 'Crear presupuesto de cliente',
+  'addNewClient': 'Añadir nuevo cliente',
+  'clientManagement': 'Gestión de clientes',
+  'invoices': 'Facturas',
+  'quotes': 'Presupuestos',
+  'create': 'Crear',
+  
+  // Scanned documents
+  'myDocuments': 'Mis Documentos',
+  'documentSaved': 'Documento guardado con éxito',
+  'deleteDocument': 'Eliminar documento',
+  'actionIrreversible': 'Esta acción es irreversible. ¿Desea eliminar este documento?',
+  'documentDeleted': 'Documento eliminado',
+  'noImageToShare': 'No hay imagen para compartir',
+  'share': 'Compartir',
+  'extractedText': 'Texto extraído',
+  'noImageAvailable': 'No hay imagen disponible',
+  'loadingError': 'Error de carga',
+  'unknownDate': 'Fecha desconocida',
+  'invalidDate': 'Fecha inválida',
+  'noDocument': 'Sin documentos',
+  'scanFirstDocument': 'Escanee su primer documento',
+  'scanDocument': 'Escanear documento',
+  'all': 'Todos',
+  'contracts': 'Contratos',
+  'others': 'Otros',
+  'searchDocument': 'Buscar documento...',
+  'scanner': 'Escáner',
+  
+  // Help
+  'helpCenterTitle': 'Centro de Ayuda',
+  'howCanWeHelp': '¿Cómo podemos ayudarte?',
+  'findAnswers': 'Encuentra respuestas...',
+  'faq': 'Preguntas Frecuentes',
+  'needMoreHelp': '¿Necesitas más ayuda?',
+  'website': 'Sitio web',
+  
+  // About
+  'aboutTitle': 'Acerca de',
+  'professionalConvoy': 'Convoy Profesional',
+  'aboutApp': 'Acerca de la aplicación',
+  
+  // Subscriptions
+  'subscriptions': 'Suscripciones',
+  'availablePlans': 'Planes disponibles',
+  'choosePlan': 'Elige el plan que se adapte a tus necesidades',
+  'popular': 'POPULAR',
+  'current': 'ACTUAL',
+  'perMonth': '/mes',
+  'perYear': '/año',
+  'currentPlan': 'Plan actual',
+  'choosePlanBtn': 'Elegir este plan',
+  'confirmSubscription': 'Confirmar suscripción',
+  'paymentInProgress': 'Pago en desarrollo...',
+  'free': 'Gratis',
+  'basic': 'Básico',
+  'pro': 'Pro',
+  'enterprise': 'Empresa',
 };
 
 // ============ DELEGATE ============

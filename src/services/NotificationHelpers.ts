@@ -1,4 +1,4 @@
-// 🚀 SYSTÈME DE NOTIFICATIONS XCRACKZ
+// 🚀 SYSTÈME DE NOTIFICATIONS CHECKFLOW
 // Notifications automatiques pour le tracking, missions, et livraisons
 
 import { supabase } from '../lib/supabase';

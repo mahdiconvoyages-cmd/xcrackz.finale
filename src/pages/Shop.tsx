@@ -340,7 +340,7 @@ export default function ShopNew() {
             </div>
             
             <h1 className="text-3xl sm:text-4xl md:text-5xl font-black mb-3 sm:mb-4 drop-shadow-lg px-4">
-              Abonnements xCrackz
+              Abonnements CHECKFLOW
             </h1>
             <p className="text-base sm:text-lg md:text-xl text-blue-100 mb-6 sm:mb-8 max-w-xs sm:max-w-lg md:max-w-2xl mx-auto px-4">
               Choisissez votre plan et accédez à toutes les fonctionnalités de la plateforme
@@ -709,7 +709,7 @@ export default function ShopNew() {
                 <h4 className="font-black text-slate-900 mb-2">Principe Simple</h4>
                 <p className="text-sm text-slate-700 leading-relaxed">
                   Avec <strong>n'importe quel abonnement</strong> (Basique, Pro, Business, Entreprise), 
-                  vous avez accès à <strong>toutes les fonctionnalités</strong> de xCrackz. 
+                  vous avez accès à <strong>toutes les fonctionnalités</strong> de CHECKFLOW. 
                   Les crédits ne sont utilisés que pour la <strong>création de missions (1 crédit)</strong> et 
                   le <strong>covoiturage (2 crédits par action)</strong>. Tout le reste est inclus sans limite !
                 </p>

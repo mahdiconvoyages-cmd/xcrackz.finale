@@ -22,7 +22,7 @@ interface RequestBody {
  * Response:
  * {
  *   "success": true,
- *   "shareUrl": "https://xcrackz.com/rapport/ABC123XYZ",
+ *   "shareUrl": "https://checkflow.fr/rapport/ABC123XYZ",
  *   "shareToken": "ABC123XYZ",
  *   "reportId": "uuid"
  * }

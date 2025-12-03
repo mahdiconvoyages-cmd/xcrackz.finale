@@ -1,4 +1,4 @@
-// 🎨 xCrackz UI Components
+// 🎨 CheckFlow UI Components
 // Export centralisé de tous les composants du design system
 
 export { default as PageHeader } from './PageHeader';

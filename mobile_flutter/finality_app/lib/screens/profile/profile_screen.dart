@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import '../../l10n/app_localizations.dart';
 import '../../main.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
@@ -55,6 +56,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final user = supabase.auth.currentUser;
+    final l10n = AppLocalizations.of(context);
 
     return Scaffold(
       backgroundColor: PremiumTheme.lightBg,
@@ -95,7 +97,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             const SizedBox(width: 12),
             Text(
-              'Profil',
+              l10n.profile,
               style: TextStyle(
                 fontWeight: FontWeight.bold,
                 shadows: [
@@ -173,14 +175,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         Text(
                           _firstName.isNotEmpty || _lastName.isNotEmpty
                               ? '$_firstName $_lastName'
-                              : 'Utilisateur',
+                              : l10n.user,
                           style: PremiumTheme.heading2.copyWith(
                             color: Colors.white,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          user?.email ?? 'Email non disponible',
+                          user?.email ?? l10n.emailNotAvailable,
                           style: PremiumTheme.body.copyWith(
                             color: Colors.white.withValues(alpha: 0.9),
                           ),
@@ -209,7 +211,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                'Convoyeur Professionnel',
+                                l10n.professionalDriver,
                                 style: PremiumTheme.bodySmall.copyWith(
                                   color: Colors.white,
                                   fontWeight: FontWeight.w600,
@@ -235,7 +237,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               }
                             },
                             icon: const Icon(Icons.edit, size: 18),
-                            label: const Text('Modifier le profil'),
+                            label: Text(l10n.editProfile),
                             style: ElevatedButton.styleFrom(
                               backgroundColor: Colors.white.withValues(alpha: 0.2),
                               foregroundColor: Colors.white,
@@ -259,8 +261,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   delay: const Duration(milliseconds: 100),
                   child: _buildMenuCard(
                     icon: Icons.settings,
-                    title: 'Paramètres',
-                    subtitle: 'Gérer vos préférences',
+                    title: l10n.settings,
+                    subtitle: l10n.managePreferences,
                     gradientColors: [PremiumTheme.primaryBlue, PremiumTheme.primaryIndigo],
                     onTap: () {
                       Navigator.push(
@@ -277,8 +279,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   delay: const Duration(milliseconds: 200),
                   child: _buildMenuCard(
                     icon: Icons.credit_card,
-                    title: 'Abonnements',
-                    subtitle: 'Gérer votre abonnement',
+                    title: l10n.subscriptions,
+                    subtitle: l10n.manageSubscription,
                     gradientColors: [PremiumTheme.primaryTeal, PremiumTheme.accentGreen],
                     onTap: () {
                       Navigator.of(context).pushNamed('/subscription');
@@ -290,8 +292,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   delay: const Duration(milliseconds: 300),
                   child: _buildMenuCard(
                     icon: Icons.help_outline,
-                    title: 'Aide',
-                    subtitle: 'Centre d\'aide et support',
+                    title: l10n.help,
+                    subtitle: l10n.helpCenter,
                     gradientColors: [PremiumTheme.primaryIndigo, PremiumTheme.primaryPurple],
                     onTap: () {
                       Navigator.push(
@@ -308,8 +310,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   delay: const Duration(milliseconds: 400),
                   child: _buildMenuCard(
                     icon: Icons.info_outline,
-                    title: 'À propos',
-                    subtitle: 'Version et informations',
+                    title: l10n.about,
+                    subtitle: l10n.versionInfo,
                     gradientColors: [PremiumTheme.primaryPurple, PremiumTheme.accentPink],
                     onTap: () {
                       Navigator.push(
@@ -348,7 +350,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ),
                       ),
                       title: Text(
-                        'Déconnexion',
+                        l10n.logout,
                         style: PremiumTheme.body.copyWith(
                           color: PremiumTheme.accentRed,
                           fontWeight: FontWeight.w600,
@@ -374,47 +376,88 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required List<Color> gradientColors,
     required VoidCallback onTap,
   }) {
-    return PremiumCard(
-      useGlass: true,
-      child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        leading: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: gradientColors,
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
+        border: Border.all(
+          color: gradientColors[0].withValues(alpha: 0.25),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: gradientColors[0].withValues(alpha: 0.1),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+            child: Row(
+              children: [
+                Container(
+                  width: 50,
+                  height: 50,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: gradientColors,
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    borderRadius: BorderRadius.circular(14),
+                    boxShadow: [
+                      BoxShadow(
+                        color: gradientColors[0].withValues(alpha: 0.4),
+                        blurRadius: 8,
+                        offset: const Offset(0, 4),
+                      ),
+                    ],
+                  ),
+                  child: Icon(icon, color: Colors.white, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: PremiumTheme.body.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: PremiumTheme.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        subtitle,
+                        style: PremiumTheme.bodySmall.copyWith(
+                          color: PremiumTheme.textSecondary,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: gradientColors[0].withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    Icons.chevron_right,
+                    color: gradientColors[0],
+                  ),
+                ),
+              ],
             ),
-            borderRadius: BorderRadius.circular(12),
-            boxShadow: [
-              BoxShadow(
-                color: gradientColors[0].withValues(alpha: 0.3),
-                blurRadius: 8,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Icon(icon, color: Colors.white, size: 24),
-        ),
-        title: Text(
-          title,
-          style: PremiumTheme.body.copyWith(
-            fontWeight: FontWeight.w600,
           ),
         ),
-        subtitle: Text(
-          subtitle,
-          style: PremiumTheme.bodySmall.copyWith(
-            color: PremiumTheme.textSecondary,
-          ),
-        ),
-        trailing: Icon(
-          Icons.chevron_right,
-          color: PremiumTheme.textSecondary,
-        ),
-        onTap: onTap,
       ),
     );
   }

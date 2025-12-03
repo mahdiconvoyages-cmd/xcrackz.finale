@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../l10n/app_localizations.dart';
 import '../invoices/invoice_list_screen.dart';
 import '../invoices/invoice_form_screen.dart';
 import '../quotes/quote_list_screen.dart';
@@ -33,6 +34,7 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
   }
 
   void _showCreateMenu() {
+    final l10n = AppLocalizations.of(context);
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
@@ -58,14 +60,14 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
               width: 40,
               height: 4,
               decoration: BoxDecoration(
-                color: Colors.white24,
+                color: PremiumTheme.textTertiary,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             const SizedBox(height: PremiumTheme.spaceLG),
             
             Text(
-              'Créer un document',
+              l10n.createDocument,
               style: TextStyle(
                 fontSize: 22,
                 fontWeight: FontWeight.bold,
@@ -91,8 +93,8 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
                   PremiumTheme.primaryIndigo,
                   PremiumTheme.primaryPurple,
                 ]),
-                title: 'Nouvelle Facture',
-                subtitle: 'Créer une facture client',
+                title: l10n.newInvoice,
+                subtitle: l10n.createClientInvoice,
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
@@ -113,8 +115,8 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
                 context,
                 icon: Icons.description_rounded,
                 gradient: PremiumTheme.purpleGradient,
-                title: 'Nouveau Devis',
-                subtitle: 'Créer un devis client',
+                title: l10n.newQuote,
+                subtitle: l10n.createClientQuote,
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
@@ -138,8 +140,8 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
                   const Color(0xFF06B6D4),
                   const Color(0xFF0EA5E9),
                 ]),
-                title: 'Nouveau Client',
-                subtitle: 'Ajouter un nouveau client',
+                title: l10n.newClient,
+                subtitle: l10n.addNewClient,
                 onTap: () {
                   Navigator.pop(context);
                   Navigator.push(
@@ -212,6 +214,7 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: PremiumTheme.lightBg,
       body: CustomScrollView(
@@ -286,13 +289,13 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
                                       Text(
-                                        'CRM',
+                                        l10n.crm,
                                         style: PremiumTheme.heading2.copyWith(
                                           color: Colors.white,
                                         ),
                                       ),
                                       Text(
-                                        'Gestion clients',
+                                        l10n.clientManagement,
                                         style: PremiumTheme.bodySmall.copyWith(
                                           color: Colors.white.withValues(alpha: 0.9),
                                         ),
@@ -313,30 +316,48 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
             bottom: PreferredSize(
               preferredSize: const Size.fromHeight(50),
               child: Container(
-                color: PremiumTheme.darkBg,
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                  boxShadow: [
+                    BoxShadow(
+                      color: PremiumTheme.primaryIndigo.withValues(alpha: 0.15),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
+                ),
                 child: TabBar(
                   controller: _tabController,
-                  indicatorColor: PremiumTheme.primaryIndigo,
-                  indicatorWeight: 3,
+                  indicator: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    gradient: PremiumTheme.primaryGradient,
+                  ),
                   indicatorSize: TabBarIndicatorSize.tab,
                   labelColor: Colors.white,
-                  unselectedLabelColor: PremiumTheme.textTertiary,
+                  unselectedLabelColor: PremiumTheme.textSecondary,
                   labelStyle: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
                   ),
-                  tabs: const [
+                  unselectedLabelStyle: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  dividerColor: Colors.transparent,
+                  tabs: [
                     Tab(
-                      icon: Icon(Icons.people_rounded),
-                      text: 'Clients',
+                      icon: const Icon(Icons.people_rounded, size: 20),
+                      text: l10n.clients,
                     ),
                     Tab(
-                      icon: Icon(Icons.receipt_long_rounded),
-                      text: 'Factures',
+                      icon: const Icon(Icons.receipt_long_rounded, size: 20),
+                      text: l10n.invoices,
                     ),
                     Tab(
-                      icon: Icon(Icons.description_rounded),
-                      text: 'Devis',
+                      icon: const Icon(Icons.description_rounded, size: 20),
+                      text: l10n.quotes,
                     ),
                   ],
                 ),
@@ -373,7 +394,7 @@ class _CRMScreenState extends State<CRMScreen> with SingleTickerProviderStateMix
             backgroundColor: Colors.transparent,
             elevation: 0,
             icon: const Icon(Icons.add),
-            label: const Text('Créer'),
+            label: Text(l10n.create),
           ),
         ),
       ),

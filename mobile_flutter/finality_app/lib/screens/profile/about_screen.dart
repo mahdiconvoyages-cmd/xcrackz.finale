@@ -106,16 +106,16 @@ class _AboutScreenState extends State<AboutScreen> {
                         ),
                         const SizedBox(height: 24),
                         Text(
-                          'Xcrackz',
+                          'CheckFlow',
                           style: PremiumTheme.heading1.copyWith(
                             fontSize: 32,
                           ),
                         ),
                         const SizedBox(height: 8),
                         Text(
-                          'Convoyage Professionnel',
+                          'Inspection Professionnelle',
                           style: PremiumTheme.body.copyWith(
-                            color: Colors.white70,
+                            color: PremiumTheme.textSecondary,
                           ),
                         ),
                         const SizedBox(height: 16),
@@ -185,7 +185,7 @@ class _AboutScreenState extends State<AboutScreen> {
                           Text(
                             'Finality est votre solution complète pour la gestion professionnelle de convoyages de véhicules. Suivez vos missions en temps réel, gérez vos inspections, scannez vos documents et bien plus encore.',
                             style: PremiumTheme.bodySmall.copyWith(
-                              color: Colors.white70,
+                              color: PremiumTheme.textSecondary,
                               height: 1.6,
                             ),
                           ),
@@ -299,15 +299,15 @@ class _AboutScreenState extends State<AboutScreen> {
                             'Conditions d\'utilisation',
                             style: PremiumTheme.body,
                           ),
-                          trailing: const Icon(
+                          trailing: Icon(
                             Icons.arrow_forward_ios,
                             size: 16,
-                            color: Colors.white70,
+                            color: PremiumTheme.textSecondary,
                           ),
                           onTap: () => _launchUrl('https://www.finality-convoyage.fr/terms'),
                         ),
                         Divider(
-                          color: Colors.white.withValues(alpha: 0.1),
+                          color: const Color(0xFFE5E7EB),
                           height: 1,
                         ),
                         ListTile(
@@ -332,15 +332,15 @@ class _AboutScreenState extends State<AboutScreen> {
                             'Politique de confidentialité',
                             style: PremiumTheme.body,
                           ),
-                          trailing: const Icon(
+                          trailing: Icon(
                             Icons.arrow_forward_ios,
                             size: 16,
-                            color: Colors.white70,
+                            color: PremiumTheme.textSecondary,
                           ),
                           onTap: () => _launchUrl('https://www.finality-convoyage.fr/privacy'),
                         ),
                         Divider(
-                          color: Colors.white.withValues(alpha: 0.1),
+                          color: const Color(0xFFE5E7EB),
                           height: 1,
                         ),
                         ListTile(
@@ -365,10 +365,10 @@ class _AboutScreenState extends State<AboutScreen> {
                             'Mentions légales',
                             style: PremiumTheme.body,
                           ),
-                          trailing: const Icon(
+                          trailing: Icon(
                             Icons.arrow_forward_ios,
                             size: 16,
-                            color: Colors.white70,
+                            color: PremiumTheme.textSecondary,
                           ),
                           onTap: () => _launchUrl('https://www.finality-convoyage.fr/legal'),
                         ),
@@ -437,7 +437,7 @@ class _AboutScreenState extends State<AboutScreen> {
                   child: Text(
                     '© 2025 Finality. Tous droits réservés.',
                     style: PremiumTheme.caption.copyWith(
-                      color: Colors.white38,
+                      color: PremiumTheme.textTertiary,
                     ),
                   ),
                 ),
@@ -448,7 +448,7 @@ class _AboutScreenState extends State<AboutScreen> {
                   child: Text(
                     'Fait avec ❤️ en France',
                     style: PremiumTheme.caption.copyWith(
-                      color: Colors.white38,
+                      color: PremiumTheme.textTertiary,
                     ),
                   ),
                 ),
@@ -483,7 +483,7 @@ class _AboutScreenState extends State<AboutScreen> {
             child: Text(
               title,
               style: PremiumTheme.bodySmall.copyWith(
-                color: Colors.white70,
+                color: PremiumTheme.textSecondary,
               ),
             ),
           ),

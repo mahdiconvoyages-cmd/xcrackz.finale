@@ -1,4 +1,4 @@
-export const APP_NAME = 'FleetCheck';
+export const APP_NAME = 'CheckFlow';
 export const APP_VERSION = '1.0.0';
 
 export const MISSION_STATUSES = {
@@ -82,8 +82,8 @@ export const COLORS = {
 } as const;
 
 export const STORAGE_KEYS = {
-  AUTH_TOKEN: '@fleetcheck:auth_token',
-  USER_PROFILE: '@fleetcheck:user_profile',
-  THEME: '@fleetcheck:theme',
-  LANGUAGE: '@fleetcheck:language',
+  AUTH_TOKEN: '@checkflow:auth_token',
+  USER_PROFILE: '@checkflow:user_profile',
+  THEME: '@checkflow:theme',
+  LANGUAGE: '@checkflow:language',
 } as const;

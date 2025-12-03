@@ -19,7 +19,7 @@ Future<void> main() async {
 
   // Initialiser le logger
   logger.init();
-  logger.i('🚀 Starting Xcrackz app...');
+  logger.i('🚀 Starting CheckFlow app...');
 
   // Charger les variables d'environnement (OBLIGATOIRE)
   try {
@@ -55,7 +55,7 @@ Future<void> main() async {
 
   runApp(
     const ProviderScope(
-      child: XcrackzApp(),
+      child: CheckFlowApp(),
     ),
   );
 }
@@ -63,8 +63,8 @@ Future<void> main() async {
 /// Client Supabase global (pour compatibilité)
 SupabaseClient get supabase => Supabase.instance.client;
 
-class XcrackzApp extends ConsumerWidget {
-  const XcrackzApp({super.key});
+class CheckFlowApp extends ConsumerWidget {
+  const CheckFlowApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -74,7 +74,7 @@ class XcrackzApp extends ConsumerWidget {
     return SyncProvider(
       syncService: SyncService(),
       child: MaterialApp(
-        title: 'Xcrackz - Convoyages',
+        title: 'CheckFlow - Inspections',
         debugShowCheckedModeBanner: false,
         theme: PremiumTheme.darkTheme,
         darkTheme: PremiumTheme.darkTheme,

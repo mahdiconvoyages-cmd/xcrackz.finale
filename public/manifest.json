@@ -1,7 +1,7 @@
 {
-  "name": "xCrackz - Gestion Convoyage",
-  "short_name": "xCrackz",
-  "description": "Plateforme SaaS pour la gestion de convoyage automobile - Missions, Tracking GPS, Rapports d'inspection",
+  "name": "CheckFlow - Inspection Véhicules",
+  "short_name": "CheckFlow",
+  "description": "Plateforme SaaS pour l'inspection de véhicules - Missions, Tracking GPS, Rapports d'inspection",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",

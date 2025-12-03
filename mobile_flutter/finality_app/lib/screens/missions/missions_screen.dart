@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart' as url_launcher;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../l10n/app_localizations.dart';
 import '../../main.dart';
 import '../../models/mission.dart';
 import '../../services/mission_service.dart';
@@ -100,6 +101,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
     return Scaffold(
       backgroundColor: PremiumTheme.lightBg,
       drawer: const AppDrawer(),
@@ -125,7 +127,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
           ),
         ),
         title: Text(
-          'Mes Convoyages',
+          l10n.myConvoys,
           style: TextStyle(
             fontWeight: FontWeight.bold,
             fontSize: 22,
@@ -144,7 +146,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
         actions: [
           IconButton(
             icon: Icon(_isGridView ? Icons.list : Icons.grid_view),
-            tooltip: _isGridView ? 'Vue Liste' : 'Vue Grille',
+            tooltip: _isGridView ? l10n.listView : l10n.gridView,
             onPressed: () {
               setState(() {
                 _isGridView = !_isGridView;
@@ -185,10 +187,10 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
           indicatorWeight: 3,
           labelColor: Colors.white,
           unselectedLabelColor: Colors.white70,
-          tabs: const [
-            Tab(text: 'En attente'),
-            Tab(text: 'En cours'),
-            Tab(text: 'Terminées'),
+          tabs: [
+            Tab(text: l10n.pending),
+            Tab(text: l10n.inProgress),
+            Tab(text: l10n.completed),
           ],
         ),
       ),
@@ -230,7 +232,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
                       controller: _joinCodeController,
                       style: TextStyle(color: PremiumTheme.textPrimary),
                       decoration: InputDecoration(
-                        hintText: 'Code de mission...',
+                        hintText: l10n.missionCode,
                         hintStyle: TextStyle(color: PremiumTheme.textSecondary),
                         prefixIcon: Icon(
                           Icons.qr_code,
@@ -265,12 +267,12 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
                         borderRadius: BorderRadius.circular(PremiumTheme.radiusMD),
                         child: Container(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               Icon(Icons.login, size: 16, color: Colors.white),
                               SizedBox(width: 6),
-                              Text('Rejoindre', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
+                              Text(l10n.join, style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 14)),
                             ],
                           ),
                         ),
@@ -312,6 +314,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
   }
 
   Widget _buildMissionView(String status) {
+    final l10n = AppLocalizations.of(context);
     final filteredMissions = _missions.where((m) => m.status == status).toList();
     
     if (_isLoading) {
@@ -330,7 +333,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
             ),
             const SizedBox(height: 16),
             Text(
-              'Aucune mission',
+              l10n.noMissions,
               style: TextStyle(
                 color: Colors.white.withValues(alpha: 0.7),
                 fontSize: 16,
@@ -451,7 +454,7 @@ class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProvid
         Text(
           label,
           style: PremiumTheme.bodySmall.copyWith(
-            color: Colors.white60,
+            color: PremiumTheme.textSecondary,
             fontSize: 11,
           ),
           textAlign: TextAlign.center,
@@ -497,13 +500,29 @@ class _MissionGridCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final statusColor = _getStatusColor(mission.status);
 
-    return Card(
-      color: const Color(0xFF1e293b),
-      child: InkWell(
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
+        border: Border.all(
+          color: statusColor.withValues(alpha: 0.3),
+          width: 1.5,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: statusColor.withValues(alpha: 0.15),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
         onTap: () {
           // TODO: Navigate to mission details
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
         child: Padding(
           padding: const EdgeInsets.all(12),
           child: Column(
@@ -511,27 +530,30 @@ class _MissionGridCard extends StatelessWidget {
             children: [
               // Status badge
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                 decoration: BoxDecoration(
-                  color: statusColor.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(8),
+                  gradient: LinearGradient(
+                    colors: [statusColor.withValues(alpha: 0.2), statusColor.withValues(alpha: 0.1)],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: statusColor.withValues(alpha: 0.3)),
                 ),
                 child: Text(
                   _getStatusText(mission.status),
                   style: TextStyle(
                     color: statusColor,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.bold,
                     fontSize: 10,
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 10),
               
               // Pickup
               Text(
                 mission.pickupAddress ?? 'Départ',
-                style: const TextStyle(
-                  color: Colors.white,
+                style: TextStyle(
+                  color: PremiumTheme.textPrimary,
                   fontWeight: FontWeight.bold,
                   fontSize: 13,
                 ),
@@ -541,14 +563,21 @@ class _MissionGridCard extends StatelessWidget {
               const SizedBox(height: 4),
               
               // Arrow
-              const Icon(Icons.arrow_downward, size: 14, color: Color(0xFF14b8a6)),
+              Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  color: PremiumTheme.primaryTeal.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: const Icon(Icons.arrow_downward, size: 14, color: Color(0xFF14b8a6)),
+              ),
               const SizedBox(height: 4),
               
               // Delivery
               Text(
                 mission.deliveryAddress ?? 'Arrivée',
                 style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: PremiumTheme.textSecondary,
                   fontSize: 12,
                 ),
                 maxLines: 2,
@@ -559,17 +588,25 @@ class _MissionGridCard extends StatelessWidget {
               
               // Vehicle type
               if (mission.vehicleType != null) ...[
-                const Divider(height: 16),
+                Divider(color: statusColor.withValues(alpha: 0.2), height: 16),
                 Row(
                   children: [
-                    const Icon(Icons.directions_car, size: 14, color: Color(0xFF14b8a6)),
-                    const SizedBox(width: 4),
+                    Container(
+                      padding: const EdgeInsets.all(4),
+                      decoration: BoxDecoration(
+                        color: PremiumTheme.primaryTeal.withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: const Icon(Icons.directions_car, size: 14, color: Color(0xFF14b8a6)),
+                    ),
+                    const SizedBox(width: 6),
                     Expanded(
                       child: Text(
                         mission.vehicleType!,
                         style: TextStyle(
-                          color: Colors.white.withValues(alpha: 0.6),
+                          color: PremiumTheme.textSecondary,
                           fontSize: 11,
+                          fontWeight: FontWeight.w500,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -582,6 +619,7 @@ class _MissionGridCard extends StatelessWidget {
           ),
         ),
       ),
+    ),
     );
   }
 }
@@ -711,10 +749,10 @@ class _MissionCard extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.05),
+                  color: PremiumTheme.cardBgLight,
                   borderRadius: BorderRadius.circular(10),
                   border: Border.all(
-                    color: Colors.white.withValues(alpha: 0.1),
+                    color: const Color(0xFFE5E7EB),
                   ),
                 ),
                 child: Row(
@@ -732,7 +770,7 @@ class _MissionCard extends StatelessWidget {
                           Text(
                             'Destination',
                             style: PremiumTheme.bodySmall.copyWith(
-                              color: Colors.white60,
+                              color: PremiumTheme.textSecondary,
                               fontSize: 11,
                             ),
                           ),
@@ -786,13 +824,13 @@ class _MissionCard extends StatelessWidget {
                     Icon(
                       Icons.calendar_today,
                       size: 14,
-                      color: Colors.white60,
+                      color: PremiumTheme.textSecondary,
                     ),
                     const SizedBox(width: 6),
                     Text(
                       dateFormat.format(mission.pickupDate!),
                       style: PremiumTheme.bodySmall.copyWith(
-                        color: Colors.white70,
+                        color: PremiumTheme.textSecondary,
                       ),
                     ),
                   ],
@@ -1033,7 +1071,7 @@ class _MissionCard extends StatelessWidget {
 
                                     if (result != null && result is List && result.isNotEmpty) {
                                       final token = result[0]['share_token'] as String;
-                                      final reportUrl = 'https://www.xcrackz.com/rapport-inspection/$token';
+                                      final reportUrl = 'https://www.checkflow.fr/rapport-inspection/$token';
                                       await url_launcher.launchUrl(Uri.parse(reportUrl), mode: url_launcher.LaunchMode.externalApplication);
                                     }
                                   } catch (e) {
@@ -1109,7 +1147,7 @@ class _MissionCard extends StatelessWidget {
 
                                     if (result != null && result is List && result.isNotEmpty) {
                                       final token = result[0]['share_token'] as String;
-                                      final reportUrl = 'https://www.xcrackz.com/rapport-inspection/$token';
+                                      final reportUrl = 'https://www.checkflow.fr/rapport-inspection/$token';
                                       final vehicleInfo = mission.vehicleType ?? 'Véhicule';
                                       await SharePlus.instance.share(ShareParams(text: '📋 Rapport de départ - $vehicleInfo\n$reportUrl'));
                                       
@@ -1274,7 +1312,7 @@ class _MissionCard extends StatelessWidget {
 
                                     if (result != null && result is List && result.isNotEmpty) {
                                       final token = result[0]['share_token'] as String;
-                                      final reportUrl = 'https://www.xcrackz.com/rapport-inspection/$token';
+                                      final reportUrl = 'https://www.checkflow.fr/rapport-inspection/$token';
                                       await url_launcher.launchUrl(Uri.parse(reportUrl), mode: url_launcher.LaunchMode.externalApplication);
                                     }
                                   } catch (e) {
@@ -1350,7 +1388,7 @@ class _MissionCard extends StatelessWidget {
 
                                     if (result != null && result is List && result.isNotEmpty) {
                                       final token = result[0]['share_token'] as String;
-                                      final reportUrl = 'https://www.xcrackz.com/rapport-inspection/$token';
+                                      final reportUrl = 'https://www.checkflow.fr/rapport-inspection/$token';
                                       final vehicleInfo = mission.vehicleType ?? 'Véhicule';
                                       await SharePlus.instance.share(ShareParams(text: '✅ Rapport complet - $vehicleInfo\n$reportUrl'));
                                       

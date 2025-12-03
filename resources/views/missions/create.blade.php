@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Nouvelle mission - FleetCheck')
+@section('title', 'Nouvelle mission - CheckFlow')
 
 @section('content')
 <div class="mb-8">

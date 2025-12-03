@@ -11,7 +11,7 @@ export default function Legal() {
               <span className="text-white font-black text-lg">XZ</span>
             </div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">
-              xCrackz
+              CheckFlow
             </h1>
           </Link>
           <Link
@@ -33,28 +33,28 @@ export default function Legal() {
           <section className="bg-white/5 backdrop-blur-xl border border-white/20 p-8 rounded-2xl">
             <h2 className="text-2xl font-bold text-white mb-4">1. Éditeur du site</h2>
             <p className="mb-2">
-              Le site xCrackz est édité par :
+              Le site CheckFlow est édité par :
             </p>
             <div className="pl-4 space-y-1">
-              <p><strong className="text-white">Raison sociale :</strong> xCrackz SAS</p>
+              <p><strong className="text-white">Raison sociale :</strong> CheckFlow SAS</p>
               <p><strong className="text-white">Forme juridique :</strong> Société par Actions Simplifiée</p>
               <p><strong className="text-white">Capital social :</strong> 10 000 €</p>
               <p><strong className="text-white">Siège social :</strong> 123 Rue du Convoyage, 75001 Paris, France</p>
               <p><strong className="text-white">SIRET :</strong> 123 456 789 00010</p>
               <p><strong className="text-white">RCS :</strong> Paris B 123 456 789</p>
               <p><strong className="text-white">N° TVA intracommunautaire :</strong> FR 12 123456789</p>
-              <p><strong className="text-white">Email :</strong> contact@xcrackz.fr</p>
+              <p><strong className="text-white">Email :</strong> contact@CheckFlow.fr</p>
               <p><strong className="text-white">Téléphone :</strong> +33 1 23 45 67 89</p>
             </div>
             <p className="mt-4">
-              <strong className="text-white">Directeur de publication :</strong> Jean Dupont, Président de xCrackz SAS
+              <strong className="text-white">Directeur de publication :</strong> Jean Dupont, Président de CheckFlow SAS
             </p>
           </section>
 
           <section className="bg-white/5 backdrop-blur-xl border border-white/20 p-8 rounded-2xl">
             <h2 className="text-2xl font-bold text-white mb-4">2. Hébergement</h2>
             <p className="mb-2">
-              Le site xCrackz est hébergé par :
+              Le site CheckFlow est hébergé par :
             </p>
             <div className="pl-4 space-y-1">
               <p><strong className="text-white">Hébergeur :</strong> Vercel Inc.</p>
@@ -74,13 +74,13 @@ export default function Legal() {
           <section className="bg-white/5 backdrop-blur-xl border border-white/20 p-8 rounded-2xl">
             <h2 className="text-2xl font-bold text-white mb-4">3. Propriété intellectuelle</h2>
             <p className="mb-4">
-              L'ensemble du contenu de ce site (textes, images, vidéos, logos, icônes, sons, logiciels, etc.) est la propriété exclusive de xCrackz SAS ou de ses partenaires, sauf mention contraire.
+              L'ensemble du contenu de ce site (textes, images, vidéos, logos, icônes, sons, logiciels, etc.) est la propriété exclusive de CheckFlow SAS ou de ses partenaires, sauf mention contraire.
             </p>
             <p className="mb-4">
-              Toute reproduction, représentation, modification, publication, adaptation de tout ou partie des éléments du site, quel que soit le moyen ou le procédé utilisé, est interdite, sauf autorisation écrite préalable de xCrackz SAS.
+              Toute reproduction, représentation, modification, publication, adaptation de tout ou partie des éléments du site, quel que soit le moyen ou le procédé utilisé, est interdite, sauf autorisation écrite préalable de CheckFlow SAS.
             </p>
             <p>
-              La marque xCrackz, ainsi que tous les signes distinctifs reproduits sur le site, sont la propriété exclusive de xCrackz SAS. Toute reproduction totale ou partielle de ces marques sans autorisation est interdite.
+              La marque CheckFlow, ainsi que tous les signes distinctifs reproduits sur le site, sont la propriété exclusive de CheckFlow SAS. Toute reproduction totale ou partielle de ces marques sans autorisation est interdite.
             </p>
           </section>
 
@@ -93,8 +93,8 @@ export default function Legal() {
               Pour exercer ces droits, vous pouvez nous contacter :
             </p>
             <div className="pl-4 space-y-1">
-              <p><strong className="text-white">Par email :</strong> dpo@xcrackz.fr</p>
-              <p><strong className="text-white">Par courrier :</strong> xCrackz SAS - DPO, 123 Rue du Convoyage, 75001 Paris, France</p>
+              <p><strong className="text-white">Par email :</strong> dpo@CheckFlow.fr</p>
+              <p><strong className="text-white">Par courrier :</strong> CheckFlow SAS - DPO, 123 Rue du Convoyage, 75001 Paris, France</p>
             </div>
             <p className="mt-4">
               Les données collectées sur ce site sont traitées de manière confidentielle et sécurisée. Elles ne sont jamais vendues ou partagées avec des tiers sans votre consentement explicite, sauf obligation légale.
@@ -104,7 +104,7 @@ export default function Legal() {
           <section className="bg-white/5 backdrop-blur-xl border border-white/20 p-8 rounded-2xl">
             <h2 className="text-2xl font-bold text-white mb-4">5. Cookies</h2>
             <p className="mb-4">
-              Le site xCrackz utilise des cookies pour améliorer l'expérience utilisateur et analyser le trafic. Les cookies sont de petits fichiers textes stockés sur votre appareil.
+              Le site CheckFlow utilise des cookies pour améliorer l'expérience utilisateur et analyser le trafic. Les cookies sont de petits fichiers textes stockés sur votre appareil.
             </p>
             <p className="mb-4">
               <strong className="text-white">Types de cookies utilisés :</strong>
@@ -122,13 +122,13 @@ export default function Legal() {
           <section className="bg-white/5 backdrop-blur-xl border border-white/20 p-8 rounded-2xl">
             <h2 className="text-2xl font-bold text-white mb-4">6. Responsabilité</h2>
             <p className="mb-4">
-              xCrackz SAS s'efforce de fournir des informations exactes et à jour sur son site. Toutefois, nous ne pouvons garantir l'exactitude, la précision ou l'exhaustivité des informations mises à disposition.
+              CheckFlow SAS s'efforce de fournir des informations exactes et à jour sur son site. Toutefois, nous ne pouvons garantir l'exactitude, la précision ou l'exhaustivité des informations mises à disposition.
             </p>
             <p className="mb-4">
-              xCrackz SAS ne pourra être tenu responsable des dommages directs ou indirects résultant de l'utilisation du site ou de l'impossibilité d'y accéder.
+              CheckFlow SAS ne pourra être tenu responsable des dommages directs ou indirects résultant de l'utilisation du site ou de l'impossibilité d'y accéder.
             </p>
             <p>
-              Le site peut contenir des liens vers des sites externes. xCrackz SAS n'exerce aucun contrôle sur ces sites et décline toute responsabilité quant à leur contenu.
+              Le site peut contenir des liens vers des sites externes. CheckFlow SAS n'exerce aucun contrôle sur ces sites et décline toute responsabilité quant à leur contenu.
             </p>
           </section>
 
@@ -145,10 +145,10 @@ export default function Legal() {
           <section className="bg-white/5 backdrop-blur-xl border border-white/20 p-8 rounded-2xl">
             <h2 className="text-2xl font-bold text-white mb-4">8. Contact</h2>
             <p className="mb-2">
-              Pour toute question concernant les mentions légales ou le site xCrackz, vous pouvez nous contacter :
+              Pour toute question concernant les mentions légales ou le site CheckFlow, vous pouvez nous contacter :
             </p>
             <div className="pl-4 space-y-1">
-              <p><strong className="text-white">Email :</strong> contact@xcrackz.fr</p>
+              <p><strong className="text-white">Email :</strong> contact@CheckFlow.fr</p>
               <p><strong className="text-white">Téléphone :</strong> +33 1 23 45 67 89</p>
               <p><strong className="text-white">Adresse :</strong> 123 Rue du Convoyage, 75001 Paris, France</p>
             </div>

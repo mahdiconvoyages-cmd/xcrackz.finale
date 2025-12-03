@@ -102,14 +102,14 @@ export async function copyShareCode(code: string): Promise<boolean> {
 export function getShareMessage(code: string, missionTitle?: string): string {
   const title = missionTitle ? `"${missionTitle}"` : 'une mission';
   
-  return `🚗 Mission xCrackz
+  return `🚗 Mission CheckFlow
   
 Vous avez été invité à rejoindre ${title}.
 
 Code de mission: ${code}
 
 Pour accepter:
-1. Ouvrez l'app xCrackz
+1. Ouvrez l'app CheckFlow
 2. Allez dans "Missions"
 3. Cliquez sur "Rejoindre une mission"
 4. Entrez le code: ${code}
@@ -154,7 +154,7 @@ export async function shareMission(code: string, missionTitle?: string): Promise
   if (navigator.share) {
     try {
       await navigator.share({
-        title: 'Mission xCrackz',
+        title: 'Mission CheckFlow',
         text: message,
       });
       return true;
@@ -227,7 +227,7 @@ export async function shareMissionLink(
     const webLink = getMissionWebLink(missionId);
     const deeplink = getMissionDeeplink(missionId);
     
-    const title = missionTitle || 'Mission xCrackz';
+    const title = missionTitle || 'Mission CheckFlow';
     const text = `📦 ${title}\n\nOuvre cette mission:\n${deeplink}\n\nOu sur le web: ${webLink}`;
 
     if (navigator.share) {
