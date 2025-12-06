@@ -1,6 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:checkflow_app/services/offline_service.dart';
-import 'package:checkflow_app/models/mission.dart';
+import 'package:CHECKSFLEET_app/services/offline_service.dart';
+import 'package:CHECKSFLEET_app/models/mission.dart';
 
 void main() {
   late OfflineService offlineService;

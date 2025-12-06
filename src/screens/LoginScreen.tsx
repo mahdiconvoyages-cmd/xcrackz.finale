@@ -75,7 +75,7 @@ export default function LoginScreen({ navigation }: any) {
             >
               <Text style={styles.logoText}>CF</Text>
             </LinearGradient>
-            <Text style={styles.title}>CheckFlow</Text>
+            <Text style={styles.title}>CHECKSFLEET</Text>
             <Text style={styles.subtitle}>Inspections véhicules professionnelles</Text>
           </View>
 

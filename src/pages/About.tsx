@@ -11,7 +11,7 @@ export default function About() {
               <span className="text-white font-black text-lg">CF</span>
             </div>
             <h1 className="text-2xl font-bold bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent">
-              CheckFlow
+              CHECKSFLEET
             </h1>
           </Link>
           <Link
@@ -42,13 +42,13 @@ export default function About() {
             </div>
             <div className="space-y-4 text-slate-300">
               <p>
-                CheckFlow est né en 2024 d'un constat simple : les professionnels de l'inspection automobile manquaient cruellement d'outils modernes et adaptés à leur activité. Entre les feuilles de calcul Excel dispersées, les photos perdues dans les téléphones et la facturation manuelle chronophage, il était temps de proposer une solution complète et intuitive.
+                CHECKSFLEET est né en 2024 d'un constat simple : les professionnels de l'inspection automobile manquaient cruellement d'outils modernes et adaptés à leur activité. Entre les feuilles de calcul Excel dispersées, les photos perdues dans les téléphones et la facturation manuelle chronophage, il était temps de proposer une solution complète et intuitive.
               </p>
               <p>
                 Notre équipe fondatrice, composée d'experts en logistique automobile et de développeurs passionnés, a travaillé pendant plus d'un an pour créer la plateforme SaaS la plus complète du marché. Chaque fonctionnalité a été pensée et testée avec de vrais professionnels du terrain.
               </p>
               <p>
-                Aujourd'hui, CheckFlow accompagne des centaines d'inspecteurs indépendants et d'entreprises de toute taille à travers la France et l'Europe. Notre mission ? Simplifier votre quotidien pour que vous puissiez vous concentrer sur l'essentiel : votre métier.
+                Aujourd'hui, CHECKSFLEET accompagne des centaines d'inspecteurs indépendants et d'entreprises de toute taille à travers la France et l'Europe. Notre mission ? Simplifier votre quotidien pour que vous puissiez vous concentrer sur l'essentiel : votre métier.
               </p>
             </div>
           </section>
@@ -96,7 +96,7 @@ export default function About() {
                 Nous croyons fermement que la technologie doit être au service des professionnels, pas l'inverse. Notre vision est de créer un écosystème complet où chaque acteur du convoyage automobile peut trouver les outils dont il a besoin pour développer son activité.
               </p>
               <p className="text-lg">
-                Au-delà d'une simple plateforme de gestion, CheckFlow ambitionne de devenir la référence de l'inspection véhicule, où inspecteurs, entreprises et clients peuvent se rencontrer, échanger et collaborer en toute confiance.
+                Au-delà d'une simple plateforme de gestion, CHECKSFLEET ambitionne de devenir la référence de l'inspection véhicule, où inspecteurs, entreprises et clients peuvent se rencontrer, échanger et collaborer en toute confiance.
               </p>
             </div>
           </section>
@@ -147,7 +147,7 @@ export default function About() {
           <section className="text-center bg-gradient-to-r from-teal-500/20 to-cyan-500/20 backdrop-blur-xl border border-teal-500/30 p-12 rounded-3xl">
             <h2 className="text-3xl font-bold mb-4">Rejoignez l'aventure</h2>
             <p className="text-xl text-slate-300 mb-8">
-              Faites partie de la communauté CheckFlow et transformez votre activité d'inspection
+              Faites partie de la communauté CHECKSFLEET et transformez votre activité d'inspection
             </p>
             <div className="flex flex-col sm:flex-row gap-4 justify-center">
               <Link

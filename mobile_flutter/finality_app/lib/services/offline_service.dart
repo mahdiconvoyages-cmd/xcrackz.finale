@@ -21,7 +21,7 @@ class OfflineService {
 
     try {
       final dbPath = await getDatabasesPath();
-      final path = join(dbPath, 'checkflow_offline.db');
+      final path = join(dbPath, 'CHECKSFLEET_offline.db');
 
       _database = await openDatabase(
         path,

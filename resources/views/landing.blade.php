@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>CheckFlow - Plateforme de Gestion de Convoyage Automobile</title>
+    <title>CHECKSFLEET - Plateforme de Gestion de Convoyage Automobile</title>
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -52,7 +52,7 @@
     <!-- Header -->
     <nav class="p-6">
         <div class="container mx-auto flex justify-between items-center">
-            <h1 class="text-2xl font-bold text-teal-400">CheckFlow</h1>
+            <h1 class="text-2xl font-bold text-teal-400">CHECKSFLEET</h1>
             <div class="space-x-4">
                 <a href="/login" class="text-white hover:text-teal-400 transition">Connexion</a>
                 <a href="/register" class="btn-primary px-6 py-2 rounded-lg text-white font-semibold">Commencer</a>
@@ -68,7 +68,7 @@
                 <span class="text-teal-400">en toute simplicité</span>
             </h2>
             <p class="text-xl text-gray-300 mb-8">
-                CheckFlow est la plateforme SaaS complète pour organiser, suivre et facturer vos missions de convoyage automobile.
+                CHECKSFLEET est la plateforme SaaS complète pour organiser, suivre et facturer vos missions de convoyage automobile.
             </p>
             <div class="flex justify-center space-x-4">
                 <a href="/register" class="btn-primary px-8 py-4 rounded-lg text-white font-bold text-lg">
@@ -162,7 +162,7 @@
                     </div>
                 </div>
                 <p class="text-gray-300 mb-4">
-                    "CheckFlow a transformé notre façon de gérer les convoyages. Tout est centralisé et simple à utiliser."
+                    "CHECKSFLEET a transformé notre façon de gérer les convoyages. Tout est centralisé et simple à utiliser."
                 </p>
                 <p class="font-bold">Jean-Pierre D.</p>
                 <p class="text-sm text-gray-400">Directeur de flotte</p>
@@ -234,7 +234,7 @@
         <div class="glass-card p-12 rounded-2xl max-w-3xl mx-auto">
             <h3 class="text-3xl font-bold mb-4">Prêt à optimiser votre convoyage ?</h3>
             <p class="text-xl text-gray-300 mb-8">
-                Rejoignez des centaines de professionnels qui utilisent CheckFlow quotidiennement.
+                Rejoignez des centaines de professionnels qui utilisent CHECKSFLEET quotidiennement.
             </p>
             <a href="/register" class="btn-primary px-12 py-4 rounded-lg text-white font-bold text-lg inline-block">
                 Créer mon compte gratuit
@@ -247,8 +247,8 @@
         <div class="container mx-auto px-6 py-8">
             <div class="flex justify-between items-center">
                 <div>
-                    <h3 class="text-xl font-bold text-teal-400">CheckFlow</h3>
-                    <p class="text-gray-400 text-sm mt-1">© 2025 CheckFlow. Tous droits réservés.</p>
+                    <h3 class="text-xl font-bold text-teal-400">CHECKSFLEET</h3>
+                    <p class="text-gray-400 text-sm mt-1">© 2025 CHECKSFLEET. Tous droits réservés.</p>
                 </div>
                 <div class="flex space-x-6">
                     <a href="#" class="text-gray-400 hover:text-teal-400 transition">CGU</a>

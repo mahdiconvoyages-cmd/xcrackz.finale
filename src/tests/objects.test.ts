@@ -1,7 +1,7 @@
-ï»¿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('Objects Utilities', () => {
-  it('devrait cloner profondÃ©ment un objet', () => {
+  it('devrait cloner profondément un objet', () => {
     const original = { a: 1, b: { c: 2 } };
     const clone = JSON.parse(JSON.stringify(original));
     clone.b.c = 3;
@@ -15,7 +15,7 @@ describe('Objects Utilities', () => {
     expect(merged).toEqual({ a: 1, b: 3, c: 4 });
   });
 
-  it('devrait vÃ©rifier si un objet est vide', () => {
+  it('devrait vérifier si un objet est vide', () => {
     expect(Object.keys({}).length).toBe(0);
     expect(Object.keys({ a: 1 }).length).toBeGreaterThan(0);
   });
@@ -33,7 +33,7 @@ describe('Promise Utilities', () => {
     expect(result).toBe(42);
   });
 
-  it('devrait gÃ©rer le rejet d une promesse', async () => {
+  it('devrait gérer le rejet d une promesse', async () => {
     try {
       await Promise.reject(new Error('test'));
     } catch (e) {

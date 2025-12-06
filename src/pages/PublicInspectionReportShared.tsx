@@ -341,7 +341,7 @@ export default function PublicInspectionReportShared() {
 
         {/* Footer */}
         <div className="text-center text-gray-500 text-sm mt-8 print:mt-4">
-          <p>Document généré par CHECKFLOW - Transport & Convoyage Professionnel</p>
+          <p>Document généré par CHECKSFLEET - Transport & Convoyage Professionnel</p>
           <p className="mt-1">Rapport authentique et sécurisé • {new Date().toLocaleDateString('fr-FR')}</p>
         </div>
       </div>

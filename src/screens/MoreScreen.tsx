@@ -147,7 +147,7 @@ export default function MoreScreen() {
         ))}
 
         <View style={styles.footer}>
-          <Text style={styles.footerText}>CheckFlow Mobile v1.0</Text>
+          <Text style={styles.footerText}>CHECKSFLEET Mobile v1.0</Text>
           <Text style={styles.footerSubtext}>© 2025 Tous droits réservés</Text>
         </View>
       </ScrollView>

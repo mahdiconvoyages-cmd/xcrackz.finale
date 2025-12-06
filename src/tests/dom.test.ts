@@ -1,19 +1,19 @@
-ï»¿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('LocalStorage Utilities', () => {
-  it('devrait gÃ©rer l absence de localStorage', () => {
+  it('devrait gérer l absence de localStorage', () => {
     const hasLocalStorage = typeof localStorage !== 'undefined';
     expect(hasLocalStorage).toBeDefined();
   });
 
-  it('devrait sÃ©rialiser en JSON', () => {
+  it('devrait sérialiser en JSON', () => {
     const data = { name: 'Test', count: 42 };
     const json = JSON.stringify(data);
     expect(json).toContain('Test');
     expect(json).toContain('42');
   });
 
-  it('devrait dÃ©sÃ©rialiser du JSON', () => {
+  it('devrait désérialiser du JSON', () => {
     const json = '{"name":"Test","count":42}';
     const data = JSON.parse(json);
     expect(data.name).toBe('Test');
@@ -22,12 +22,12 @@ describe('LocalStorage Utilities', () => {
 });
 
 describe('DOM Utilities', () => {
-  it('devrait crÃ©er un Ã©lÃ©ment', () => {
+  it('devrait créer un élément', () => {
     const div = document.createElement('div');
     expect(div.tagName).toBe('DIV');
   });
 
-  it('devrait dÃ©finir un attribut', () => {
+  it('devrait définir un attribut', () => {
     const div = document.createElement('div');
     div.setAttribute('data-test', 'value');
     expect(div.getAttribute('data-test')).toBe('value');

@@ -1010,9 +1010,9 @@ export default function ChatAssistant() {
         <div>
           <h3 className="font-bold flex items-center gap-2">
             <Sparkles className="w-5 h-5" />
-            CheckFlow Agent
+            CHECKSFLEET Agent
           </h3>
-          <p className="text-xs opacity-90">Assistant IA CheckFlow</p>
+          <p className="text-xs opacity-90">Assistant IA CHECKSFLEET</p>
         </div>
         <div className="flex items-center gap-2">
           <button

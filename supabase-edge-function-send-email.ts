@@ -161,7 +161,7 @@ async function sendViaSendGrid(emailData: EmailRequest, apiKey: string) {
         ],
         from: {
           email: 'noreply@checksfleet.com',
-          name: 'CheckFlow - Inspection de Véhicules',
+          name: 'CHECKSFLEET - Inspection de Véhicules',
         },
         reply_to: {
           email: 'contact@checksfleet.com',
@@ -222,7 +222,7 @@ async function sendViaResend(emailData: EmailRequest, apiKey: string) {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        from: 'CheckFlow <noreply@checksfleet.com>',
+        from: 'CHECKSFLEET <noreply@checksfleet.com>',
         to: [emailData.to],
         subject: emailData.subject,
         html: emailData.html,

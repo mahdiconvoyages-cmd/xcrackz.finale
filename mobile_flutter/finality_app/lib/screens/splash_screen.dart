@@ -77,7 +77,7 @@ class _SplashScreenState extends State<SplashScreen> {
               ),
               const SizedBox(height: 40),
               const Text(
-                'CheckFlow',
+                'CHECKSFLEET',
                 style: TextStyle(
                   color: Colors.white,
                   fontSize: 36,

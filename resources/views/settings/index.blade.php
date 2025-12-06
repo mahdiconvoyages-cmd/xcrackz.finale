@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Paramètres - CheckFlow')
+@section('title', 'Paramètres - CHECKSFLEET')
 
 @section('content')
 <div class="mb-8">

@@ -141,7 +141,7 @@ export default function PublicInspectionReport() {
                 <FileText className="w-6 h-6 text-white" />
               </div>
               <div>
-                <h1 className="text-lg font-bold text-slate-900">CHECKFLOW</h1>
+                <h1 className="text-lg font-bold text-slate-900">CHECKSFLEET</h1>
                 <p className="text-sm text-slate-500">Rapport d'inspection</p>
               </div>
             </div>

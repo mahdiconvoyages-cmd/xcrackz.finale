@@ -1,4 +1,4 @@
-export const APP_NAME = 'CheckFlow';
+export const APP_NAME = 'CHECKSFLEET';
 export const APP_VERSION = '1.0.0';
 
 export const MISSION_STATUSES = {
@@ -82,8 +82,8 @@ export const COLORS = {
 } as const;
 
 export const STORAGE_KEYS = {
-  AUTH_TOKEN: '@checkflow:auth_token',
-  USER_PROFILE: '@checkflow:user_profile',
-  THEME: '@checkflow:theme',
-  LANGUAGE: '@checkflow:language',
+  AUTH_TOKEN: '@CHECKSFLEET:auth_token',
+  USER_PROFILE: '@CHECKSFLEET:user_profile',
+  THEME: '@CHECKSFLEET:theme',
+  LANGUAGE: '@CHECKSFLEET:language',
 } as const;

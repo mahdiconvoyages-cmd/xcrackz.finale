@@ -120,7 +120,7 @@ export default function ShareCodeDisplay({
           📱 Comment l'utilisateur rejoint la mission:
         </p>
         <ol className="text-xs text-blue-700 space-y-1 ml-4">
-          <li>1. Ouvre l'app CHECKFLOW</li>
+          <li>1. Ouvre l'app CHECKSFLEET</li>
           <li>2. Va dans "Missions"</li>
           <li>3. Clique "Rejoindre une mission"</li>
           <li>4. Entre le code: <span className="font-mono font-bold">{normalizeShareCodeForDisplay(code)}</span></li>

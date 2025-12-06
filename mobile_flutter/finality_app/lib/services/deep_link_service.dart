@@ -58,7 +58,7 @@ class DeepLinkService {
 
     // Handle mission links: https://finality.app/mission/{missionId} or finality://mission/{missionId}
     if ((uri.host == 'finality.app' && pathSegments.first == 'mission') ||
-        (uri.scheme == 'checkflow' && uri.host == 'mission')) {
+        (uri.scheme == 'CHECKSFLEET' && uri.host == 'mission')) {
       
       final missionId = pathSegments.length > 1 
           ? pathSegments[1] 

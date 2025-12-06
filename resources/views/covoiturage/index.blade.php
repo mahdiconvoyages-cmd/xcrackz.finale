@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Covoiturage - CheckFlow')
+@section('title', 'Covoiturage - CHECKSFLEET')
 
 @section('content')
 <!-- Hero Section -->

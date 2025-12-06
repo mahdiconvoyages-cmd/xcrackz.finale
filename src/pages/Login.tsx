@@ -42,7 +42,7 @@ export default function Login() {
           <div className="space-y-8">
             <div className="animate-in fade-in duration-1000">
               <h1 className="text-6xl font-black mb-4 bg-gradient-to-r from-teal-400 via-cyan-400 to-blue-400 bg-clip-text text-transparent">
-                CheckFlow
+                CHECKSFLEET
               </h1>
               <p className="text-2xl font-bold text-slate-300 mb-2">
                 Votre solution de gestion professionnelle
@@ -73,7 +73,7 @@ export default function Login() {
 
             <div className="mt-12 p-6 bg-white/5 backdrop-blur-sm rounded-xl border border-white/10 animate-in fade-in duration-1000 delay-500">
               <p className="text-slate-300 text-sm italic">
-                "CheckFlow a transformé notre façon de gérer nos missions. Une solution indispensable !"
+                "CHECKSFLEET a transformé notre façon de gérer nos missions. Une solution indispensable !"
               </p>
               <p className="text-teal-400 font-bold mt-2">— Client satisfait</p>
             </div>
@@ -84,7 +84,7 @@ export default function Login() {
           <div className="w-full max-w-md">
             <div className="lg:hidden text-center mb-8">
               <h1 className="text-4xl font-black bg-gradient-to-r from-teal-400 to-cyan-400 bg-clip-text text-transparent mb-2">
-                CheckFlow
+                CHECKSFLEET
               </h1>
               <p className="text-slate-400">Connectez-vous à votre compte</p>
             </div>

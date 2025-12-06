@@ -1,6 +1,6 @@
 {
-  "name": "CheckFlow - Inspection Véhicules",
-  "short_name": "CheckFlow",
+  "name": "CHECKSFLEET - Inspection Véhicules",
+  "short_name": "CHECKSFLEET",
   "description": "Plateforme SaaS pour l'inspection de véhicules - Missions, Tracking GPS, Rapports d'inspection",
   "start_url": "/",
   "scope": "/",

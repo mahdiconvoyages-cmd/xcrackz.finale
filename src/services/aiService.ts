@@ -58,7 +58,7 @@ export async function sendAIMessage(
         'Authorization': `Bearer ${OPENROUTER_API_KEY}`,
         'Content-Type': 'application/json',
         'HTTP-Referer': window.location.origin,
-        'X-Title': 'CheckFlow AI Assistant',
+        'X-Title': 'CHECKSFLEET AI Assistant',
       }
     };
 
@@ -117,13 +117,13 @@ export async function sendAIMessage(
   }
 }
 
-// Assistant conversationnel pour CheckFlow
-export async function askCheckFlowAssistant(
+// Assistant conversationnel pour CHECKSFLEET
+export async function askCHECKSFLEETAssistant(
   userQuestion: string,
   context?: any,
   conversationHistory?: AIMessage[]
 ): Promise<string> {
-  const systemPrompt = `Tu es l'assistant IA de CheckFlow, une plateforme d'inspection de véhicules.
+  const systemPrompt = `Tu es l'assistant IA de CHECKSFLEET, une plateforme d'inspection de véhicules.
 
 🎯 TES COMPÉTENCES:
 - Gestion de missions de transport
@@ -170,7 +170,7 @@ export async function analyzeIntent(userInput: string): Promise<{
   confidence: number;
   action?: string;
 }> {
-  const systemPrompt = `Tu es un système d'analyse d'intentions pour CheckFlow.
+  const systemPrompt = `Tu es un système d'analyse d'intentions pour CHECKSFLEET.
 
 INTENTIONS POSSIBLES:
 - create_mission: Créer une nouvelle mission

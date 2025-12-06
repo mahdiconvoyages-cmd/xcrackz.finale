@@ -2,8 +2,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:checkflow_app/services/mission_service.dart';
-import 'package:checkflow_app/models/mission.dart';
+import 'package:CHECKSFLEET_app/services/mission_service.dart';
+import 'package:CHECKSFLEET_app/models/mission.dart';
 
 // Générer les mocks avec: flutter pub run build_runner build
 @GenerateMocks([SupabaseClient, GoTrueClient, PostgrestQueryBuilder])

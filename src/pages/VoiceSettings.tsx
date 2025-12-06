@@ -101,7 +101,7 @@ export default function VoiceSettings() {
 
     setIsPlaying(true);
     try {
-      const testText = "Bonjour ! Je suis Clara, votre assistante virtuelle CHECKFLOW. Comment puis-je vous aider aujourd'hui ?";
+      const testText = "Bonjour ! Je suis Clara, votre assistante virtuelle CHECKSFLEET. Comment puis-je vous aider aujourd'hui ?";
       
       if (voiceOption) {
         // Tester une voix spécifique

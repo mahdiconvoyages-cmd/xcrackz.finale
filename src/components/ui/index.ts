@@ -1,4 +1,4 @@
-// 🎨 CheckFlow UI Components
+// 🎨 CHECKSFLEET UI Components
 // Export centralisé de tous les composants du design system
 
 export { default as PageHeader } from './PageHeader';

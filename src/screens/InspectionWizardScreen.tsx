@@ -1,4 +1,4 @@
-ï»¿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -30,7 +30,7 @@ interface WizardStep {
   icon: string;
   required: boolean;
   photo: InspectionPhoto | null;
-  photoUri?: string; // URI locale pour affichage immÃ©diat
+  photoUri?: string; // URI locale pour affichage immédiat
   aiDescription?: string;
   descriptionApproved?: boolean;
 }
@@ -52,44 +52,44 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
   const [uploading, setUploading] = useState(false);
   const [analyzing, setAnalyzing] = useState(false);
 
-  // ðŸŽ¯ WIZARD: 4 obligatoires + 2 optionnelles
+  // ?? WIZARD: 4 obligatoires + 2 optionnelles
   const [steps, setSteps] = useState<WizardStep[]>([
     {
       type: 'front',
       label: 'Vue avant',
-      instruction: 'Positionnez-vous face au vÃ©hicule, Ã  environ 3 mÃ¨tres',
+      instruction: 'Positionnez-vous face au véhicule, à environ 3 mètres',
       icon: 'arrow-up',
       required: true,
       photo: null,
     },
     {
       type: 'back',
-      label: 'Vue arriÃ¨re',
-      instruction: 'Positionnez-vous derriÃ¨re le vÃ©hicule, Ã  environ 3 mÃ¨tres',
+      label: 'Vue arrière',
+      instruction: 'Positionnez-vous derrière le véhicule, à environ 3 mètres',
       icon: 'arrow-down',
       required: true,
       photo: null,
     },
     {
       type: 'left_side',
-      label: 'CÃ´tÃ© gauche',
-      instruction: 'Positionnez-vous Ã  gauche du vÃ©hicule, vue complÃ¨te',
+      label: 'Côté gauche',
+      instruction: 'Positionnez-vous à gauche du véhicule, vue complète',
       icon: 'arrow-left',
       required: true,
       photo: null,
     },
     {
       type: 'right_side',
-      label: 'CÃ´tÃ© droit',
-      instruction: 'Positionnez-vous Ã  droite du vÃ©hicule, vue complÃ¨te',
+      label: 'Côté droit',
+      instruction: 'Positionnez-vous à droite du véhicule, vue complète',
       icon: 'arrow-right',
       required: true,
       photo: null,
     },
     {
       type: 'interior',
-      label: 'IntÃ©rieur (optionnel)',
-      instruction: 'Tableau de bord, siÃ¨ges, Ã©tat gÃ©nÃ©ral intÃ©rieur',
+      label: 'Intérieur (optionnel)',
+      instruction: 'Tableau de bord, sièges, état général intérieur',
       icon: 'layout',
       required: false,
       photo: null,
@@ -97,7 +97,7 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
     {
       type: 'dashboard',
       label: 'Compteur (optionnel)',
-      instruction: 'Photo nette du kilomÃ©trage et indicateurs',
+      instruction: 'Photo nette du kilométrage et indicateurs',
       icon: 'activity',
       required: false,
       photo: null,
@@ -120,7 +120,7 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
     if (cameraStatus !== 'granted' || locationStatus !== 'granted') {
       Alert.alert(
         'Permissions requises',
-        'La camÃ©ra et la localisation sont nÃ©cessaires pour l\'inspection',
+        'La caméra et la localisation sont nécessaires pour l\'inspection',
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     }
@@ -146,15 +146,15 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
 
       const asset = result.assets[0];
       
-      // 1. Afficher immÃ©diatement la photo (URI locale) - FIX: Ã©vite disparition
+      // 1. Afficher immédiatement la photo (URI locale) - FIX: évite disparition
       const newSteps = [...steps];
       newSteps[currentStep] = {
         ...newSteps[currentStep],
-        photoUri: asset.uri, // Affichage immÃ©diat
+        photoUri: asset.uri, // Affichage immédiat
       };
       setSteps(newSteps);
 
-      // 2. Upload en arriÃ¨re-plan
+      // 2. Upload en arrière-plan
       setUploading(true);
       
       try {
@@ -175,7 +175,7 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
           throw new Error('Upload failed');
         }
 
-        // 3. Mettre Ã  jour avec la photo uploadÃ©e - FIX: garder URI locale
+        // 3. Mettre à jour avec la photo uploadée - FIX: garder URI locale
         const updatedSteps = [...steps];
         updatedSteps[currentStep] = {
           ...updatedSteps[currentStep],
@@ -191,7 +191,7 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
           await analyzeWithAI(asset.base64, currentStep);
         }
 
-        // 5. Auto-passer Ã  l'Ã©tape suivante
+        // 5. Auto-passer à l'étape suivante
         setTimeout(() => {
           if (currentStep < steps.length - 1) {
             setCurrentStep(currentStep + 1);
@@ -214,8 +214,8 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
         
         Alert.alert(
           'Erreur d\'upload',
-          'La photo n\'a pas pu Ãªtre uploadÃ©e. RÃ©essayez.',
-          [{ text: 'RÃ©essayer', onPress: handleTakePhoto }]
+          'La photo n\'a pas pu être uploadée. Réessayez.',
+          [{ text: 'Réessayer', onPress: handleTakePhoto }]
         );
       }
 
@@ -245,15 +245,15 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
       setAnalyzing(false);
 
       // Afficher la description si online
-      const isOffline = description.includes('ðŸ“¡') || description.includes('âš ï¸');
+      const isOffline = description.includes('??') || description.includes('??');
       
       if (!isOffline) {
         Alert.alert(
-          'ðŸ¤– Description IA',
+          '?? Description IA',
           description,
           [
             {
-              text: 'OK âœ“',
+              text: 'OK ?',
               onPress: () => {
                 const approved = [...steps];
                 approved[stepIndex] = {
@@ -305,8 +305,8 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
     const completedPhotos = steps.filter(s => s.photo).map(s => s.photo!);
     
     Alert.alert(
-      'âœ… Photos complÃ¨tes',
-      `${totalPhotos} photo${totalPhotos > 1 ? 's' : ''} capturÃ©e${totalPhotos > 1 ? 's' : ''}`,
+      '? Photos complètes',
+      `${totalPhotos} photo${totalPhotos > 1 ? 's' : ''} capturée${totalPhotos > 1 ? 's' : ''}`,
       [
         {
           text: 'Continuer',
@@ -332,12 +332,12 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
         </TouchableOpacity>
         
         <View style={styles.headerCenter}>
-          <Text style={styles.headerTitle}>Photos du vÃ©hicule</Text>
+          <Text style={styles.headerTitle}>Photos du véhicule</Text>
           <Text style={styles.headerSubtitle}>
-            Ã‰tape {currentStep + 1} / {steps.length}
+            Étape {currentStep + 1} / {steps.length}
           </Text>
           <Text style={styles.headerProgress}>
-            {requiredPhotos.length}/4 obligatoires â€¢ {totalPhotos} total
+            {requiredPhotos.length}/4 obligatoires • {totalPhotos} total
           </Text>
         </View>
         
@@ -439,7 +439,7 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
                 {analyzing && (
                   <View style={styles.analyzingIndicator}>
                     <ActivityIndicator size="small" color="#14b8a6" />
-                    <Text style={styles.analyzingText}>ðŸ¤– Analyse IA...</Text>
+                    <Text style={styles.analyzingText}>?? Analyse IA...</Text>
                   </View>
                 )}
                 
@@ -457,7 +457,7 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
               </View>
 
               {/* Badge description IA */}
-              {currentPhotoStep.aiDescription && !currentPhotoStep.aiDescription.includes('ðŸ“¡') && (
+              {currentPhotoStep.aiDescription && !currentPhotoStep.aiDescription.includes('??') && (
                 <View style={styles.aiDescriptionBadge}>
                   <Feather
                     name={currentPhotoStep.descriptionApproved ? "check-circle" : "cpu"}
@@ -465,7 +465,7 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
                     color={currentPhotoStep.descriptionApproved ? "#10b981" : "#14b8a6"}
                   />
                   <Text style={styles.aiDescriptionBadgeText}>
-                    {currentPhotoStep.descriptionApproved ? 'Description validÃ©e' : 'IA analysÃ©e'}
+                    {currentPhotoStep.descriptionApproved ? 'Description validée' : 'IA analysée'}
                   </Text>
                 </View>
               )}
@@ -484,14 +484,14 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
                   <Feather name="camera" size={64} color="#14b8a6" />
                 </View>
                 <Text style={styles.cameraText}>Toucher pour prendre la photo</Text>
-                <Text style={styles.cameraSubtext}>Assurez-vous d'un bon Ã©clairage</Text>
+                <Text style={styles.cameraSubtext}>Assurez-vous d'un bon éclairage</Text>
               </LinearGradient>
             </TouchableOpacity>
           )}
         </View>
 
         {/* Description IA */}
-        {currentPhotoStep.aiDescription && !currentPhotoStep.aiDescription.includes('ðŸ“¡') && (
+        {currentPhotoStep.aiDescription && !currentPhotoStep.aiDescription.includes('??') && (
           <View style={styles.descriptionCard}>
             <View style={styles.descriptionHeader}>
               <Feather name="message-circle" size={20} color="#14b8a6" />
@@ -507,9 +507,9 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
             <Feather name="info" size={18} color="#f59e0b" />
             <Text style={styles.tipsTitle}>Conseils</Text>
           </View>
-          <Text style={styles.tipsText}>â€¢ Gardez le vÃ©hicule entier dans le cadre</Text>
-          <Text style={styles.tipsText}>â€¢ Ã‰vitez les reflets et ombres</Text>
-          <Text style={styles.tipsText}>â€¢ Prenez la photo en mode paysage si possible</Text>
+          <Text style={styles.tipsText}>• Gardez le véhicule entier dans le cadre</Text>
+          <Text style={styles.tipsText}>• Évitez les reflets et ombres</Text>
+          <Text style={styles.tipsText}>• Prenez la photo en mode paysage si possible</Text>
         </View>
       </ScrollView>
 
@@ -522,7 +522,7 @@ export default function InspectionWizardScreen({ route, navigation }: Props) {
               onPress={handlePrevStep}
             >
               <Feather name="arrow-left" size={20} color="#64748b" />
-              <Text style={styles.prevButtonText}>PrÃ©cÃ©dent</Text>
+              <Text style={styles.prevButtonText}>Précédent</Text>
             </TouchableOpacity>
           )}
 

@@ -1,4 +1,4 @@
-Ôªøimport React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   View, Text, StyleSheet, TouchableOpacity, ScrollView, 
   TextInput, ActivityIndicator, Modal, Platform, Alert 
@@ -76,7 +76,7 @@ export default function ContactsScreen({ navigation }: any) {
 
   const handleSearchUser = async () => {
     if (!searchValue.trim()) {
-      Alert.alert('Erreur', 'Veuillez entrer un email ou t√©l√©phone');
+      Alert.alert('Erreur', 'Veuillez entrer un email ou tÈlÈphone');
       return;
     }
     setSearching(true);
@@ -91,7 +91,7 @@ export default function ContactsScreen({ navigation }: any) {
       if (error) throw error;
 
       if (!profile) {
-        Alert.alert('Non trouv√©', 'Aucun utilisateur trouv√© avec ces informations');
+        Alert.alert('Non trouvÈ', 'Aucun utilisateur trouvÈ avec ces informations');
         setSearching(false);
         return;
       }
@@ -110,12 +110,12 @@ export default function ContactsScreen({ navigation }: any) {
         .maybeSingle();
 
       if (existing) {
-        Alert.alert('Info', 'Une invitation existe d√©j√† pour ce contact');
+        Alert.alert('Info', 'Une invitation existe dÈj‡ pour ce contact');
         setSearching(false);
         return;
       }
 
-      // D√©terminer le type de contact bas√© sur le user_type
+      // DÈterminer le type de contact basÈ sur le user_type
       const contactType = profile.user_type === 'convoyeur' ? 'driver' : 'customer';
 
       // Send invitation using the service
@@ -130,7 +130,7 @@ export default function ContactsScreen({ navigation }: any) {
       );
 
       if (result.success) {
-        Alert.alert('Succ√®s', 'Invitation envoy√©e !');
+        Alert.alert('SuccËs', 'Invitation envoyÈe !');
         setShowModal(false);
         setSearchValue('');
       } else {
@@ -148,7 +148,7 @@ export default function ContactsScreen({ navigation }: any) {
     try {
       const result = await acceptContactInvitation(invitation.id, user!.id);
       if (result.success) {
-        Alert.alert('Succ√®s', 'Contact ajout√© !');
+        Alert.alert('SuccËs', 'Contact ajoutÈ !');
         loadContacts();
         loadInvitations();
       } else {
@@ -173,7 +173,7 @@ export default function ContactsScreen({ navigation }: any) {
             try {
               const result = await rejectContactInvitation(invitation.id, user!.id);
               if (result.success) {
-                Alert.alert('Info', 'Invitation refus√©e');
+                Alert.alert('Info', 'Invitation refusÈe');
                 loadInvitations();
               } else {
                 Alert.alert('Erreur', result.message || 'Impossible de refuser');
@@ -379,7 +379,7 @@ export default function ContactsScreen({ navigation }: any) {
             <View style={styles.emptyState}>
               <Feather name="users" size={64} color="#64748b" />
               <Text style={styles.emptyText}>
-                {searchQuery || typeFilter !== 'all' ? 'Aucun contact trouv√©' : 'Aucun contact'}
+                {searchQuery || typeFilter !== 'all' ? 'Aucun contact trouvÈ' : 'Aucun contact'}
               </Text>
               <Text style={styles.emptySubtext}>Appuyez sur + pour envoyer une invitation</Text>
             </View>
@@ -446,7 +446,7 @@ export default function ContactsScreen({ navigation }: any) {
               >
                 <Feather name="phone" size={20} color={searchMethod === 'phone' ? '#fff' : '#64748b'} />
                 <Text style={[styles.methodText, searchMethod === 'phone' && styles.methodTextActive]}>
-                  T√©l√©phone
+                  TÈlÈphone
                 </Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -462,7 +462,7 @@ export default function ContactsScreen({ navigation }: any) {
 
             <TextInput
               style={styles.modalInput}
-              placeholder={searchMethod === 'phone' ? 'Num√©ro de t√©l√©phone' : 'Adresse email'}
+              placeholder={searchMethod === 'phone' ? 'NumÈro de tÈlÈphone' : 'Adresse email'}
               value={searchValue}
               onChangeText={setSearchValue}
               keyboardType={searchMethod === 'phone' ? 'phone-pad' : 'email-address'}

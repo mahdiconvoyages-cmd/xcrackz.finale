@@ -1,4 +1,4 @@
-ï»¿import React from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -17,8 +17,8 @@ export default function DevisScreen({ navigation }: any) {
       <View style={styles.content}>
         <Feather name="file-text" size={64} color="#9ca3af" />
         <Text style={styles.title}>Gestion des Devis</Text>
-        <Text style={styles.subtitle}>FonctionnalitÃ© en dÃ©veloppement</Text>
-        <Text style={styles.description}>Cette section permettra de crÃ©er et gÃ©rer vos devis clients.</Text>
+        <Text style={styles.subtitle}>Fonctionnalité en développement</Text>
+        <Text style={styles.description}>Cette section permettra de créer et gérer vos devis clients.</Text>
       </View>
     </SafeAreaView>
   );

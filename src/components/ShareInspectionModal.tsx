@@ -52,7 +52,7 @@ export default function ShareInspectionModal({
           userId = user.id;
         } else {
           // Dernier recours: utiliser l'ID stocké localement
-          const storedUser = localStorage.getItem('CHECKFLOW-user');
+          const storedUser = localStorage.getItem('CHECKSFLEET-user');
           if (storedUser) {
             const parsed = JSON.parse(storedUser);
             userId = parsed.id;

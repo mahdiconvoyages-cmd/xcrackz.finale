@@ -1,4 +1,4 @@
-ï»¿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('Math Utils', () => {
   it('devrait additionner deux nombres', () => {
@@ -11,7 +11,7 @@ describe('Math Utils', () => {
 });
 
 describe('String Utils', () => {
-  it('devrait concatÃ©ner des chaÃ®nes', () => {
+  it('devrait concaténer des chaînes', () => {
     expect('Hello' + ' ' + 'World').toBe('Hello World');
   });
 

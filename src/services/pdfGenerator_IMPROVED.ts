@@ -115,7 +115,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
   doc.setTextColor(colors.white[0], colors.white[1], colors.white[2]);
   doc.setFontSize(28);
   doc.setFont('helvetica', 'bold');
-  const companyName = encodeUTF8(data.company.name || 'CHECKFLOW');
+  const companyName = encodeUTF8(data.company.name || 'CHECKSFLEET');
   doc.text(companyName, margin, 25);
 
   // Title

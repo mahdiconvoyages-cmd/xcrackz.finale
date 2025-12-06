@@ -1,4 +1,4 @@
-ï»¿import React from 'react';
+import React from 'react';
 import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -17,8 +17,8 @@ export default function DocumentViewerScreen({ navigation }: any) {
       <View style={styles.content}>
         <Feather name="eye" size={64} color="#9ca3af" />
         <Text style={styles.title}>Visualiseur de Documents</Text>
-        <Text style={styles.subtitle}>FonctionnalitÃ© en dÃ©veloppement</Text>
-        <Text style={styles.description}>Cette section permettra de visualiser vos documents scannÃ©s (PDF, images).</Text>
+        <Text style={styles.subtitle}>Fonctionnalité en développement</Text>
+        <Text style={styles.description}>Cette section permettra de visualiser vos documents scannés (PDF, images).</Text>
       </View>
     </SafeAreaView>
   );

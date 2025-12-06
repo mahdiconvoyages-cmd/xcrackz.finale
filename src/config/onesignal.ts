@@ -1,7 +1,7 @@
 /**
  * OneSignal Configuration
  * 
- * Service de notifications push pour CheckFlow
+ * Service de notifications push pour CHECKSFLEET
  * - Notifications missions
  * - Alertes temps réel
  * - Messages système

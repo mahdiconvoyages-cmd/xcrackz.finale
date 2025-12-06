@@ -294,7 +294,7 @@ export default function PublicInspectionReportShared() {
 
         {/* Pied de page */}
         <div className="mt-8 text-center text-gray-500 text-sm">
-          <p>Rapport généré par CHECKFLOW - Transport & Convoyage</p>
+          <p>Rapport généré par CHECKSFLEET - Transport & Convoyage</p>
           <p className="mt-1">Ce document est authentique et sécurisé</p>
         </div>
       </div>

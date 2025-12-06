@@ -1,4 +1,4 @@
-ï»¿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('Date Formatters', () => {
   it('devrait formater une date ISO', () => {
@@ -7,7 +7,7 @@ describe('Date Formatters', () => {
     expect(formatted).toContain('15');
   });
 
-  it('devrait calculer la diffÃ©rence entre deux dates', () => {
+  it('devrait calculer la différence entre deux dates', () => {
     const date1 = new Date('2025-01-15');
     const date2 = new Date('2025-01-20');
     const diffInMs = date2.getTime() - date1.getTime();
@@ -17,7 +17,7 @@ describe('Date Formatters', () => {
 });
 
 describe('String Formatters', () => {
-  it('devrait capitaliser la premiÃ¨re lettre', () => {
+  it('devrait capitaliser la première lettre', () => {
     const text = 'hello world';
     const capitalized = text.charAt(0).toUpperCase() + text.slice(1);
     expect(capitalized).toBe('Hello world');

@@ -1,4 +1,4 @@
-// 🚀 SYSTÈME DE NOTIFICATIONS CHECKFLOW
+// 🚀 SYSTÈME DE NOTIFICATIONS CHECKSFLEET
 // Notifications automatiques pour le tracking, missions, et livraisons
 
 import { supabase } from '../lib/supabase';

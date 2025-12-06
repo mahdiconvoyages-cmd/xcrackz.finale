@@ -1,4 +1,4 @@
-ï»¿import { describe, it, expect } from 'vitest';
+import { describe, it, expect } from 'vitest';
 
 describe('Email Validator', () => {
   it('devrait valider un email correct', () => {
@@ -13,7 +13,7 @@ describe('Email Validator', () => {
 });
 
 describe('Phone Validator', () => {
-  it('devrait valider un numÃ©ro franÃ§ais', () => {
+  it('devrait valider un numéro français', () => {
     const phoneRegex = /^(?:(?:\+|00)33|0)\s*[1-9](?:[\s.-]*\d{2}){4}$/;
     expect(phoneRegex.test('0612345678')).toBe(true);
   });

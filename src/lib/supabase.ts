@@ -30,11 +30,11 @@ export const supabase = (() => {
         persistSession: true,
         autoRefreshToken: true,
         detectSessionInUrl: true,
-        storageKey: 'checkflow-auth', // Clé unique pour éviter les conflits
+        storageKey: 'CHECKSFLEET-auth', // Clé unique pour éviter les conflits
       },
       global: {
         headers: {
-          'x-application-name': 'checkflow-web',
+          'x-application-name': 'CHECKSFLEET-web',
         },
       },
     });

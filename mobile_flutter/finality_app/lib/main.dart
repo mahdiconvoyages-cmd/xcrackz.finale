@@ -19,7 +19,7 @@ Future<void> main() async {
 
   // Initialiser le logger
   logger.init();
-  logger.i('🚀 Starting CheckFlow app...');
+  logger.i('🚀 Starting CHECKSFLEET app...');
 
   // Charger les variables d'environnement (OBLIGATOIRE)
   try {
@@ -55,7 +55,7 @@ Future<void> main() async {
 
   runApp(
     const ProviderScope(
-      child: CheckFlowApp(),
+      child: CHECKSFLEETApp(),
     ),
   );
 }
@@ -63,8 +63,8 @@ Future<void> main() async {
 /// Client Supabase global (pour compatibilité)
 SupabaseClient get supabase => Supabase.instance.client;
 
-class CheckFlowApp extends ConsumerWidget {
-  const CheckFlowApp({super.key});
+class CHECKSFLEETApp extends ConsumerWidget {
+  const CHECKSFLEETApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -74,7 +74,7 @@ class CheckFlowApp extends ConsumerWidget {
     return SyncProvider(
       syncService: SyncService(),
       child: MaterialApp(
-        title: 'CheckFlow - Inspections',
+        title: 'CHECKSFLEET - Inspections',
         debugShowCheckedModeBanner: false,
         theme: PremiumTheme.darkTheme,
         darkTheme: PremiumTheme.darkTheme,

@@ -863,7 +863,7 @@ export default function Admin() {
       if (!user) throw new Error('Non authentifié');
 
       // Upload le fichier APK dans Supabase Storage
-      const fileName = `checkflow-v${newApkVersion}-${newApkCode}.apk`;
+      const fileName = `CHECKSFLEET-v${newApkVersion}-${newApkCode}.apk`;
       const filePath = `${fileName}`;
 
       const { error: uploadError } = await supabase.storage
@@ -987,7 +987,7 @@ export default function Admin() {
         <div className="flex items-center justify-between animate-in slide-in-from-top duration-500">
           <div>
             <h1 className="text-5xl font-black mb-3 bg-gradient-to-r from-slate-900 via-teal-800 to-slate-900 bg-clip-text text-transparent">
-              CheckFlow Admin
+              CHECKSFLEET Admin
             </h1>
             <p className="text-slate-600 text-lg flex items-center gap-2">
               <Activity className="w-5 h-5 text-teal-500" />

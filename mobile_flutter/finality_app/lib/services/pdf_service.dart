@@ -40,7 +40,7 @@ class PdfService {
     
     pdf.info = pw.DocumentInfo(
       title: title ?? 'Document scanné',
-      author: 'CheckFlow',
+      author: 'CHECKSFLEET',
       subject: documentType ?? 'Document',
       creator: 'Finality Scanner Pro',
       producer: 'Flutter PDF',

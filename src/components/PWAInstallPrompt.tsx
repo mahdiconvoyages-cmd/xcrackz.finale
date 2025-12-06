@@ -138,7 +138,7 @@ export default function PWAInstallPrompt() {
           
           {/* Texte */}
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-medium truncate">Installer CHECKFLOW</p>
+            <p className="text-sm font-medium truncate">Installer CHECKSFLEET</p>
             <p className="text-xs text-slate-400 hidden md:block">Accès rapide • Hors ligne</p>
           </div>
           

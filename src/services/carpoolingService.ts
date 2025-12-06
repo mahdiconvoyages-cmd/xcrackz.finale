@@ -1,5 +1,5 @@
 /**
- * Service de Covoiturage Complet - CheckFlow
+ * Service de Covoiturage Complet - CHECKSFLEET
  * 
  * Fonctionnalités :
  * - Rechercher des trajets disponibles

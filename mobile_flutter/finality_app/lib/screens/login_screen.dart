@@ -364,7 +364,7 @@ class _LoginScreenState extends State<LoginScreen>
         stops: const [0.0, 0.5, 1.0],
       ).createShader(bounds),
       child: const Text(
-        'CheckFlow',
+        'CHECKSFLEET',
         style: TextStyle(
           fontSize: 42,
           fontWeight: FontWeight.bold,

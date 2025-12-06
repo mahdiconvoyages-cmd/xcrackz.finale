@@ -895,7 +895,7 @@ export default function MissionCreate() {
                 <button
                   onClick={async () => {
                     const code = createdMission.share_code || '';
-                    const text = `🚗 Mission de convoyage\n\n${formData.vehicle_brand} ${formData.vehicle_model}\n\nCode: ${code}\n\nPour rejoindre cette mission:\n1. Ouvre l'app CheckFlow\n2. Va dans Missions > Rejoindre\n3. Entre le code: ${code}`;
+                    const text = `🚗 Mission de convoyage\n\n${formData.vehicle_brand} ${formData.vehicle_model}\n\nCode: ${code}\n\nPour rejoindre cette mission:\n1. Ouvre l'app CHECKSFLEET\n2. Va dans Missions > Rejoindre\n3. Entre le code: ${code}`;
                     
                     if (navigator.share) {
                       try {
@@ -925,7 +925,7 @@ export default function MissionCreate() {
 
               <div className="mt-4 pt-4 border-t border-blue-200">
                 <p className="text-xs text-blue-800 leading-relaxed">
-                  💡 <strong>Astuce :</strong> Partagez ce lien avec un convoyeur. En cliquant dessus depuis son mobile, il pourra rejoindre directement la mission dans l'app CheckFlow.
+                  💡 <strong>Astuce :</strong> Partagez ce lien avec un convoyeur. En cliquant dessus depuis son mobile, il pourra rejoindre directement la mission dans l'app CHECKSFLEET.
                 </p>
               </div>
             </div>

@@ -119,7 +119,7 @@ class InspectionReportLinkDialog extends StatelessWidget {
                     onPressed: () {
                       SharePlus.instance.share(
                         'Voici le rapport d\'inspection de votre véhicule :\n\n$_publicLink',
-                        subject: 'Rapport d\'inspection CheckFlow',
+                        subject: 'Rapport d\'inspection CHECKSFLEET',
                       );
                     },
                     icon: const Icon(Icons.share),
