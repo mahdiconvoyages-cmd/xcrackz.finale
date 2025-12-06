@@ -355,7 +355,7 @@ export default function Terms() {
               </p>
               <div className="space-y-2">
                 <p className="text-slate-900 font-semibold">
-                  📧 Email : <a href="mailto:contact@CHECKFLOW.com" className="text-teal-600 hover:underline">contact@CHECKFLOW.com</a>
+                  📧 Email : <a href="mailto:contact@checksfleet.com" className="text-teal-600 hover:underline">contact@checksfleet.com</a>
                 </p>
                 <p className="text-slate-900 font-semibold">
                   💬 Support : <Link to="/support" className="text-teal-600 hover:underline">Page Support</Link>

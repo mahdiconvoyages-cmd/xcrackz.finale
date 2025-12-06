@@ -157,7 +157,7 @@ export default function About() {
                 Créer mon compte gratuit
               </Link>
               <a
-                href="mailto:contact@checkflow.fr"
+                href="mailto:contact@checksfleet.com"
                 className="bg-white/5 backdrop-blur-md border-2 border-white/20 px-10 py-4 rounded-lg text-white font-bold text-lg hover:bg-white/10 transition"
               >
                 Nous contacter

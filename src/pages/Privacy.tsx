@@ -170,7 +170,7 @@ export default function Privacy() {
             <div className="mt-6 p-6 bg-gradient-to-r from-teal-500/20 to-cyan-500/20 border border-teal-500/30 rounded-lg">
               <h3 className="font-bold text-white mb-3">Pour exercer vos droits :</h3>
               <ul className="space-y-2">
-                <li><strong className="text-white">Email :</strong> dpo@CheckFlow.fr</li>
+                <li><strong className="text-white">Email :</strong> dpo@checksfleet.com</li>
                 <li><strong className="text-white">Courrier :</strong> CheckFlow SAS - DPO, 123 Rue du Convoyage, 75001 Paris</li>
                 <li><strong className="text-white">Délai de réponse :</strong> Maximum 1 mois</li>
               </ul>

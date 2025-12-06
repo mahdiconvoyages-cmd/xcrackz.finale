@@ -50,7 +50,7 @@ serve(async (req) => {
     // Option 1: Utiliser Resend (service email moderne)
     if (RESEND_API_KEY) {
       const emailData: any = {
-        from: 'CheckFlow <noreply@checkflow.fr>', // Votre domaine vérifié
+        from: 'CheckFlow <noreply@checksfleet.com>', // Votre domaine vérifié
         to: [to],
         subject: subject,
         html: html,

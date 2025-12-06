@@ -1071,7 +1071,7 @@ class _MissionCard extends StatelessWidget {
 
                                     if (result != null && result is List && result.isNotEmpty) {
                                       final token = result[0]['share_token'] as String;
-                                      final reportUrl = 'https://www.checkflow.fr/rapport-inspection/$token';
+                                      final reportUrl = 'https://www.checksfleet.com/rapport-inspection/$token';
                                       await url_launcher.launchUrl(Uri.parse(reportUrl), mode: url_launcher.LaunchMode.externalApplication);
                                     }
                                   } catch (e) {
@@ -1147,7 +1147,7 @@ class _MissionCard extends StatelessWidget {
 
                                     if (result != null && result is List && result.isNotEmpty) {
                                       final token = result[0]['share_token'] as String;
-                                      final reportUrl = 'https://www.checkflow.fr/rapport-inspection/$token';
+                                      final reportUrl = 'https://www.checksfleet.com/rapport-inspection/$token';
                                       final vehicleInfo = mission.vehicleType ?? 'Véhicule';
                                       await SharePlus.instance.share(ShareParams(text: '📋 Rapport de départ - $vehicleInfo\n$reportUrl'));
                                       
@@ -1312,7 +1312,7 @@ class _MissionCard extends StatelessWidget {
 
                                     if (result != null && result is List && result.isNotEmpty) {
                                       final token = result[0]['share_token'] as String;
-                                      final reportUrl = 'https://www.checkflow.fr/rapport-inspection/$token';
+                                      final reportUrl = 'https://www.checksfleet.com/rapport-inspection/$token';
                                       await url_launcher.launchUrl(Uri.parse(reportUrl), mode: url_launcher.LaunchMode.externalApplication);
                                     }
                                   } catch (e) {
@@ -1388,7 +1388,7 @@ class _MissionCard extends StatelessWidget {
 
                                     if (result != null && result is List && result.isNotEmpty) {
                                       final token = result[0]['share_token'] as String;
-                                      final reportUrl = 'https://www.checkflow.fr/rapport-inspection/$token';
+                                      final reportUrl = 'https://www.checksfleet.com/rapport-inspection/$token';
                                       final vehicleInfo = mission.vehicleType ?? 'Véhicule';
                                       await SharePlus.instance.share(ShareParams(text: '✅ Rapport complet - $vehicleInfo\n$reportUrl'));
                                       

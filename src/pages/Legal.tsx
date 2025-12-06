@@ -43,7 +43,7 @@ export default function Legal() {
               <p><strong className="text-white">SIRET :</strong> 123 456 789 00010</p>
               <p><strong className="text-white">RCS :</strong> Paris B 123 456 789</p>
               <p><strong className="text-white">N° TVA intracommunautaire :</strong> FR 12 123456789</p>
-              <p><strong className="text-white">Email :</strong> contact@CheckFlow.fr</p>
+              <p><strong className="text-white">Email :</strong> contact@checksfleet.com</p>
               <p><strong className="text-white">Téléphone :</strong> +33 1 23 45 67 89</p>
             </div>
             <p className="mt-4">
@@ -93,7 +93,7 @@ export default function Legal() {
               Pour exercer ces droits, vous pouvez nous contacter :
             </p>
             <div className="pl-4 space-y-1">
-              <p><strong className="text-white">Par email :</strong> dpo@CheckFlow.fr</p>
+              <p><strong className="text-white">Par email :</strong> dpo@checksfleet.com</p>
               <p><strong className="text-white">Par courrier :</strong> CheckFlow SAS - DPO, 123 Rue du Convoyage, 75001 Paris, France</p>
             </div>
             <p className="mt-4">
@@ -148,7 +148,7 @@ export default function Legal() {
               Pour toute question concernant les mentions légales ou le site CheckFlow, vous pouvez nous contacter :
             </p>
             <div className="pl-4 space-y-1">
-              <p><strong className="text-white">Email :</strong> contact@CheckFlow.fr</p>
+              <p><strong className="text-white">Email :</strong> contact@checksfleet.com</p>
               <p><strong className="text-white">Téléphone :</strong> +33 1 23 45 67 89</p>
               <p><strong className="text-white">Adresse :</strong> 123 Rue du Convoyage, 75001 Paris, France</p>
             </div>

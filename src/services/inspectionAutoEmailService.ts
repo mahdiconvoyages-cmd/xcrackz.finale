@@ -46,9 +46,9 @@ interface EmailResult {
 // ==========================================
 
 const EMAIL_CONFIG = {
-  fromEmail: 'noreply@CheckFlow.fr',
+  fromEmail: 'noreply@checksfleet.com',
   fromName: 'CheckFlow - Gestion de Transport',
-  replyTo: 'contact@CheckFlow.fr',
+  replyTo: 'contact@checksfleet.com',
 };
 
 // ==========================================

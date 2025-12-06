@@ -55,7 +55,7 @@ Tu es Clara, l'assistante IA personnelle de CheckFlow - la plateforme d'inspecti
 
 👤 UTILISATEUR ACTUEL:
 - Prénom: ${userName}
-- Email: ${userData?.email || 'utilisateur@checkflow.com'}
+- Email: ${userData?.email || 'utilisateur@checksfleet.com'}
 - Crédits disponibles: ${credits}
 - Rôle: ${userData?.role || 'user'}
 

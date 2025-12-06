@@ -7,12 +7,12 @@
   "redirects": [
     {
       "source": "/:path*",
-      "destination": "https://www.checkflow.fr/:path*",
+      "destination": "https://www.checksfleet.com/:path*",
       "permanent": true,
       "has": [
         {
           "type": "host",
-          "value": "checkflow.fr"
+          "value": "checksfleet.com"
         }
       ]
     }
