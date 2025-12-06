@@ -7,12 +7,12 @@
   "redirects": [
     {
       "source": "/:path*",
-      "destination": "https://www.checksfleet.com/:path*",
+      "destination": "https://checksfleet.com/:path*",
       "permanent": true,
       "has": [
         {
           "type": "host",
-          "value": "checksfleet.com"
+          "value": "www.checksfleet.com"
         }
       ]
     }

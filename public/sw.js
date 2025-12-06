@@ -1,10 +1,10 @@
-// Service Worker pour xCrackz PWA
+// Service Worker pour ChecksFleet PWA
 // Cache les assets statiques et permet le mode hors ligne
 
-const CACHE_VERSION = 'v3-cache-fix-2025'; // CHANGÉ pour forcer mise à jour - 26/11/2025
-const CACHE_NAME = `xcrackz-${CACHE_VERSION}`;
-const STATIC_CACHE = `xcrackz-static-${CACHE_VERSION}`;
-const DYNAMIC_CACHE = `xcrackz-dynamic-${CACHE_VERSION}`;
+const CACHE_VERSION = 'v4-checksfleet-2025'; // CHANGÉ pour forcer mise à jour - 06/12/2025
+const CACHE_NAME = `checksfleet-${CACHE_VERSION}`;
+const STATIC_CACHE = `checksfleet-static-${CACHE_VERSION}`;
+const DYNAMIC_CACHE = `checksfleet-dynamic-${CACHE_VERSION}`;
 
 // Assets à mettre en cache lors de l'installation
 const STATIC_ASSETS = [
@@ -23,7 +23,10 @@ self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(STATIC_CACHE).then((cache) => {
       console.log('[SW] Cache des assets statiques');
-      return cache.addAll(STATIC_ASSETS);
+      return cache.addAll(STATIC_ASSETS).catch(err => {
+        console.warn('[SW] Erreur cache assets:', err);
+        return Promise.resolve();
+      });
     })
   );
   
@@ -57,9 +60,14 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Ignorer les requêtes cross-origin (éviter CORS)
+  if (url.origin !== location.origin) {
+    return;
+  }
+
   // Ne pas cacher les requêtes vers l'API Supabase
   if (url.hostname.includes('supabase')) {
-    return event.respondWith(fetch(request));
+    return;
   }
 
   // Stratégie Cache First pour les assets statiques
@@ -73,17 +81,23 @@ self.addEventListener('fetch', (event) => {
           return cachedResponse;
         }
         
-        return fetch(request).then((response) => {
-          return caches.open(DYNAMIC_CACHE).then((cache) => {
-            cache.put(request, response.clone());
-            return response;
+        return fetch(request, { mode: 'cors', credentials: 'same-origin' })
+          .then((response) => {
+            if (!response || response.status !== 200 || response.type !== 'basic') {
+              return response;
+            }
+            return caches.open(DYNAMIC_CACHE).then((cache) => {
+              cache.put(request, response.clone());
+              return response;
+            });
+          })
+          .catch(() => {
+            // Fallback si hors ligne et pas en cache
+            if (request.destination === 'image') {
+              return caches.match('/logo.svg');
+            }
+            return new Response('', { status: 408, statusText: 'Request Timeout' });
           });
-        });
-      }).catch(() => {
-        // Fallback si hors ligne et pas en cache
-        if (request.destination === 'image') {
-          return caches.match('/logo.svg');
-        }
       })
     );
     return;
@@ -118,7 +132,7 @@ self.addEventListener('fetch', (event) => {
 // Gestion des notifications push (optionnel)
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
-  const title = data.title || 'xCrackz';
+  const title = data.title || 'ChecksFleet';
   const options = {
     body: data.body || 'Nouvelle notification',
     icon: '/icon-192.png',
