@@ -673,7 +673,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           const Text(
             '📊 État final du véhicule',
             style: TextStyle(
-              color: Colors.white,
+              color: PremiumTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -682,7 +682,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           const Text(
             'Photographiez le tableau de bord et renseignez le kilométrage final',
             style: TextStyle(
-              color: Colors.white70,
+              color: PremiumTheme.textSecondary,
               fontSize: 14,
             ),
           ),
@@ -753,10 +753,10 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           TextField(
             controller: _kmController,
             keyboardType: TextInputType.number,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+            style: TextStyle(color: PremiumTheme.textPrimary, fontSize: 16),
             decoration: InputDecoration(
               hintText: 'Ex: 125000',
-              hintStyle: const TextStyle(color: Colors.white38),
+              hintStyle: const TextStyle(color: PremiumTheme.textTertiary),
               suffixText: 'km',
               suffixStyle: const TextStyle(color: Color(0xFF14B8A6)),
               filled: true,
@@ -850,7 +850,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           const Text(
             '📸 Photos obligatoires (8/8)',
             style: TextStyle(
-              color: Colors.white,
+              color: PremiumTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -859,7 +859,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           const Text(
             'Prenez une photo de chaque angle pour documenter l\'état d\'arrivée',
             style: TextStyle(
-              color: Colors.white70,
+              color: PremiumTheme.textSecondary,
               fontSize: 14,
             ),
           ),
@@ -978,8 +978,8 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                 children: [
                   Text(
                     label,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: PremiumTheme.textPrimary,
                       fontSize: 14,
                       fontWeight: FontWeight.w600,
                     ),
@@ -990,7 +990,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                     DropdownButton<String>(
                       value: isOptional ? _optionalPhotoDamages[index] : _photoDamages[index],
                       dropdownColor: const Color(0xFF1e293b),
-                      style: const TextStyle(color: Colors.white, fontSize: 12),
+                      style: TextStyle(color: PremiumTheme.textPrimary, fontSize: 12),
                       underline: const SizedBox(),
                       isExpanded: true,
                       items: ['RAS', 'Rayures', 'Cassé', 'Abimé']
@@ -1029,7 +1029,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           const Text(
             '✅ Vérifications d\'arrivée',
             style: TextStyle(
-              color: Colors.white,
+              color: PremiumTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -1038,7 +1038,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           const Text(
             'Vérifiez que tout est en ordre avant de finaliser',
             style: TextStyle(
-              color: Colors.white70,
+              color: PremiumTheme.textSecondary,
               fontSize: 14,
             ),
           ),
@@ -1100,7 +1100,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
               ),
             ),
             dropdownColor: const Color(0xFF1e293b),
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: PremiumTheme.textPrimary),
             items: [
               'Aucune différence',
               'Moins de carburant',
@@ -1127,10 +1127,10 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           TextField(
             controller: _observationsController,
             maxLines: 4,
-            style: const TextStyle(color: Colors.white),
+            style: TextStyle(color: PremiumTheme.textPrimary),
             decoration: InputDecoration(
               hintText: 'Notes particulières, incidents, remarques...',
-              hintStyle: const TextStyle(color: Colors.white38),
+              hintStyle: const TextStyle(color: PremiumTheme.textTertiary),
               filled: true,
               fillColor: const Color(0xFF1e293b),
               border: OutlineInputBorder(
@@ -1181,8 +1181,8 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: PremiumTheme.textPrimary,
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -1190,8 +1190,8 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                 const SizedBox(height: 4),
                 Text(
                   description,
-                  style: const TextStyle(
-                    color: Colors.white70,
+                  style: TextStyle(
+                    color: PremiumTheme.textSecondary,
                     fontSize: 14,
                   ),
                 ),
@@ -1212,7 +1212,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           const Text(
             '✍️ Signatures de restitution',
             style: TextStyle(
-              color: Colors.white,
+              color: PremiumTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -1221,7 +1221,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           const Text(
             'Signatures du client et du convoyeur pour finaliser',
             style: TextStyle(
-              color: Colors.white70,
+              color: PremiumTheme.textSecondary,
               fontSize: 14,
             ),
           ),
@@ -1239,10 +1239,10 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           const SizedBox(height: 12),
           TextField(
             controller: _clientNameController,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+            style: TextStyle(color: PremiumTheme.textPrimary, fontSize: 16),
             decoration: InputDecoration(
               hintText: 'Nom complet du client',
-              hintStyle: const TextStyle(color: Colors.white38),
+              hintStyle: const TextStyle(color: PremiumTheme.textTertiary),
               filled: true,
               fillColor: const Color(0xFF1e293b),
               border: OutlineInputBorder(
@@ -1329,7 +1329,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           Text(
             subtitle,
             style: const TextStyle(
-              color: Colors.white70,
+              color: PremiumTheme.textSecondary,
               fontSize: 14,
             ),
           ),
@@ -1417,7 +1417,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           const Text(
             '📄 Documents complémentaires',
             style: TextStyle(
-              color: Colors.white,
+              color: PremiumTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -1426,7 +1426,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           const Text(
             'Scanner des documents supplémentaires si nécessaire (optionnel)',
             style: TextStyle(
-              color: Colors.white70,
+              color: PremiumTheme.textSecondary,
               fontSize: 14,
             ),
           ),
@@ -1586,7 +1586,7 @@ class SignaturePadDialog extends StatelessWidget {
               Text(
                 subtitle,
                 style: const TextStyle(
-                  color: Colors.white70,
+                  color: PremiumTheme.textSecondary,
                   fontSize: 14,
                 ),
               ),

@@ -653,19 +653,19 @@ class _InspectionDepartureScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Title
-          const Text(
+          Text(
             '📊 État initial du véhicule',
             style: TextStyle(
-              color: Colors.white,
+              color: PremiumTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Photographiez le tableau de bord et renseignez le kilométrage',
             style: TextStyle(
-              color: Colors.white70,
+              color: PremiumTheme.textSecondary,
               fontSize: 14,
             ),
           ),
@@ -701,28 +701,28 @@ class _InspectionDepartureScreenState
                         fit: BoxFit.cover,
                       ),
                     )
-                  : const Column(
+                  : Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.camera_alt,
                           size: 48,
                           color: Color(0xFF14B8A6),
                         ),
-                        SizedBox(height: 12),
+                        const SizedBox(height: 12),
                         Text(
                           'Photo du tableau de bord',
                           style: TextStyle(
-                            color: Colors.white70,
+                            color: PremiumTheme.textPrimary,
                             fontSize: 16,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        SizedBox(height: 4),
+                        const SizedBox(height: 4),
                         Text(
                           'Appuyez pour prendre la photo',
                           style: TextStyle(
-                            color: Colors.white54,
+                            color: PremiumTheme.textSecondary,
                             fontSize: 12,
                           ),
                         ),
@@ -745,17 +745,17 @@ class _InspectionDepartureScreenState
           TextField(
             controller: _kmController,
             keyboardType: TextInputType.number,
-            style: const TextStyle(color: Colors.white, fontSize: 18),
+            style: TextStyle(color: PremiumTheme.textPrimary, fontSize: 18),
             decoration: InputDecoration(
               hintText: 'Ex: 125000',
-              hintStyle: const TextStyle(color: Colors.white38),
+              hintStyle: TextStyle(color: PremiumTheme.textTertiary),
               suffixText: 'km',
-              suffixStyle: const TextStyle(
-                color: Colors.white70,
+              suffixStyle: TextStyle(
+                color: PremiumTheme.textSecondary,
                 fontSize: 16,
               ),
               filled: true,
-              fillColor: const Color(0xFF1F2937),
+              fillColor: PremiumTheme.cardBg,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: Color(0xFF374151)),
@@ -785,8 +785,9 @@ class _InspectionDepartureScreenState
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF1F2937),
+              color: PremiumTheme.cardBg,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
             ),
             child: Column(
               children: [
@@ -797,8 +798,8 @@ class _InspectionDepartureScreenState
                         color: Color(0xFF14B8A6)),
                     Text(
                       '${_fuelLevel.toInt()}%',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: PremiumTheme.textPrimary,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
@@ -809,7 +810,7 @@ class _InspectionDepartureScreenState
                 SliderTheme(
                   data: SliderThemeData(
                     activeTrackColor: const Color(0xFF14B8A6),
-                    inactiveTrackColor: const Color(0xFF374151),
+                    inactiveTrackColor: const Color(0xFFE5E7EB),
                     thumbColor: const Color(0xFF14B8A6),
                     overlayColor: const Color(0xFF14B8A6).withValues(alpha: 0.2),
                     trackHeight: 8,
@@ -842,14 +843,14 @@ class _InspectionDepartureScreenState
         // Header
         Container(
           padding: const EdgeInsets.all(24),
-          color: const Color(0xFF1F2937),
+          color: PremiumTheme.cardBg,
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 '📸 Photos du véhicule',
                 style: TextStyle(
-                  color: Colors.white,
+                  color: PremiumTheme.textPrimary,
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                 ),
@@ -920,12 +921,19 @@ class _InspectionDepartureScreenState
       onTap: () => _takePhoto(index, isOptional),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1F2937),
+          color: PremiumTheme.cardBg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: hasPhoto ? const Color(0xFF14B8A6) : const Color(0xFF374151),
+            color: hasPhoto ? const Color(0xFF14B8A6) : const Color(0xFFE5E7EB),
             width: 2,
           ),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -955,7 +963,7 @@ class _InspectionDepartureScreenState
                                 child: Icon(
                                   Icons.camera_alt,
                                   size: 32,
-                                  color: Colors.white.withValues(alpha: 0.7),
+                                  color: PremiumTheme.primaryTeal.withOpacity(0.7),
                                 ),
                               ),
                             ],
@@ -984,7 +992,7 @@ class _InspectionDepartureScreenState
                         child: Text(
                           label,
                           style: TextStyle(
-                            color: isOptional ? Colors.white70 : Colors.white,
+                            color: isOptional ? PremiumTheme.textSecondary : PremiumTheme.textPrimary,
                             fontSize: 13,
                             fontWeight: FontWeight.w600,
                           ),
@@ -1016,9 +1024,9 @@ class _InspectionDepartureScreenState
                     const SizedBox(height: 8),
                     DropdownButtonFormField<String>(
                       value: damage,
-                      dropdownColor: const Color(0xFF1F2937),
-                      style: const TextStyle(
-                        color: Colors.white,
+                      dropdownColor: PremiumTheme.cardBg,
+                      style: TextStyle(
+                        color: PremiumTheme.textPrimary,
                         fontSize: 12,
                       ),
                       decoration: InputDecoration(
@@ -1027,10 +1035,10 @@ class _InspectionDepartureScreenState
                           vertical: 4,
                         ),
                         filled: true,
-                        fillColor: const Color(0xFF111827),
+                        fillColor: PremiumTheme.cardBgLight,
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(6),
-                          borderSide: BorderSide.none,
+                          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
                         ),
                       ),
                       items: ['RAS', 'Rayures', 'Cassé', 'Abimé']
@@ -1069,10 +1077,10 @@ class _InspectionDepartureScreenState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Title
-          const Text(
+          Text(
             '✅ État et équipements',
             style: TextStyle(
-              color: Colors.white,
+              color: PremiumTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -1099,11 +1107,11 @@ class _InspectionDepartureScreenState
                         setState(() => _vehicleCondition = condition);
                       },
                       selectedColor: const Color(0xFF14B8A6),
-                      backgroundColor: const Color(0xFF1F2937),
+                      backgroundColor: PremiumTheme.cardBgLight,
                       labelStyle: TextStyle(
                         color: _vehicleCondition == condition
                             ? Colors.white
-                            : Colors.white70,
+                            : PremiumTheme.textPrimary,
                         fontWeight: FontWeight.w600,
                       ),
                     ))
@@ -1124,8 +1132,9 @@ class _InspectionDepartureScreenState
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: const Color(0xFF1F2937),
+              color: PremiumTheme.cardBg,
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
             ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1142,8 +1151,8 @@ class _InspectionDepartureScreenState
                     ),
                     Text(
                       '$_numberOfKeys',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: PremiumTheme.textPrimary,
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                       ),
@@ -1210,20 +1219,20 @@ class _InspectionDepartureScreenState
             const SizedBox(height: 12),
             TextField(
               controller: _confidedObjectController,
-              style: const TextStyle(color: Colors.white),
+              style: TextStyle(color: PremiumTheme.textPrimary),
               maxLines: 2,
               decoration: InputDecoration(
                 hintText: 'Précisez l\'objet confié...',
-                hintStyle: const TextStyle(color: Colors.white38),
+                hintStyle: TextStyle(color: PremiumTheme.textTertiary),
                 filled: true,
-                fillColor: const Color(0xFF1F2937),
+                fillColor: PremiumTheme.cardBg,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF374151)),
+                  borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
                 ),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF374151)),
+                  borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),
@@ -1247,13 +1256,14 @@ class _InspectionDepartureScreenState
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: const Color(0xFF1F2937),
+        color: PremiumTheme.cardBg,
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
       ),
       child: CheckboxListTile(
         title: Text(
           label,
-          style: const TextStyle(color: Colors.white, fontSize: 14),
+          style: TextStyle(color: PremiumTheme.textPrimary, fontSize: 14),
         ),
         secondary: Icon(icon, color: const Color(0xFF14B8A6)),
         value: value,
@@ -1270,10 +1280,10 @@ class _InspectionDepartureScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '✍️ Signatures',
             style: TextStyle(
-              color: Colors.white,
+              color: PremiumTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
@@ -1292,19 +1302,19 @@ class _InspectionDepartureScreenState
           const SizedBox(height: 12),
           TextField(
             controller: _clientNameController,
-            style: const TextStyle(color: Colors.white, fontSize: 16),
+            style: TextStyle(color: PremiumTheme.textPrimary, fontSize: 16),
             decoration: InputDecoration(
               hintText: 'Nom complet du client',
-              hintStyle: const TextStyle(color: Colors.white38),
+              hintStyle: TextStyle(color: PremiumTheme.textTertiary),
               filled: true,
-              fillColor: const Color(0xFF1F2937),
+              fillColor: PremiumTheme.cardBg,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF374151)),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF374151)),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -1381,8 +1391,8 @@ class _InspectionDepartureScreenState
           const SizedBox(height: 4),
           Text(
             subtitle,
-            style: const TextStyle(
-              color: Colors.white70,
+            style: TextStyle(
+              color: PremiumTheme.textSecondary,
               fontSize: 14,
             ),
           ),
@@ -1393,12 +1403,12 @@ class _InspectionDepartureScreenState
           child: Container(
             height: 180,
             decoration: BoxDecoration(
-              color: const Color(0xFF1F2937),
+              color: PremiumTheme.cardBg,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: signature != null
                     ? const Color(0xFF14B8A6)
-                    : const Color(0xFF374151),
+                    : const Color(0xFFE5E7EB),
                 width: 2,
               ),
             ),
@@ -1427,19 +1437,19 @@ class _InspectionDepartureScreenState
                       ),
                     ],
                   )
-                : const Column(
+                : Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
                         Icons.draw,
                         size: 48,
-                        color: Color(0xFF374151),
+                        color: PremiumTheme.textTertiary,
                       ),
-                      SizedBox(height: 12),
+                      const SizedBox(height: 12),
                       Text(
                         'Appuyez pour signer',
                         style: TextStyle(
-                          color: Colors.white54,
+                          color: PremiumTheme.textSecondary,
                           fontSize: 14,
                         ),
                       ),
@@ -1457,19 +1467,19 @@ class _InspectionDepartureScreenState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
+          Text(
             '📄 Documents (optionnel)',
             style: TextStyle(
-              color: Colors.white,
+              color: PremiumTheme.textPrimary,
               fontSize: 24,
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             'Scannez des documents supplémentaires si nécessaire',
             style: TextStyle(
-              color: Colors.white70,
+              color: PremiumTheme.textSecondary,
               fontSize: 14,
             ),
           ),
@@ -1482,8 +1492,9 @@ class _InspectionDepartureScreenState
                 margin: const EdgeInsets.only(bottom: 12),
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: const Color(0xFF1F2937),
+                  color: PremiumTheme.cardBg,
                   borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
                 ),
                 child: Row(
                   children: [
@@ -1491,7 +1502,7 @@ class _InspectionDepartureScreenState
                       width: 60,
                       height: 60,
                       decoration: BoxDecoration(
-                        color: const Color(0xFF111827),
+                        color: PremiumTheme.cardBgLight,
                         borderRadius: BorderRadius.circular(8),
                       ),
                       child: ClipRRect(
@@ -1506,8 +1517,8 @@ class _InspectionDepartureScreenState
                     Expanded(
                       child: Text(
                         'Document ${entry.key + 1}',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: PremiumTheme.textPrimary,
                           fontSize: 16,
                           fontWeight: FontWeight.w600,
                         ),
