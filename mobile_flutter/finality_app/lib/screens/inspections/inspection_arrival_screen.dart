@@ -373,9 +373,9 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
             child: Container(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
               decoration: const BoxDecoration(
-                color: Color(0xFF1e293b),
+                color: PremiumTheme.cardBg,
                 border: Border(
-                  top: BorderSide(color: Color(0xFF334155), width: 1),
+                  top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
                 ),
               ),
               child: Row(
@@ -694,12 +694,12 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
             child: Container(
               height: 200,
               decoration: BoxDecoration(
-                color: const Color(0xFF1e293b),
+                color: PremiumTheme.cardBg,
                 borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: _dashboardPhoto != null
                       ? const Color(0xFF14B8A6)
-                      : const Color(0xFF475569),
+                      : const Color(0xFFE5E7EB),
                   width: 2,
                 ),
                 image: _dashboardPhoto == null
@@ -724,13 +724,13 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                         Icon(
                           Icons.camera_alt,
                           size: 48,
-                          color: Color(0xFF64748B),
+                          color: Color(0xFFD1D5DB),
                         ),
                         SizedBox(height: 16),
                         Text(
                           'Photographier le tableau de bord',
                           style: TextStyle(
-                            color: Color(0xFF64748B),
+                            color: PremiumTheme.textSecondary,
                             fontSize: 16,
                           ),
                         ),
@@ -760,14 +760,14 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
               suffixText: 'km',
               suffixStyle: const TextStyle(color: Color(0xFF14B8A6)),
               filled: true,
-              fillColor: const Color(0xFF1e293b),
+              fillColor: PremiumTheme.cardBg,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF475569)),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF475569)),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -790,9 +790,9 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
-              color: const Color(0xFF1e293b),
+              color: PremiumTheme.cardBg,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: const Color(0xFF475569)),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
             ),
             child: Column(
               children: [
@@ -829,7 +829,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                     max: 100,
                     divisions: 20,
                     activeColor: const Color(0xFF14B8A6),
-                    inactiveColor: const Color(0xFF475569),
+                    inactiveColor: const Color(0xFFE5E7EB),
                     onChanged: (value) => setState(() => _fuelLevel = value),
                   ),
                 ),
@@ -917,10 +917,10 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
       onTap: () => _takePhoto(index, isOptional),
       child: Container(
         decoration: BoxDecoration(
-          color: const Color(0xFF1e293b),
+          color: PremiumTheme.cardBg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
-            color: hasPhoto ? const Color(0xFF14B8A6) : const Color(0xFF475569),
+            color: hasPhoto ? const Color(0xFF14B8A6) : const Color(0xFFE5E7EB),
             width: 2,
           ),
         ),
@@ -965,7 +965,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                             child: Icon(
                               icon,
                               size: 48,
-                              color: const Color(0xFF374151),
+                              color: const Color(0xFFD1D5DB),
                             ),
                           ),
               ),
@@ -989,7 +989,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                   if (hasPhoto)
                     DropdownButton<String>(
                       value: isOptional ? _optionalPhotoDamages[index] : _photoDamages[index],
-                      dropdownColor: const Color(0xFF1e293b),
+                      dropdownColor: PremiumTheme.cardBg,
                       style: TextStyle(color: PremiumTheme.textPrimary, fontSize: 12),
                       underline: const SizedBox(),
                       isExpanded: true,
@@ -1085,21 +1085,21 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
             value: _fuelDiscrepancy,
             decoration: InputDecoration(
               filled: true,
-              fillColor: const Color(0xFF1e293b),
+              fillColor: PremiumTheme.cardBg,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF475569)),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF475569)),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
                 borderSide: const BorderSide(color: Color(0xFF14B8A6), width: 2),
               ),
             ),
-            dropdownColor: const Color(0xFF1e293b),
+            dropdownColor: PremiumTheme.cardBg,
             style: TextStyle(color: PremiumTheme.textPrimary),
             items: [
               'Aucune différence',
@@ -1132,14 +1132,14 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
               hintText: 'Notes particulières, incidents, remarques...',
               hintStyle: const TextStyle(color: PremiumTheme.textTertiary),
               filled: true,
-              fillColor: const Color(0xFF1e293b),
+              fillColor: PremiumTheme.cardBg,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF475569)),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF475569)),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -1161,10 +1161,10 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xFF1e293b),
+        color: PremiumTheme.cardBg,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: value ? const Color(0xFF14B8A6) : const Color(0xFF475569),
+          color: value ? const Color(0xFF14B8A6) : const Color(0xFFE5E7EB),
         ),
       ),
       child: Row(
@@ -1244,14 +1244,14 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
               hintText: 'Nom complet du client',
               hintStyle: const TextStyle(color: PremiumTheme.textTertiary),
               filled: true,
-              fillColor: const Color(0xFF1e293b),
+              fillColor: PremiumTheme.cardBg,
               border: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF475569)),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
               enabledBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(color: Color(0xFF475569)),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
               ),
               focusedBorder: OutlineInputBorder(
                 borderRadius: BorderRadius.circular(12),
@@ -1340,12 +1340,12 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           child: Container(
             height: 180,
             decoration: BoxDecoration(
-              color: const Color(0xFF1e293b),
+              color: PremiumTheme.cardBg,
               borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: signature != null
                     ? const Color(0xFF14B8A6)
-                    : const Color(0xFF475569),
+                    : const Color(0xFFE5E7EB),
                 width: 2,
               ),
             ),
@@ -1390,13 +1390,13 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                       Icon(
                         Icons.draw,
                         size: 48,
-                        color: Color(0xFF64748B),
+                        color: Color(0xFFD1D5DB),
                       ),
                       SizedBox(height: 16),
                       Text(
                         'Appuyer pour signer',
                         style: TextStyle(
-                          color: Color(0xFF64748B),
+                          color: PremiumTheme.textSecondary,
                           fontSize: 16,
                         ),
                       ),
@@ -1487,9 +1487,9 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                   margin: const EdgeInsets.only(bottom: 12),
                   padding: const EdgeInsets.all(16),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF1e293b),
+                    color: PremiumTheme.cardBgLight,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: const Color(0xFF475569)),
+                    border: Border.all(color: const Color(0xFFE5E7EB)),
                   ),
                   child: Row(
                     children: [
@@ -1503,7 +1503,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                         child: Text(
                           'Document ${index + 1}',
                           style: const TextStyle(
-                            color: Colors.white,
+                            color: PremiumTheme.textPrimary,
                             fontSize: 16,
                           ),
                         ),

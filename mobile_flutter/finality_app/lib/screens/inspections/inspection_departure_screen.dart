@@ -65,8 +65,10 @@ class _InspectionDepartureScreenState
   final _clientNameController = TextEditingController();
   String _driverName = 'Convoyeur'; // Nom par défaut au lieu de vide
 
-  // Step 5: Documents (optionnel)
-  final List<String> _scannedDocuments = [];
+  // Step 5: Documents categorized (optionnel)
+  final List<String> _registrationDocuments = []; // Carte grise
+  final List<String> _insuranceDocuments = [];    // Assurance
+  final List<String> _otherDocuments = [];        // Documents autres
 
   @override
   void initState() {
@@ -259,21 +261,6 @@ class _InspectionDepartureScreenState
     }
   }
 
-  Future<void> _scanDocument() async {
-    final result = await Navigator.push<String>(
-      context,
-      MaterialPageRoute(
-        builder: (context) => const DocumentScannerScreen(),
-      ),
-    );
-
-    if (result != null) {
-      setState(() {
-        _scannedDocuments.add(result);
-      });
-    }
-  }
-
   bool _canProceed() {
     switch (_currentStep) {
       case 0:
@@ -387,7 +374,23 @@ class _InspectionDepartureScreenState
         });
       }
 
-      // 4. Mettre à jour le statut de la mission à 'in_progress' UNIQUEMENT après validation de l'inspection de départ
+      // 4. Upload scanned documents (Carte grise, Assurance, Autres documents)
+      final allDocuments = [
+        ..._registrationDocuments.map((url) => {'url': url, 'type': 'registration'}),
+        ..._insuranceDocuments.map((url) => {'url': url, 'type': 'insurance'}),
+        ..._otherDocuments.map((url) => {'url': url, 'type': 'other'}),
+      ];
+
+      for (final doc in allDocuments) {
+        await supabase.from('inspection_documents_v2').insert({
+          'inspection_id': inspectionId,
+          'document_url': doc['url'],
+          'document_type': doc['type'],
+          'uploaded_at': DateTime.now().toIso8601String(),
+        });
+      }
+
+      // 5. Mettre à jour le statut de la mission à 'in_progress' UNIQUEMENT après validation de l'inspection de départ
       await supabase.from('missions').update({
         'status': 'in_progress',
       }).eq('id', widget.missionId);
@@ -1462,103 +1465,249 @@ class _InspectionDepartureScreenState
   }
 
   Widget _buildDocumentsStep() {
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(24),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '📄 Documents (optionnel)',
-            style: TextStyle(
-              color: PremiumTheme.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Scannez des documents supplémentaires si nécessaire',
-            style: TextStyle(
-              color: PremiumTheme.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 24),
-
-          // Scanned documents list
-          if (_scannedDocuments.isNotEmpty) ...[
-            ..._scannedDocuments.asMap().entries.map((entry) {
-              return Container(
-                margin: const EdgeInsets.only(bottom: 12),
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  color: PremiumTheme.cardBg,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFFE5E7EB)),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 60,
-                      height: 60,
-                      decoration: BoxDecoration(
-                        color: PremiumTheme.cardBgLight,
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.network(
-                          entry.value,
-                          fit: BoxFit.cover,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Text(
-                        'Document ${entry.key + 1}',
-                        style: TextStyle(
-                          color: PremiumTheme.textPrimary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: () {
-                        setState(() {
-                          _scannedDocuments.removeAt(entry.key);
-                        });
-                      },
-                      icon: const Icon(
-                        Icons.delete_outline,
-                        color: Color(0xFFEF4444),
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            }).toList(),
-            const SizedBox(height: 16),
-          ],
-
-          // Scan button
-          ElevatedButton.icon(
-            onPressed: _scanDocument,
-            icon: const Icon(Icons.document_scanner),
-            label: const Text('Scanner un document'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF8B5CF6),
-              foregroundColor: Colors.white,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+    int _selectedDocTab = 0; // 0: Carte grise, 1: Assurance, 2: Autres documents
+    
+    return StatefulBuilder(
+      builder: (context, setModalState) => SingleChildScrollView(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              '📄 Documents de véhicule',
+              style: TextStyle(
+                color: PremiumTheme.textPrimary,
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
               ),
             ),
-          ),
-        ],
+            const SizedBox(height: 8),
+            Text(
+              'Organisez et scannez les documents importants du véhicule',
+              style: TextStyle(
+                color: PremiumTheme.textSecondary,
+                fontSize: 14,
+              ),
+            ),
+            const SizedBox(height: 32),
+
+            // Tab selector
+            Container(
+              decoration: BoxDecoration(
+                color: PremiumTheme.cardBgLight,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: Row(
+                children: [
+                  _buildDocTabButton(
+                    'Carte grise',
+                    Icons.description,
+                    0,
+                    _selectedDocTab,
+                    () => setModalState(() => _selectedDocTab = 0),
+                  ),
+                  _buildDocTabButton(
+                    'Assurance',
+                    Icons.shield,
+                    1,
+                    _selectedDocTab,
+                    () => setModalState(() => _selectedDocTab = 1),
+                  ),
+                  _buildDocTabButton(
+                    'Autres docs',
+                    Icons.folder,
+                    2,
+                    _selectedDocTab,
+                    () => setModalState(() => _selectedDocTab = 2),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            // Content based on selected tab
+            if (_selectedDocTab == 0)
+              _buildDocumentCategoryContent('Carte grise', _registrationDocuments, setModalState)
+            else if (_selectedDocTab == 1)
+              _buildDocumentCategoryContent('Assurance', _insuranceDocuments, setModalState)
+            else
+              _buildDocumentCategoryContent('Autres documents', _otherDocuments, setModalState),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildDocTabButton(
+    String label,
+    IconData icon,
+    int index,
+    int selectedIndex,
+    VoidCallback onPressed,
+  ) {
+    final isSelected = index == selectedIndex;
+    return Expanded(
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          child: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 8),
+            decoration: BoxDecoration(
+              color: isSelected ? PremiumTheme.cardBg : Colors.transparent,
+              border: isSelected
+                  ? Border(
+                      bottom: BorderSide(
+                        color: const Color(0xFF14B8A6),
+                        width: 3,
+                      ),
+                    )
+                  : null,
+              borderRadius: isSelected
+                  ? const BorderRadius.vertical(top: Radius.circular(12))
+                  : BorderRadius.zero,
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
+                  color: isSelected
+                      ? const Color(0xFF14B8A6)
+                      : PremiumTheme.textSecondary,
+                  size: 20,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: isSelected
+                        ? const Color(0xFF14B8A6)
+                        : PremiumTheme.textSecondary,
+                    fontWeight: isSelected ? FontWeight.w700 : FontWeight.w500,
+                    fontSize: 12,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDocumentCategoryContent(
+    String categoryTitle,
+    List<String> documents,
+    StateSetter setModalState,
+  ) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Scanned documents list
+        if (documents.isNotEmpty) ...[
+          Text(
+            '$categoryTitle scannés',
+            style: TextStyle(
+              color: Color(0xFF14B8A6),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          ...documents.asMap().entries.map((entry) {
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: PremiumTheme.cardBg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 60,
+                    height: 60,
+                    decoration: BoxDecoration(
+                      color: PremiumTheme.cardBgLight,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(8),
+                      child: Image.network(
+                        entry.value,
+                        fit: BoxFit.cover,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 16),
+                  Expanded(
+                    child: Text(
+                      '$categoryTitle ${entry.key + 1}',
+                      style: TextStyle(
+                        color: PremiumTheme.textPrimary,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () {
+                      setModalState(() {
+                        documents.removeAt(entry.key);
+                      });
+                    },
+                    icon: const Icon(
+                      Icons.delete_outline,
+                      color: Color(0xFFEF4444),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          }).toList(),
+          const SizedBox(height: 24),
+        ],
+
+        // Scan button
+        ElevatedButton.icon(
+          onPressed: () => _scanDocumentForCategory(documents, setModalState),
+          icon: const Icon(Icons.document_scanner),
+          label: Text('Scanner $categoryTitle'),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: const Color(0xFF14B8A6),
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Future<void> _scanDocumentForCategory(
+    List<String> documents,
+    StateSetter setModalState,
+  ) async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => DocumentScannerScreen(
+          inspectionId: 'departure_${widget.missionId}',
+        ),
+      ),
+    );
+
+    if (result != null && result is String) {
+      setModalState(() {
+        documents.add(result);
+      });
+    }
   }
 
   Widget _buildNavigationButtons() {
@@ -1568,14 +1717,10 @@ class _InspectionDepartureScreenState
       child: Container(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
         decoration: const BoxDecoration(
-          color: Color(0xFF1F2937),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black26,
-              blurRadius: 8,
-              offset: Offset(0, -2),
-            ),
-          ],
+          color: PremiumTheme.cardBg,
+          border: Border(
+            top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
+          ),
         ),
         child: Row(
           children: [
@@ -1588,11 +1733,12 @@ class _InspectionDepartureScreenState
                   icon: const Icon(Icons.arrow_back),
                   label: const Text('Précédent'),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF374151),
-                    foregroundColor: Colors.white,
+                    backgroundColor: PremiumTheme.cardBgLight,
+                    foregroundColor: PremiumTheme.textPrimary,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
+                      side: const BorderSide(color: Color(0xFFE5E7EB)),
                     ),
                   ),
                 ),
@@ -1617,8 +1763,8 @@ class _InspectionDepartureScreenState
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF14B8A6),
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: const Color(0xFF374151),
-                  disabledForegroundColor: Colors.white54,
+                  disabledBackgroundColor: const Color(0xFFD1D5DB),
+                  disabledForegroundColor: const Color(0xFF9CA3AF),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(12),

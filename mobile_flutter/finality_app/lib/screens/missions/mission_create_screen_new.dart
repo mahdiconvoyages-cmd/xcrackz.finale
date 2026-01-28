@@ -1,7 +1,10 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../services/address_autocomplete_service.dart';
+import '../../services/subscription_service.dart';
+import '../../services/credits_service.dart';
 import '../../theme/premium_theme.dart';
 
 /// Écran de création de mission identique au web
@@ -17,9 +20,21 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   final _formKey = GlobalKey<FormState>();
   final supabase = Supabase.instance.client;
   final AddressAutocompleteService _addressService = AddressAutocompleteService();
+  final SubscriptionService _subscriptionService = SubscriptionService();
+  final CreditsService _creditsService = CreditsService();
   
   bool _isLoading = false;
+  bool _hasActiveSubscription = false;
+  int _availableCredits = 0;
   int _currentStep = 0;
+  
+  // Autocomplétion d'adresses
+  List<AddressSuggestion> _pickupSuggestions = [];
+  List<AddressSuggestion> _deliverySuggestions = [];
+  Timer? _pickupDebounce;
+  Timer? _deliveryDebounce;
+  bool _showPickupSuggestions = false;
+  bool _showDeliverySuggestions = false;
 
   // Étape 1: Informations véhicule
   final _brandController = TextEditingController();
@@ -30,7 +45,10 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   int? _vehicleYear;
 
   // Étape 2: Départ
+  final _pickupClientNameController = TextEditingController();
   final _pickupAddressController = TextEditingController();
+  final _pickupPostcodeController = TextEditingController();
+  final _pickupCityController = TextEditingController();
   double? _pickupLat;
   double? _pickupLng;
   DateTime? _pickupDate;
@@ -39,7 +57,10 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   final _pickupContactPhoneController = TextEditingController();
 
   // Étape 3: Arrivée
+  final _deliveryClientNameController = TextEditingController();
   final _deliveryAddressController = TextEditingController();
+  final _deliveryPostcodeController = TextEditingController();
+  final _deliveryCityController = TextEditingController();
   double? _deliveryLat;
   double? _deliveryLng;
   DateTime? _deliveryDate;
@@ -56,15 +77,133 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   final _specialInstructionsController = TextEditingController();
 
   @override
+  void initState() {
+    super.initState();
+    _checkSubscription();
+  }
+
+  Future<void> _checkSubscription() async {
+    final userId = supabase.auth.currentUser?.id;
+    if (userId == null) return;
+    
+    try {
+      // Vérifier l'abonnement
+      final hasActive = await _subscriptionService.hasActiveSubscription(userId);
+      
+      // Récupérer les crédits disponibles
+      final userCredits = await _creditsService.getUserCredits(userId);
+      
+      if (mounted) {
+        setState(() {
+          _hasActiveSubscription = hasActive;
+          _availableCredits = userCredits.credits;
+        });
+      }
+      
+      // Si l'abonnement n'est pas actif OU si les crédits sont à 0
+      if ((!hasActive || userCredits.credits <= 0) && mounted) {
+        String message = '';
+        if (!hasActive && userCredits.credits <= 0) {
+          message = '⚠️ Votre abonnement a expiré et vos crédits sont épuisés. Renouvelez votre abonnement pour créer des missions.';
+        } else if (!hasActive) {
+          message = '⚠️ Votre abonnement a expiré. Renouvelez-le pour créer des missions.';
+        } else {
+          message = '⚠️ Vous n\'avez plus de crédits. Rechargez pour créer des missions.';
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(message),
+            backgroundColor: const Color(0xFFF59E0B),
+            duration: const Duration(seconds: 5),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error checking subscription: $e');
+    }
+  }
+
+  void _onPickupAddressChanged(String value) {
+    _pickupDebounce?.cancel();
+    if (value.length < 3) {
+      setState(() {
+        _pickupSuggestions = [];
+        _showPickupSuggestions = false;
+      });
+      return;
+    }
+    
+    _pickupDebounce = Timer(const Duration(milliseconds: 300), () async {
+      final suggestions = await AddressAutocompleteService.searchAddresses(value);
+      if (mounted) {
+        setState(() {
+          _pickupSuggestions = suggestions;
+          _showPickupSuggestions = suggestions.isNotEmpty;
+        });
+      }
+    });
+  }
+
+  void _onDeliveryAddressChanged(String value) {
+    _deliveryDebounce?.cancel();
+    if (value.length < 3) {
+      setState(() {
+        _deliverySuggestions = [];
+        _showDeliverySuggestions = false;
+      });
+      return;
+    }
+    
+    _deliveryDebounce = Timer(const Duration(milliseconds: 300), () async {
+      final suggestions = await AddressAutocompleteService.searchAddresses(value);
+      if (mounted) {
+        setState(() {
+          _deliverySuggestions = suggestions;
+          _showDeliverySuggestions = suggestions.isNotEmpty;
+        });
+      }
+    });
+  }
+
+  void _selectPickupSuggestion(AddressSuggestion suggestion) {
+    setState(() {
+      _pickupAddressController.text = suggestion.label;
+      _pickupLat = suggestion.latitude;
+      _pickupLng = suggestion.longitude;
+      _pickupSuggestions = [];
+      _showPickupSuggestions = false;
+    });
+  }
+
+  void _selectDeliverySuggestion(AddressSuggestion suggestion) {
+    setState(() {
+      _deliveryAddressController.text = suggestion.label;
+      _deliveryLat = suggestion.latitude;
+      _deliveryLng = suggestion.longitude;
+      _deliverySuggestions = [];
+      _showDeliverySuggestions = false;
+    });
+  }
+
+  @override
   void dispose() {
+    _pickupDebounce?.cancel();
+    _deliveryDebounce?.cancel();
     _brandController.dispose();
     _modelController.dispose();
     _plateController.dispose();
     _vinController.dispose();
+    _pickupClientNameController.dispose();
     _pickupAddressController.dispose();
+    _pickupPostcodeController.dispose();
+    _pickupCityController.dispose();
     _pickupContactNameController.dispose();
     _pickupContactPhoneController.dispose();
+    _deliveryClientNameController.dispose();
     _deliveryAddressController.dispose();
+    _deliveryPostcodeController.dispose();
+    _deliveryCityController.dispose();
     _deliveryContactNameController.dispose();
     _deliveryContactPhoneController.dispose();
     _clientNameController.dispose();
@@ -82,12 +221,16 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
         return _brandController.text.isNotEmpty &&
             _modelController.text.isNotEmpty;
       case 1: // Départ
-        return _pickupAddressController.text.isNotEmpty &&
-            _pickupLat != null &&
+        return _pickupClientNameController.text.isNotEmpty &&
+            _pickupAddressController.text.isNotEmpty &&
+            _pickupPostcodeController.text.isNotEmpty &&
+            _pickupCityController.text.isNotEmpty &&
             _pickupDate != null;
       case 2: // Arrivée
-        return _deliveryAddressController.text.isNotEmpty &&
-            _deliveryLat != null &&
+        return _deliveryClientNameController.text.isNotEmpty &&
+            _deliveryAddressController.text.isNotEmpty &&
+            _deliveryPostcodeController.text.isNotEmpty &&
+            _deliveryCityController.text.isNotEmpty &&
             _deliveryDate != null;
       case 3: // Détails
         return true; // Optionnel
@@ -99,6 +242,18 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate() || !_canProceed()) {
       _showError('Veuillez remplir tous les champs obligatoires');
+      return;
+    }
+
+    // Vérifier l'abonnement avant de créer la mission
+    if (!_hasActiveSubscription) {
+      _showError('Votre abonnement a expiré. Veuillez le renouveler pour créer des missions.');
+      return;
+    }
+
+    // Vérifier les crédits disponibles
+    if (_availableCredits <= 0) {
+      _showError('Vous n\'avez plus de crédits. Veuillez recharger votre compte pour créer des missions.');
       return;
     }
 
@@ -134,6 +289,10 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
       // Générer référence unique
       final reference = 'MSN${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
 
+      // Construire les adresses complétes à partir des 4 champs
+      final pickupAddress = '${_pickupAddressController.text}, ${_pickupPostcodeController.text} ${_pickupCityController.text}';
+      final deliveryAddress = '${_deliveryAddressController.text}, ${_deliveryPostcodeController.text} ${_deliveryCityController.text}';
+
       final missionData = {
         'user_id': userId,
         'reference': reference,
@@ -143,14 +302,13 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
         'vehicle_plate': _plateController.text.isNotEmpty ? _plateController.text : null,
         'vehicle_vin': _vinController.text.isNotEmpty ? _vinController.text : null,
         'vehicle_type': _vehicleType,
-        'vehicle_year': _vehicleYear,
-        'pickup_address': _pickupAddressController.text,
+        'pickup_address': pickupAddress,
         'pickup_lat': _pickupLat,
         'pickup_lng': _pickupLng,
         'pickup_date': pickupDateTime?.toIso8601String(),
         'pickup_contact_name': _pickupContactNameController.text.isNotEmpty ? _pickupContactNameController.text : null,
         'pickup_contact_phone': _pickupContactPhoneController.text.isNotEmpty ? _pickupContactPhoneController.text : null,
-        'delivery_address': _deliveryAddressController.text,
+        'delivery_address': deliveryAddress,
         'delivery_lat': _deliveryLat,
         'delivery_lng': _deliveryLng,
         'delivery_date': deliveryDateTime?.toIso8601String(),
@@ -330,18 +488,18 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF0F172A),
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: const Color(0xFF1E293B),
         elevation: 0,
         leading: IconButton(
-          icon: Icon(Icons.close, color: PremiumTheme.textPrimary),
+          icon: const Icon(Icons.close, color: Colors.white),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Text(
+        title: const Text(
           'Nouvelle mission',
           style: TextStyle(
-            color: PremiumTheme.textPrimary,
+            color: Colors.white,
             fontSize: 20,
             fontWeight: FontWeight.bold,
           ),
@@ -514,38 +672,6 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
           icon: Icons.confirmation_number,
           textCapitalization: TextCapitalization.characters,
         ),
-        const SizedBox(height: 16),
-
-        // Année
-        const Text(
-          'Année de mise en circulation',
-          style: TextStyle(
-            color: Color(0xFF14B8A6),
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 8),
-        DropdownButtonFormField<int>(
-          value: _vehicleYear,
-          dropdownColor: const Color(0xFF1E293B),
-          decoration: _inputDecoration(
-            hint: 'Sélectionner l\'année',
-            icon: Icons.calendar_today,
-          ),
-          style: const TextStyle(color: Colors.white),
-          items: List.generate(
-            50,
-            (index) {
-              final year = DateTime.now().year - index;
-              return DropdownMenuItem(
-                value: year,
-                child: Text(year.toString()),
-              );
-            },
-          ),
-          onChanged: (value) => setState(() => _vehicleYear = value),
-        ),
       ],
     );
   }
@@ -564,52 +690,53 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
         ),
         const SizedBox(height: 24),
 
-        // Adresse
-        const Text(
-          'Adresse de départ *',
-          style: TextStyle(
-            color: Color(0xFF14B8A6),
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+        // Nom du client *
+        _buildTextField(
+          controller: _pickupClientNameController,
+          label: 'Nom du client *',
+          hint: 'Ex: Jean Dupont',
+          icon: Icons.person,
+          required: true,
         ),
-        const SizedBox(height: 8),
-        TextField(
+        const SizedBox(height: 16),
+
+        // Adresse *
+        _buildTextField(
           controller: _pickupAddressController,
-          style: const TextStyle(color: Colors.white),
-          decoration: _inputDecoration(
-            hint: 'Entrez une adresse...',
-            icon: Icons.location_on,
-          ).copyWith(
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.search, color: Color(0xFF14B8A6)),
-              onPressed: () => _searchAddress(context, true),
-            ),
-          ),
+          label: 'Adresse de départ *',
+          hint: 'Ex: 123 Rue de la Paix',
+          icon: Icons.location_on,
+          required: true,
+          maxLines: 2,
         ),
-        if (_pickupLat != null) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF14B8A6).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF14B8A6).withValues(alpha: 0.3)),
+        const SizedBox(height: 16),
+
+        // Code postal et Ville sur la même ligne
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: _buildTextField(
+                controller: _pickupPostcodeController,
+                label: 'Code postal *',
+                hint: 'Ex: 75001',
+                icon: Icons.mail,
+                required: true,
+              ),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Color(0xFF14B8A6), size: 20),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Adresse validée',
-                    style: TextStyle(color: Color(0xFF14B8A6), fontSize: 13),
-                  ),
-                ),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 3,
+              child: _buildTextField(
+                controller: _pickupCityController,
+                label: 'Ville *',
+                hint: 'Ex: Paris',
+                icon: Icons.location_city,
+                required: true,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
         const SizedBox(height: 24),
 
         // Date et heure
@@ -746,52 +873,53 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
         ),
         const SizedBox(height: 24),
 
-        // Adresse
-        const Text(
-          'Adresse d\'arrivée *',
-          style: TextStyle(
-            color: Color(0xFF14B8A6),
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
-          ),
+        // Nom du client *
+        _buildTextField(
+          controller: _deliveryClientNameController,
+          label: 'Nom du client *',
+          hint: 'Ex: Jean Dupont',
+          icon: Icons.person,
+          required: true,
         ),
-        const SizedBox(height: 8),
-        TextField(
+        const SizedBox(height: 16),
+
+        // Adresse *
+        _buildTextField(
           controller: _deliveryAddressController,
-          style: const TextStyle(color: Colors.white),
-          decoration: _inputDecoration(
-            hint: 'Entrez une adresse...',
-            icon: Icons.location_on,
-          ).copyWith(
-            suffixIcon: IconButton(
-              icon: const Icon(Icons.search, color: Color(0xFF14B8A6)),
-              onPressed: () => _searchAddress(context, false),
-            ),
-          ),
+          label: 'Adresse d\'arrivée *',
+          hint: 'Ex: 456 Avenue des Champs',
+          icon: Icons.location_on,
+          required: true,
+          maxLines: 2,
         ),
-        if (_deliveryLat != null) ...[
-          const SizedBox(height: 8),
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: const Color(0xFF14B8A6).withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFF14B8A6).withValues(alpha: 0.3)),
+        const SizedBox(height: 16),
+
+        // Code postal et Ville sur la même ligne
+        Row(
+          children: [
+            Expanded(
+              flex: 2,
+              child: _buildTextField(
+                controller: _deliveryPostcodeController,
+                label: 'Code postal *',
+                hint: 'Ex: 75008',
+                icon: Icons.mail,
+                required: true,
+              ),
             ),
-            child: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Color(0xFF14B8A6), size: 20),
-                const SizedBox(width: 8),
-                const Expanded(
-                  child: Text(
-                    'Adresse validée',
-                    style: TextStyle(color: Color(0xFF14B8A6), fontSize: 13),
-                  ),
-                ),
-              ],
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 3,
+              child: _buildTextField(
+                controller: _deliveryCityController,
+                label: 'Ville *',
+                hint: 'Ex: Paris',
+                icon: Icons.location_city,
+                required: true,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
         const SizedBox(height: 24),
 
         // Date et heure

@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
 import '../l10n/app_localizations.dart';
 import '../providers/credits_provider.dart';
 import '../providers/subscription_provider.dart';
 import '../services/deep_link_service.dart';
 import '../services/mission_tracking_monitor.dart';
+import '../services/subscription_service.dart';
 import '../widgets/app_drawer.dart';
 import '../widgets/offline_indicator.dart';
 import '../utils/logger.dart';
@@ -37,6 +39,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ref.read(creditsProvider.notifier).initialize();
       ref.read(subscriptionProvider.notifier).initialize();
       
+      // Vérifier et reset les crédits si abonnement expiré
+      _checkExpiredSubscription();
+      
       // Initialize deep linking
       _deepLinkService.initialize();
       _linkSubscription = _deepLinkService.linkStream.listen((uri) {
@@ -49,6 +54,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       
       logger.i('✅ Surveillance tracking GPS initialisée');
     });
+  }
+
+  /// Vérifie si l'abonnement est expiré et reset les crédits à 0
+  Future<void> _checkExpiredSubscription() async {
+    try {
+      final userId = Supabase.instance.client.auth.currentUser?.id;
+      if (userId == null) return;
+      
+      final subscriptionService = SubscriptionService();
+      await subscriptionService.checkAndResetExpiredCredits(userId);
+      
+      // Rafraîchir les providers après la vérification
+      ref.read(creditsProvider.notifier).refresh();
+      ref.read(subscriptionProvider.notifier).refresh();
+      
+      logger.i('✅ Vérification abonnement/crédits effectuée');
+    } catch (e) {
+      logger.e('❌ Erreur vérification abonnement: $e');
+    }
   }
 
   @override

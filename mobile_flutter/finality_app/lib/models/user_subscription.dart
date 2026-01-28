@@ -30,21 +30,26 @@ class UserSubscription {
   });
 
   factory UserSubscription.fromJson(Map<String, dynamic> json) {
+    // Support both 'expires_at' and 'current_period_end' column names
+    final expiresAtValue = json['expires_at'] ?? json['current_period_end'];
+    final startDateValue = json['start_date'] ?? json['current_period_start'];
+    final cancelledAtValue = json['cancelled_at'] ?? json['cancel_at_period_end'];
+    
     return UserSubscription(
       id: json['id'] as String?,
       userId: json['user_id'] as String,
       plan: json['plan'] as String? ?? 'free',
       status: json['status'] as String? ?? 'expired',
-      startDate: json['start_date'] != null
-          ? DateTime.parse(json['start_date'] as String)
+      startDate: startDateValue != null
+          ? DateTime.parse(startDateValue as String)
           : null,
-      expiresAt: json['expires_at'] != null
-          ? DateTime.parse(json['expires_at'] as String)
+      expiresAt: expiresAtValue != null
+          ? DateTime.parse(expiresAtValue as String)
           : null,
-      cancelledAt: json['cancelled_at'] != null
-          ? DateTime.parse(json['cancelled_at'] as String)
+      cancelledAt: cancelledAtValue != null && cancelledAtValue is String
+          ? DateTime.parse(cancelledAtValue)
           : null,
-      autoRenew: json['auto_renew'] as bool? ?? false,
+      autoRenew: json['auto_renew'] as bool? ?? !(json['cancel_at_period_end'] as bool? ?? false),
       creditsPerMonth: json['credits_per_month'] as int?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)

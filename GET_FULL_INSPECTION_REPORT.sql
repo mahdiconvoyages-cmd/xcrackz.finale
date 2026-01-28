@@ -95,6 +95,9 @@ BEGIN
         'has_spare_wheel', COALESCE((vi.vehicle_info->>'has_spare_wheel')::boolean, false),
         'has_inflation_kit', COALESCE((vi.vehicle_info->>'has_inflation_kit')::boolean, false),
         'has_fuel_card', COALESCE((vi.vehicle_info->>'has_fuel_card')::boolean, false),
+        'is_loaded', COALESCE((vi.vehicle_info->>'is_loaded')::boolean, false),
+        'has_confided_object', COALESCE((vi.vehicle_info->>'has_confided_object')::boolean, false),
+        'confided_object_description', vi.vehicle_info->>'confided_object_description',
         'photos', (
           SELECT jsonb_agg(jsonb_build_object(
             'id', ip.id,
@@ -175,6 +178,9 @@ BEGIN
         'has_spare_wheel', COALESCE((vi.vehicle_info->>'has_spare_wheel')::boolean, false),
         'has_inflation_kit', COALESCE((vi.vehicle_info->>'has_inflation_kit')::boolean, false),
         'has_fuel_card', COALESCE((vi.vehicle_info->>'has_fuel_card')::boolean, false),
+        'is_loaded', COALESCE((vi.vehicle_info->>'is_loaded')::boolean, false),
+        'has_confided_object', COALESCE((vi.vehicle_info->>'has_confided_object')::boolean, false),
+        'confided_object_description', vi.vehicle_info->>'confided_object_description',
         'photos', (
           SELECT jsonb_agg(jsonb_build_object(
             'id', ip.id,

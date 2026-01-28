@@ -4,6 +4,54 @@ import '../models/user_subscription.dart';
 class SubscriptionService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  /// Vérifie l'état de l'abonnement et reset les crédits si expiré
+  /// Appeler cette méthode au démarrage de l'app ou lors de la connexion
+  Future<void> checkAndResetExpiredCredits(String userId) async {
+    try {
+      final subscription = await getUserSubscription(userId);
+      
+      // Vérifier si l'abonnement est expiré
+      if (subscription.expiresAt != null) {
+        final now = DateTime.now();
+        if (subscription.expiresAt!.isBefore(now) && subscription.status != 'expired') {
+          // Marquer comme expiré et reset les crédits
+          await _updateSubscriptionStatus(userId, 'expired');
+          print('✅ Abonnement expiré - Crédits remis à 0 pour user: $userId');
+        } else if (subscription.status == 'expired') {
+          // Déjà expiré, s'assurer que les crédits sont à 0
+          await _ensureCreditsAreZero(userId);
+        }
+      }
+      
+      // Si le statut est déjà expired, vérifier que les crédits sont bien à 0
+      if (subscription.status == 'expired') {
+        await _ensureCreditsAreZero(userId);
+      }
+    } catch (e) {
+      print('❌ Erreur checkAndResetExpiredCredits: $e');
+    }
+  }
+
+  /// S'assure que les crédits sont à 0 pour un abonnement expiré
+  Future<void> _ensureCreditsAreZero(String userId) async {
+    try {
+      final profile = await _supabase
+          .from('profiles')
+          .select('credits')
+          .eq('id', userId)
+          .maybeSingle();
+      
+      final currentCredits = profile?['credits'] ?? 0;
+      
+      if (currentCredits > 0) {
+        await _resetCreditsOnExpiration(userId);
+        print('✅ Crédits forcés à 0 pour abonnement expiré: $userId');
+      }
+    } catch (e) {
+      print('❌ Erreur _ensureCreditsAreZero: $e');
+    }
+  }
+
   // Get user subscription
   Future<UserSubscription> getUserSubscription(String userId) async {
     try {
@@ -84,8 +132,50 @@ class SubscriptionService {
             'updated_at': DateTime.now().toIso8601String(),
           })
           .eq('user_id', userId);
+      
+      // Si l'abonnement expire, remettre les crédits à 0
+      if (status == 'expired') {
+        await _resetCreditsOnExpiration(userId);
+      }
     } catch (e) {
       throw Exception('Erreur lors de la mise à jour du statut: $e');
+    }
+  }
+
+  // Remettre les crédits à 0 quand l'abonnement expire
+  Future<void> _resetCreditsOnExpiration(String userId) async {
+    try {
+      // Récupérer les crédits actuels
+      final profile = await _supabase
+          .from('profiles')
+          .select('credits')
+          .eq('id', userId)
+          .maybeSingle();
+      
+      final currentCredits = profile?['credits'] ?? 0;
+      
+      // Mettre les crédits à 0
+      await _supabase
+          .from('profiles')
+          .update({
+            'credits': 0,
+            'updated_at': DateTime.now().toIso8601String(),
+          })
+          .eq('id', userId);
+      
+      // Enregistrer la transaction de reset
+      if (currentCredits > 0) {
+        await _supabase.from('credit_transactions').insert({
+          'user_id': userId,
+          'amount': -currentCredits,
+          'type': 'expiration',
+          'description': 'Crédits expirés - Abonnement terminé',
+          'balance_after': 0,
+        });
+      }
+    } catch (e) {
+      // Log mais ne pas bloquer
+      print('Erreur lors de la remise à zéro des crédits: $e');
     }
   }
 

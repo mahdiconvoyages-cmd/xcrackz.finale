@@ -586,33 +586,64 @@ class _MissionGridCard extends StatelessWidget {
               
               const Spacer(),
               
-              // Vehicle type
-              if (mission.vehicleType != null) ...[
+              // Vehicle info with type and plate
+              if (mission.vehicleType != null || mission.vehiclePlate != null) ...[
                 Divider(color: statusColor.withValues(alpha: 0.2), height: 16),
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: PremiumTheme.primaryTeal.withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: const Icon(Icons.directions_car, size: 14, color: Color(0xFF14b8a6)),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: PremiumTheme.primaryTeal.withValues(alpha: 0.08),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: PremiumTheme.primaryTeal.withValues(alpha: 0.2),
                     ),
-                    const SizedBox(width: 6),
-                    Expanded(
-                      child: Text(
-                        mission.vehicleType!,
-                        style: TextStyle(
-                          color: PremiumTheme.textSecondary,
-                          fontSize: 11,
-                          fontWeight: FontWeight.w500,
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      if (mission.vehicleType != null)
+                        Row(
+                          children: [
+                            const Icon(Icons.directions_car, size: 14, color: Color(0xFF14b8a6)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                mission.vehicleType!,
+                                style: TextStyle(
+                                  color: PremiumTheme.textPrimary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                  ],
+                      if (mission.vehicleType != null && mission.vehiclePlate != null)
+                        const SizedBox(height: 6),
+                      if (mission.vehiclePlate != null)
+                        Row(
+                          children: [
+                            const Icon(Icons.confirmation_number, size: 14, color: Color(0xFF14b8a6)),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                mission.vehiclePlate!,
+                                style: TextStyle(
+                                  color: PremiumTheme.textPrimary,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  letterSpacing: 1,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          ],
+                        ),
+                    ],
+                  ),
                 ),
               ],
             ],
@@ -792,24 +823,92 @@ class _MissionCard extends StatelessWidget {
               
               // Client & Vehicle Info
               const SizedBox(height: 16),
-              Row(
+              Column(
                 children: [
-                  if (mission.clientName != null) ...[
-                    Expanded(
-                      child: _InfoChip(
-                        icon: Icons.person_outline,
-                        label: mission.clientName!,
-                        color: PremiumTheme.primaryBlue,
-                      ),
+                  // Client row
+                  if (mission.clientName != null)
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _InfoChip(
+                            icon: Icons.person_outline,
+                            label: mission.clientName!,
+                            color: PremiumTheme.primaryBlue,
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 8),
-                  ],
-                  if (mission.vehicleType != null) ...[
-                    Expanded(
-                      child: _InfoChip(
-                        icon: Icons.directions_car,
-                        label: mission.vehicleType!,
-                        color: PremiumTheme.primaryTeal,
+                  
+                  // Vehicle info - improved display
+                  if (mission.vehicleType != null || mission.vehiclePlate != null) ...[
+                    if (mission.clientName != null)
+                      const SizedBox(height: 10),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [
+                            PremiumTheme.primaryTeal.withValues(alpha: 0.15),
+                            PremiumTheme.primaryTeal.withValues(alpha: 0.08),
+                          ],
+                        ),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(
+                          color: PremiumTheme.primaryTeal.withValues(alpha: 0.3),
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(
+                            Icons.directions_car,
+                            size: 18,
+                            color: PremiumTheme.primaryTeal,
+                          ),
+                          const SizedBox(width: 10),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                if (mission.vehicleType != null)
+                                  Text(
+                                    mission.vehicleType!,
+                                    style: PremiumTheme.bodySmall.copyWith(
+                                      color: PremiumTheme.textPrimary,
+                                      fontWeight: FontWeight.w600,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                if (mission.vehiclePlate != null) ...[
+                                  if (mission.vehicleType != null)
+                                    const SizedBox(height: 4),
+                                  Row(
+                                    children: [
+                                      Icon(
+                                        Icons.confirmation_number,
+                                        size: 12,
+                                        color: PremiumTheme.primaryTeal,
+                                      ),
+                                      const SizedBox(width: 6),
+                                      Expanded(
+                                        child: Text(
+                                          mission.vehiclePlate!,
+                                          style: PremiumTheme.bodySmall.copyWith(
+                                            color: PremiumTheme.primaryTeal,
+                                            fontWeight: FontWeight.w700,
+                                            fontSize: 12,
+                                            letterSpacing: 0.5,
+                                          ),
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ],
+                              ],
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                   ],

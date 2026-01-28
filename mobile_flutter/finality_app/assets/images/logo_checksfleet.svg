@@ -1,0 +1,110 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <!-- Gradient principal -->
+    <linearGradient id="mainGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#14B8A6"/>
+      <stop offset="50%" style="stop-color:#0D9488"/>
+      <stop offset="100%" style="stop-color:#0F766E"/>
+    </linearGradient>
+    
+    <!-- Gradient secondaire pour profondeur -->
+    <linearGradient id="darkGradient" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#0F172A"/>
+      <stop offset="100%" style="stop-color:#1E293B"/>
+    </linearGradient>
+    
+    <!-- Ombre portée -->
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000" flood-opacity="0.3"/>
+    </filter>
+    
+    <!-- Brillance -->
+    <linearGradient id="shine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#fff;stop-opacity:0.3"/>
+      <stop offset="50%" style="stop-color:#fff;stop-opacity:0"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Fond circulaire -->
+  <circle cx="256" cy="256" r="240" fill="url(#darkGradient)" filter="url(#shadow)"/>
+  
+  <!-- Anneau externe -->
+  <circle cx="256" cy="256" r="220" fill="none" stroke="url(#mainGradient)" stroke-width="8" opacity="0.6"/>
+  
+  <!-- Véhicule stylisé (silhouette de voiture) -->
+  <g transform="translate(256, 280)">
+    <!-- Corps de la voiture -->
+    <path d="M-100,0 
+             L-90,-20 
+             L-60,-20 
+             L-40,-50 
+             L40,-50 
+             L70,-20 
+             L100,-20 
+             L100,10 
+             L-100,10 
+             Z" 
+          fill="url(#mainGradient)"/>
+    
+    <!-- Vitres -->
+    <path d="M-35,-45 L-55,-20 L55,-20 L65,-20 L35,-45 Z" 
+          fill="#0F172A" opacity="0.7"/>
+    
+    <!-- Roue gauche -->
+    <circle cx="-60" cy="15" r="22" fill="#1E293B"/>
+    <circle cx="-60" cy="15" r="14" fill="url(#mainGradient)"/>
+    <circle cx="-60" cy="15" r="6" fill="#0F172A"/>
+    
+    <!-- Roue droite -->
+    <circle cx="60" cy="15" r="22" fill="#1E293B"/>
+    <circle cx="60" cy="15" r="14" fill="url(#mainGradient)"/>
+    <circle cx="60" cy="15" r="6" fill="#0F172A"/>
+    
+    <!-- Phares -->
+    <ellipse cx="-85" cy="-10" rx="8" ry="6" fill="#FCD34D"/>
+    <ellipse cx="85" cy="-10" rx="8" ry="6" fill="#FCD34D"/>
+  </g>
+  
+  <!-- Check mark (validation) -->
+  <g transform="translate(256, 150)">
+    <!-- Cercle du check -->
+    <circle cx="0" cy="0" r="55" fill="url(#mainGradient)"/>
+    <circle cx="0" cy="0" r="45" fill="#0F172A"/>
+    
+    <!-- Symbole check -->
+    <path d="M-20,0 L-8,15 L25,-20" 
+          fill="none" 
+          stroke="#14B8A6" 
+          stroke-width="10" 
+          stroke-linecap="round" 
+          stroke-linejoin="round"/>
+  </g>
+  
+  <!-- Points de tracking (GPS) -->
+  <circle cx="350" cy="200" r="8" fill="#14B8A6" opacity="0.8"/>
+  <circle cx="380" cy="250" r="6" fill="#14B8A6" opacity="0.6"/>
+  <circle cx="370" cy="300" r="4" fill="#14B8A6" opacity="0.4"/>
+  
+  <!-- Lignes de connexion (tracking) -->
+  <path d="M310,170 Q350,200 380,250 Q370,280 370,300" 
+        fill="none" 
+        stroke="#14B8A6" 
+        stroke-width="2" 
+        stroke-dasharray="5,5"
+        opacity="0.5"/>
+  
+  <!-- Effet de brillance -->
+  <ellipse cx="200" cy="150" rx="80" ry="40" fill="url(#shine)"/>
+  
+  <!-- Texte "CF" stylisé (optionnel, pour version icône) -->
+  <!--
+  <text x="256" y="400" 
+        font-family="Arial Black, sans-serif" 
+        font-size="48" 
+        font-weight="bold"
+        fill="url(#mainGradient)" 
+        text-anchor="middle">
+    CHECKSFLEET
+  </text>
+  -->
+</svg>

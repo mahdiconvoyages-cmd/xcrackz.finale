@@ -49,6 +49,27 @@ function formatCleanliness(inspection: any, type: 'internal' | 'external'): stri
   return 'N/A';
 }
 
+function formatDatetimeFR(dateString: any): string {
+  if (!dateString) return 'N/A';
+  try {
+    // Parse the ISO date string
+    const date = new Date(dateString);
+    // Format with French locale (this automatically uses the browser's timezone)
+    // For consistent UTC+1 (Paris time), use 'Europe/Paris' timezone
+    return new Intl.DateTimeFormat('fr-FR', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      timeZone: 'Europe/Paris'
+    }).format(date);
+  } catch (e) {
+    return String(dateString);
+  }
+}
+
 export default function PublicInspectionReportShared() {
   const { token } = useParams();
   const [loading, setLoading] = useState(true);
@@ -152,6 +173,33 @@ export default function PublicInspectionReportShared() {
     }
   };
 
+  const shareReport = async () => {
+    const shareText = `Rapport d'Inspection - Mission ${reportData?.mission_data?.reference || 'Rapport'}\n\nConsultez le rapport complet à l'adresse suivante:\n${window.location.href}`;
+    
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `Rapport d'Inspection ${reportData?.mission_data?.reference || 'Rapport'}`,
+          text: shareText,
+          url: window.location.href,
+        });
+      } catch (error: any) {
+        if (error.name !== 'AbortError') {
+          console.error('Erreur partage:', error);
+        }
+      }
+    } else {
+      // Fallback: copier le lien dans le presse-papiers
+      try {
+        await navigator.clipboard.writeText(window.location.href);
+        toast.success('Lien copié dans le presse-papiers !');
+      } catch (error) {
+        console.error('Erreur copie lien:', error);
+        toast.error('Erreur lors du partage du lien');
+      }
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -232,11 +280,14 @@ export default function PublicInspectionReportShared() {
                 </div>
               </div>
               <div className="flex gap-2 print:hidden">
-                <button onClick={() => window.print()} className="bg-white/20 hover:bg-white/30 p-3 rounded-lg transition">
+                <button onClick={() => window.print()} className="bg-white/20 hover:bg-white/30 p-3 rounded-lg transition" title="Imprimer">
                   <Printer className="w-5 h-5" />
                 </button>
-                <button onClick={downloadAllPhotos} className="bg-white/20 hover:bg-white/30 p-3 rounded-lg transition">
+                <button onClick={downloadAllPhotos} className="bg-white/20 hover:bg-white/30 p-3 rounded-lg transition" title="Télécharger photos">
                   <Archive className="w-5 h-5" />
+                </button>
+                <button onClick={shareReport} className="bg-white/20 hover:bg-white/30 p-3 rounded-lg transition" title="Partager rapport">
+                  <Navigation className="w-5 h-5" />
                 </button>
               </div>
             </div>
@@ -429,7 +480,7 @@ function InspectionCard({ title, inspection, color, onOpenPhoto }: any) {
       <div className={`bg-gradient-to-r ${colorClasses[color].split(' ')[0]} ${colorClasses[color].split(' ')[1]} p-6 text-white print:bg-${color}-600`}>
         <h2 className="text-2xl font-bold">{title}</h2>
         <p className="text-white/80 text-sm mt-1">
-          {inspection.created_at ? new Date(inspection.created_at).toLocaleString('fr-FR') : 'N/A'}
+          {inspection.created_at ? formatDatetimeFR(inspection.created_at) : 'N/A'}
         </p>
       </div>
 
@@ -479,6 +530,20 @@ function InspectionCard({ title, inspection, color, onOpenPhoto }: any) {
           </div>
         </Section>
 
+        {/* Véhicule chargé et objet confié */}
+        <Section title="Chargement & Objet Confié" icon={Package}>
+          <div className="space-y-4">
+            <Badge label="Véhicule chargé" checked={inspection.is_loaded} />
+            <Badge label="Objet confié" checked={inspection.has_confided_object} />
+            {inspection.has_confided_object && inspection.confided_object_description && (
+              <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                <p className="text-sm font-semibold text-blue-700 mb-1">Description de l'objet confié:</p>
+                <p className="text-blue-600">{inspection.confided_object_description}</p>
+              </div>
+            )}
+          </div>
+        </Section>
+
         {/* Photos */}
         {inspection.photos && inspection.photos.length > 0 && (
           <Section title={`Photos (${inspection.photos.length})`} icon={ImageIcon}>
@@ -487,6 +552,33 @@ function InspectionCard({ title, inspection, color, onOpenPhoto }: any) {
                 <div key={i} onClick={() => onOpenPhoto(inspection.photos, i)}
                   className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:ring-4 ring-blue-500 transition print:break-inside-avoid">
                   <img src={photo.url || photo.photo_url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                </div>
+              ))}
+            </div>
+          </Section>
+        )}
+
+        {/* Documents Scannés (Départ seulement) */}
+        {inspection.scanned_documents && inspection.scanned_documents.length > 0 && (
+          <Section title={`Documents Scannés (${inspection.scanned_documents.length})`} icon={FileText}>
+            <div className="space-y-4">
+              {inspection.scanned_documents.map((doc: any, i: number) => (
+                <div key={i} className="flex items-center justify-between bg-gray-50 p-4 rounded-lg border border-gray-200">
+                  <div className="flex items-center gap-3">
+                    <FileText className="w-5 h-5 text-blue-500" />
+                    <div>
+                      <p className="font-semibold text-gray-900">{doc.title || `Document ${i + 1}`}</p>
+                      <p className="text-xs text-gray-500">
+                        {doc.created_at ? formatDatetimeFR(doc.created_at) : 'N/A'}
+                      </p>
+                    </div>
+                  </div>
+                  {doc.file_url && (
+                    <a href={doc.file_url} target="_blank" rel="noreferrer"
+                      className="px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600 transition">
+                      Télécharger
+                    </a>
+                  )}
                 </div>
               ))}
             </div>
