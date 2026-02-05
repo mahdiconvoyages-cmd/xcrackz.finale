@@ -79,7 +79,8 @@ export default function Admin() {
   const [grantAmount, setGrantAmount] = useState('');
   const [grantPlan, setGrantPlan] = useState('pro');
   const [grantDuration, setGrantDuration] = useState('30');
-  const [shopPlans, setShopPlans] = useState<Array<{name: string, credits_amount: number, price: number}>>([]);
+  const [grantAutoRenew, setGrantAutoRenew] = useState(true);
+  const [shopPlans, setShopPlans] = useState<Array<{name: string, credits_amount: number, price: number}>>([]);}
 
   // APK Management States
   const [apkVersions, setApkVersions] = useState<any[]>([]);
@@ -632,6 +633,7 @@ export default function Admin() {
             status: 'active',
             current_period_end: endDate.toISOString(),
             payment_method: 'manual',
+            auto_renew: grantAutoRenew,
             updated_at: new Date().toISOString()
           })
           .eq('user_id', selectedUser.id);
@@ -649,7 +651,8 @@ export default function Admin() {
             status: 'active',
             current_period_start: new Date().toISOString(),
             current_period_end: endDate.toISOString(),
-            payment_method: 'manual'
+            payment_method: 'manual',
+            auto_renew: grantAutoRenew
           });
 
         if (error) {
@@ -716,12 +719,17 @@ export default function Admin() {
         ? `\n💳 ${creditsToAdd} crédits ajoutés` 
         : '';
       
-      alert(`✅ Abonnement ${grantPlan.toUpperCase()} accordé pour ${days} jours !${creditsMessage}`);
+      const autoRenewMessage = grantAutoRenew 
+        ? `\n⚡ Auto-renouvellement ACTIVÉ` 
+        : `\n⏸️ Auto-renouvellement DÉSACTIVÉ`;
+      
+      alert(`✅ Abonnement ${grantPlan.toUpperCase()} accordé pour ${days} jours !${creditsMessage}${autoRenewMessage}`);
 
       setShowGrantModal(false);
       setSelectedUser(null);
       setGrantPlan('pro');
       setGrantDuration('30');
+      setGrantAutoRenew(true);
     } catch (err) {
       console.error('Erreur attribution abonnement:', err);
       alert(`Erreur: ${err instanceof Error ? err.message : 'Erreur inconnue'}`);
@@ -1559,15 +1567,22 @@ export default function Admin() {
                           )}
                         </td>
                         <td className="py-4 px-6 text-center">
-                          {user.subscription?.auto_renew ? (
-                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-black">
-                              <Zap className="w-4 h-4 fill-current" />
-                              ACTIF
-                            </span>
+                          {user.subscription && user.subscription.status === 'active' ? (
+                            user.subscription.auto_renew ? (
+                              <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-black">
+                                <Zap className="w-4 h-4 fill-current" />
+                                ACTIF
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-semibold">
+                                <Clock className="w-4 h-4" />
+                                Inactif
+                              </span>
+                            )
                           ) : (
-                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-semibold">
-                              <Clock className="w-4 h-4" />
-                              Désactivé
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-red-50 text-red-400 rounded-full text-xs">
+                              <XCircle className="w-4 h-4" />
+                              Aucun plan
                             </span>
                           )}
                         </td>
@@ -1587,7 +1602,7 @@ export default function Admin() {
                             >
                               <Package className="w-5 h-5" />
                             </button>
-                            {user.subscription && (
+                            {user.subscription && user.subscription.status === 'active' && (
                               <button
                                 onClick={() => handleToggleAutoRenew(user.id, user.email, user.subscription?.auto_renew || false)}
                                 className={`p-2 rounded-lg transition ${
@@ -1595,7 +1610,7 @@ export default function Admin() {
                                     ? 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200' 
                                     : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
                                 }`}
-                                title="Basculer auto-renouvellement"
+                                title={user.subscription?.auto_renew ? 'Désactiver le renouvellement automatique' : 'Activer le renouvellement automatique'}
                               >
                                 <Zap className={`w-5 h-5 ${user.subscription?.auto_renew ? 'fill-current' : ''}`} />
                               </button>
@@ -1951,6 +1966,20 @@ export default function Admin() {
                     className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:ring-4 focus:ring-teal-200 focus:border-teal-500 font-bold text-lg"
                   />
                 </div>
+
+                <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-yellow-50 to-amber-50 rounded-xl border-2 border-yellow-200">
+                  <input
+                    type="checkbox"
+                    id="grantAutoRenew"
+                    checked={grantAutoRenew}
+                    onChange={(e) => setGrantAutoRenew(e.target.checked)}
+                    className="w-5 h-5 text-yellow-600 border-2 border-yellow-300 rounded focus:ring-4 focus:ring-yellow-200"
+                  />
+                  <label htmlFor="grantAutoRenew" className="text-sm font-black text-slate-700 cursor-pointer flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-yellow-600" />
+                    Activer le renouvellement automatique
+                  </label>
+                </div>
               </div>
             )}
 
@@ -1960,6 +1989,7 @@ export default function Admin() {
                   setShowGrantModal(false);
                   setSelectedUser(null);
                   setGrantAmount('');
+                  setGrantAutoRenew(true);
                 }}
                 className="flex-1 px-4 py-3 bg-slate-200 text-slate-700 font-black rounded-xl hover:bg-slate-300 transition-all hover:shadow-lg"
               >
