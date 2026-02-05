@@ -234,20 +234,55 @@ class MissionService {
         // Démarrer le tracking quand la mission commence
         final started = await _gpsService.startTracking(id);
         if (started) {
-          print('✅ Tracking GPS démarré automatiquement pour mission: $id');
+          logger.i('✅ Tracking GPS démarré automatiquement pour mission: $id');
         } else {
-          print('⚠️ Impossible de démarrer le tracking GPS');
+          logger.w('⚠️ Impossible de démarrer le tracking GPS');
+        }
+
+        // Générer automatiquement le lien public de suivi
+        try {
+          final publicLink = await generatePublicTrackingLink(id);
+          logger.i('✅ Lien public généré: $publicLink');
+        } catch (e) {
+          logger.e('⚠️ Erreur génération lien public: $e');
         }
       } else if (status == 'completed' || status == 'cancelled') {
         // Arrêter le tracking si la mission est terminée ou annulée
         // Vérifier d'abord si le tracking est actif pour cette mission
         if (_gpsService.isTracking && _gpsService.currentMissionId == id) {
           await _gpsService.stopTracking();
-          print('⏹️ Tracking GPS arrêté automatiquement pour mission: $id');
+          logger.i('⏹️ Tracking GPS arrêté automatiquement pour mission: $id');
         }
       }
     } catch (e) {
       throw Exception('Erreur lors de la mise à jour du statut: $e');
+    }
+  }
+
+  /// Génère un lien public de tracking sécurisé pour une mission
+  /// 
+  /// Appelle la fonction SQL generate_public_tracking_link qui:
+  /// - Crée un token unique cryptographique
+  /// - Définit l'expiration à 48h après la fin prévue de la mission
+  /// - Retourne le token pour construire l'URL publique
+  Future<String> generatePublicTrackingLink(String missionId) async {
+    try {
+      final response = await _supabase.rpc('generate_public_tracking_link', params: {
+        'p_mission_id': missionId,
+      });
+
+      if (response == null || response.isEmpty) {
+        throw Exception('Token non généré');
+      }
+
+      final token = response as String;
+      final publicUrl = 'https://checksfleet.com/tracking/$token';
+
+      logger.i('🔗 Lien public généré: $publicUrl');
+      return publicUrl;
+    } catch (e) {
+      logger.e('❌ Erreur génération lien public: $e');
+      rethrow;
     }
   }
 

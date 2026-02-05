@@ -77,24 +77,70 @@ export default function PublicTracking() {
 
   const loadPublicMission = async () => {
     try {
-      const { data, error: fetchError } = await supabase
-        .from('missions')
-        .select(`
-          *,
-          driver:profiles!missions_driver_id_fkey(first_name, last_name)
-        `)
-        .eq('public_tracking_link', `${window.location.origin}/tracking/${token}`)
+      // 1. Valider le token et récupérer la mission_id via public_tracking_links
+      const { data: trackingLink, error: linkError } = await supabase
+        .from('public_tracking_links')
+        .select('mission_id, is_active, expires_at, access_count, max_accesses')
+        .eq('token', token)
         .maybeSingle();
 
-      if (fetchError) throw fetchError;
+      if (linkError) throw linkError;
 
-      if (!data) {
-        setError('Mission introuvable. Le lien de suivi est peut-être invalide.');
+      if (!trackingLink) {
+        setError('Lien de suivi invalide ou expiré');
         setLoading(false);
         return;
       }
 
-      setMission(data);
+      // Vérifier si le lien est actif et non expiré
+      if (!trackingLink.is_active) {
+        setError('Ce lien de suivi a été désactivé');
+        setLoading(false);
+        return;
+      }
+
+      if (new Date(trackingLink.expires_at) < new Date()) {
+        setError('Ce lien de suivi a expiré');
+        setLoading(false);
+        return;
+      }
+
+      // Vérifier rate limiting
+      if (trackingLink.access_count >= trackingLink.max_accesses) {
+        setError('Limite d\'accès dépassée pour ce lien');
+        setLoading(false);
+        return;
+      }
+
+      // 2. Récupérer les détails de la mission
+      const { data: missionData, error: fetchError } = await supabase
+        .from('missions')
+        .select(`
+          *,
+          driver:profiles!missions_assigned_user_id_fkey(first_name, last_name)
+        `)
+        .eq('id', trackingLink.mission_id)
+        .maybeSingle();
+
+      if (fetchError) throw fetchError;
+
+      if (!missionData) {
+        setError('Mission introuvable');
+        setLoading(false);
+        return;
+      }
+
+      // 3. Incrémenter le compteur d'accès (async, non bloquant)
+      supabase
+        .from('public_tracking_links')
+        .update({
+          access_count: trackingLink.access_count + 1,
+          last_accessed_at: new Date().toISOString(),
+        })
+        .eq('token', token)
+        .then();
+
+      setMission(missionData);
     } catch (err) {
       console.error('Error loading public mission:', err);
       setError('Erreur lors du chargement de la mission');
@@ -107,28 +153,67 @@ export default function PublicTracking() {
     if (!mission) return;
 
     try {
-      const { data: locationsData, error: locError } = await supabase
-        .from('mission_locations')
+      // 1. Récupérer l'historique depuis mission_tracking_history
+      const { data: historyData, error: historyError } = await supabase
+        .from('mission_tracking_history')
         .select('*')
         .eq('mission_id', mission.id)
         .order('recorded_at', { ascending: true });
 
-      if (locError) throw locError;
+      if (historyError) throw historyError;
 
-      const typedLocations = (locationsData || []).map((loc: any) => ({
+      const historyLocations = (historyData || []).map((loc: any) => ({
         id: loc.id,
         latitude: parseFloat(loc.latitude),
         longitude: parseFloat(loc.longitude),
         speed: loc.speed ? parseFloat(loc.speed) : null,
-        heading: loc.heading ? parseFloat(loc.heading) : null,
+        heading: loc.bearing ? parseFloat(loc.bearing) : null,
         accuracy: loc.accuracy ? parseFloat(loc.accuracy) : null,
         recorded_at: loc.recorded_at
       }));
 
-      setLocations(typedLocations);
+      // 2. Récupérer la position actuelle depuis mission_tracking_live
+      const { data: liveData, error: liveError } = await supabase
+        .from('mission_tracking_live')
+        .select('*')
+        .eq('mission_id', mission.id)
+        .eq('is_active', true)
+        .maybeSingle();
 
-      if (typedLocations.length > 0) {
-        setCurrentLocation(typedLocations[typedLocations.length - 1]);
+      if (liveError && liveError.code !== 'PGRST116') throw liveError;
+
+      let currentPos: GPSLocation | null = null;
+
+      if (liveData) {
+        currentPos = {
+          id: liveData.id,
+          latitude: parseFloat(liveData.latitude),
+          longitude: parseFloat(liveData.longitude),
+          speed: liveData.speed ? parseFloat(liveData.speed) : null,
+          heading: liveData.bearing ? parseFloat(liveData.bearing) : null,
+          accuracy: liveData.accuracy ? parseFloat(liveData.accuracy) : null,
+          recorded_at: liveData.last_update
+        };
+
+        // Ajouter la position live à l'historique si elle est plus récente
+        const lastHistoryTime = historyLocations.length > 0
+          ? new Date(historyLocations[historyLocations.length - 1].recorded_at).getTime()
+          : 0;
+        const liveTime = new Date(currentPos.recorded_at).getTime();
+
+        if (liveTime > lastHistoryTime) {
+          setLocations([...historyLocations, currentPos]);
+        } else {
+          setLocations(historyLocations);
+        }
+
+        setCurrentLocation(currentPos);
+      } else {
+        // Pas de position live, utiliser la dernière position de l'historique
+        setLocations(historyLocations);
+        if (historyLocations.length > 0) {
+          setCurrentLocation(historyLocations[historyLocations.length - 1]);
+        }
       }
     } catch (err) {
       console.error('Error loading locations:', err);
@@ -138,25 +223,59 @@ export default function PublicTracking() {
   const subscribeToLocationUpdates = () => {
     if (!mission) return;
 
+    // S'abonner aux mises à jour en temps réel de mission_tracking_live
     const channel = supabase
       .channel(`public-tracking:${mission.id}`)
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: 'UPDATE',
           schema: 'public',
-          table: 'mission_locations',
+          table: 'mission_tracking_live',
           filter: `mission_id=eq.${mission.id}`,
         },
         (payload: any) => {
+          console.log('📡 Position GPS mise à jour en temps réel:', payload.new);
+
           const newLocation: GPSLocation = {
             id: payload.new.id,
             latitude: parseFloat(payload.new.latitude),
             longitude: parseFloat(payload.new.longitude),
             speed: payload.new.speed ? parseFloat(payload.new.speed) : null,
-            heading: payload.new.heading ? parseFloat(payload.new.heading) : null,
+            heading: payload.new.bearing ? parseFloat(payload.new.bearing) : null,
             accuracy: payload.new.accuracy ? parseFloat(payload.new.accuracy) : null,
-            recorded_at: payload.new.recorded_at
+            recorded_at: payload.new.last_update
+          };
+
+          setCurrentLocation(newLocation);
+
+          // Mettre à jour le chemin avec la nouvelle position
+          setLocations(prev => {
+            const filtered = prev.filter(loc => loc.id !== newLocation.id);
+            return [...filtered, newLocation];
+          });
+        }
+      )
+      // S'abonner également aux INSERT de mission_tracking_live (première position)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'mission_tracking_live',
+          filter: `mission_id=eq.${mission.id}`,
+        },
+        (payload: any) => {
+          console.log('🆕 Première position GPS reçue:', payload.new);
+
+          const newLocation: GPSLocation = {
+            id: payload.new.id,
+            latitude: parseFloat(payload.new.latitude),
+            longitude: parseFloat(payload.new.longitude),
+            speed: payload.new.speed ? parseFloat(payload.new.speed) : null,
+            heading: payload.new.bearing ? parseFloat(payload.new.bearing) : null,
+            accuracy: payload.new.accuracy ? parseFloat(payload.new.accuracy) : null,
+            recorded_at: payload.new.last_update
           };
 
           setCurrentLocation(newLocation);
@@ -210,10 +329,11 @@ export default function PublicTracking() {
   };
 
   const handleShare = async () => {
-    if (!mission?.public_tracking_link) return;
+    if (!token) return;
 
     try {
-      await navigator.clipboard.writeText(mission.public_tracking_link);
+      const shareUrl = `${window.location.origin}/tracking/${token}`;
+      await navigator.clipboard.writeText(shareUrl);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
