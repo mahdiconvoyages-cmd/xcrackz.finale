@@ -782,7 +782,7 @@ export default function Billing() {
     );
   };
 
-  if (loading || subscription.loading) {
+  if (loading || subscription?.loading) {
     return (
       <div className="flex items-center justify-center h-screen">
         <div className="flex flex-col items-center gap-4">
@@ -793,8 +793,8 @@ export default function Billing() {
     );
   }
 
-  if (!subscription.hasActiveSubscription) {
-    return <SubscriptionRequired feature="la facturation" daysRemaining={subscription.daysRemaining} expiresAt={subscription.expiresAt} />;
+  if (!subscription?.hasActiveSubscription) {
+    return <SubscriptionRequired feature="la facturation" daysRemaining={subscription?.daysRemaining} expiresAt={subscription?.expiresAt} />;
   }
 
   return (
@@ -985,11 +985,11 @@ export default function Billing() {
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
-                            {doc.client_name.charAt(0).toUpperCase()}
+                            {doc.client_name ? doc.client_name.charAt(0).toUpperCase() : '?'}
                           </div>
                           <div>
-                            <p className="font-bold text-slate-800">{doc.client_name}</p>
-                            <p className="text-sm text-slate-500">{doc.client_email}</p>
+                            <p className="font-bold text-slate-800">{doc.client_name || 'Sans nom'}</p>
+                            <p className="text-sm text-slate-500">{doc.client_email || 'Pas d\'email'}</p>
                           </div>
                         </div>
                       </td>
@@ -1132,11 +1132,11 @@ export default function Billing() {
                           >
                             <div className="flex items-start gap-3">
                               <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-black flex-shrink-0">
-                                {client.name.charAt(0).toUpperCase()}
+                                {client.name ? client.name.charAt(0).toUpperCase() : '?'}
                               </div>
                               <div className="flex-1 min-w-0">
                                 <p className="font-bold text-slate-800 truncate group-hover:text-teal-700">
-                                  {client.name}
+                                  {client.name || 'Sans nom'}
                                 </p>
                                 {client.email && (
                                   <p className="text-xs text-slate-600 truncate">{client.email}</p>
@@ -1158,11 +1158,11 @@ export default function Billing() {
                   <div className="mb-4 p-4 bg-gradient-to-r from-teal-50 to-cyan-50 border-2 border-teal-500 rounded-xl">
                     <div className="flex items-center gap-3">
                       <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center text-white font-black text-lg">
-                        {selectedClient.name.charAt(0).toUpperCase()}
+                        {selectedClient.name ? selectedClient.name.charAt(0).toUpperCase() : '?'}
                       </div>
                       <div className="flex-1">
-                        <p className="font-black text-teal-900">{selectedClient.name}</p>
-                        <p className="text-sm text-teal-700">{selectedClient.email}</p>
+                        <p className="font-black text-teal-900">{selectedClient.name || 'Sans nom'}</p>
+                        <p className="text-sm text-teal-700">{selectedClient.email || 'Pas d\'email'}</p>
                       </div>
                       <CheckCircle2 className="w-6 h-6 text-teal-600" />
                     </div>
