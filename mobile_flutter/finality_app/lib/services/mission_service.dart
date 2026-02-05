@@ -49,7 +49,17 @@ class MissionService {
       }
       
       final response = await query.order('created_at', ascending: false);
-      final missions = (response as List).map((json) => Mission.fromJson(json)).toList();
+      final missionsList = (response as List).map((json) => Mission.fromJson(json)).toList();
+      
+      // 🔧 Dédoublonner les missions par ID
+      // (évite les doublons si user_id == assigned_user_id)
+      final Map<String, Mission> uniqueMissions = {};
+      for (final mission in missionsList) {
+        uniqueMissions[mission.id] = mission;
+      }
+      final missions = uniqueMissions.values.toList();
+      
+      logger.d('MissionService: ${missionsList.length} missions récupérées, ${missions.length} uniques après dédoublonnage');
       
       // Mettre en cache pour offline
       for (final mission in missions) {
