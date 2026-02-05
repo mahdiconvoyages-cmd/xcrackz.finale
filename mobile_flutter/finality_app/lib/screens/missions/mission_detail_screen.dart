@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../utils/error_helper.dart';
 import '../../models/mission.dart';
 import '../../services/mission_service.dart';
-import '../../services/gps_tracking_service.dart';
+import '../../services/background_tracking_service.dart';
 import 'package:intl/intl.dart';
 import 'mission_map_screen.dart';
 
@@ -20,14 +20,23 @@ class MissionDetailScreen extends StatefulWidget {
 
 class _MissionDetailScreenState extends State<MissionDetailScreen> {
   final MissionService _missionService = MissionService();
-  final GPSTrackingService _gpsService = GPSTrackingService();
+  final BackgroundTrackingService _trackingService = BackgroundTrackingService();
   Mission? _mission;
   bool _isLoading = true;
+  bool _isTrackingActive = false;
 
   @override
   void initState() {
     super.initState();
     _loadMission();
+    _checkTrackingStatus();
+  }
+
+  void _checkTrackingStatus() {
+    setState(() {
+      _isTrackingActive = _trackingService.isTracking &&
+          _trackingService.currentMissionId == widget.missionId;
+    });
   }
 
   Future<void> _loadMission() async {
@@ -39,6 +48,29 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         _mission = mission;
         _isLoading = false;
       });
+
+      // AUTO-START: Démarrer le tracking automatiquement si mission en cours
+      if (mission.status == 'in_progress' && !_trackingService.isTracking) {
+        final started = await _trackingService.startTracking(mission.id, autoStart: true);
+        if (started) {
+          setState(() => _isTrackingActive = true);
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Row(
+                  children: [
+                    Icon(Icons.gps_fixed, color: Colors.white, size: 20),
+                    SizedBox(width: 8),
+                    Text('📍 Tracking GPS activé automatiquement'),
+                  ],
+                ),
+                backgroundColor: Colors.green,
+                duration: Duration(seconds: 2),
+              ),
+            );
+          }
+        }
+      }
     } catch (e) {
       setState(() => _isLoading = false);
       if (!mounted) return;
@@ -128,28 +160,89 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
   }
 
   Widget _buildBottomActions() {
+    final bool canTrack = _mission!.status == 'in_progress';
+    
     return SafeArea(
       child: Padding(
         padding: const EdgeInsets.all(16),
-        child: Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            if (_mission!.status == 'pending') ...[
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => _updateStatus('in_progress'),
-                  icon: const Icon(Icons.play_arrow),
-                  label: const Text('Démarrer'),
+            // Bouton toggle GPS (visible si mission en cours)
+            if (canTrack) ..[
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: _isTrackingActive ? Colors.green.shade50 : Colors.grey.shade100,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _isTrackingActive ? Colors.green : Colors.grey.shade300,
+                    width: 2,
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _isTrackingActive ? Icons.gps_fixed : Icons.gps_off,
+                      color: _isTrackingActive ? Colors.green : Colors.grey,
+                      size: 24,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _isTrackingActive ? 'Tracking GPS Actif' : 'Tracking GPS Inactif',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: _isTrackingActive ? Colors.green.shade900 : Colors.grey.shade700,
+                            ),
+                          ),
+                          Text(
+                            _isTrackingActive 
+                                ? 'Position mise à jour toutes les 3s'
+                                : 'Activez pour partager votre position',
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: _isTrackingActive ? Colors.green.shade700 : Colors.grey.shade600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: _isTrackingActive,
+                      onChanged: (_) => _toggleTracking(),
+                      activeColor: Colors.green,
+                    ),
+                  ],
                 ),
               ),
-            ] else if (_mission!.status == 'in_progress') ...[
-              Expanded(
-                child: FilledButton.icon(
-                  onPressed: () => _updateStatus('completed'),
-                  icon: const Icon(Icons.check),
-                  label: const Text('Terminer'),
-                ),
-              ),
+              const SizedBox(height: 12),
             ],
+            // Boutons d'action principaux
+            Row(
+              children: [
+                if (_mission!.status == 'pending') ...[
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => _updateStatus('in_progress'),
+                      icon: const Icon(Icons.play_arrow),
+                      label: const Text('Démarrer'),
+                    ),
+                  ),
+                ] else if (_mission!.status == 'in_progress') ...[
+                  Expanded(
+                    child: FilledButton.icon(
+                      onPressed: () => _updateStatus('completed'),
+                      icon: const Icon(Icons.check),
+                      label: const Text('Terminer'),
+                    ),
+                  ),
+                ],
+              ],
+            ),
           ],
         ),
       ),
@@ -164,13 +257,15 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
       // Gérer le tracking GPS automatiquement
       if (newStatus == 'in_progress') {
         // Démarrer le tracking quand la mission commence
-        final started = await _gpsService.startTracking(_mission!.id);
+        final started = await _trackingService.startTracking(_mission!.id, autoStart: true);
         if (started) {
+          setState(() => _isTrackingActive = true);
           print('✅ Tracking GPS démarré automatiquement');
         }
       } else if (newStatus == 'completed') {
         // Arrêter le tracking quand la mission est terminée
-        await _gpsService.stopTracking();
+        await _trackingService.stopTracking();
+        setState(() => _isTrackingActive = false);
         print('⏹️ Tracking GPS arrêté automatiquement');
       }
       
@@ -179,9 +274,9 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
       
       String message = 'Statut mis à jour';
       if (newStatus == 'in_progress') {
-        message = 'Mission démarrée - Tracking GPS activé';
+        message = 'Mission démarrée - Tracking GPS activé 📍';
       } else if (newStatus == 'completed') {
-        message = 'Mission terminée - Tracking GPS arrêté';
+        message = 'Mission terminée - Tracking GPS arrêté ✅';
       }
       
       ScaffoldMessenger.of(context).showSnackBar(
@@ -198,6 +293,68 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
           content: Text(ErrorHelper.cleanError(e)),
           backgroundColor: Colors.red,
           behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  Future<void> _toggleTracking() async {
+    try {
+      if (_isTrackingActive) {
+        // Arrêter le tracking
+        await _trackingService.stopTracking();
+        setState(() => _isTrackingActive = false);
+        
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.gps_off, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text('Tracking GPS désactivé'),
+              ],
+            ),
+            backgroundColor: Colors.orange,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      } else {
+        // Démarrer le tracking
+        final started = await _trackingService.startTracking(_mission!.id);
+        if (started) {
+          setState(() => _isTrackingActive = true);
+          
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.gps_fixed, color: Colors.white, size: 20),
+                  SizedBox(width: 8),
+                  Text('📍 Tracking GPS activé (3s)'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+            ),
+          );
+        } else {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('❌ Impossible de démarrer le GPS (permissions?)'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(ErrorHelper.cleanError(e)),
+          backgroundColor: Colors.red,
         ),
       );
     }
