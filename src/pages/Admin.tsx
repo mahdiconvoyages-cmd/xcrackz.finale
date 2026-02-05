@@ -312,7 +312,7 @@ export default function Admin() {
       supabase.from('missions').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
       supabase.from('transactions').select('*', { count: 'exact', head: true }),
       supabase.from('transactions').select('amount').eq('payment_status', 'paid'),
-      supabase.from('user_credits').select('balance'),
+      supabase.from('profiles').select('credits'),
       supabase.from('contacts').select('*', { count: 'exact', head: true }),
       supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo.toISOString()),
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
@@ -321,7 +321,7 @@ export default function Admin() {
     ]);
 
     const totalRevenue = revenueData?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-    const totalCreditsDistributed = creditsData?.reduce((sum, c) => sum + Number(c.balance), 0) || 0;
+    const totalCreditsDistributed = creditsData?.reduce((sum, c) => sum + Number(c.credits || 0), 0) || 0;
     const revenueMonth = revenueThisMonth?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
 
     setStatistics({
@@ -346,7 +346,6 @@ export default function Admin() {
         .from('profiles')
         .select(`
           *,
-          credits:user_credits(balance),
           subscription:subscriptions!subscriptions_user_id_fkey(status, plan, current_period_end, auto_renew)
         `)
         .order('created_at', { ascending: false });
@@ -365,7 +364,8 @@ export default function Admin() {
 
       const usersWithData = (data || []).map(user => ({
         ...user,
-        credits: Array.isArray(user.credits) ? user.credits[0] : user.credits,
+        // Utiliser profiles.credits (source unique de vérité) et le formater pour compatibilité
+        credits: { balance: user.credits || 0 },
         subscription: Array.isArray(user.subscription) ? user.subscription[0] : user.subscription
       }));
 
