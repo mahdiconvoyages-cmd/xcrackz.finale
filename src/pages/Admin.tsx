@@ -80,7 +80,7 @@ export default function Admin() {
   const [grantPlan, setGrantPlan] = useState('pro');
   const [grantDuration, setGrantDuration] = useState('30');
   const [grantAutoRenew, setGrantAutoRenew] = useState(true);
-  const [shopPlans, setShopPlans] = useState<Array<{name: string, credits_amount: number, price: number}>>([]);}
+  const [shopPlans, setShopPlans] = useState<Array<{name: string, credits_amount: number, price: number}>>([]);
 
   // APK Management States
   const [apkVersions, setApkVersions] = useState<any[]>([]);
