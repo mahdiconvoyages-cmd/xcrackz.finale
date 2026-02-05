@@ -259,12 +259,12 @@ class _TrackingMapScreenState extends State<TrackingMapScreen> {
 
   Future<void> _broadcastPosition(Position position) async {
     try {
-      await _supabase.from('mission_tracking_positions').upsert({
+      await _supabase.from('mission_tracking_live').upsert({
         'mission_id': widget.missionId,
         'user_id': _supabase.auth.currentUser?.id,
         'latitude': position.latitude,
         'longitude': position.longitude,
-        'timestamp': DateTime.now().toIso8601String(),
+        'updated_at': DateTime.now().toIso8601String(),
         'bearing': position.heading,
       });
     } catch (e) {

@@ -1886,7 +1886,7 @@ export default function Admin() {
                   >
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-blue-500 rounded-full flex items-center justify-center text-white font-black">
-                        {user.email.charAt(0).toUpperCase()}
+                        {user.email?.charAt(0).toUpperCase() || '?'}
                       </div>
                       <div>
                         <p className="font-bold text-slate-900">{user.email}</p>

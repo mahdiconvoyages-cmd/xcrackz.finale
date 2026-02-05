@@ -72,6 +72,7 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   final _clientNameController = TextEditingController();
   final _clientPhoneController = TextEditingController();
   final _clientEmailController = TextEditingController();
+  final _agentNameController = TextEditingController();
   final _priceController = TextEditingController();
   final _notesController = TextEditingController();
   final _specialInstructionsController = TextEditingController();
@@ -209,6 +210,7 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
     _clientNameController.dispose();
     _clientPhoneController.dispose();
     _clientEmailController.dispose();
+    _agentNameController.dispose();
     _priceController.dispose();
     _notesController.dispose();
     _specialInstructionsController.dispose();
@@ -317,6 +319,7 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
         'client_name': _clientNameController.text.isNotEmpty ? _clientNameController.text : null,
         'client_phone': _clientPhoneController.text.isNotEmpty ? _clientPhoneController.text : null,
         'client_email': _clientEmailController.text.isNotEmpty ? _clientEmailController.text : null,
+        'agent_name': _agentNameController.text.isNotEmpty ? _agentNameController.text : null,
         'price': _priceController.text.isNotEmpty ? double.tryParse(_priceController.text) : null,
         'notes': _notesController.text.isNotEmpty ? _notesController.text : null,
         'special_instructions': _specialInstructionsController.text.isNotEmpty ? _specialInstructionsController.text : null,
@@ -1095,6 +1098,13 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
           hint: 'email@exemple.com',
           icon: Icons.email_outlined,
           keyboardType: TextInputType.emailAddress,
+        ),
+        const SizedBox(height: 16),
+        _buildTextField(
+          controller: _agentNameController,
+          label: 'Nom du mandataire',
+          hint: 'Nom de l\'agent représentant',
+          icon: Icons.badge_outlined,
         ),
         const SizedBox(height: 24),
 

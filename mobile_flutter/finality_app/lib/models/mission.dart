@@ -23,6 +23,7 @@ class Mission {
   final String? clientName;
   final String? clientPhone;
   final String? clientEmail;
+  final String? agentName;
   final String? notes;
   final double? price;
   final String? publicTrackingLink;
@@ -55,6 +56,7 @@ class Mission {
     this.clientName,
     this.clientPhone,
     this.clientEmail,
+    this.agentName,
     this.notes,
     this.price,
     this.publicTrackingLink,
@@ -89,6 +91,7 @@ class Mission {
       clientName: json['client_name'] as String?,
       clientPhone: json['client_phone'] as String?,
       clientEmail: json['client_email'] as String?,
+      agentName: json['agent_name'] as String?,
       notes: json['notes'] as String?,
       price: json['price'] != null ? (json['price'] as num).toDouble() : null,
       publicTrackingLink: json['public_tracking_link'] as String?,
@@ -124,6 +127,7 @@ class Mission {
       'client_name': clientName,
       'client_phone': clientPhone,
       'client_email': clientEmail,
+      'agent_name': agentName,
       'notes': notes,
       'price': price,
       'created_at': createdAt.toIso8601String(),
@@ -156,6 +160,7 @@ class Mission {
     String? clientName,
     String? clientPhone,
     String? clientEmail,
+    String? agentName,
     String? notes,
     double? price,
     String? publicTrackingLink,
@@ -188,6 +193,7 @@ class Mission {
       clientName: clientName ?? this.clientName,
       clientPhone: clientPhone ?? this.clientPhone,
       clientEmail: clientEmail ?? this.clientEmail,
+      agentName: agentName ?? this.agentName,
       notes: notes ?? this.notes,
       price: price ?? this.price,
       publicTrackingLink: publicTrackingLink ?? this.publicTrackingLink,

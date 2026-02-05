@@ -10,7 +10,7 @@ class InseeService {
   
   /// Recherche une entreprise par son numéro SIRET
   /// Returns les informations complètes de l'établissement
-  Future<CompanyInfo?> getCompanyBySiret(String siret) async {
+  Future<InseeCompanyInfo?> getCompanyBySiret(String siret) async {
     try {
       // Nettoyer le SIRET (enlever espaces et caractères spéciaux)
       final cleanSiret = siret.replaceAll(RegExp(r'[^0-9]'), '');
@@ -30,7 +30,7 @@ class InseeService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return CompanyInfo.fromInseeJson(data['etablissement']);
+        return InseeCompanyInfo.fromInseeJson(data['etablissement']);
       } else if (response.statusCode == 404) {
         return null; // SIRET non trouvé
       } else {
@@ -43,7 +43,7 @@ class InseeService {
 
   /// Recherche une entreprise par son numéro SIREN
   /// Returns les informations du siège social
-  Future<CompanyInfo?> getCompanyBySiren(String siren) async {
+  Future<InseeCompanyInfo?> getCompanyBySiren(String siren) async {
     try {
       // Nettoyer le SIREN
       final cleanSiren = siren.replaceAll(RegExp(r'[^0-9]'), '');
@@ -63,7 +63,7 @@ class InseeService {
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        return CompanyInfo.fromInseeJson(data['uniteLegale']);
+        return InseeCompanyInfo.fromInseeJson(data['uniteLegale']);
       } else if (response.statusCode == 404) {
         return null;
       } else {
@@ -76,7 +76,7 @@ class InseeService {
 
   /// Recherche des entreprises par nom (approximatif)
   /// Limite à 20 résultats
-  Future<List<CompanyInfo>> searchCompaniesByName(String name) async {
+  Future<List<InseeCompanyInfo>> searchCompaniesByName(String name) async {
     try {
       if (name.length < 3) {
         return [];
@@ -99,7 +99,7 @@ class InseeService {
         final etablissements = data['etablissements'] as List? ?? [];
         
         return etablissements
-            .map((e) => CompanyInfo.fromInseeJson(e))
+            .map((e) => InseeCompanyInfo.fromInseeJson(e))
             .toList();
       } else {
         return [];
@@ -170,8 +170,8 @@ class InseeService {
   }
 }
 
-/// Modèle pour les informations d'entreprise
-class CompanyInfo {
+/// Modèle pour les informations d'entreprise depuis l'API INSEE
+class InseeCompanyInfo {
   final String siret;
   final String siren;
   final String? companyName;
@@ -187,7 +187,7 @@ class CompanyInfo {
   final String? status; // Actif, Fermé, etc.
   final DateTime? creationDate;
 
-  CompanyInfo({
+  InseeCompanyInfo({
     required this.siret,
     required this.siren,
     this.companyName,
@@ -205,7 +205,7 @@ class CompanyInfo {
   });
 
   /// Parse les données de l'API INSEE
-  factory CompanyInfo.fromInseeJson(Map<String, dynamic> json) {
+  factory InseeCompanyInfo.fromInseeJson(Map<String, dynamic> json) {
     // Extraire les informations d'adresse
     final adresse = json['adresseEtablissement'] ?? json['adresse'] ?? {};
     final uniteLegale = json['uniteLegale'] ?? {};
@@ -249,7 +249,7 @@ class CompanyInfo {
       }
     }
     
-    return CompanyInfo(
+    return InseeCompanyInfo(
       siret: siret,
       siren: siren,
       companyName: companyName,

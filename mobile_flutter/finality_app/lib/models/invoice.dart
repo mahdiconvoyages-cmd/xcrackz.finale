@@ -151,9 +151,9 @@ class InvoiceItem {
     return InvoiceItem(
       id: json['id']?.toString(),
       description: json['description']?.toString() ?? '',
-      quantity: json['quantity'] ?? 1,
+      quantity: (json['quantity'] ?? 1).toInt(),
       unitPrice: (json['unit_price'] ?? 0).toDouble(),
-      total: (json['total'] ?? 0).toDouble(),
+      total: (json['total'] ?? json['amount'] ?? 0).toDouble(),
     );
   }
 

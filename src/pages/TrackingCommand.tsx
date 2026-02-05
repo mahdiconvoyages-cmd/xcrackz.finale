@@ -106,27 +106,45 @@ export default function TrackingCommand() {
   const loadMissionTracking = async (missionId: string) => {
     try {
       // Charger historique des positions GPS
-      const { data: locationsData, error: locError } = await supabase
-        .from('mission_locations')
+      const { data: historyData, error: histError } = await supabase
+        .from('mission_tracking_history')
         .select('*')
         .eq('mission_id', missionId)
         .order('recorded_at', { ascending: true });
 
-      if (locError) throw locError;
+      if (histError) throw histError;
       
-      const typedLocations = (locationsData || []).map((loc: any) => ({
+      const typedLocations = (historyData || []).map((loc: any) => ({
         id: loc.id,
         latitude: parseFloat(loc.latitude),
         longitude: parseFloat(loc.longitude),
         speed: loc.speed ? parseFloat(loc.speed) : null,
-        heading: loc.heading ? parseFloat(loc.heading) : null,
+        heading: loc.bearing ? parseFloat(loc.bearing) : null,
         accuracy: loc.accuracy ? parseFloat(loc.accuracy) : null,
         recorded_at: loc.recorded_at
       }));
 
       setLocations(typedLocations);
       
-      if (typedLocations.length > 0) {
+      // Charger position actuelle depuis mission_tracking_live
+      const { data: liveData, error: liveError } = await supabase
+        .from('mission_tracking_live')
+        .select('*')
+        .eq('mission_id', missionId)
+        .single();
+
+      if (!liveError && liveData) {
+        const currentPos = {
+          id: liveData.id,
+          latitude: parseFloat(liveData.latitude),
+          longitude: parseFloat(liveData.longitude),
+          speed: liveData.speed ? parseFloat(liveData.speed) : null,
+          heading: liveData.bearing ? parseFloat(liveData.bearing) : null,
+          accuracy: liveData.accuracy ? parseFloat(liveData.accuracy) : null,
+          recorded_at: liveData.last_update
+        };
+        setCurrentLocation(currentPos);
+      } else if (typedLocations.length > 0) {
         setCurrentLocation(typedLocations[typedLocations.length - 1]);
       }
     } catch (error) {
@@ -140,9 +158,9 @@ export default function TrackingCommand() {
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: 'UPDATE',
           schema: 'public',
-          table: 'mission_locations',
+          table: 'mission_tracking_live',
           filter: `mission_id=eq.${missionId}`,
         },
         (payload: any) => {
@@ -151,9 +169,9 @@ export default function TrackingCommand() {
             latitude: parseFloat(payload.new.latitude),
             longitude: parseFloat(payload.new.longitude),
             speed: payload.new.speed ? parseFloat(payload.new.speed) : null,
-            heading: payload.new.heading ? parseFloat(payload.new.heading) : null,
+            heading: payload.new.bearing ? parseFloat(payload.new.bearing) : null,
             accuracy: payload.new.accuracy ? parseFloat(payload.new.accuracy) : null,
-            recorded_at: payload.new.recorded_at
+            recorded_at: payload.new.last_update
           };
           
           setCurrentLocation(newLocation);

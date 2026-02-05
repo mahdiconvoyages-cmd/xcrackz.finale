@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-import '../../services/gps_tracking_service.dart';
 import 'tracking_map_screen.dart';
 
 class TrackingListScreen extends StatefulWidget {
@@ -13,7 +12,6 @@ class TrackingListScreen extends StatefulWidget {
 
 class _TrackingListScreenState extends State<TrackingListScreen> {
   final _supabase = Supabase.instance.client;
-  final _gpsService = GPSTrackingService();
   
   List<Map<String, dynamic>> _trackedMissions = [];
   bool _isLoading = true;
@@ -51,11 +49,9 @@ class _TrackingListScreenState extends State<TrackingListScreen> {
       final missionsWithGPS = <Map<String, dynamic>>[];
       for (var mission in response as List) {
         final gpsData = await _supabase
-            .from('mission_tracking_positions')
+            .from('mission_tracking_live')
             .select('*')
             .eq('mission_id', mission['id'])
-            .order('timestamp', ascending: false)
-            .limit(1)
             .maybeSingle();
 
         missionsWithGPS.add({

@@ -62,16 +62,16 @@ export default function TeamMapScreen({ navigation }: any) {
     
     // Subscription temps réel Supabase
     const subscription = supabase
-      .channel('mission_locations_changes')
+      .channel('mission_tracking_live_changes')
       .on(
         'postgres_changes',
         {
-          event: 'INSERT',
+          event: 'UPDATE',
           schema: 'public',
-          table: 'mission_locations',
+          table: 'mission_tracking_live',
         },
         (payload) => {
-          console.log('🆕 Nouvelle position reçue:', payload);
+          console.log('🆕 Position mise à jour:', payload);
           loadTrackedMissions(); // Refresh immédiat sur nouveau point GPS
         }
       )
@@ -113,21 +113,22 @@ export default function TeamMapScreen({ navigation }: any) {
               phone
             )
           ),
-          mission_locations(
+          mission_tracking_live!left(
             latitude,
             longitude,
-            recorded_at
+            last_update,
+            speed,
+            bearing
           )
         `)
-        .eq('status', 'in_progress')
-        .order('recorded_at', { foreignTable: 'mission_locations', ascending: false });
+        .eq('status', 'in_progress');
 
       if (error) throw error;
 
       const tracked: TrackedMission[] = data
-        ?.filter((m: any) => m.mission_locations && m.mission_locations.length > 0)
+        ?.filter((m: any) => m.mission_tracking_live && m.mission_tracking_live.latitude)
         .map((m: any) => {
-          const lastLocation = m.mission_locations[0];
+          const liveTracking = m.mission_tracking_live;
           const assignment = m.mission_assignments[0];
           
           return {
@@ -138,9 +139,9 @@ export default function TeamMapScreen({ navigation }: any) {
             status: m.status,
             pickup_address: m.pickup_address,
             delivery_address: m.delivery_address,
-            last_latitude: lastLocation.latitude,
-            last_longitude: lastLocation.longitude,
-            last_update: lastLocation.recorded_at,
+            last_latitude: liveTracking.latitude,
+            last_longitude: liveTracking.longitude,
+            last_update: liveTracking.last_update,
             pickup_lat: m.pickup_lat,
             pickup_lng: m.pickup_lng,
             delivery_lat: m.delivery_lat,

@@ -1,14 +1,14 @@
 import 'dart:convert';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/mission.dart';
-import 'gps_tracking_service.dart';
+import 'background_tracking_service.dart';
 import 'offline_service.dart';
 import 'connectivity_service.dart';
 import '../utils/logger.dart';
 
 class MissionService {
   final SupabaseClient _supabase = Supabase.instance.client;
-  final GPSTrackingService _gpsService = GPSTrackingService();
+  final BackgroundTrackingService _gpsService = BackgroundTrackingService();
   final OfflineService _offlineService = OfflineService();
   final ConnectivityService _connectivityService = ConnectivityService();
   

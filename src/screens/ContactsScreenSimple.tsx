@@ -106,7 +106,7 @@ export default function ContactsScreenSimple() {
       {/* Avatar */}
       <View style={[styles.avatar, { backgroundColor: getUserTypeColor(item.user_type) }]}>
         <Text style={styles.avatarText}>
-          {(item.full_name || item.email).charAt(0).toUpperCase()}
+          {(item.full_name || item.email)?.charAt(0).toUpperCase() || '?'}
         </Text>
       </View>
 

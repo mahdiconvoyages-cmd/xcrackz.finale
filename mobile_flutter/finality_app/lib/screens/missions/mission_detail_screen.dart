@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../utils/error_helper.dart';
 import '../../models/mission.dart';
 import '../../services/mission_service.dart';
@@ -24,6 +26,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
   Mission? _mission;
   bool _isLoading = true;
   bool _isTrackingActive = false;
+  String? _publicTrackingLink;
 
   @override
   void initState() {
@@ -54,6 +57,8 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         final started = await _trackingService.startTracking(mission.id, autoStart: true);
         if (started) {
           setState(() => _isTrackingActive = true);
+          // Générer le lien public
+          _generatePublicLink();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -219,6 +224,79 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
                   ],
                 ),
               ),
+              
+              // Carte lien public (si tracking actif et lien généré)
+              if (_isTrackingActive && _publicTrackingLink != null) ..[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.shade50,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.blue.shade200, width: 1),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(Icons.share_location, color: Colors.blue.shade700, size: 20),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Lien de suivi client',
+                            style: TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.blue.shade900,
+                              fontSize: 14,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          _publicTrackingLink!,
+                          style: const TextStyle(fontSize: 12, color: Colors.black87),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: OutlinedButton.icon(
+                              onPressed: _copyLinkToClipboard,
+                              icon: const Icon(Icons.copy, size: 16),
+                              label: const Text('Copier'),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: Colors.blue.shade700,
+                                side: BorderSide(color: Colors.blue.shade300),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: FilledButton.icon(
+                              onPressed: _shareTrackingLink,
+                              icon: const Icon(Icons.share, size: 16),
+                              label: const Text('Partager'),
+                              style: FilledButton.styleFrom(
+                                backgroundColor: Colors.blue.shade700,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 12),
             ],
             // Boutons d'action principaux
@@ -324,6 +402,8 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         final started = await _trackingService.startTracking(_mission!.id);
         if (started) {
           setState(() => _isTrackingActive = true);
+          // Générer le lien public
+          _generatePublicLink();
           
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
@@ -396,6 +476,70 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
           SnackBar(content: Text(ErrorHelper.cleanError(e))),
         );
       }
+    }
+  }
+
+  Future<void> _generatePublicLink() async {
+    try {
+      final link = await _missionService.generatePublicTrackingLink(_mission!.id);
+      if (link != null) {
+        setState(() => _publicTrackingLink = link);
+      }
+    } catch (e) {
+      // Log silencieusement, pas critique
+      print('Erreur génération lien public: $e');
+    }
+  }
+
+  Future<void> _copyLinkToClipboard() async {
+    if (_publicTrackingLink == null) return;
+    
+    await Clipboard.setData(ClipboardData(text: _publicTrackingLink!));
+    
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.white, size: 20),
+            SizedBox(width: 8),
+            Text('✅ Lien copié dans le presse-papier'),
+          ],
+        ),
+        backgroundColor: Colors.green,
+        duration: Duration(seconds: 2),
+      ),
+    );
+  }
+
+  Future<void> _shareTrackingLink() async {
+    if (_publicTrackingLink == null) return;
+    
+    final message = '''
+🚗 Suivi de votre livraison en temps réel
+
+Mission: ${_mission!.reference}
+📍 Suivez votre commande en direct:
+
+$_publicTrackingLink
+
+Actualisé toutes les 3 secondes.
+ChecksFleet - Votre transporteur de confiance
+''';
+    
+    try {
+      await Share.share(
+        message,
+        subject: 'Suivi GPS - Mission ${_mission!.reference}',
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur partage: ${ErrorHelper.cleanError(e)}'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
   }
 }

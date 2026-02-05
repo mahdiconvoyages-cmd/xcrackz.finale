@@ -6,7 +6,7 @@ import 'dart:async';
 /// Widget d'autocomplétion SIRET avec recherche API INSEE
 class SiretAutocompleteField extends StatefulWidget {
   final String? initialValue;
-  final Function(CompanyInfo?) onCompanySelected;
+  final Function(InseeCompanyInfo?) onCompanySelected;
   final String? label;
   final String? hint;
   final bool required;
@@ -30,7 +30,7 @@ class _SiretAutocompleteFieldState extends State<SiretAutocompleteField> {
   final InseeService _inseeService = InseeService();
   late TextEditingController _controller;
   Timer? _debounce;
-  CompanyInfo? _selectedCompany;
+  InseeCompanyInfo? _selectedCompany;
   bool _isLoading = false;
   String? _errorMessage;
 
@@ -77,7 +77,7 @@ class _SiretAutocompleteFieldState extends State<SiretAutocompleteField> {
     });
 
     try {
-      CompanyInfo? company;
+      InseeCompanyInfo? company;
 
       if (siretOrSiren.length == 14) {
         // SIRET complet

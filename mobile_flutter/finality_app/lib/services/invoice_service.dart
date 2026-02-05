@@ -7,14 +7,66 @@ class InvoiceService {
   // Créer une facture
   Future<Invoice> createInvoice(Invoice invoice) async {
     try {
-      final response = await _supabase
+      print('🔵 InvoiceService.createInvoice - Début');
+      
+      // Récupérer l'utilisateur connecté
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) {
+        throw Exception('Utilisateur non connecté');
+      }
+      print('✅ User ID: $userId');
+      
+      // Copier l'invoice avec le bon userId
+      final invoiceWithUserId = invoice.copyWith(userId: userId);
+      
+      // Extraire les items avant de sérialiser
+      final items = invoiceWithUserId.items;
+      print('📦 Nombre d\'items: ${items.length}');
+      
+      // Créer un JSON sans les items
+      final invoiceJson = invoiceWithUserId.toJson();
+      invoiceJson.remove('items'); // Retirer les items car ils sont dans une table séparée
+      
+      print('📄 JSON invoice (sans items): $invoiceJson');
+      
+      // 1. Créer l'invoice
+      final invoiceResponse = await _supabase
           .from('invoices')
-          .insert(invoice.toJson())
+          .insert(invoiceJson)
           .select()
           .single();
-
-      return Invoice.fromJson(response);
+      
+      print('✅ Invoice créée avec ID: ${invoiceResponse['id']}');
+      final createdInvoiceId = invoiceResponse['id'] as String;
+      
+      // 2. Créer les items si présents
+      if (items.isNotEmpty) {
+        print('📦 Création des ${items.length} items...');
+        final itemsJson = items.asMap().entries.map((entry) {
+          final index = entry.key;
+          final item = entry.value;
+          return {
+            'invoice_id': createdInvoiceId,
+            'description': item.description,
+            'quantity': item.quantity,
+            'unit_price': item.unitPrice,
+            'tax_rate': invoiceWithUserId.taxRate,
+            'amount': item.total,
+            'sort_order': index,
+          };
+        }).toList();
+        
+        await _supabase.from('invoice_items').insert(itemsJson);
+        print('✅ Items créés avec succès');
+      }
+      
+      // 3. Récupérer l'invoice complète avec les items
+      final completeInvoice = await getInvoiceByIdWithItems(createdInvoiceId);
+      print('🎉 Invoice complète créée avec succès!');
+      
+      return completeInvoice ?? Invoice.fromJson(invoiceResponse);
     } catch (e) {
+      print('❌ Erreur création facture: $e');
       throw Exception('Erreur création facture: $e');
     }
   }
@@ -63,8 +115,15 @@ class InvoiceService {
           .select('*, invoice_items(*)')
           .eq('id', id)
           .single();
+      
+      // Convertir invoice_items en items pour le modèle
+      final invoiceData = Map<String, dynamic>.from(response);
+      if (invoiceData['invoice_items'] != null) {
+        invoiceData['items'] = invoiceData['invoice_items'];
+        invoiceData.remove('invoice_items');
+      }
 
-      return Invoice.fromJson(response);
+      return Invoice.fromJson(invoiceData);
     } catch (e) {
       throw Exception('Erreur lors de la récupération de la facture: $e');
     }
@@ -73,15 +132,57 @@ class InvoiceService {
   // Mettre à jour une facture
   Future<Invoice> updateInvoice(String id, Invoice invoice) async {
     try {
-      final response = await _supabase
+      print('🔵 InvoiceService.updateInvoice - ID: $id');
+      
+      // Extraire les items
+      final items = invoice.items;
+      print('📦 Nombre d\'items: ${items.length}');
+      
+      // JSON sans les items
+      final invoiceJson = invoice.toJson();
+      invoiceJson.remove('items');
+      
+      // 1. Mettre à jour l'invoice
+      final invoiceResponse = await _supabase
           .from('invoices')
-          .update(invoice.toJson())
+          .update(invoiceJson)
           .eq('id', id)
           .select()
           .single();
-
-      return Invoice.fromJson(response);
+      
+      print('✅ Invoice mise à jour');
+      
+      // 2. Supprimer les anciens items
+      await _supabase.from('invoice_items').delete().eq('invoice_id', id);
+      print('🗑️ Anciens items supprimés');
+      
+      // 3. Créer les nouveaux items
+      if (items.isNotEmpty) {
+        final itemsJson = items.asMap().entries.map((entry) {
+          final index = entry.key;
+          final item = entry.value;
+          return {
+            'invoice_id': id,
+            'description': item.description,
+            'quantity': item.quantity,
+            'unit_price': item.unitPrice,
+            'tax_rate': invoice.taxRate,
+            'amount': item.total,
+            'sort_order': index,
+          };
+        }).toList();
+        
+        await _supabase.from('invoice_items').insert(itemsJson);
+        print('✅ Nouveaux items créés');
+      }
+      
+      // 4. Récupérer l'invoice complète
+      final completeInvoice = await getInvoiceByIdWithItems(id);
+      print('🎉 Invoice mise à jour avec succès!');
+      
+      return completeInvoice ?? Invoice.fromJson(invoiceResponse);
     } catch (e) {
+      print('❌ Erreur mise à jour facture: $e');
       throw Exception('Erreur mise à jour facture: $e');
     }
   }

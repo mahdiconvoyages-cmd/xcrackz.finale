@@ -1,24 +1,24 @@
 import 'package:flutter/material.dart';
 import '../../utils/error_helper.dart';
-import '../../models/quote.dart';
+import '../../models/invoice.dart';
 import '../../models/client.dart';
-import '../../services/quote_service.dart';
+import '../../services/invoice_service.dart';
 import '../../services/insee_service.dart';
 import '../../widgets/siret_autocomplete_field.dart';
 import '../../widgets/client_selector.dart';
 
-class QuoteFormScreen extends StatefulWidget {
-  final Quote? quote;
+class InvoiceFormScreen extends StatefulWidget {
+  final Invoice? invoice;
 
-  const QuoteFormScreen({super.key, this.quote});
+  const InvoiceFormScreen({super.key, this.invoice});
 
   @override
-  State<QuoteFormScreen> createState() => _QuoteFormScreenState();
+  State<InvoiceFormScreen> createState() => _InvoiceFormScreenState();
 }
 
-class _QuoteFormScreenState extends State<QuoteFormScreen> {
+class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  final QuoteService _quoteService = QuoteService();
+  final InvoiceService _invoiceService = InvoiceService();
   
   final _clientNameController = TextEditingController();
   final _clientEmailController = TextEditingController();
@@ -27,39 +27,40 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
   final _clientSiretController = TextEditingController();
   final _clientVatController = TextEditingController();
   final _notesController = TextEditingController();
-  final _termsController = TextEditingController();
+  final _paymentTermsController = TextEditingController();
   
   InseeCompanyInfo? _selectedCompany;
   Client? _selectedClient;
-  bool _useExistingClient = true;
-  
-  DateTime _quoteDate = DateTime.now();
-  DateTime? _validUntil;
+  bool _useExistingClient = true; // Nouveau: toggle entre client existant et saisie manuelle
+  DateTime _invoiceDate = DateTime.now();
+  DateTime? _dueDate;
   double _taxRate = 20.0;
-  List<_QuoteItemForm> _items = [];
+  List<_InvoiceItemForm> _items = [];
   bool _isSaving = false;
 
   @override
   void initState() {
     super.initState();
     
-    if (widget.quote != null) {
-      _clientNameController.text = widget.quote!.clientName ?? '';
-      _clientEmailController.text = widget.quote!.clientEmail ?? '';
-      _clientPhoneController.text = widget.quote!.clientPhone ?? '';
-      _clientAddressController.text = widget.quote!.clientAddress ?? '';
-      _notesController.text = widget.quote!.notes ?? '';
-      _termsController.text = widget.quote!.terms ?? '';
-      _quoteDate = widget.quote!.quoteDate;
-      _validUntil = widget.quote!.validUntil;
-      _taxRate = widget.quote!.taxRate;
-      _items = widget.quote!.items.map((item) => _QuoteItemForm(
+    if (widget.invoice != null) {
+      // Charger depuis clientInfo JSONB
+      final clientInfo = widget.invoice!.clientInfo ?? {};
+      _clientNameController.text = clientInfo['name'] ?? '';
+      _clientEmailController.text = clientInfo['email'] ?? '';
+      _clientPhoneController.text = clientInfo['phone'] ?? '';
+      _clientAddressController.text = clientInfo['address'] ?? '';
+      _notesController.text = widget.invoice!.notes ?? '';
+      _invoiceDate = widget.invoice!.invoiceDate;
+      _dueDate = widget.invoice!.dueDate;
+      _taxRate = widget.invoice!.taxRate;
+      _items = widget.invoice!.items.map((item) => _InvoiceItemForm(
         description: item.description,
-        quantity: item.quantity,
+        quantity: item.quantity.toDouble(),
         unitPrice: item.unitPrice,
       )).toList();
     } else {
-      _validUntil = DateTime.now().add(const Duration(days: 30));
+      _dueDate = DateTime.now().add(const Duration(days: 30));
+      _paymentTermsController.text = 'Paiement à 30 jours';
       _addItem();
     }
   }
@@ -73,13 +74,13 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
     _clientSiretController.dispose();
     _clientVatController.dispose();
     _notesController.dispose();
-    _termsController.dispose();
+    _paymentTermsController.dispose();
     super.dispose();
   }
 
   void _addItem() {
     setState(() {
-      _items.add(_QuoteItemForm(
+      _items.add(_InvoiceItemForm(
         description: '',
         quantity: 1,
         unitPrice: 0,
@@ -105,11 +106,100 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
     return _calculateSubtotal() + _calculateTax();
   }
 
+  Future<void> _saveInvoice() async {
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    if (_items.isEmpty || _items.any((item) => item.description.isEmpty)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Veuillez ajouter au moins un article valide')),
+      );
+      return;
+    }
+
+    setState(() => _isSaving = true);
+
+    try {
+      final subtotal = _calculateSubtotal();
+      final taxAmount = _calculateTax();
+      final total = _calculateTotal();
+
+      final invoice = Invoice(
+        id: widget.invoice?.id,
+        invoiceNumber: widget.invoice?.invoiceNumber ?? await _invoiceService.generateInvoiceNumber(),
+        userId: widget.invoice?.userId ?? '', // Sera rempli par le service
+        missionId: widget.invoice?.missionId,
+        invoiceDate: _invoiceDate,
+        dueDate: _dueDate,
+        items: _items.map((item) => InvoiceItem(
+          description: item.description,
+          quantity: item.quantity.toInt(),
+          unitPrice: item.unitPrice,
+          total: item.quantity * item.unitPrice,
+        )).toList(),
+        subtotal: subtotal,
+        taxRate: _taxRate,
+        taxAmount: taxAmount,
+        total: total,
+        status: widget.invoice?.status ?? 'draft',
+        notes: _notesController.text,
+        // Utiliser clientInfo pour stocker toutes les données client
+        clientInfo: {
+          'name': _clientNameController.text,
+          'email': _clientEmailController.text,
+          'phone': _clientPhoneController.text,
+          'address': _clientAddressController.text,
+          'siret': _clientSiretController.text,
+          'vat_number': _clientVatController.text,
+          'payment_terms': _paymentTermsController.text,
+          // Informations INSEE supplémentaires si disponibles
+          if (_selectedCompany != null) ...{
+            'company_name': _selectedCompany!.companyName,
+            'legal_form': _selectedCompany!.legalForm,
+            'activity_code': _selectedCompany!.activityCode,
+            'activity_label': _selectedCompany!.activityLabel,
+            'is_headquarters': _selectedCompany!.isHeadquarters,
+            'is_active': _selectedCompany!.isActive,
+          },
+        },
+        createdAt: widget.invoice?.createdAt,
+        updatedAt: DateTime.now(),
+      );
+
+      if (widget.invoice == null) {
+        await _invoiceService.createInvoice(invoice);
+      } else {
+        await _invoiceService.updateInvoice(widget.invoice!.id!, invoice);
+      }
+
+      if (!mounted) return;
+
+      Navigator.of(context).pop(true);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(widget.invoice == null
+              ? 'Facture créée avec succès'
+              : 'Facture mise à jour'),
+        ),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ErrorHelper.cleanError(e))),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.quote == null ? 'Nouveau devis' : 'Modifier devis'),
+        title: Text(widget.invoice == null ? 'Nouvelle facture' : 'Modifier facture'),
         actions: [
           if (_isSaving)
             const Center(
@@ -125,7 +215,7 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
           else
             IconButton(
               icon: const Icon(Icons.save),
-              onPressed: _saveQuote,
+              onPressed: _saveInvoice,
               tooltip: 'Enregistrer',
             ),
         ],
@@ -144,8 +234,6 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
             _buildTotalsSection(),
             const SizedBox(height: 24),
             _buildNotesSection(),
-            const SizedBox(height: 24),
-            _buildTermsSection(),
             const SizedBox(height: 80),
           ],
         ),
@@ -167,6 +255,7 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
                   'Informations client',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
+                // Toggle entre client existant et saisie manuelle
                 SegmentedButton<bool>(
                   segments: const [
                     ButtonSegment(
@@ -194,11 +283,13 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
             const SizedBox(height: 16),
             
             if (_useExistingClient) ...[
+              // Sélecteur de client existant
               ClientSelector(
                 selectedClient: _selectedClient,
                 onClientSelected: (client) {
                   setState(() {
                     _selectedClient = client;
+                    // Auto-remplir les champs avec les données du client
                     _clientNameController.text = client.displayName;
                     _clientEmailController.text = client.email;
                     _clientPhoneController.text = client.phone ?? '';
@@ -232,12 +323,15 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
                 ),
               ],
             ] else ...[
+              // Saisie manuelle
+              // Champ SIRET avec autocomplétion INSEE
               SiretAutocompleteField(
                 controller: _clientSiretController,
                 onCompanySelected: (company) {
                   setState(() {
                     _selectedCompany = company;
                     if (company != null) {
+                      // Auto-remplir les champs avec les données INSEE
                       _clientNameController.text = company.companyName ?? '';
                       _clientAddressController.text = company.fullAddress;
                       _clientVatController.text = company.vatNumber ?? '';
@@ -245,7 +339,7 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
                   });
                 },
                 label: 'SIRET (optionnel)',
-                hint: 'Recherche automatique via INSEE',
+                hint: 'Recherche automatique via API INSEE',
                 required: false,
               ),
               
@@ -253,7 +347,7 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
               TextFormField(
                 controller: _clientNameController,
                 decoration: const InputDecoration(
-                  labelText: 'Nom du client / Entreprise',
+                  labelText: 'Nom du client / Entreprise *',
                   prefixIcon: Icon(Icons.person),
                   helperText: 'Auto-rempli si SIRET saisi',
                 ),
@@ -318,44 +412,55 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Dates',
+              'Dates et conditions',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.calendar_today),
-              title: const Text('Date du devis'),
-              subtitle: Text(_quoteDate.toString().split(' ')[0]),
+              title: const Text('Date de la facture'),
+              subtitle: Text(_invoiceDate.toString().split(' ')[0]),
               onTap: () async {
                 final date = await showDatePicker(
                   context: context,
-                  initialDate: _quoteDate,
+                  initialDate: _invoiceDate,
                   firstDate: DateTime(2020),
                   lastDate: DateTime(2030),
                 );
                 if (date != null) {
-                  setState(() => _quoteDate = date);
+                  setState(() => _invoiceDate = date);
                 }
               },
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.event),
-              title: const Text('Valide jusqu\'au'),
-              subtitle: Text(_validUntil?.toString().split(' ')[0] ?? 'Non défini'),
+              title: const Text('Date d\'échéance'),
+              subtitle: Text(_dueDate?.toString().split(' ')[0] ?? 'Non défini'),
               onTap: () async {
                 final date = await showDatePicker(
                   context: context,
-                  initialDate: _validUntil ?? DateTime.now().add(const Duration(days: 30)),
-                  firstDate: _quoteDate,
+                  initialDate: _dueDate ?? DateTime.now().add(const Duration(days: 30)),
+                  firstDate: _invoiceDate,
                   lastDate: DateTime(2030),
                 );
                 if (date != null) {
-                  setState(() => _validUntil = date);
+                  setState(() => _dueDate = date);
                 }
               },
             ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: _paymentTermsController,
+              decoration: const InputDecoration(
+                labelText: 'Conditions de paiement',
+                prefixIcon: Icon(Icons.payment),
+                hintText: 'Ex: Paiement à 30 jours',
+              ),
+              maxLines: 2,
+            ),
+            const SizedBox(height: 12),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.percent),
@@ -388,7 +493,7 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text(
-                  'Articles / Services',
+                  'Prestations / Articles',
                   style: Theme.of(context).textTheme.titleLarge,
                 ),
                 IconButton(
@@ -410,25 +515,23 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
     );
   }
 
-  Widget _buildItemRow(int index, _QuoteItemForm item) {
+  Widget _buildItemRow(int index, _InvoiceItemForm item) {
     return Card(
       margin: const EdgeInsets.only(bottom: 12),
-      color: Colors.grey[50],
       child: Padding(
         padding: const EdgeInsets.all(12),
         child: Column(
           children: [
             Row(
               children: [
-                Expanded(
-                  child: Text(
-                    'Article ${index + 1}',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                ),
+                Text('Article ${index + 1}',
+                    style: Theme.of(context).textTheme.titleSmall),
+                const Spacer(),
                 IconButton(
-                  icon: const Icon(Icons.delete, color: Colors.red),
+                  icon: const Icon(Icons.delete),
                   onPressed: () => _removeItem(index),
+                  color: Colors.red,
+                  iconSize: 20,
                 ),
               ],
             ),
@@ -439,15 +542,9 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
                 labelText: 'Description',
                 isDense: true,
               ),
-              onChanged: (value) {
-                setState(() => item.description = value);
-              },
-              validator: (value) {
-                if (value == null || value.isEmpty) {
-                  return 'Description requise';
-                }
-                return null;
-              },
+              onChanged: (value) => item.description = value,
+              validator: (value) =>
+                  value?.isEmpty ?? true ? 'Requis' : null,
             ),
             const SizedBox(height: 8),
             Row(
@@ -457,7 +554,7 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
                   child: TextFormField(
                     initialValue: item.quantity.toString(),
                     decoration: const InputDecoration(
-                      labelText: 'Quantité',
+                      labelText: 'Qté',
                       isDense: true,
                     ),
                     keyboardType: TextInputType.number,
@@ -466,24 +563,15 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
                         item.quantity = double.tryParse(value) ?? 1;
                       });
                     },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Requis';
-                      }
-                      if (double.tryParse(value) == null) {
-                        return 'Nombre invalide';
-                      }
-                      return null;
-                    },
                   ),
                 ),
                 const SizedBox(width: 8),
                 Expanded(
                   flex: 3,
                   child: TextFormField(
-                    initialValue: item.unitPrice.toString(),
+                    initialValue: item.unitPrice.toStringAsFixed(2),
                     decoration: const InputDecoration(
-                      labelText: 'Prix unitaire (€)',
+                      labelText: 'Prix unitaire €',
                       isDense: true,
                     ),
                     keyboardType: TextInputType.number,
@@ -491,15 +579,6 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
                       setState(() {
                         item.unitPrice = double.tryParse(value) ?? 0;
                       });
-                    },
-                    validator: (value) {
-                      if (value == null || value.isEmpty) {
-                        return 'Requis';
-                      }
-                      if (double.tryParse(value) == null) {
-                        return 'Nombre invalide';
-                      }
-                      return null;
                     },
                   ),
                 ),
@@ -509,13 +588,12 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
                   child: Container(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: Colors.green[50],
-                      borderRadius: BorderRadius.circular(8),
+                      color: Colors.grey.shade100,
+                      borderRadius: BorderRadius.circular(4),
                     ),
                     child: Text(
                       '${(item.quantity * item.unitPrice).toStringAsFixed(2)} €',
                       style: const TextStyle(fontWeight: FontWeight.bold),
-                      textAlign: TextAlign.right,
                     ),
                   ),
                 ),
@@ -537,37 +615,40 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
-            _buildTotalRow('Sous-total HT', '${subtotal.toStringAsFixed(2)} €', false),
-            const SizedBox(height: 8),
-            _buildTotalRow('TVA (${_taxRate.toStringAsFixed(0)}%)', '${tax.toStringAsFixed(2)} €', false),
-            const Divider(height: 24),
-            _buildTotalRow('Total TTC', '${total.toStringAsFixed(2)} €', true),
+            _buildTotalRow('Sous-total HT', subtotal),
+            const Divider(),
+            _buildTotalRow('TVA (${_taxRate.toStringAsFixed(0)}%)', tax),
+            const Divider(thickness: 2),
+            _buildTotalRow('Total TTC', total, isTotal: true),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildTotalRow(String label, String value, bool isBold) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-      children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: isBold ? 18 : 14,
-            fontWeight: isBold ? FontWeight.bold : FontWeight.normal,
+  Widget _buildTotalRow(String label, double amount, {bool isTotal = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: isTotal ? 18 : 16,
+              fontWeight: isTotal ? FontWeight.bold : FontWeight.normal,
+            ),
           ),
-        ),
-        Text(
-          value,
-          style: TextStyle(
-            fontSize: isBold ? 20 : 14,
-            fontWeight: FontWeight.bold,
-            color: isBold ? Colors.green : Colors.black,
+          Text(
+            '${amount.toStringAsFixed(2)} €',
+            style: TextStyle(
+              fontSize: isTotal ? 20 : 16,
+              fontWeight: FontWeight.bold,
+              color: isTotal ? Theme.of(context).primaryColor : null,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -579,132 +660,32 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Notes',
+              'Notes additionnelles',
               style: Theme.of(context).textTheme.titleLarge,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _notesController,
               decoration: const InputDecoration(
-                hintText: 'Notes internes ou pour le client...',
+                labelText: 'Notes (optionnel)',
+                hintText: 'Informations supplémentaires pour le client...',
                 border: OutlineInputBorder(),
               ),
-              maxLines: 3,
+              maxLines: 4,
             ),
           ],
         ),
       ),
     );
-  }
-
-  Widget _buildTermsSection() {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Conditions générales',
-              style: Theme.of(context).textTheme.titleLarge,
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _termsController,
-              decoration: const InputDecoration(
-                hintText: 'Conditions de paiement, garanties...',
-                border: OutlineInputBorder(),
-              ),
-              maxLines: 3,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _saveQuote() async {
-    if (!_formKey.currentState!.validate()) {
-      return;
-    }
-
-    if (_items.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Ajoutez au moins un article')),
-      );
-      return;
-    }
-
-    setState(() => _isSaving = true);
-
-    try {
-      final userId = '00000000-0000-0000-0000-000000000000'; // Replace with actual user ID
-      
-      final quoteItems = _items.map((item) => QuoteItem(
-        description: item.description,
-        quantity: item.quantity,
-        unitPrice: item.unitPrice,
-        total: item.quantity * item.unitPrice,
-      )).toList();
-
-      final subtotal = _calculateSubtotal();
-      final taxAmount = _calculateTax();
-      final total = _calculateTotal();
-
-      final quote = Quote(
-        id: widget.quote?.id,
-        quoteNumber: widget.quote?.quoteNumber ?? await _quoteService.generateQuoteNumber(),
-        userId: userId,
-        clientName: _clientNameController.text.isNotEmpty ? _clientNameController.text : null,
-        clientEmail: _clientEmailController.text.isNotEmpty ? _clientEmailController.text : null,
-        clientPhone: _clientPhoneController.text.isNotEmpty ? _clientPhoneController.text : null,
-        clientAddress: _clientAddressController.text.isNotEmpty ? _clientAddressController.text : null,
-        quoteDate: _quoteDate,
-        validUntil: _validUntil,
-        items: quoteItems,
-        subtotal: subtotal,
-        taxRate: _taxRate,
-        taxAmount: taxAmount,
-        total: total,
-        status: widget.quote?.status ?? 'draft',
-        notes: _notesController.text.isNotEmpty ? _notesController.text : null,
-        terms: _termsController.text.isNotEmpty ? _termsController.text : null,
-      );
-
-      if (widget.quote == null) {
-        await _quoteService.createQuote(quote);
-      } else {
-        await _quoteService.updateQuote(quote);
-      }
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            widget.quote == null ? 'Devis créé' : 'Devis mis à jour',
-          ),
-        ),
-      );
-      Navigator.pop(context);
-    } catch (e) {
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ErrorHelper.cleanError(e))),
-      );
-    } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-      }
-    }
   }
 }
 
-class _QuoteItemForm {
+class _InvoiceItemForm {
   String description;
   double quantity;
   double unitPrice;
 
-  _QuoteItemForm({
+  _InvoiceItemForm({
     required this.description,
     required this.quantity,
     required this.unitPrice,
@@ -723,6 +704,8 @@ class _TaxRateDialog extends StatefulWidget {
 class _TaxRateDialogState extends State<_TaxRateDialog> {
   late double _selectedRate;
 
+  final List<double> _commonRates = [0, 5.5, 10, 20];
+
   @override
   void initState() {
     super.initState();
@@ -736,39 +719,23 @@ class _TaxRateDialogState extends State<_TaxRateDialog> {
       content: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          RadioListTile<double>(
-            title: const Text('0%'),
-            value: 0.0,
-            groupValue: _selectedRate,
-            onChanged: (value) => setState(() => _selectedRate = value!),
-          ),
-          RadioListTile<double>(
-            title: const Text('5.5%'),
-            value: 5.5,
-            groupValue: _selectedRate,
-            onChanged: (value) => setState(() => _selectedRate = value!),
-          ),
-          RadioListTile<double>(
-            title: const Text('10%'),
-            value: 10.0,
-            groupValue: _selectedRate,
-            onChanged: (value) => setState(() => _selectedRate = value!),
-          ),
-          RadioListTile<double>(
-            title: const Text('20%'),
-            value: 20.0,
-            groupValue: _selectedRate,
-            onChanged: (value) => setState(() => _selectedRate = value!),
-          ),
+          ..._commonRates.map((rate) => RadioListTile<double>(
+                title: Text('${rate.toStringAsFixed(1)}%'),
+                value: rate,
+                groupValue: _selectedRate,
+                onChanged: (value) {
+                  setState(() => _selectedRate = value!);
+                },
+              )),
         ],
       ),
       actions: [
         TextButton(
-          onPressed: () => Navigator.pop(context),
+          onPressed: () => Navigator.of(context).pop(),
           child: const Text('Annuler'),
         ),
-        FilledButton(
-          onPressed: () => Navigator.pop(context, _selectedRate),
+        ElevatedButton(
+          onPressed: () => Navigator.of(context).pop(_selectedRate),
           child: const Text('Valider'),
         ),
       ],

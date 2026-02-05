@@ -8,6 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../../models/invoice.dart';
+import '../../models/company_info.dart';
 import '../../services/invoice_service.dart';
 
 class InvoiceDetailScreen extends StatefulWidget {
@@ -516,179 +517,395 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
 
   Future<pw.Document> _generatePDF() async {
     final pdf = pw.Document();
+    final company = CompanyInfo.defaultChecksFleet();
+    
+    // Calcul des conditions de paiement
+    final paymentDueDate = _invoice!.dueDate ?? 
+        _invoice!.invoiceDate.add(Duration(days: company.defaultPaymentDays));
 
     pdf.addPage(
       pw.Page(
         pageFormat: PdfPageFormat.a4,
+        margin: const pw.EdgeInsets.all(40),
         build: (context) {
           return pw.Column(
             crossAxisAlignment: pw.CrossAxisAlignment.start,
             children: [
-              // En-tête
+              // ============================================
+              // EN-TÊTE PROFESSIONNEL
+              // ============================================
               pw.Row(
                 mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
                 children: [
+                  // Logo et informations entreprise
+                  pw.Expanded(
+                    child: pw.Column(
+                      crossAxisAlignment: pw.CrossAxisAlignment.start,
+                      children: [
+                        pw.Container(
+                          padding: const pw.EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                          decoration: pw.BoxDecoration(
+                            gradient: const pw.LinearGradient(
+                              colors: [PdfColor.fromInt(0xFF14B8A6), PdfColor.fromInt(0xFF0D9488)],
+                            ),
+                            borderRadius: pw.BorderRadius.circular(8),
+                          ),
+                          child: pw.Text(
+                            company.companyName.toUpperCase(),
+                            style: pw.TextStyle(
+                              fontSize: 24,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColors.white,
+                            ),
+                          ),
+                        ),
+                        pw.SizedBox(height: 12),
+                        pw.Text(
+                          company.legalForm,
+                          style: pw.TextStyle(
+                            fontSize: 10,
+                            color: PdfColor.fromHex('#6B7280'),
+                          ),
+                        ),
+                        pw.SizedBox(height: 8),
+                        pw.Text(
+                          company.address,
+                          style: const pw.TextStyle(fontSize: 9),
+                        ),
+                        pw.Text(
+                          '${company.postalCode} ${company.city}',
+                          style: const pw.TextStyle(fontSize: 9),
+                        ),
+                        pw.SizedBox(height: 8),
+                        pw.Text(
+                          'Tél: ${company.phone}',
+                          style: const pw.TextStyle(fontSize: 9),
+                        ),
+                        pw.Text(
+                          'Email: ${company.email}',
+                          style: const pw.TextStyle(fontSize: 9),
+                        ),
+                        if (company.website != null)
+                          pw.Text(
+                            company.website!,
+                            style: pw.TextStyle(
+                              fontSize: 9,
+                              color: PdfColor.fromHex('#14B8A6'),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  
+                  pw.SizedBox(width: 40),
+                  
+                  // Type de document et numéro
                   pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    crossAxisAlignment: pw.CrossAxisAlignment.end,
                     children: [
                       pw.Text(
                         'FACTURE',
                         style: pw.TextStyle(
                           fontSize: 32,
                           fontWeight: pw.FontWeight.bold,
+                          color: PdfColor.fromHex('#1E293B'),
                         ),
                       ),
                       pw.SizedBox(height: 8),
-                      pw.Text(_invoice!.invoiceNumber),
-                    ],
-                  ),
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.end,
-                    children: [
-                      pw.Text('Votre Entreprise'),
-                      pw.Text('123 Rue Example'),
-                      pw.Text('75000 Paris'),
-                      pw.Text('contact@entreprise.fr'),
-                    ],
-                  ),
-                ],
-              ),
-              pw.SizedBox(height: 40),
-
-              // Informations
-              pw.Row(
-                mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                children: [
-                  pw.Column(
-                    crossAxisAlignment: pw.CrossAxisAlignment.start,
-                    children: [
+                      pw.Container(
+                        padding: const pw.EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: pw.BoxDecoration(
+                          color: _getStatusColor(_invoice!.status),
+                          borderRadius: pw.BorderRadius.circular(4),
+                        ),
+                        child: pw.Text(
+                          _getStatusLabel(_invoice!.status),
+                          style: pw.TextStyle(
+                            fontSize: 10,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColors.white,
+                          ),
+                        ),
+                      ),
+                      pw.SizedBox(height: 16),
+                      pw.Text(
+                        'N° ${_invoice!.invoiceNumber}',
+                        style: pw.TextStyle(
+                          fontSize: 14,
+                          fontWeight: pw.FontWeight.bold,
+                        ),
+                      ),
+                      pw.SizedBox(height: 8),
                       pw.Text(
                         'Date: ${DateFormat('dd/MM/yyyy').format(_invoice!.invoiceDate)}',
+                        style: const pw.TextStyle(fontSize: 10),
                       ),
                       if (_invoice!.dueDate != null)
                         pw.Text(
                           'Échéance: ${DateFormat('dd/MM/yyyy').format(_invoice!.dueDate!)}',
+                          style: pw.TextStyle(
+                            fontSize: 10,
+                            fontWeight: pw.FontWeight.bold,
+                            color: PdfColor.fromHex('#EF4444'),
+                          ),
                         ),
                     ],
                   ),
-                  pw.Container(
-                    padding: const pw.EdgeInsets.all(8),
-                    decoration: pw.BoxDecoration(
-                      border: pw.Border.all(),
-                      borderRadius: pw.BorderRadius.circular(4),
-                    ),
-                    child: pw.Text(
-                      _getStatusLabel(_invoice!.status),
-                      style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+                ],
+              ),
+              
+              pw.SizedBox(height: 30),
+              pw.Divider(thickness: 2, color: PdfColor.fromHex('#E5E7EB')),
+              pw.SizedBox(height: 20),
+
+              // ============================================
+              // INFORMATIONS CLIENT
+              // ============================================
+              pw.Row(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Expanded(
+                    child: pw.Container(
+                      padding: const pw.EdgeInsets.all(16),
+                      decoration: pw.BoxDecoration(
+                        color: PdfColor.fromHex('#F9FAFB'),
+                        border: pw.Border.all(color: PdfColor.fromHex('#E5E7EB')),
+                        borderRadius: pw.BorderRadius.circular(8),
+                      ),
+                      child: pw.Column(
+                        crossAxisAlignment: pw.CrossAxisAlignment.start,
+                        children: [
+                          pw.Text(
+                            'FACTURÉ À',
+                            style: pw.TextStyle(
+                              fontSize: 10,
+                              fontWeight: pw.FontWeight.bold,
+                              color: PdfColor.fromHex('#6B7280'),
+                            ),
+                          ),
+                          pw.SizedBox(height: 8),
+                          pw.Text(
+                            _invoice!.clientInfo?['name'] ?? 'Client',
+                            style: pw.TextStyle(
+                              fontSize: 12,
+                              fontWeight: pw.FontWeight.bold,
+                            ),
+                          ),
+                          if (_invoice!.clientInfo?['address'] != null) ...[
+                            pw.SizedBox(height: 4),
+                            pw.Text(
+                              _invoice!.clientInfo!['address'],
+                              style: const pw.TextStyle(fontSize: 9),
+                            ),
+                          ],
+                          if (_invoice!.clientInfo?['email'] != null) ...[
+                            pw.SizedBox(height: 4),
+                            pw.Text(
+                              _invoice!.clientInfo!['email'],
+                              style: const pw.TextStyle(fontSize: 9),
+                            ),
+                          ],
+                          if (_invoice!.clientInfo?['phone'] != null) ...[
+                            pw.SizedBox(height: 4),
+                            pw.Text(
+                              _invoice!.clientInfo!['phone'],
+                              style: const pw.TextStyle(fontSize: 9),
+                            ),
+                          ],
+                          if (_invoice!.clientInfo?['siret'] != null) ...[
+                            pw.SizedBox(height: 4),
+                            pw.Text(
+                              'SIRET: ${_invoice!.clientInfo!['siret']}',
+                              style: pw.TextStyle(
+                                fontSize: 8,
+                                color: PdfColor.fromHex('#6B7280'),
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
-              pw.SizedBox(height: 40),
 
-              // Tableau des articles
+              pw.SizedBox(height: 30),
+
+              // ============================================
+              // TABLEAU DES PRESTATIONS
+              // ============================================
               pw.Table(
-                border: pw.TableBorder.all(),
+                border: pw.TableBorder.all(color: PdfColor.fromHex('#E5E7EB')),
                 children: [
                   // En-tête
                   pw.TableRow(
-                    decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+                    decoration: pw.BoxDecoration(
+                      color: PdfColor.fromHex('#14B8A6'),
+                    ),
                     children: [
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Description',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Quantité',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Prix unitaire',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
-                      pw.Padding(
-                        padding: const pw.EdgeInsets.all(8),
-                        child: pw.Text(
-                          'Total',
-                          style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                        ),
-                      ),
+                      _buildTableHeader('DESCRIPTION'),
+                      _buildTableHeader('QTÉ'),
+                      _buildTableHeader('PRIX UNIT.'),
+                      _buildTableHeader('TOTAL HT'),
                     ],
                   ),
                   // Articles
                   ..._invoice!.items.map((item) {
                     return pw.TableRow(
                       children: [
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(item.description),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text(item.quantity.toString()),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text('${item.unitPrice.toStringAsFixed(2)} €'),
-                        ),
-                        pw.Padding(
-                          padding: const pw.EdgeInsets.all(8),
-                          child: pw.Text('${item.total.toStringAsFixed(2)} €'),
+                        _buildTableCell(item.description, align: pw.TextAlign.left),
+                        _buildTableCell(item.quantity.toString()),
+                        _buildTableCell('${item.unitPrice.toStringAsFixed(2)} €'),
+                        _buildTableCell(
+                          '${item.total.toStringAsFixed(2)} €',
+                          bold: true,
                         ),
                       ],
                     );
                   }),
                 ],
               ),
+
               pw.SizedBox(height: 20),
 
-              // Totaux
-              pw.Align(
-                alignment: pw.Alignment.centerRight,
-                child: pw.Container(
-                  width: 250,
+              // ============================================
+              // TOTAUX
+              // ============================================
+              pw.Row(
+                mainAxisAlignment: pw.MainAxisAlignment.end,
+                children: [
+                  pw.Container(
+                    width: 280,
+                    padding: const pw.EdgeInsets.all(16),
+                    decoration: pw.BoxDecoration(
+                      border: pw.Border.all(color: PdfColor.fromHex('#E5E7EB')),
+                      borderRadius: pw.BorderRadius.circular(8),
+                    ),
+                    child: pw.Column(
+                      children: [
+                        _buildPdfTotalRow('TOTAL HT', '${_invoice!.subtotal.toStringAsFixed(2)} €'),
+                        pw.SizedBox(height: 8),
+                        _buildPdfTotalRow(
+                          'TVA (${_invoice!.taxRate.toStringAsFixed(1)}%)',
+                          '${_invoice!.taxAmount.toStringAsFixed(2)} €',
+                        ),
+                        pw.SizedBox(height: 8),
+                        pw.Divider(color: PdfColor.fromHex('#E5E7EB')),
+                        pw.SizedBox(height: 8),
+                        _buildPdfTotalRow(
+                          'TOTAL TTC',
+                          '${_invoice!.total.toStringAsFixed(2)} €',
+                          bold: true,
+                          fontSize: 16,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+
+              pw.SizedBox(height: 30),
+
+              // ============================================
+              // CONDITIONS DE PAIEMENT
+              // ============================================
+              pw.Container(
+                padding: const pw.EdgeInsets.all(16),
+                decoration: pw.BoxDecoration(
+                  color: PdfColor.fromHex('#FEF3C7'),
+                  border: pw.Border.all(color: PdfColor.fromHex('#F59E0B')),
+                  borderRadius: pw.BorderRadius.circular(8),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      'CONDITIONS DE RÈGLEMENT',
+                      style: pw.TextStyle(
+                        fontSize: 10,
+                        fontWeight: pw.FontWeight.bold,
+                        color: PdfColor.fromHex('#92400E'),
+                      ),
+                    ),
+                    pw.SizedBox(height: 8),
+                    pw.Text(
+                      'Paiement à ${company.defaultPaymentDays} jours - Date limite: ${DateFormat('dd/MM/yyyy').format(paymentDueDate)}',
+                      style: pw.TextStyle(
+                        fontSize: 9,
+                        color: PdfColor.fromHex('#78350F'),
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'En cas de retard de paiement, pénalités de ${company.latePaymentPenaltyRate.toStringAsFixed(2)}% par an (art. L441-6 du Code de commerce)',
+                      style: pw.TextStyle(
+                        fontSize: 8,
+                        color: PdfColor.fromHex('#78350F'),
+                      ),
+                    ),
+                    pw.SizedBox(height: 4),
+                    pw.Text(
+                      'Indemnité forfaitaire pour frais de recouvrement: ${company.recoveryFee.toStringAsFixed(2)} € (art. D441-5 du Code de commerce)',
+                      style: pw.TextStyle(
+                        fontSize: 8,
+                        color: PdfColor.fromHex('#78350F'),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              // Coordonnées bancaires
+              if (company.bankName != null) ...[
+                pw.SizedBox(height: 16),
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(16),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#F0F9FF'),
+                    border: pw.Border.all(color: PdfColor.fromHex('#3B82F6')),
+                    borderRadius: pw.BorderRadius.circular(8),
+                  ),
                   child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
                     children: [
-                      pw.Row(
-                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                        children: [
-                          pw.Text('Sous-total HT:'),
-                          pw.Text('${_invoice!.subtotal.toStringAsFixed(2)} €'),
-                        ],
+                      pw.Text(
+                        'COORDONNÉES BANCAIRES',
+                        style: pw.TextStyle(
+                          fontSize: 10,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColor.fromHex('#1E40AF'),
+                        ),
                       ),
                       pw.SizedBox(height: 8),
                       pw.Row(
-                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                         children: [
-                          pw.Text('TVA (${_invoice!.taxRate.toStringAsFixed(0)}%):'),
-                          pw.Text('${_invoice!.taxAmount.toStringAsFixed(2)} €'),
-                        ],
-                      ),
-                      pw.Divider(),
-                      pw.Row(
-                        mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                        children: [
-                          pw.Text(
-                            'Total TTC:',
-                            style: pw.TextStyle(
-                              fontSize: 18,
-                              fontWeight: pw.FontWeight.bold,
-                            ),
-                          ),
-                          pw.Text(
-                            '${_invoice!.total.toStringAsFixed(2)} €',
-                            style: pw.TextStyle(
-                              fontSize: 18,
-                              fontWeight: pw.FontWeight.bold,
+                          pw.Expanded(
+                            child: pw.Column(
+                              crossAxisAlignment: pw.CrossAxisAlignment.start,
+                              children: [
+                                pw.Text(
+                                  'Banque: ${company.bankName}',
+                                  style: const pw.TextStyle(fontSize: 9),
+                                ),
+                                if (company.bankIban != null) ...[
+                                  pw.SizedBox(height: 4),
+                                  pw.Text(
+                                    'IBAN: ${company.bankIban}',
+                                    style: pw.TextStyle(
+                                      fontSize: 9,
+                                      fontWeight: pw.FontWeight.bold,
+                                    ),
+                                  ),
+                                ],
+                                if (company.bankBic != null) ...[
+                                  pw.SizedBox(height: 4),
+                                  pw.Text(
+                                    'BIC: ${company.bankBic}',
+                                    style: const pw.TextStyle(fontSize: 9),
+                                  ),
+                                ],
+                              ],
                             ),
                           ),
                         ],
@@ -696,26 +913,97 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                     ],
                   ),
                 ),
-              ),
-
-              // Notes
-              if (_invoice!.notes != null) ...[
-                pw.SizedBox(height: 40),
-                pw.Text(
-                  'Notes:',
-                  style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
-                ),
-                pw.SizedBox(height: 8),
-                pw.Text(_invoice!.notes!),
               ],
 
-              // Pied de page
+              // Notes additionnelles
+              if (_invoice!.notes != null && _invoice!.notes!.isNotEmpty) ...[
+                pw.SizedBox(height: 16),
+                pw.Container(
+                  padding: const pw.EdgeInsets.all(12),
+                  decoration: pw.BoxDecoration(
+                    color: PdfColor.fromHex('#F9FAFB'),
+                    borderRadius: pw.BorderRadius.circular(8),
+                  ),
+                  child: pw.Column(
+                    crossAxisAlignment: pw.CrossAxisAlignment.start,
+                    children: [
+                      pw.Text(
+                        'NOTES',
+                        style: pw.TextStyle(
+                          fontSize: 9,
+                          fontWeight: pw.FontWeight.bold,
+                          color: PdfColor.fromHex('#6B7280'),
+                        ),
+                      ),
+                      pw.SizedBox(height: 6),
+                      pw.Text(
+                        _invoice!.notes!,
+                        style: const pw.TextStyle(fontSize: 8),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+
               pw.Spacer(),
-              pw.Divider(),
+
+              // ============================================
+              // PIED DE PAGE - MENTIONS LÉGALES
+              // ============================================
+              pw.Divider(color: PdfColor.fromHex('#E5E7EB')),
+              pw.SizedBox(height: 8),
+              
+              // Mentions légales
+              pw.Container(
+                padding: const pw.EdgeInsets.all(12),
+                decoration: pw.BoxDecoration(
+                  color: PdfColor.fromHex('#F9FAFB'),
+                ),
+                child: pw.Column(
+                  crossAxisAlignment: pw.CrossAxisAlignment.start,
+                  children: [
+                    pw.Text(
+                      company.legalMentions,
+                      textAlign: pw.TextAlign.center,
+                      style: pw.TextStyle(
+                        fontSize: 8,
+                        color: PdfColor.fromHex('#6B7280'),
+                      ),
+                    ),
+                    if (company.capital != null) ...[
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        'Capital social: ${company.capital}',
+                        textAlign: pw.TextAlign.center,
+                        style: pw.TextStyle(
+                          fontSize: 7,
+                          color: PdfColor.fromHex('#9CA3AF'),
+                        ),
+                      ),
+                    ],
+                    if (company.isMicroEntrepreneur) ...[
+                      pw.SizedBox(height: 4),
+                      pw.Text(
+                        'Dispensé d\'immatriculation au RCS et au RM (Article L123-1-1 du Code de commerce)',
+                        textAlign: pw.TextAlign.center,
+                        style: pw.TextStyle(
+                          fontSize: 7,
+                          color: PdfColor.fromHex('#9CA3AF'),
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              
+              pw.SizedBox(height: 8),
               pw.Center(
                 child: pw.Text(
-                  'Merci pour votre confiance',
-                  style: const pw.TextStyle(fontSize: 12),
+                  'Document généré le ${DateFormat('dd/MM/yyyy à HH:mm').format(DateTime.now())}',
+                  style: pw.TextStyle(
+                    fontSize: 7,
+                    color: PdfColor.fromHex('#9CA3AF'),
+                  ),
                 ),
               ),
             ],
@@ -725,6 +1013,74 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     );
 
     return pdf;
+  }
+
+  // Helpers pour le PDF
+  pw.Widget _buildTableHeader(String text) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(8),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: 9,
+          fontWeight: pw.FontWeight.bold,
+          color: PdfColors.white,
+        ),
+        textAlign: pw.TextAlign.center,
+      ),
+    );
+  }
+
+  pw.Widget _buildTableCell(String text, {bool bold = false, pw.TextAlign align = pw.TextAlign.center}) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(8),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(
+          fontSize: 9,
+          fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+        ),
+        textAlign: align,
+      ),
+    );
+  }
+
+  pw.Widget _buildPdfTotalRow(String label, String value, {bool bold = false, double fontSize = 10}) {
+    return pw.Row(
+      mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+      children: [
+        pw.Text(
+          label,
+          style: pw.TextStyle(
+            fontSize: fontSize,
+            fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+          ),
+        ),
+        pw.Text(
+          value,
+          style: pw.TextStyle(
+            fontSize: fontSize,
+            fontWeight: bold ? pw.FontWeight.bold : pw.FontWeight.normal,
+            color: bold ? PdfColor.fromHex('#14B8A6') : null,
+          ),
+        ),
+      ],
+    );
+  }
+
+  PdfColor _getStatusColor(String status) {
+    switch (status) {
+      case 'paid':
+        return PdfColor.fromHex('#10B981');
+      case 'pending':
+        return PdfColor.fromHex('#F59E0B');
+      case 'overdue':
+        return PdfColor.fromHex('#EF4444');
+      case 'cancelled':
+        return PdfColor.fromHex('#6B7280');
+      default:
+        return PdfColor.fromHex('#9CA3AF');
+    }
   }
 
   String _getStatusLabel(String status) {
