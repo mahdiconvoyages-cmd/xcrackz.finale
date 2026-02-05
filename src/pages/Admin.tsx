@@ -67,7 +67,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [subscriptionFilter, setSubscriptionFilter] = useState<'all' | 'starter' | 'basic' | 'pro' | 'business' | 'enterprise' | 'none'>('all');
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'tracking' | 'analytics' | 'shop-requests' | 'apk-manager'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'credits' | 'tracking' | 'analytics' | 'shop-requests' | 'apk-manager'>('overview');
   const [trackingMissions, setTrackingMissions] = useState<any[]>([]);
   const [supportCount, setSupportCount] = useState(0);
   const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'client' | 'driver'>('all');
@@ -1021,6 +1021,7 @@ export default function Admin() {
           {[
             { id: 'overview', label: 'Vue d\'ensemble', icon: BarChart3 },
             { id: 'users', label: `Utilisateurs (${allUsers.length})`, icon: Users },
+            { id: 'credits', label: 'Crédits & Abonnements', icon: CreditCard },
             { id: 'tracking', label: `Missions GPS (${trackingMissions.length})`, icon: MapPin },
             { id: 'analytics', label: 'Analytics', icon: PieChart },
             { id: 'shop-requests', label: 'Demandes Boutique', icon: ShoppingCart },
@@ -1396,6 +1397,265 @@ export default function Admin() {
                     ))}
                   </tbody>
                 </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'credits' && (
+          <div className="space-y-6 animate-in fade-in duration-500">
+            {/* Vue d'ensemble des crédits */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-gradient-to-br from-green-50 to-emerald-50 border-2 border-green-200 rounded-2xl p-6 shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-gradient-to-br from-green-500 to-emerald-500 rounded-xl shadow-lg">
+                    <CreditCard className="w-7 h-7 text-white" />
+                  </div>
+                  <span className="text-4xl font-black bg-gradient-to-br from-green-500 to-emerald-500 bg-clip-text text-transparent">
+                    {statistics?.total_credits_distributed || 0}
+                  </span>
+                </div>
+                <p className="text-sm font-bold text-slate-700">Total Crédits Distribués</p>
+                <p className="text-xs text-slate-600 mt-1">Somme de tous les crédits accordés</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-blue-50 to-cyan-50 border-2 border-blue-200 rounded-2xl p-6 shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-gradient-to-br from-blue-500 to-cyan-500 rounded-xl shadow-lg">
+                    <Users className="w-7 h-7 text-white" />
+                  </div>
+                  <span className="text-4xl font-black bg-gradient-to-br from-blue-500 to-cyan-500 bg-clip-text text-transparent">
+                    {allUsers.filter(u => (u.credits?.balance || 0) > 0).length}
+                  </span>
+                </div>
+                <p className="text-sm font-bold text-slate-700">Utilisateurs avec Crédits</p>
+                <p className="text-xs text-slate-600 mt-1">Comptes ayant un solde > 0</p>
+              </div>
+
+              <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-2xl p-6 shadow-xl">
+                <div className="flex items-center justify-between mb-4">
+                  <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-500 rounded-xl shadow-lg">
+                    <Package className="w-7 h-7 text-white" />
+                  </div>
+                  <span className="text-4xl font-black bg-gradient-to-br from-purple-500 to-pink-500 bg-clip-text text-transparent">
+                    {allUsers.filter(u => u.subscription?.status === 'active').length}
+                  </span>
+                </div>
+                <p className="text-sm font-bold text-slate-700">Abonnements Actifs</p>
+                <p className="text-xs text-slate-600 mt-1">Utilisateurs avec plan actif</p>
+              </div>
+            </div>
+
+            {/* Liste détaillée des crédits par utilisateur */}
+            <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-xl">
+              <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-slate-900">
+                <CreditCard className="w-7 h-7 text-amber-500" />
+                Crédits par Utilisateur
+                <span className="text-sm font-normal text-slate-500 ml-auto">
+                  {allUsers.filter(u => (u.credits?.balance || 0) > 0).length} comptes avec crédits
+                </span>
+              </h2>
+              <div className="overflow-x-auto rounded-xl border-2 border-slate-200">
+                <table className="w-full">
+                  <thead className="bg-gradient-to-r from-amber-100 to-orange-50">
+                    <tr>
+                      <th className="text-left py-4 px-6 font-black text-slate-700">Utilisateur</th>
+                      <th className="text-right py-4 px-6 font-black text-slate-700">Solde Crédits</th>
+                      <th className="text-center py-4 px-6 font-black text-slate-700">Plan Actif</th>
+                      <th className="text-center py-4 px-6 font-black text-slate-700">Auto-Renouvellement</th>
+                      <th className="text-right py-4 px-6 font-black text-slate-700">Actions Rapides</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allUsers
+                      .filter(u => (u.credits?.balance || 0) > 0 || u.subscription?.status === 'active')
+                      .sort((a, b) => (b.credits?.balance || 0) - (a.credits?.balance || 0))
+                      .map((user, i) => (
+                      <tr
+                        key={user.id}
+                        style={{ animationDelay: `${i * 15}ms` }}
+                        className="border-t border-slate-200 hover:bg-amber-50 transition animate-in fade-in"
+                      >
+                        <td className="py-4 px-6">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-full flex items-center justify-center text-white font-black shadow-lg">
+                              {user.email?.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <p className="font-bold text-slate-900">{user.full_name || user.email}</p>
+                              <p className="text-xs text-slate-500">{user.email}</p>
+                            </div>
+                          </div>
+                        </td>
+                        <td className="py-4 px-6 text-right">
+                          <span className="text-2xl font-black text-amber-600">
+                            {user.credits?.balance || 0}
+                          </span>
+                          <span className="text-xs text-slate-500 ml-1">crédits</span>
+                        </td>
+                        <td className="py-4 px-6 text-center">
+                          {user.subscription && user.subscription.status === 'active' ? (
+                            <div className="inline-flex flex-col items-center gap-1">
+                              <span className={`px-3 py-1 text-xs font-black rounded-full ${
+                                user.subscription.plan === 'enterprise' ? 'bg-purple-100 text-purple-700' :
+                                user.subscription.plan === 'business' ? 'bg-blue-100 text-blue-700' :
+                                user.subscription.plan === 'pro' ? 'bg-teal-100 text-teal-700' :
+                                user.subscription.plan === 'basic' ? 'bg-green-100 text-green-700' :
+                                'bg-gray-100 text-gray-700'
+                              }`}>
+                                {user.subscription.plan?.toUpperCase()}
+                              </span>
+                              <span className="text-xs text-slate-500">
+                                jusqu'au {new Date(user.subscription.current_period_end).toLocaleDateString('fr-FR')}
+                              </span>
+                            </div>
+                          ) : (
+                            <span className="text-xs text-slate-400 font-semibold">Aucun plan</span>
+                          )}
+                        </td>
+                        <td className="py-4 px-6 text-center">
+                          {user.subscription?.auto_renew ? (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-black">
+                              <Zap className="w-4 h-4 fill-current" />
+                              ACTIF
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1 px-3 py-1 bg-gray-100 text-gray-500 rounded-full text-xs font-semibold">
+                              <Clock className="w-4 h-4" />
+                              Désactivé
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-4 px-6">
+                          <div className="flex items-center justify-end gap-2">
+                            <button
+                              onClick={() => openGrantModal(user, 'credits')}
+                              className="p-2 bg-green-100 text-green-600 hover:bg-green-200 rounded-lg transition"
+                              title="Ajouter crédits"
+                            >
+                              <Plus className="w-5 h-5" />
+                            </button>
+                            <button
+                              onClick={() => openGrantModal(user, 'subscription')}
+                              className="p-2 bg-purple-100 text-purple-600 hover:bg-purple-200 rounded-lg transition"
+                              title="Gérer abonnement"
+                            >
+                              <Package className="w-5 h-5" />
+                            </button>
+                            {user.subscription && (
+                              <button
+                                onClick={() => handleToggleAutoRenew(user.id, user.email, user.subscription?.auto_renew || false)}
+                                className={`p-2 rounded-lg transition ${
+                                  user.subscription?.auto_renew 
+                                    ? 'bg-yellow-100 text-yellow-600 hover:bg-yellow-200' 
+                                    : 'bg-gray-100 text-gray-400 hover:bg-gray-200'
+                                }`}
+                                title="Basculer auto-renouvellement"
+                              >
+                                <Zap className={`w-5 h-5 ${user.subscription?.auto_renew ? 'fill-current' : ''}`} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Statistiques des abonnements par plan */}
+            <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-xl">
+              <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-slate-900">
+                <Package className="w-7 h-7 text-purple-500" />
+                Répartition des Abonnements
+              </h2>
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+                {shopPlans.map((plan, i) => {
+                  const activeSubscriptions = allUsers.filter(u => u.subscription?.plan === plan.name && u.subscription.status === 'active');
+                  const withAutoRenew = activeSubscriptions.filter(u => u.subscription?.auto_renew).length;
+                  return (
+                    <div
+                      key={plan.name}
+                      style={{ animationDelay: `${i * 50}ms` }}
+                      className="text-center p-6 bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl border-2 border-slate-200 hover:border-purple-400 transition-all hover:shadow-lg animate-in zoom-in"
+                    >
+                      <div className="text-4xl font-black text-purple-600 mb-2">
+                        {activeSubscriptions.length}
+                      </div>
+                      <div className="text-sm font-bold text-slate-700 uppercase mb-2">{plan.name}</div>
+                      <div className="text-xs text-slate-500 mb-2">{plan.credits_amount} crédits/mois</div>
+                      <div className="text-xs text-slate-400">{plan.price}€/mois</div>
+                      {withAutoRenew > 0 && (
+                        <div className="mt-2 flex items-center justify-center gap-1 text-xs text-yellow-600">
+                          <Zap className="w-3 h-3 fill-current" />
+                          {withAutoRenew} auto-renew
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                <div className="text-center p-6 bg-gradient-to-br from-red-50 to-orange-50 rounded-xl border-2 border-red-200">
+                  <div className="text-4xl font-black text-red-600 mb-2">
+                    {allUsers.filter(u => !u.subscription || u.subscription.status !== 'active').length}
+                  </div>
+                  <div className="text-sm font-bold text-red-700 uppercase mb-2">Sans plan</div>
+                  <div className="text-xs text-red-500">Utilisateurs gratuits</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Historique des transactions récentes */}
+            <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-xl">
+              <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-slate-900">
+                <Activity className="w-7 h-7 text-green-500" />
+                Transactions Récentes
+                <span className="text-sm font-normal text-slate-500 ml-auto">
+                  {recentTransactions.length} dernières transactions
+                </span>
+              </h2>
+              <div className="space-y-3">
+                {recentTransactions.map((transaction, i) => (
+                  <div
+                    key={transaction.id}
+                    style={{ animationDelay: `${i * 30}ms` }}
+                    className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-white rounded-xl hover:shadow-lg transition-all hover:-translate-y-1 border border-slate-200 animate-in slide-in-from-right"
+                  >
+                    <div className="flex items-center gap-4">
+                      <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center text-white font-black text-lg shadow-lg">
+                        {(Array.isArray(transaction.profiles) ? transaction.profiles[0]?.email : transaction.profiles?.email)?.charAt(0).toUpperCase()}
+                      </div>
+                      <div>
+                        <p className="font-bold text-slate-900">
+                          {Array.isArray(transaction.profiles) ? transaction.profiles[0]?.email : transaction.profiles?.email}
+                        </p>
+                        <p className="text-sm text-slate-600 font-semibold">
+                          {transaction.credits} crédits • {new Date(transaction.created_at).toLocaleDateString('fr-FR', { 
+                            day: 'numeric', 
+                            month: 'short', 
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-2xl font-black text-green-600">{Number(transaction.amount).toFixed(2)}€</p>
+                      <span
+                        className={`inline-block px-3 py-1 text-xs font-black rounded-full ${
+                          transaction.payment_status === 'paid'
+                            ? 'bg-green-100 text-green-700'
+                            : transaction.payment_status === 'pending'
+                            ? 'bg-amber-100 text-amber-700'
+                            : 'bg-red-100 text-red-700'
+                        }`}
+                      >
+                        {transaction.payment_status.toUpperCase()}
+                      </span>
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
