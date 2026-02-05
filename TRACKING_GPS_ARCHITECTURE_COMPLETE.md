@@ -33,7 +33,7 @@
 │  │  • Optimisations batterie intelligentes        │      │
 │  │  • Cache offline + sync automatique            │      │
 │  └───────────────────────────────────────────────┘      │
-│                     ↓ (Position toutes les 10s)          │
+│                     ↓ (Position toutes les 2-3s FLUIDE)  │
 └─────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────┐
@@ -59,8 +59,8 @@
 │  └───────────────────────────────────────────────┘      │
 │                                                           │
 │  📡 Realtime Channel: mission:{id}:gps                   │
-│  • Broadcast position toutes les 10s                     │
-│  • Latence < 500ms                                       │
+│  • Broadcast position toutes les 2-3s (FLUIDE)          │
+│  • Latence < 200ms pour tracking ultra-réactif          │
 └─────────────────────────────────────────────────────────┘
                               ↓
 ┌─────────────────────────────────────────────────────────┐
@@ -71,7 +71,7 @@
 │  │  • Marker chauffeur animé en temps réel        │      │
 │  │  • Trajectoire complète avec timestamps        │      │
 │  │  • Points départ/arrivée                       │      │
-│  │  • Mise à jour fluide toutes les 10s           │      │
+│  │  • Mise à jour ULTRA-FLUIDE toutes les 2-3s    │      │
 │  └───────────────────────────────────────────────┘      │
 │  ┌───────────────────────────────────────────────┐      │
 │  │  📊 Panneau Informations Live                  │      │
@@ -313,7 +313,7 @@ import 'dart:async';
 import 'dart:io';
 
 class BackgroundTrackingService {
-  static const int LOCATION_UPDATE_INTERVAL = 10; // seconds
+  static const int LOCATION_UPDATE_INTERVAL = 3; // 3 secondes (FLUIDE)
   static const int HISTORY_SNAPSHOT_INTERVAL = 300; // 5 minutes
   
   static Future<void> initialize() async {
@@ -1179,14 +1179,17 @@ class _TrackingShareButtonState extends State<TrackingShareButton> {
 ### 1. Gestion intelligente de la batterie
 
 ```dart
-// Adapter la fréquence selon niveau batterie
-int getUpdateInterval(int batteryLevel) {
+// Adapter la fréquence selon niveau batterie (stratégie fluide)
+int getUpdateInterval(int batteryLevel, double speed) {
+  // Si en mouvement (speed > 1 m/s ~3.6 km/h), tracking plus fréquent
+  bool isMoving = speed > 1.0;
+  
   if (batteryLevel > 50) {
-    return 10; // 10 secondes
+    return isMoving ? 3 : 5; // 3s en mouvement, 5s à l'arrêt
   } else if (batteryLevel > 20) {
-    return 30; // 30 secondes
+    return isMoving ? 5 : 10; // 5s en mouvement, 10s à l'arrêt
   } else {
-    return 60; // 1 minute
+    return isMoving ? 10 : 30; // 10s en mouvement, 30s à l'arrêt
   }
 }
 
