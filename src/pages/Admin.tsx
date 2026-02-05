@@ -1474,7 +1474,7 @@ export default function Admin() {
                   </span>
                 </div>
                 <p className="text-sm font-bold text-slate-700">Utilisateurs avec Crédits</p>
-                <p className="text-xs text-slate-600 mt-1">Comptes ayant un solde > 0</p>
+                <p className="text-xs text-slate-600 mt-1">Comptes ayant un solde &gt; 0</p>
               </div>
 
               <div className="bg-gradient-to-br from-purple-50 to-pink-50 border-2 border-purple-200 rounded-2xl p-6 shadow-xl">
