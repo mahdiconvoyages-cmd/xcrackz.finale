@@ -288,6 +288,8 @@ export default function Admin() {
   };
 
   const loadStatistics = async () => {
+    console.log('🔄 Admin: Chargement des statistiques...');
+    
     const today = new Date();
     const weekAgo = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000);
     const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
@@ -312,7 +314,7 @@ export default function Admin() {
       supabase.from('missions').select('*', { count: 'exact', head: true }).eq('status', 'completed'),
       supabase.from('transactions').select('*', { count: 'exact', head: true }),
       supabase.from('transactions').select('amount').eq('payment_status', 'paid'),
-      supabase.from('profiles').select('credits'),
+      supabase.from('profiles').select('id, credits'),
       supabase.from('contacts').select('*', { count: 'exact', head: true }),
       supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo.toISOString()),
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
@@ -321,8 +323,15 @@ export default function Admin() {
     ]);
 
     const totalRevenue = revenueData?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
-    const totalCreditsDistributed = creditsData?.reduce((sum, c) => sum + Number(c.credits || 0), 0) || 0;
+    const totalCreditsDistributed = creditsData?.reduce((sum, profile) => sum + Number(profile.credits || 0), 0) || 0;
     const revenueMonth = revenueThisMonth?.reduce((sum, t) => sum + Number(t.amount), 0) || 0;
+
+    console.log('📊 Statistiques:', {
+      totalUsers,
+      totalMissions,
+      totalCreditsDistributed,
+      totalRevenue
+    });
 
     setStatistics({
       total_users: totalUsers || 0,
@@ -342,37 +351,73 @@ export default function Admin() {
 
   const loadAllUsers = async () => {
     try {
-      const { data, error } = await supabase
+      console.log('🔄 Admin: Chargement de tous les utilisateurs...');
+      
+      // Étape 1: Récupérer tous les profils utilisateurs
+      const { data: profilesData, error: profilesError } = await supabase
         .from('profiles')
-        .select(`
-          *,
-          subscription:subscriptions!subscriptions_user_id_fkey(status, plan, current_period_end, auto_renew)
-        `)
+        .select('id, email, full_name, created_at, is_admin, is_verified, user_type, company_name, phone, banned, ban_reason, banned_at, last_sign_in_at, credits')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error loading users:', error);
-        const { data: simpleData } = await supabase
-          .from('profiles')
-          .select('*')
-          .order('created_at', { ascending: false });
-
-        setAllUsers(simpleData || []);
-        setFilteredUsers(simpleData || []);
-        return;
+      if (profilesError) {
+        console.error('❌ Erreur chargement profiles:', profilesError);
+        throw profilesError;
       }
 
-      const usersWithData = (data || []).map(user => ({
-        ...user,
-        // Utiliser profiles.credits (source unique de vérité) et le formater pour compatibilité
-        credits: { balance: user.credits || 0 },
-        subscription: Array.isArray(user.subscription) ? user.subscription[0] : user.subscription
-      }));
+      console.log(`✅ ${profilesData?.length || 0} profils chargés`);
+
+      // Étape 2: Récupérer toutes les subscriptions actives
+      const { data: subscriptionsData, error: subsError } = await supabase
+        .from('subscriptions')
+        .select('user_id, status, plan, current_period_end, auto_renew');
+
+      if (subsError) {
+        console.error('⚠️ Erreur chargement subscriptions:', subsError);
+      }
+
+      console.log(`✅ ${subscriptionsData?.length || 0} abonnements chargés`);
+
+      // Étape 3: Créer une map des subscriptions par user_id
+      const subscriptionsMap = new Map();
+      subscriptionsData?.forEach(sub => {
+        subscriptionsMap.set(sub.user_id, sub);
+      });
+
+      // Étape 4: Fusionner les données
+      const usersWithData = profilesData.map(profile => {
+        const subscription = subscriptionsMap.get(profile.id);
+        
+        return {
+          ...profile,
+          // Formater les crédits pour compatibilité UI
+          credits: {
+            balance: profile.credits || 0
+          },
+          subscription: subscription || null
+        };
+      });
+
+      console.log(`✅ ${usersWithData.length} utilisateurs avec données complètes`);
+      console.log('📊 Exemple utilisateur:', usersWithData[0]);
 
       setAllUsers(usersWithData);
       setFilteredUsers(usersWithData);
     } catch (err) {
-      console.error('Error in loadAllUsers:', err);
+      console.error('❌ Erreur critique loadAllUsers:', err);
+      // En cas d'erreur, charger au moins les profils de base
+      const { data: fallbackData } = await supabase
+        .from('profiles')
+        .select('*')
+        .order('created_at', { ascending: false });
+      
+      const fallbackUsers = (fallbackData || []).map(u => ({
+        ...u,
+        credits: { balance: u.credits || 0 },
+        subscription: null
+      }));
+      
+      setAllUsers(fallbackUsers);
+      setFilteredUsers(fallbackUsers);
     }
   };
 
