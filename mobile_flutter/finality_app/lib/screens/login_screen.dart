@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../main.dart';
 import 'home_screen.dart';
+import 'auth/signup_wizard_screen.dart';
 
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
@@ -873,18 +874,48 @@ class _LoginScreenState extends State<LoginScreen>
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: christmasGold.withOpacity(0.2)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
+      child: Column(
         children: [
-          Text('🎁', style: TextStyle(fontSize: 20)),
-          const SizedBox(width: 12),
-          Flexible(
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text('🎁', style: TextStyle(fontSize: 20)),
+              const SizedBox(width: 12),
+              Flexible(
+                child: Text(
+                  'Pas encore de compte ?',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    color: snowWhite.withOpacity(0.7),
+                    fontSize: 14,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          TextButton(
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(
+                  builder: (context) => const SignupWizardScreen(),
+                ),
+              );
+            },
+            style: TextButton.styleFrom(
+              backgroundColor: christmasGold.withOpacity(0.2),
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
             child: Text(
-              'Contactez votre administrateur pour créer un compte',
-              textAlign: TextAlign.center,
+              'Créer un compte maintenant',
               style: TextStyle(
-                color: snowWhite.withOpacity(0.7),
-                fontSize: 13,
+                color: christmasGold,
+                fontWeight: FontWeight.bold,
+                fontSize: 14,
               ),
             ),
           ),

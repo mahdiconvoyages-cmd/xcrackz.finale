@@ -13,7 +13,6 @@ import '../../models/mission.dart';
 import '../../models/invoice.dart';
 import '../../models/company_info.dart';
 import '../../services/mission_service.dart';
-import '../../services/gps_tracking_service.dart';
 import 'package:intl/intl.dart';
 import '../../utils/error_helper.dart';
 import 'mission_create_screen_new.dart';
@@ -34,7 +33,6 @@ class MissionsScreen extends StatefulWidget {
 
 class _MissionsScreenState extends State<MissionsScreen> with SingleTickerProviderStateMixin {
   final MissionService _missionService = MissionService();
-  final GPSTrackingService _gpsService = GPSTrackingService();
   List<Mission> _missions = [];
   bool _isLoading = true;
   String _selectedStatus = 'all';

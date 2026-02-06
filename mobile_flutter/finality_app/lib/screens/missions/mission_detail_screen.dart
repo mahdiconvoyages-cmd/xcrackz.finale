@@ -174,7 +174,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             // Bouton toggle GPS (visible si mission en cours)
-            if (canTrack) ..[
+            if (canTrack) ...[
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                 decoration: BoxDecoration(
@@ -226,7 +226,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
               ),
               
               // Carte lien public (si tracking actif et lien généré)
-              if (_isTrackingActive && _publicTrackingLink != null) ..[
+              if (_isTrackingActive && _publicTrackingLink != null) ...[
                 const SizedBox(height: 12),
                 Container(
                   padding: const EdgeInsets.all(12),
