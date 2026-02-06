@@ -1,10 +1,25 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import * as Sentry from '@sentry/react';
+import { ThemeProvider, createTheme } from '@mui/material/styles';
+import CssBaseline from '@mui/material/CssBaseline';
 import App from './App.tsx';
 import './index.css';
 import './styles/accessibility-simple.css';
 import { errorLogger, showStoredErrors } from './utils/errorLogger';
+
+// Créer le thème Material-UI
+const theme = createTheme({
+  palette: {
+    mode: 'light',
+    primary: {
+      main: '#1976d2',
+    },
+    secondary: {
+      main: '#dc004e',
+    },
+  },
+});
 
 // Initialiser Sentry
 if (import.meta.env.VITE_SENTRY_DSN) {
@@ -114,7 +129,10 @@ try {
 
   createRoot(rootElement).render(
     <StrictMode>
-      <App />
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <App />
+      </ThemeProvider>
     </StrictMode>
   );
   
