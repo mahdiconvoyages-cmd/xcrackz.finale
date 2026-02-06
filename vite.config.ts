@@ -46,9 +46,12 @@ export default defineConfig({
     target: ['es2015', 'edge88', 'firefox78', 'chrome87', 'safari13'],
   },
   publicDir: 'public',
+  resolve: {
+    dedupe: ['react', 'react-dom'], // Force une seule instance de React
+  },
   optimizeDeps: {
     exclude: ['lucide-react'],
-    include: ['jspdf', 'jspdf-autotable'],
+    include: ['jspdf', 'jspdf-autotable', 'react', 'react-dom'],
     esbuildOptions: {
       target: 'es2015'
     }
