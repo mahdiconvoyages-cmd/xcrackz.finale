@@ -73,7 +73,7 @@ CREATE POLICY "Admins can view fraud logs" ON public.fraud_detection_logs
     USING (
         EXISTS (
             SELECT 1 FROM public.profiles 
-            WHERE user_id = auth.uid() 
+            WHERE id = auth.uid() 
             AND (app_role = 'admin' OR app_role = 'donneur_d_ordre')
         )
     );
@@ -103,7 +103,7 @@ CREATE POLICY "Admins manage blacklist" ON public.signup_blacklist
     USING (
         EXISTS (
             SELECT 1 FROM public.profiles 
-            WHERE user_id = auth.uid() 
+            WHERE id = auth.uid() 
             AND app_role = 'admin'
         )
     );
