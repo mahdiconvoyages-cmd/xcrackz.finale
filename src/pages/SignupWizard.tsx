@@ -458,42 +458,113 @@ export default function SignupWizardScreen() {
                 value={formData.userType}
                 onChange={(e) => setFormData(prev => ({ ...prev, userType: e.target.value as any }))}
               >
-                <Card sx={{ mb: 2, cursor: 'pointer', border: formData.userType === 'company' ? 2 : 1, borderColor: formData.userType === 'company' ? 'primary.main' : 'divider' }}
-                      onClick={() => setFormData(prev => ({ ...prev, userType: 'company' }))}>
-                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Business sx={{ fontSize: 40, color: 'primary.main' }} />
+                <Card 
+                  sx={{ 
+                    mb: 2, 
+                    cursor: 'pointer', 
+                    border: 2,
+                    borderColor: formData.userType === 'company' ? 'primary.main' : 'transparent',
+                    background: formData.userType === 'company' 
+                      ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
+                      : 'white',
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: 6,
+                      borderColor: 'primary.main'
+                    }
+                  }}
+                  onClick={() => setFormData(prev => ({ ...prev, userType: 'company' }))}>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 3 }}>
+                    <Box sx={{ 
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      borderRadius: 2,
+                      p: 1.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Business sx={{ fontSize: 32, color: 'white' }} />
+                    </Box>
                     <Box sx={{ flex: 1 }}>
                       <Typography variant="h6" fontWeight="bold">Entreprise</Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Vous êtes une société de transport ou un donneur d'ordre
+                        Société de transport ou donneur d'ordre
                       </Typography>
                     </Box>
                     <Radio value="company" checked={formData.userType === 'company'} />
                   </CardContent>
                 </Card>
 
-                <Card sx={{ mb: 2, cursor: 'pointer', border: formData.userType === 'driver' ? 2 : 1, borderColor: formData.userType === 'driver' ? 'primary.main' : 'divider' }}
-                      onClick={() => setFormData(prev => ({ ...prev, userType: 'driver' }))}>
-                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <LocalShipping sx={{ fontSize: 40, color: 'primary.main' }} />
+                <Card 
+                  sx={{ 
+                    mb: 2, 
+                    cursor: 'pointer', 
+                    border: 2,
+                    borderColor: formData.userType === 'driver' ? 'primary.main' : 'transparent',
+                    background: formData.userType === 'driver' 
+                      ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
+                      : 'white',
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: 6,
+                      borderColor: 'primary.main'
+                    }
+                  }}
+                  onClick={() => setFormData(prev => ({ ...prev, userType: 'driver' }))}>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 3 }}>
+                    <Box sx={{ 
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      borderRadius: 2,
+                      p: 1.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <LocalShipping sx={{ fontSize: 32, color: 'white' }} />
+                    </Box>
                     <Box sx={{ flex: 1 }}>
                       <Typography variant="h6" fontWeight="bold">Convoyeur</Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Vous êtes chauffeur indépendant ou convoyeur
+                        Chauffeur indépendant ou convoyeur
                       </Typography>
                     </Box>
                     <Radio value="driver" checked={formData.userType === 'driver'} />
                   </CardContent>
                 </Card>
 
-                <Card sx={{ cursor: 'pointer', border: formData.userType === 'individual' ? 2 : 1, borderColor: formData.userType === 'individual' ? 'primary.main' : 'divider' }}
-                      onClick={() => setFormData(prev => ({ ...prev, userType: 'individual' }))}>
-                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Person sx={{ fontSize: 40, color: 'primary.main' }} />
+                <Card 
+                  sx={{ 
+                    cursor: 'pointer', 
+                    border: 2,
+                    borderColor: formData.userType === 'individual' ? 'primary.main' : 'transparent',
+                    background: formData.userType === 'individual' 
+                      ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
+                      : 'white',
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: 6,
+                      borderColor: 'primary.main'
+                    }
+                  }}
+                  onClick={() => setFormData(prev => ({ ...prev, userType: 'individual' }))}>
+                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 3 }}>
+                    <Box sx={{ 
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      borderRadius: 2,
+                      p: 1.5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center'
+                    }}>
+                      <Person sx={{ fontSize: 32, color: 'white' }} />
+                    </Box>
                     <Box sx={{ flex: 1 }}>
                       <Typography variant="h6" fontWeight="bold">Particulier</Typography>
                       <Typography variant="body2" color="text.secondary">
-                        Vous recherchez des solutions de transport ponctuelles
+                        Solutions de transport ponctuelles
                       </Typography>
                     </Box>
                     <Radio value="individual" checked={formData.userType === 'individual'} />
@@ -515,13 +586,51 @@ export default function SignupWizardScreen() {
             </Typography>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 4 }}>
-              <Avatar
-                src={formData.avatarUrl}
-                sx={{ width: 120, height: 120, mb: 2, cursor: 'pointer' }}
+              <Box 
                 onClick={() => avatarInputRef.current?.click()}
+                sx={{ 
+                  position: 'relative',
+                  cursor: 'pointer',
+                  '&:hover .upload-overlay': {
+                    opacity: 1
+                  }
+                }}
               >
-                {formData.fullName[0]?.toUpperCase()}
-              </Avatar>
+                <Avatar
+                  src={formData.avatarUrl}
+                  sx={{ 
+                    width: 140, 
+                    height: 140, 
+                    border: 4, 
+                    borderColor: 'primary.main',
+                    boxShadow: 4,
+                    fontSize: 48,
+                    fontWeight: 'bold',
+                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
+                  }}
+                >
+                  {formData.fullName[0]?.toUpperCase() || '?'}
+                </Avatar>
+                <Box
+                  className="upload-overlay"
+                  sx={{
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    bottom: 0,
+                    borderRadius: '50%',
+                    background: 'rgba(0, 0, 0, 0.6)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    opacity: 0,
+                    transition: 'opacity 0.3s ease'
+                  }}
+                >
+                  <CloudUpload sx={{ color: 'white', fontSize: 40 }} />
+                </Box>
+              </Box>
               <input
                 ref={avatarInputRef}
                 type="file"
@@ -530,10 +639,12 @@ export default function SignupWizardScreen() {
                 onChange={handleAvatarSelect}
               />
               <Button
+                variant="outlined"
                 startIcon={<CloudUpload />}
                 onClick={() => avatarInputRef.current?.click()}
+                sx={{ mt: 2, borderRadius: 2 }}
               >
-                Changer la photo
+                Choisir une photo
               </Button>
             </Box>
 
@@ -916,24 +1027,65 @@ export default function SignupWizardScreen() {
   };
 
   return (
-    <Container maxWidth="md" sx={{ py: 4 }}>
-      <Paper elevation={3} sx={{ p:4 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-          <IconButton onClick={() => navigate('/signup')} edge="start">
-            <ArrowBack />
-          </IconButton>
-          <Typography variant="h4" sx={{ ml: 2, fontWeight: 'bold' }}>
-            Créer un compte
-          </Typography>
-        </Box>
+    <Box sx={{ 
+      minHeight: '100vh', 
+      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      py: { xs: 2, md: 6 },
+      px: 2
+    }}>
+      <Container maxWidth="md">
+        <Paper elevation={24} sx={{ 
+          p: { xs: 3, md: 5 }, 
+          borderRadius: 4,
+          background: 'rgba(255, 255, 255, 0.98)',
+          backdropFilter: 'blur(10px)',
+          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
+        }}>
+          {/* Header avec retour */}
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
+            <IconButton 
+              onClick={() => navigate('/login')} 
+              edge="start"
+              sx={{ 
+                mr: 2,
+                background: 'rgba(102, 126, 234, 0.1)',
+                '&:hover': {
+                  background: 'rgba(102, 126, 234, 0.2)'
+                }
+              }}
+            >
+              <ArrowBack />
+            </IconButton>
+            <Box sx={{ flex: 1 }}>
+              <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                Créer un compte
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Étape {getDisplayStepIndex(activeStep) + 1} sur {getDisplaySteps().length}
+              </Typography>
+            </Box>
+          </Box>
 
-        <Stepper activeStep={getDisplayStepIndex(activeStep)} sx={{ mb: 4 }}>
-          {getDisplaySteps().map((label) => (
-            <Step key={label}>
-              <StepLabel>{label}</StepLabel>
-            </Step>
-          ))}
-        </Stepper>
+          <Stepper 
+            activeStep={getDisplayStepIndex(activeStep)} 
+            sx={{ 
+              mb: 5,
+              '& .MuiStepLabel-root .Mui-active': {
+                color: '#667eea',
+                fontWeight: 600
+              },
+              '& .MuiStepLabel-root .Mui-completed': {
+                color: '#764ba2',
+                fontWeight: 500
+              }
+            }}
+          >
+            {getDisplaySteps().map((label) => (
+              <Step key={label}>
+                <StepLabel>{label}</StepLabel>
+              </Step>
+            ))}
+          </Stepper>
 
         {error && (
           <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
@@ -943,11 +1095,25 @@ export default function SignupWizardScreen() {
 
         {renderStepContent()}
 
-        <Box sx={{ display: 'flex', gap: 2, mt: 4 }}>
+        <Divider sx={{ my: 4 }} />
+
+        <Box sx={{ display: 'flex', gap: 2 }}>
           <Button
             disabled={activeStep === 0}
             onClick={handleBack}
             startIcon={<ArrowBack />}
+            size="large"
+            sx={{ 
+              borderRadius: 2,
+              px: 4,
+              fontWeight: 600,
+              color: '#667eea',
+              borderColor: '#667eea',
+              '&:hover': {
+                borderColor: '#5568d3',
+                background: 'rgba(102, 126, 234, 0.05)'
+              }
+            }}
           >
             Retour
           </Button>
@@ -959,7 +1125,25 @@ export default function SignupWizardScreen() {
               variant="contained"
               onClick={handleSubmit}
               disabled={loading || !formData.acceptedTerms}
-              endIcon={loading ? <CircularProgress size={20} /> : <CheckCircle />}
+              endIcon={loading ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <CheckCircle />}
+              size="large"
+              sx={{ 
+                borderRadius: 2,
+                px: 4,
+                fontWeight: 600,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 15px 0 rgba(102, 126, 234, 0.4)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5568d3 0%, #6a3e91 100%)',
+                  boxShadow: '0 6px 20px 0 rgba(102, 126, 234, 0.5)',
+                  transform: 'translateY(-2px)'
+                },
+                '&:disabled': {
+                  background: 'grey.300',
+                  boxShadow: 'none'
+                },
+                transition: 'all 0.3s ease'
+              }}
             >
               {loading ? 'Création en cours...' : 'Créer mon compte'}
             </Button>
@@ -969,18 +1153,31 @@ export default function SignupWizardScreen() {
               onClick={handleNext}
               disabled={loading}
               endIcon={<ArrowForward />}
+              size="large"
+              sx={{ 
+                borderRadius: 2,
+                px: 4,
+                fontWeight: 600,
+                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                boxShadow: '0 4px 15px 0 rgba(102, 126, 234, 0.4)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #5568d3 0%, #6a3e91 100%)',
+                  boxShadow: '0 6px 20px 0 rgba(102, 126, 234, 0.5)',
+                  transform: 'translateY(-2px)'
+                },
+                '&:disabled': {
+                  background: 'grey.300',
+                  boxShadow: 'none'
+                },
+                transition: 'all 0.3s ease'
+              }}
             >
               Continuer
             </Button>
           )}
         </Box>
-
-        <Box sx={{ mt: 3, textAlign: 'center' }}>
-          <Typography variant="body2" color="text.secondary">
-            Étape {getDisplayStepIndex(activeStep) + 1} sur {getDisplaySteps().length}
-          </Typography>
-        </Box>
       </Paper>
     </Container>
+    </Box>
   );
 }
