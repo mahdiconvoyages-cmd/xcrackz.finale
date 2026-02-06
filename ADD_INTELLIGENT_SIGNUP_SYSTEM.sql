@@ -37,7 +37,8 @@ ADD COLUMN IF NOT EXISTS onboarding_completed_at TIMESTAMPTZ;
 ALTER TABLE public.profiles 
 ADD COLUMN IF NOT EXISTS user_type TEXT CHECK (user_type IN ('company', 'driver', 'individual')),
 ADD COLUMN IF NOT EXISTS company_size TEXT CHECK (company_size IN ('solo', 'small', 'medium', 'large')),
-ADD COLUMN IF NOT EXISTS fleet_size INTEGER DEFAULT 0;
+ADD COLUMN IF NOT EXISTS fleet_size INTEGER DEFAULT 0,
+ADD COLUMN IF NOT EXISTS app_role TEXT DEFAULT 'convoyeur' CHECK (app_role IN ('admin', 'donneur_d_ordre', 'convoyeur'));
 
 -- Index pour performance
 CREATE INDEX IF NOT EXISTS idx_profiles_siret ON public.profiles(siret) WHERE siret IS NOT NULL;
@@ -66,11 +67,14 @@ CREATE INDEX IF NOT EXISTS idx_fraud_logs_result ON public.fraud_detection_logs(
 
 ALTER TABLE public.fraud_detection_logs ENABLE ROW LEVEL SECURITY;
 
+-- Policy temporaire permissive - à restreindre après création d'un admin
 CREATE POLICY "Admins can view fraud logs" ON public.fraud_detection_logs
     FOR SELECT TO authenticated
     USING (
-        auth.uid() IN (
-            SELECT user_id FROM public.profiles WHERE app_role = 'admin'
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE user_id = auth.uid() 
+            AND (app_role = 'admin' OR app_role = 'donneur_d_ordre')
         )
     );
 
@@ -93,11 +97,14 @@ CREATE INDEX IF NOT EXISTS idx_blacklist_type_value ON public.signup_blacklist(t
 
 ALTER TABLE public.signup_blacklist ENABLE ROW LEVEL SECURITY;
 
+-- Policy temporaire permissive - à restreindre après création d'un admin
 CREATE POLICY "Admins manage blacklist" ON public.signup_blacklist
     FOR ALL TO authenticated
     USING (
-        auth.uid() IN (
-            SELECT user_id FROM public.profiles WHERE app_role = 'admin'
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE user_id = auth.uid() 
+            AND app_role = 'admin'
         )
     );
 
