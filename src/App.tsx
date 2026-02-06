@@ -16,6 +16,7 @@ import Terms from './pages/Terms';
 import Login from './pages/Login';
 import CookieConsent from './components/CookieConsent';
 import Register from './pages/Register';
+import SignupWizard from './pages/SignupWizard';
 import ForgotPassword from './pages/ForgotPassword';
 import DashboardPremium from './pages/DashboardPremium';
 import MissionCreate from './pages/MissionCreate';
@@ -66,6 +67,7 @@ function AppContent() {
         <Route path="/legal/cookie-policy" element={<CookiePolicy />} />
         <Route path="/login" element={<Login />} />
         <Route path="/register" element={<Register />} />
+        <Route path="/signup-wizard" element={<SignupWizard />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/tracking/:token" element={<PublicTrackingNew />} />
