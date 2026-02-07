@@ -1,5 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'gps_tracking_service.dart';
+import 'background_tracking_service.dart';
 
 /// Service de surveillance pour gérer automatiquement le tracking GPS
 /// en fonction des changements de statut des missions
@@ -9,7 +9,7 @@ class MissionTrackingMonitor {
   MissionTrackingMonitor._internal();
 
   final _supabase = Supabase.instance.client;
-  final _gpsService = GPSTrackingService();
+  final _gpsService = BackgroundTrackingService();
   RealtimeChannel? _channel;
   bool _isMonitoring = false;
 
