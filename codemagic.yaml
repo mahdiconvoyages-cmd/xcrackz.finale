@@ -37,18 +37,22 @@ workflows:
             -configuration Release \
             -sdk iphoneos \
             -destination generic/platform=iOS \
+            -archivePath $PWD/build/Runner.xcarchive \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             DEVELOPMENT_TEAM="" \
             PROVISIONING_PROFILE_SPECIFIER="" \
-            build
+            archive
       
       - name: Create IPA
         script: |
-          cd mobile_flutter/finality_app/ios/build/Release-iphoneos
+          cd mobile_flutter/finality_app/ios
+          # Verify Info.plist exists
+          ls -la build/Runner.xcarchive/Products/Applications/Runner.app/Info.plist
+          # Create IPA from xcarchive
           mkdir -p Payload
-          cp -r Runner.app Payload/
+          cp -r build/Runner.xcarchive/Products/Applications/Runner.app Payload/
           zip -r Finality.ipa Payload
           # Move to workspace root for artifacts collection
           mv Finality.ipa $CM_BUILD_DIR/
