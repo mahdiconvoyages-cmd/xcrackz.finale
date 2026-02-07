@@ -13,6 +13,16 @@ workflows:
           cd mobile_flutter/finality_app
           flutter pub get
       
+      - name: Create .env file
+        script: |
+          cd mobile_flutter/finality_app
+          cat > .env << EOF
+          # Supabase Configuration
+          SUPABASE_URL=https://bfrkthzovwpjrvqktdjn.supabase.co
+          SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmcmt0aHpvdndwanJ2cWt0ZGpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5NzgwNzgsImV4cCI6MjA3NTU1NDA3OH0.ml0TkLYk53U6CqP_iCc8XkZMusFCSI-nYOS0WyV43Nc
+          EOF
+          echo "✅ .env file created"
+      
       - name: Build iOS framework
         script: |
           cd mobile_flutter/finality_app
