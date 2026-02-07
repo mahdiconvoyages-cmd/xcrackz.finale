@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-import 'tracking_map_screen.dart';
 
 class TrackingListScreen extends StatefulWidget {
   const TrackingListScreen({super.key});
@@ -100,7 +99,11 @@ class _TrackingListScreenState extends State<TrackingListScreen> {
                             return _MissionTrackingCard(
                               mission: _trackedMissions[index],
                               gpsService: _gpsService,
-                              onTap: () => _openTrackingMap(_trackedMissions[index]),
+                              onTap: () {
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Suivi GPS actif - Position envoyée en temps réel')),
+                                );
+                              },
                             );
                           },
                         ),
@@ -169,14 +172,7 @@ class _TrackingListScreenState extends State<TrackingListScreen> {
     );
   }
 
-  void _openTrackingMap(Map<String, dynamic> mission) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => TrackingMapScreen(missionId: mission['id']),
-      ),
-    );
-  }
+
 }
 
 class _MissionTrackingCard extends StatelessWidget {

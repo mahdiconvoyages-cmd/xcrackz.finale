@@ -6,7 +6,6 @@ import '../../models/mission.dart';
 import '../../services/mission_service.dart';
 import '../../services/background_tracking_service.dart';
 import 'package:intl/intl.dart';
-import 'mission_map_screen.dart';
 
 class MissionDetailScreen extends StatefulWidget {
   final String missionId;
@@ -646,18 +645,6 @@ class _AddressCard extends StatelessWidget {
                   style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
-                ),
-                IconButton(
-                  icon: const Icon(Icons.map_outlined),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => MissionMapScreen(mission: mission),
-                      ),
-                    );
-                  },
-                  tooltip: 'Voir sur la carte',
                 ),
               ],
             ),

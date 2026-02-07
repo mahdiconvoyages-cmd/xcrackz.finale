@@ -45,8 +45,7 @@ dependencies:
   # Configuration
   flutter_dotenv: ^6.0.0
   
-  # Maps & Location
-  google_maps_flutter: ^2.14.0
+  # Location (GPS tracking only - no map display)
   geolocator: ^14.0.2
   
   # Background Services
