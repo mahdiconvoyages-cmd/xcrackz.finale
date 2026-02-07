@@ -46,14 +46,15 @@ workflows:
       
       - name: Create IPA
         script: |
-          cd mobile_flutter/finality_app/build/ios/iphoneos
+          cd mobile_flutter/finality_app/ios/build/Release-iphoneos
           mkdir -p Payload
           cp -r Runner.app Payload/
           zip -r Finality.ipa Payload
-          mv Finality.ipa ../../../../
+          mv Finality.ipa ../../../
+          echo "✅ IPA created at mobile_flutter/finality_app/Finality.ipa"
     
     artifacts:
-      - Finality.ipa
+      - mobile_flutter/finality_app/Finality.ipa
       
   android-workflow:
     name: Android Build
