@@ -13,20 +13,26 @@ workflows:
           cd mobile_flutter/finality_app
           flutter pub get
       
-      - name: Disable code signing in Xcode project
-        script: |
-          cd mobile_flutter/finality_app/ios
-          # Disable automatic code signing using sed (macOS compatible)
-          sed -i.bak 's/ENABLE_BITCODE = YES/ENABLE_BITCODE = NO/g' Runner.xcodeproj/project.pbxproj
-          sed -i.bak 's/ProvisioningStyle = Automatic/ProvisioningStyle = Manual/g' Runner.xcodeproj/project.pbxproj
-          sed -i.bak 's/"CODE_SIGN_IDENTITY\[sdk=iphoneos\*\]" = "iPhone Developer"/"CODE_SIGN_IDENTITY[sdk=iphoneos*]" = ""/g' Runner.xcodeproj/project.pbxproj
-          sed -i.bak 's/CODE_SIGN_IDENTITY = "iPhone Developer"/CODE_SIGN_IDENTITY = ""/g' Runner.xcodeproj/project.pbxproj
-          echo "✅ Code signing disabled in Xcode project"
-      
-      - name: Build iOS (unsigned)
+      - name: Build iOS framework
         script: |
           cd mobile_flutter/finality_app
-          flutter build ios --release --no-codesign
+          flutter build ios-framework --release --no-profile --no-debug
+          
+      - name: Build iOS with xcodebuild (no codesign)
+        script: |
+          cd mobile_flutter/finality_app/ios
+          pod install
+          xcodebuild -workspace Runner.xcworkspace \
+            -scheme Runner \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination generic/platform=iOS \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            DEVELOPMENT_TEAM="" \
+            PROVISIONING_PROFILE_SPECIFIER="" \
+            build
       
       - name: Create IPA
         script: |
