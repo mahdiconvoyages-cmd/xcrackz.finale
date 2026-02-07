@@ -19,56 +19,10 @@ import { useAuth } from '../contexts/AuthContext';
 
 export default function SignupScreen({ navigation }: any) {
   const { signUp, signInWithGoogle } = useAuth();
-  const [name, setName] = useState('');
-  const [company, setCompany] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
 
-  const handleSignup = async () => {
-    if (!name || !email || !password || !confirmPassword) {
-      Alert.alert('Erreur', 'Veuillez remplir tous les champs obligatoires');
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      Alert.alert('Erreur', 'Les mots de passe ne correspondent pas');
-      return;
-    }
-
-    if (password.length < 6) {
-      Alert.alert('Erreur', 'Le mot de passe doit contenir au moins 6 caractères');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: {
-            full_name: name,
-            company: company || null,
-          },
-        },
-      });
-
-      if (error) throw error;
-
-      Alert.alert(
-        'Inscription réussie !',
-        'Un email de confirmation a été envoyé à votre adresse. Veuillez vérifier votre boîte de réception.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
-      );
-    } catch (error: any) {
-      Alert.alert('Erreur d\'inscription', error.message);
-    } finally {
-      setLoading(false);
-    }
+  // Rediriger vers le wizard intelligent
+  const handleNavigateToWizard = () => {
+    navigation.navigate('SignupWizard');
   };
 
   const handleGoogleSignup = async () => {

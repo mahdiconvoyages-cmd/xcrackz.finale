@@ -34,10 +34,17 @@ export default function MobileDownload() {
   // URLs de téléchargement
   const ENV_APK_URL = import.meta.env.VITE_ANDROID_APK_URL as string | undefined;
   const ENV_ANDROID_VERSION = (import.meta.env.VITE_ANDROID_VERSION as string | undefined) || '6.0.0';
+  const ENV_IOS_TESTFLIGHT_URL = import.meta.env.VITE_IOS_TESTFLIGHT_URL as string | undefined;
+  const ENV_IOS_VERSION = (import.meta.env.VITE_IOS_VERSION as string | undefined) || '1.0.0';
 
   // Utiliser la version depuis Supabase si disponible, sinon fallback
   const ANDROID_APK_URL = latestVersion?.apk_url || ENV_APK_URL || 'https://expo.dev/artifacts/eas/qteFd2oCGibKVEaNE9hLKD.apk';
   const VERSION = latestVersion?.version_name || ENV_ANDROID_VERSION;
+  
+  // iOS URLs (TestFlight ou Diawi)
+  const IOS_TESTFLIGHT_URL = latestVersion?.ios_testflight_url || ENV_IOS_TESTFLIGHT_URL || '';
+  const IOS_VERSION = latestVersion?.ios_version || ENV_IOS_VERSION;
+  const IOS_AVAILABLE = !!IOS_TESTFLIGHT_URL;
 
   const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.finality.app'; // À publier
   const APP_STORE_URL = 'https://apps.apple.com/app/CHECKSFLEET/id123456789'; // À publier
@@ -191,7 +198,7 @@ export default function MobileDownload() {
               </div>
               <div>
                 <h2 className="text-2xl font-black text-slate-900">iOS / iPhone</h2>
-                <p className="text-sm text-slate-600">Version 1.0.0</p>
+                <p className="text-sm text-slate-600">Version {IOS_VERSION}</p>
               </div>
             </div>
 
@@ -216,29 +223,58 @@ export default function MobileDownload() {
             </a>
 
             {/* TestFlight (développement) */}
-            <button
-              disabled
-              className="w-full px-6 py-4 bg-slate-100 text-slate-400 rounded-xl font-bold cursor-not-allowed"
-            >
-              <div className="flex items-center justify-center gap-2">
-                <Download className="w-5 h-5" />
-                TestFlight (Beta)
-                <span className="ml-2 px-2 py-0.5 bg-slate-200 text-slate-500 text-xs rounded-full">
-                  Bientôt
-                </span>
-              </div>
-            </button>
+            {IOS_AVAILABLE ? (
+              <a
+                href={IOS_TESTFLIGHT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="w-full block px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-600 text-white rounded-xl font-bold hover:shadow-xl transition-all duration-300"
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <Download className="w-5 h-5" />
+                  Installer via TestFlight
+                </div>
+              </a>
+            ) : (
+              <button
+                disabled
+                className="w-full px-6 py-4 bg-slate-100 text-slate-400 rounded-xl font-bold cursor-not-allowed"
+              >
+                <div className="flex items-center justify-center gap-2">
+                  <Download className="w-5 h-5" />
+                  TestFlight (Beta)
+                  <span className="ml-2 px-2 py-0.5 bg-slate-200 text-slate-500 text-xs rounded-full">
+                    Bientôt
+                  </span>
+                </div>
+              </button>
+            )}
 
             {/* Info */}
-            <div className="mt-6 p-4 bg-purple-50 rounded-xl border border-purple-200">
-              <p className="text-xs font-semibold text-purple-900 mb-2 flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" />
-                Application iOS en cours de validation
-              </p>
-              <p className="text-xs text-purple-800">
-                L'application iOS sera bientôt disponible sur l'App Store. Vous serez notifié dès sa publication.
-              </p>
-            </div>
+            {IOS_AVAILABLE ? (
+              <div className="mt-6 p-4 bg-purple-50 rounded-xl border border-purple-200">
+                <p className="text-xs font-semibold text-purple-900 mb-2 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  Installation iOS
+                </p>
+                <ol className="text-xs text-purple-800 space-y-1 ml-6 list-decimal">
+                  <li>Installer l'app TestFlight depuis l'App Store (si pas déjà fait)</li>
+                  <li>Cliquer sur "Installer via TestFlight" ci-dessus</li>
+                  <li>Accepter l'invitation beta dans TestFlight</li>
+                  <li>Installer Finality depuis TestFlight</li>
+                </ol>
+              </div>
+            ) : (
+              <div className="mt-6 p-4 bg-purple-50 rounded-xl border border-purple-200">
+                <p className="text-xs font-semibold text-purple-900 mb-2 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  Application iOS en cours de validation
+                </p>
+                <p className="text-xs text-purple-800">
+                  L'application iOS sera bientôt disponible sur l'App Store. Vous serez notifié dès sa publication.
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
