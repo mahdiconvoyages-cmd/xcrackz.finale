@@ -50,11 +50,13 @@ workflows:
           mkdir -p Payload
           cp -r Runner.app Payload/
           zip -r Finality.ipa Payload
-          mv Finality.ipa ../../../
-          echo "✅ IPA created at mobile_flutter/finality_app/Finality.ipa"
+          # Move to workspace root for artifacts collection
+          mv Finality.ipa $CM_BUILD_DIR/
+          echo "✅ IPA created at workspace root"
+          ls -lh $CM_BUILD_DIR/*.ipa
     
     artifacts:
-      - mobile_flutter/finality_app/Finality.ipa
+      - Finality.ipa
       
   android-workflow:
     name: Android Build
