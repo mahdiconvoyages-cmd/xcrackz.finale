@@ -718,7 +718,7 @@ class _AddressCard extends StatelessWidget {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Colors.green.shade50, Colors.emerald.shade50],
+                  colors: [Colors.green.shade50, const Color(0xFF10B981).withOpacity(0.2)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
