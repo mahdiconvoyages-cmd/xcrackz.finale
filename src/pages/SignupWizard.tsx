@@ -84,8 +84,13 @@ interface SignupData {
   password: string;
   confirmPassword: string;
   
-  // Étape 5
+  // Étape 5 - Profil de facturation
   bankIban: string;
+  billingAddress: string;
+  billingPostalCode: string;
+  billingCity: string;
+  billingEmail: string;
+  tvaNumber: string;
   
   // Étape 6
   fraudCheck: FraudCheckResult | null;
@@ -132,6 +137,11 @@ export default function SignupWizardScreen() {
     password: '',
     confirmPassword: '',
     bankIban: '',
+    billingAddress: '',
+    billingPostalCode: '',
+    billingCity: '',
+    billingEmail: '',
+    tvaNumber: '',
     fraudCheck: null,
     acceptedTerms: false,
   });
@@ -240,7 +250,52 @@ export default function SignupWizardScreen() {
 
         return true;
 
-      case 4: // IBAN (optionnel)
+      case 4: // Profil de facturation
+        // Valider SIRET (obligatoire)
+        if (!formData.siret || formData.siret.trim() === '') {
+          setError('Le numéro SIRET est obligatoire pour la facturation');
+          return false;
+        }
+        const siretClean = formData.siret.replace(/\s/g, '');
+        if (siretClean.length !== 14) {
+          setError('Le SIRET doit contenir 14 chiffres');
+          return false;
+        }
+
+        // Valider adresse (obligatoire)
+        if (!formData.billingAddress || formData.billingAddress.trim() === '') {
+          setError('L\'adresse de facturation est obligatoire');
+          return false;
+        }
+
+        // Valider code postal (obligatoire)
+        if (!formData.billingPostalCode || formData.billingPostalCode.trim() === '') {
+          setError('Le code postal est obligatoire');
+          return false;
+        }
+        if (formData.billingPostalCode.length !== 5) {
+          setError('Le code postal doit contenir 5 chiffres');
+          return false;
+        }
+
+        // Valider ville (obligatoire)
+        if (!formData.billingCity || formData.billingCity.trim() === '') {
+          setError('La ville est obligatoire');
+          return false;
+        }
+
+        // Valider email de facturation (obligatoire)
+        if (!formData.billingEmail || formData.billingEmail.trim() === '') {
+          setError('L\'email de facturation est obligatoire');
+          return false;
+        }
+        const billingEmailValidation = validationService.validateEmail(formData.billingEmail);
+        if (!billingEmailValidation.isValid) {
+          setError('Email de facturation invalide');
+          return false;
+        }
+
+        // IBAN optionnel
         if (formData.bankIban) {
           const ibanValidation = validationService.validateIban(formData.bankIban);
           if (!ibanValidation.isValid) {
@@ -392,6 +447,11 @@ export default function SignupWizardScreen() {
             fleet_size: formData.fleetSize || 0,
             legal_address: formData.legalAddress || null,
             bank_iban: formData.bankIban || null,
+            billing_address: formData.billingAddress || null,
+            billing_postal_code: formData.billingPostalCode || null,
+            billing_city: formData.billingCity || null,
+            billing_email: formData.billingEmail || null,
+            tva_number: formData.tvaNumber || null,
             avatar_url: avatarUrl || null,
             logo_url: logoUrl || null,
             device_fingerprint: deviceFingerprint,
@@ -853,20 +913,97 @@ export default function SignupWizardScreen() {
           </Box>
         );
 
-      case 4: // IBAN
+      case 4: // Profil de facturation
         return (
           <Box sx={{ py: 4 }}>
             <Typography variant="h5" gutterBottom fontWeight="bold">
-              Informations bancaires
+              Profil de facturation
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-              (Optionnel) Pour recevoir vos paiements directement
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Ces informations apparaîtront sur toutes vos factures
             </Typography>
 
-            <Alert severity="info" sx={{ mb: 3 }}>
-              Vous pourrez ajouter ou modifier ces informations plus tard dans votre profil
+            <Alert severity="warning" icon={<Business />} sx={{ mb: 3 }}>
+              <Typography variant="subtitle2" fontWeight="bold">Pourquoi ces informations ?</Typography>
+              <Typography variant="body2">
+                Ces données seront automatiquement insérées sur les factures que vous générerez pour vos missions.
+                Elles sont obligatoires pour une facturation conforme.
+              </Typography>
             </Alert>
 
+            {/* SIRET - Seulement si pas déjà renseigné à l'étape entreprise */}
+            {!formData.siret && (
+              <TextField
+                fullWidth
+                required
+                label="Numéro SIRET"
+                value={formData.siret}
+                onChange={(e) => setFormData(prev => ({ ...prev, siret: e.target.value }))}
+                placeholder="123 456 789 00012"
+                helperText="Obligatoire pour facturer en France (14 chiffres)"
+                sx={{ mb: 2 }}
+              />
+            )}
+
+            {formData.siret && (
+              <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}>
+                SIRET : {validationService.formatSiret(formData.siret)}
+              </Alert>
+            )}
+
+            {/* Adresse complète */}
+            <TextField
+              fullWidth
+              required
+              label="Adresse de facturation"
+              value={formData.billingAddress}
+              onChange={(e) => setFormData(prev => ({ ...prev, billingAddress: e.target.value }))}
+              placeholder="123 rue de la République"
+              helperText="Adresse qui apparaîtra sur vos factures"
+              sx={{ mb: 2 }}
+            />
+
+            {/* Code postal + Ville */}
+            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+              <TextField
+                required
+                label="Code postal"
+                value={formData.billingPostalCode}
+                onChange={(e) => setFormData(prev => ({ ...prev, billingPostalCode: e.target.value }))}
+                placeholder="75001"
+                inputProps={{ maxLength: 5 }}
+                sx={{ flex: 2 }}
+              />
+              <TextField
+                required
+                label="Ville"
+                value={formData.billingCity}
+                onChange={(e) => setFormData(prev => ({ ...prev, billingCity: e.target.value }))}
+                placeholder="Paris"
+                sx={{ flex: 3 }}
+              />
+            </Box>
+
+            {/* Email de facturation */}
+            <TextField
+              fullWidth
+              required
+              type="email"
+              label="Email de facturation"
+              value={formData.billingEmail}
+              onChange={(e) => setFormData(prev => ({ ...prev, billingEmail: e.target.value }))}
+              placeholder="facturation@entreprise.fr"
+              helperText="Pour recevoir les notifications de facture"
+              sx={{ mb: 3 }}
+            />
+
+            <Divider sx={{ my: 3 }} />
+
+            <Typography variant="body2" color="text.secondary" fontWeight="600" sx={{ mb: 2 }}>
+              Informations optionnelles
+            </Typography>
+
+            {/* IBAN */}
             <TextField
               fullWidth
               label="IBAN (optionnel)"
@@ -876,8 +1013,24 @@ export default function SignupWizardScreen() {
                 setFormData(prev => ({ ...prev, bankIban: value }));
               }}
               placeholder="FR76 1234 5678 9012 3456 7890 123"
-              helperText="Format français uniquement (FR + 25 chiffres)"
+              helperText="Pour recevoir vos paiements"
+              sx={{ mb: 2 }}
             />
+
+            {/* Numéro TVA */}
+            <TextField
+              fullWidth
+              label="N° TVA intracommunautaire (optionnel)"
+              value={formData.tvaNumber}
+              onChange={(e) => setFormData(prev => ({ ...prev, tvaNumber: e.target.value.toUpperCase() }))}
+              placeholder="FR12345678901"
+              helperText="Si vous êtes assujetti à la TVA"
+              sx={{ mb: 2 }}
+            />
+
+            <Alert severity="info" sx={{ mt: 2 }}>
+              Toutes ces informations sont modifiables à tout moment depuis votre profil.
+            </Alert>
           </Box>
         );
 
@@ -977,10 +1130,29 @@ export default function SignupWizardScreen() {
                 <Typography variant="subtitle2" color="text.secondary">Téléphone</Typography>
                 <Typography variant="body1" gutterBottom>{validationService.formatPhone(formData.phone)}</Typography>
 
+                <Divider sx={{ my: 2 }} />
+
+                <Typography variant="subtitle2" color="primary.main" fontWeight="600">Profil de facturation</Typography>
+                
+                <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>Adresse</Typography>
+                <Typography variant="body1" gutterBottom>
+                  {formData.billingAddress}, {formData.billingPostalCode} {formData.billingCity}
+                </Typography>
+
+                <Typography variant="subtitle2" color="text.secondary">Email de facturation</Typography>
+                <Typography variant="body1" gutterBottom>{formData.billingEmail}</Typography>
+
                 {formData.bankIban && (
                   <>
                     <Typography variant="subtitle2" color="text.secondary">IBAN</Typography>
-                    <Typography variant="body1">{validationService.formatIban(formData.bankIban)}</Typography>
+                    <Typography variant="body1" gutterBottom>{validationService.formatIban(formData.bankIban)}</Typography>
+                  </>
+                )}
+
+                {formData.tvaNumber && (
+                  <>
+                    <Typography variant="subtitle2" color="text.secondary">N° TVA intracommunautaire</Typography>
+                    <Typography variant="body1">{formData.tvaNumber}</Typography>
                   </>
                 )}
               </CardContent>
