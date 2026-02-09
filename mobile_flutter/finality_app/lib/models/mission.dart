@@ -1,6 +1,8 @@
 class Mission {
   final String id;
   final String? reference;
+  final String? mandataireName;
+  final String? mandataireCompany;
   final String? pickupAddress;
   final String? deliveryAddress;
   final String? pickupCity;
@@ -13,6 +15,10 @@ class Mission {
   final double? deliveryLng;
   final DateTime? pickupDate;
   final DateTime? deliveryDate;
+  final String? pickupContactName;
+  final String? pickupContactPhone;
+  final String? deliveryContactName;
+  final String? deliveryContactPhone;
   final String? vehicleType;
   final String? vehicleBrand;
   final String? vehicleModel;
@@ -34,6 +40,8 @@ class Mission {
   Mission({
     required this.id,
     this.reference,
+    this.mandataireName,
+    this.mandataireCompany,
     this.pickupAddress,
     this.deliveryAddress,
     this.pickupCity,
@@ -46,6 +54,10 @@ class Mission {
     this.deliveryLng,
     this.pickupDate,
     this.deliveryDate,
+    this.pickupContactName,
+    this.pickupContactPhone,
+    this.deliveryContactName,
+    this.deliveryContactPhone,
     this.vehicleType,
     this.vehicleBrand,
     this.vehicleModel,
@@ -69,6 +81,8 @@ class Mission {
     return Mission(
       id: json['id'] as String,
       reference: json['reference'] as String?,
+      mandataireName: json['mandataire_name'] as String?,
+      mandataireCompany: json['mandataire_company'] as String?,
       pickupAddress: json['pickup_address'] as String?,
       deliveryAddress: json['delivery_address'] as String?,
       pickupCity: json['pickup_city'] as String?,
@@ -81,6 +95,10 @@ class Mission {
       deliveryLng: json['delivery_lng'] != null ? (json['delivery_lng'] as num).toDouble() : null,
       pickupDate: json['pickup_date'] != null ? DateTime.parse(json['pickup_date'] as String) : null,
       deliveryDate: json['delivery_date'] != null ? DateTime.parse(json['delivery_date'] as String) : null,
+      pickupContactName: json['pickup_contact_name'] as String?,
+      pickupContactPhone: json['pickup_contact_phone'] as String?,
+      deliveryContactName: json['delivery_contact_name'] as String?,
+      deliveryContactPhone: json['delivery_contact_phone'] as String?,
       vehicleType: json['vehicle_type'] as String?,
       vehicleBrand: json['vehicle_brand'] as String?,
       vehicleModel: json['vehicle_model'] as String?,
@@ -105,6 +123,8 @@ class Mission {
     return {
       'id': id,
       'reference': reference,
+      'mandataire_name': mandataireName,
+      'mandataire_company': mandataireCompany,
       'pickup_address': pickupAddress,
       'delivery_address': deliveryAddress,
       'pickup_city': pickupCity,
@@ -117,6 +137,10 @@ class Mission {
       'delivery_lng': deliveryLng,
       'pickup_date': pickupDate?.toIso8601String(),
       'delivery_date': deliveryDate?.toIso8601String(),
+      'pickup_contact_name': pickupContactName,
+      'pickup_contact_phone': pickupContactPhone,
+      'delivery_contact_name': deliveryContactName,
+      'delivery_contact_phone': deliveryContactPhone,
       'vehicle_type': vehicleType,
       'vehicle_brand': vehicleBrand,
       'vehicle_model': vehicleModel,
@@ -138,6 +162,8 @@ class Mission {
   Mission copyWith({
     String? id,
     String? reference,
+    String? mandataireName,
+    String? mandataireCompany,
     String? pickupAddress,
     String? deliveryAddress,
     String? pickupCity,
@@ -150,6 +176,10 @@ class Mission {
     double? deliveryLng,
     DateTime? pickupDate,
     DateTime? deliveryDate,
+    String? pickupContactName,
+    String? pickupContactPhone,
+    String? deliveryContactName,
+    String? deliveryContactPhone,
     String? vehicleType,
     String? vehicleBrand,
     String? vehicleModel,
@@ -171,6 +201,8 @@ class Mission {
     return Mission(
       id: id ?? this.id,
       reference: reference ?? this.reference,
+      mandataireName: mandataireName ?? this.mandataireName,
+      mandataireCompany: mandataireCompany ?? this.mandataireCompany,
       pickupAddress: pickupAddress ?? this.pickupAddress,
       deliveryAddress: deliveryAddress ?? this.deliveryAddress,
       pickupCity: pickupCity ?? this.pickupCity,
@@ -183,6 +215,10 @@ class Mission {
       deliveryLng: deliveryLng ?? this.deliveryLng,
       pickupDate: pickupDate ?? this.pickupDate,
       deliveryDate: deliveryDate ?? this.deliveryDate,
+      pickupContactName: pickupContactName ?? this.pickupContactName,
+      pickupContactPhone: pickupContactPhone ?? this.pickupContactPhone,
+      deliveryContactName: deliveryContactName ?? this.deliveryContactName,
+      deliveryContactPhone: deliveryContactPhone ?? this.deliveryContactPhone,
       vehicleType: vehicleType ?? this.vehicleType,
       vehicleBrand: vehicleBrand ?? this.vehicleBrand,
       vehicleModel: vehicleModel ?? this.vehicleModel,

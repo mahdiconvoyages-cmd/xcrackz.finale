@@ -36,7 +36,9 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   bool _showPickupSuggestions = false;
   bool _showDeliverySuggestions = false;
 
-  // Étape 1: Informations véhicule
+  // Étape 1: Informations mandataire et véhicule
+  final _mandataireNameController = TextEditingController();
+  final _mandataireCompanyController = TextEditingController();
   final _brandController = TextEditingController();
   final _modelController = TextEditingController();
   final _plateController = TextEditingController();
@@ -191,6 +193,8 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   void dispose() {
     _pickupDebounce?.cancel();
     _deliveryDebounce?.cancel();
+    _mandataireNameController.dispose();
+    _mandataireCompanyController.dispose();
     _brandController.dispose();
     _modelController.dispose();
     _plateController.dispose();
@@ -219,8 +223,9 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
 
   bool _canProceed() {
     switch (_currentStep) {
-      case 0: // Véhicule
-        return _brandController.text.isNotEmpty &&
+      case 0: // Mandataire et Véhicule
+        return _mandataireNameController.text.isNotEmpty &&
+            _brandController.text.isNotEmpty &&
             _modelController.text.isNotEmpty;
       case 1: // Départ
         return _pickupClientNameController.text.isNotEmpty &&
@@ -299,6 +304,8 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
         'user_id': userId,
         'reference': reference,
         'status': 'pending',
+        'mandataire_name': _mandataireNameController.text.isNotEmpty ? _mandataireNameController.text : null,
+        'mandataire_company': _mandataireCompanyController.text.isNotEmpty ? _mandataireCompanyController.text : null,
         'vehicle_brand': _brandController.text,
         'vehicle_model': _modelController.text,
         'vehicle_plate': _plateController.text.isNotEmpty ? _plateController.text : null,
@@ -575,11 +582,11 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   String _getStepTitle(int index) {
     switch (index) {
       case 0:
-        return 'Véhicule';
+        return 'Mandataire';
       case 1:
-        return 'Départ';
+        return 'Enlèvement';
       case 2:
-        return 'Arrivée';
+        return 'Livraison';
       case 3:
         return 'Détails';
       default:
@@ -606,74 +613,163 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          '🚗 Informations du véhicule',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
+        // Section Mandataire
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF9333EA), Color(0xFF6366F1)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF9333EA).withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Text('👤', style: TextStyle(fontSize: 24)),
+                  SizedBox(width: 8),
+                  Text(
+                    'Informations Mandataire',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              
+              // Nom du mandataire
+              _buildTextField(
+                controller: _mandataireNameController,
+                label: 'Nom du mandataire *',
+                hint: 'Ex: Jean Dupont',
+                icon: Icons.person,
+                required: true,
+              ),
+              const SizedBox(height: 12),
+              
+              // Société mandante
+              _buildTextField(
+                controller: _mandataireCompanyController,
+                label: 'Société mandante',
+                hint: 'Ex: Transport Express SARL',
+                icon: Icons.business,
+              ),
+            ],
           ),
         ),
         const SizedBox(height: 24),
 
-        // Type de véhicule
-        const Text(
-          'Type de véhicule *',
-          style: TextStyle(
-            color: Color(0xFF14B8A6),
-            fontSize: 14,
-            fontWeight: FontWeight.w600,
+        // Section Véhicule
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(
+              colors: [Color(0xFF14B8A6), Color(0xFF06B6D4)],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF14B8A6).withOpacity(0.3),
+                blurRadius: 12,
+                offset: const Offset(0, 4),
+              ),
+            ],
           ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
-            _buildVehicleTypeChip('VL', 'Voiture'),
-            const SizedBox(width: 8),
-            _buildVehicleTypeChip('VU', 'Utilitaire'),
-            const SizedBox(width: 8),
-            _buildVehicleTypeChip('PL', 'Poids lourd'),
-          ],
-        ),
-        const SizedBox(height: 24),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Row(
+                children: [
+                  Text('🚗', style: TextStyle(fontSize: 24)),
+                  SizedBox(width: 8),
+                  Text(
+                    'Informations du véhicule',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
 
-        // Marque
-        _buildTextField(
-          controller: _brandController,
-          label: 'Marque *',
-          hint: 'Ex: Renault, Peugeot...',
-          icon: Icons.directions_car,
-          required: true,
-        ),
-        const SizedBox(height: 16),
+              // Type de véhicule
+              const Text(
+                'Type de véhicule *',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  _buildVehicleTypeChip('VL', 'Voiture'),
+                  const SizedBox(width: 8),
+                  _buildVehicleTypeChip('VU', 'Utilitaire'),
+                  const SizedBox(width: 8),
+                  _buildVehicleTypeChip('PL', 'Poids lourd'),
+                ],
+              ),
+              const SizedBox(height: 16),
 
-        // Modèle
-        _buildTextField(
-          controller: _modelController,
-          label: 'Modèle *',
-          hint: 'Ex: Clio, 308...',
-          icon: Icons.directions_car_outlined,
-          required: true,
-        ),
-        const SizedBox(height: 16),
+              // Marque
+              _buildTextField(
+                controller: _brandController,
+                label: 'Marque *',
+                hint: 'Ex: Renault, Peugeot...',
+                icon: Icons.directions_car,
+                required: true,
+              ),
+              const SizedBox(height: 12),
 
-        // Immatriculation
-        _buildTextField(
-          controller: _plateController,
-          label: 'Immatriculation',
-          hint: 'Ex: AB-123-CD',
-          icon: Icons.pin,
-          textCapitalization: TextCapitalization.characters,
-        ),
-        const SizedBox(height: 16),
+              // Modèle
+              _buildTextField(
+                controller: _modelController,
+                label: 'Modèle *',
+                hint: 'Ex: Clio, 308...',
+                icon: Icons.directions_car_outlined,
+                required: true,
+              ),
+              const SizedBox(height: 12),
 
-        // VIN
-        _buildTextField(
-          controller: _vinController,
-          label: 'Numéro VIN',
-          hint: 'Numéro de série du véhicule',
-          icon: Icons.confirmation_number,
-          textCapitalization: TextCapitalization.characters,
+              // Immatriculation
+              _buildTextField(
+                controller: _plateController,
+                label: 'Immatriculation',
+                hint: 'Ex: AB-123-CD',
+                icon: Icons.pin,
+                textCapitalization: TextCapitalization.characters,
+              ),
+              const SizedBox(height: 12),
+
+              // VIN
+              _buildTextField(
+                controller: _vinController,
+                label: 'Numéro VIN',
+                hint: 'Numéro de série du véhicule',
+                icon: Icons.confirmation_number,
+                textCapitalization: TextCapitalization.characters,
+              ),
+            ],
+          ),
         ),
       ],
     );

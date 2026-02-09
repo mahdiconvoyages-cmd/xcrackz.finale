@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../utils/error_helper.dart';
 import '../../models/mission.dart';
 import '../../services/mission_service.dart';
@@ -145,6 +146,10 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               _StatusCard(mission: _mission!),
+              if (_mission!.mandataireName != null || _mission!.mandataireCompany != null) ...[
+                const SizedBox(height: 16),
+                _MandataireCard(mission: _mission!),
+              ],
               const SizedBox(height: 16),
               _AddressCard(mission: _mission!),
               const SizedBox(height: 16),
@@ -624,6 +629,63 @@ class _StatusCard extends StatelessWidget {
   }
 }
 
+class _MandataireCard extends StatelessWidget {
+  final Mission mission;
+
+  const _MandataireCard({required this.mission});
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      color: Colors.purple.shade50,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.person, color: Colors.purple.shade700),
+                const SizedBox(width: 8),
+                Text(
+                  'Mandataire',
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.bold,
+                        color: Colors.purple.shade900,
+                      ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (mission.mandataireName != null)
+              Text(
+                mission.mandataireName!,
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+              ),
+            if (mission.mandataireCompany != null) ...[
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  Icon(Icons.business, color: Colors.purple.shade600, size: 16),
+                  const SizedBox(width: 4),
+                  Text(
+                    mission.mandataireCompany!,
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: Colors.grey.shade700,
+                        ),
+                  ),
+                ],
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _AddressCard extends StatelessWidget {
   final Mission mission;
 
@@ -631,6 +693,8 @@ class _AddressCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final dateFormat = DateFormat('EEEE d MMMM yyyy, HH:mm', 'fr_FR');
+    
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -649,23 +713,195 @@ class _AddressCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 16),
-            _AddressItem(
-              icon: Icons.location_on,
-              title: 'Départ',
-              address: mission.pickupAddress ?? 'Non spécifié',
-              city: mission.pickupCity,
+            // Point d'enlèvement
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.green.shade50, Colors.emerald.shade50],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.green.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text('📍', style: TextStyle(fontSize: 20)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Point d\'Enlèvement',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    mission.pickupAddress ?? 'Non spécifié',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  if (mission.pickupContactName != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('👤', style: TextStyle(fontSize: 16)),
+                        const SizedBox(width: 4),
+                        Text(
+                          mission.pickupContactName!,
+                          style: TextStyle(color: Colors.grey.shade700),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (mission.pickupContactPhone != null) ...[
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () => _makePhoneCall(mission.pickupContactPhone!),
+                      child: Row(
+                        children: [
+                          const Text('📞', style: TextStyle(fontSize: 16)),
+                          const SizedBox(width: 4),
+                          Text(
+                            mission.pickupContactPhone!,
+                            style: TextStyle(
+                              color: Colors.green.shade700,
+                              decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (mission.pickupDate != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('📅', style: TextStyle(fontSize: 16)),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            dateFormat.format(mission.pickupDate!),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
             ),
-            const Divider(height: 24),
-            _AddressItem(
-              icon: Icons.flag,
-              title: 'Arrivée',
-              address: mission.deliveryAddress ?? 'Non spécifié',
-              city: mission.deliveryCity,
+            const SizedBox(height: 12),
+            // Point de livraison
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  colors: [Colors.blue.shade50, Colors.indigo.shade50],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.shade200),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Text('🎯', style: TextStyle(fontSize: 20)),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Point de Livraison',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.blue.shade900,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    mission.deliveryAddress ?? 'Non spécifié',
+                    style: const TextStyle(fontWeight: FontWeight.w500),
+                  ),
+                  if (mission.deliveryContactName != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('👤', style: TextStyle(fontSize: 16)),
+                        const SizedBox(width: 4),
+                        Text(
+                          'Réceptionnaire: ${mission.deliveryContactName!}',
+                          style: TextStyle(color: Colors.grey.shade700),
+                        ),
+                      ],
+                    ),
+                  ],
+                  if (mission.deliveryContactPhone != null) ...[
+                    const SizedBox(height: 4),
+                    InkWell(
+                      onTap: () => _makePhoneCall(mission.deliveryContactPhone!),
+                      child: Row(
+                        children: [
+                          const Text('📞', style: TextStyle(fontSize: 16)),
+                          const SizedBox(width: 4),
+                          Text(
+                            mission.deliveryContactPhone!,
+                            style: TextStyle(
+                              color: Colors.blue.shade700,
+                              decoration: TextDecoration.underline,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  if (mission.deliveryDate != null) ...[
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Text('📅', style: TextStyle(fontSize: 16)),
+                        const SizedBox(width: 4),
+                        Expanded(
+                          child: Text(
+                            dateFormat.format(mission.deliveryDate!),
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.grey.shade700,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
+              ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(
+      scheme: 'tel',
+      path: phoneNumber,
+    );
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    }
   }
 }
 

@@ -26,9 +26,11 @@ export default function MissionCreate() {
 
   const [formData, setFormData] = useState({
     reference: `MISSION-${Date.now()}`,
+    mandataire_name: '',
+    mandataire_company: '',
     vehicle_brand: '',
     vehicle_model: '',
-    vehicle_type: 'VL' as 'VL' | 'VU' | 'PL', // Véhicule Léger, Utilitaire, Poids Lourd
+    vehicle_type: 'VL' as 'VL' | 'VU' | 'PL',
     vehicle_plate: '',
     vehicle_vin: '',
     vehicle_image_url: '',
@@ -85,7 +87,7 @@ export default function MissionCreate() {
   const canProceedToNextStep = () => {
     switch (currentStep) {
       case 1:
-        return formData.vehicle_brand.trim() !== '' && formData.vehicle_model.trim() !== '';
+        return formData.mandataire_name.trim() !== '' && formData.vehicle_brand.trim() !== '';
       case 2:
         return formData.pickup_address.trim() !== '';
       case 3:
@@ -128,6 +130,8 @@ export default function MissionCreate() {
           {
             user_id: user.id,
             reference: formData.reference,
+            mandataire_name: formData.mandataire_name || null,
+            mandataire_company: formData.mandataire_company || null,
             vehicle_brand: formData.vehicle_brand,
             vehicle_model: formData.vehicle_model,
             vehicle_type: formData.vehicle_type,
@@ -357,9 +361,9 @@ export default function MissionCreate() {
     URL.revokeObjectURL(url);
   };
 
-  const getStepTitle = () => {
-    switch (currentStep) {
-      case 1: return 'Informations du véhicule';
+  const getStepTitle = () => { Mandataire & Véhicule';
+      case 2: return 'Point d\'enlèvement';
+      case 3: return 'Point de livraisonvéhicule';
       case 2: return 'Point de départ';
       case 3: return 'Point d\'arrivée';
       case 4: return 'Détails supplémentaires';
@@ -372,218 +376,269 @@ export default function MissionCreate() {
     switch (currentStep) {
       case 1:
         return (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Référence
-              </label>
-              <input
-                type="text"
-                name="reference"
-                value={formData.reference}
-                onChange={handleChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                required
-              />
+          <div className="space-y-8">
+            {/* Section Mandataire */}
+            <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-xl p-6 border border-purple-200">
+              <h3 className="text-lg font-bold text-purple-900 mb-4 flex items-center gap-2">
+                <span className="text-2xl">👤</span>
+                Informations Mandataire
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-purple-900 mb-2">
+                    Nom du mandataire *
+                  </label>
+                  <input
+                    type="text"
+                    name="mandataire_name"
+                    value={formData.mandataire_name}
+                    onChange={handleChange}
+                    placeholder="Jean Durand"
+                    className="w-full bg-white border-2 border-purple-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-purple-900 mb-2">
+                    Nom de la société qui mandate *
+                  </label>
+                  <input
+                    type="text"
+                    name="mandataire_company"
+                    value={formData.mandataire_company}
+                    onChange={handleChange}
+                    placeholder="Transport Express SARL"
+                    className="w-full bg-white border-2 border-purple-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Marque du véhicule *
-              </label>
-              <input
-                type="text"
-                name="vehicle_brand"
-                value={formData.vehicle_brand}
-                onChange={handleChange}
-                placeholder="BMW, Mercedes, etc."
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Modèle du véhicule *
-              </label>
-              <input
-                type="text"
-                name="vehicle_model"
-                value={formData.vehicle_model}
-                onChange={handleChange}
-                placeholder="Série 3, Classe A, etc."
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Type de véhicule *
-              </label>
-              <select
-                name="vehicle_type"
-                value={formData.vehicle_type}
-                onChange={handleChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                required
-              >
-                <option value="VL">🚗 Véhicule Léger (VL) - Voiture classique</option>
-                <option value="VU">🚐 Véhicule Utilitaire (VU) - Camionnette/Van</option>
-                <option value="PL">🚛 Poids Lourd (PL) - Camion</option>
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Immatriculation
-              </label>
-              <input
-                type="text"
-                name="vehicle_plate"
-                value={formData.vehicle_plate}
-                onChange={handleChange}
-                placeholder="AB-123-CD"
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Numéro de série (VIN)
-              </label>
-              <input
-                type="text"
-                name="vehicle_vin"
-                value={formData.vehicle_vin}
-                onChange={handleChange}
-                placeholder="WBADT43452G..."
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Photo du véhicule
-              </label>
-              <VehicleImageUpload
-                value={formData.vehicle_image_url}
-                onChange={(url) => setFormData(prev => ({ ...prev, vehicle_image_url: url }))}
-              />
+
+            {/* Section Véhicule */}
+            <div className="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl p-6 border border-teal-200">
+              <h3 className="text-lg font-bold text-teal-900 mb-4 flex items-center gap-2">
+                <span className="text-2xl">🚗</span>
+                Informations du Véhicule
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-semibold text-teal-900 mb-2">
+                    Marque du véhicule *
+                  </label>
+                  <input
+                    type="text"
+                    name="vehicle_brand"
+                    value={formData.vehicle_brand}
+                    onChange={handleChange}
+                    placeholder="BMW, Mercedes, Renault..."
+                    className="w-full bg-white border-2 border-teal-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-teal-900 mb-2">
+                    Modèle du véhicule
+                  </label>
+                  <input
+                    type="text"
+                    name="vehicle_model"
+                    value={formData.vehicle_model}
+                    onChange={handleChange}
+                    placeholder="Série 3, Classe A..."
+                    className="w-full bg-white border-2 border-teal-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-teal-900 mb-2">
+                    Immatriculation *
+                  </label>
+                  <input
+                    type="text"
+                    name="vehicle_plate"
+                    value={formData.vehicle_plate}
+                    onChange={handleChange}
+                    placeholder="AB-123-CD"
+                    className="w-full bg-white border-2 border-teal-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent uppercase"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-semibold text-teal-900 mb-2">
+                    Type de véhicule
+                  </label>
+                  <select
+                    name="vehicle_type"
+                    value={formData.vehicle_type}
+                    onChange={handleChange}
+                    className="w-full bg-white border-2 border-teal-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  >
+                    <option value="VL">🚗 Véhicule Léger</option>
+                    <option value="VU">🚐 Véhicule Utilitaire</option>
+                    <option value="PL">🚛 Poids Lourd</option>
+                  </select>
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-teal-900 mb-2">
+                    Numéro de série (VIN)
+                  </label>
+                  <input
+                    type="text"
+                    name="vehicle_vin"
+                    value={formData.vehicle_vin}
+                    onChange={handleChange}
+                    placeholder="WBADT43452G..."
+                    className="w-full bg-white border-2 border-teal-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent"
+                  />
+                </div>
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-semibold text-teal-900 mb-2">
+                    Photo du véhicule
+                  </label>
+                  <VehicleImageUpload
+                    value={formData.vehicle_image_url}
+                    onChange={(url) => setFormData(prev => ({ ...prev, vehicle_image_url: url }))}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         );
 
       case 2:
         return (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Adresse de départ *
-              </label>
-              <AddressAutocomplete
-                value={formData.pickup_address}
-                onChange={(address, lat, lng) => {
-                  if (lat && lng) {
-                    handlePickupAddressSelect(address, lat, lng);
-                  } else {
-                    setFormData(prev => ({ ...prev, pickup_address: address }));
-                  }
-                }}
-                placeholder="Rechercher une adresse..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Date de départ
-              </label>
-              <input
-                type="datetime-local"
-                name="pickup_date"
-                value={formData.pickup_date}
-                onChange={handleChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Nom du contact de départ
-              </label>
-              <input
-                type="text"
-                name="pickup_contact_name"
-                value={formData.pickup_contact_name}
-                onChange={handleChange}
-                placeholder="Jean Dupont"
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Téléphone du contact de départ
-              </label>
-              <input
-                type="tel"
-                name="pickup_contact_phone"
-                value={formData.pickup_contact_phone}
-                onChange={handleChange}
-                placeholder="06 12 34 56 78"
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
+          <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-xl p-6 border border-green-200">
+            <h3 className="text-lg font-bold text-green-900 mb-4 flex items-center gap-2">
+              <span className="text-2xl">📍</span>
+              Point d'Enlèvement
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-green-900 mb-2">
+                  Adresse d'enlèvement *
+                </label>
+                <AddressAutocomplete
+                  value={formData.pickup_address}
+                  onChange={(address, lat, lng) => {
+                    if (lat && lng) {
+                      handlePickupAddressSelect(address, lat, lng);
+                    } else {
+                      setFormData(prev => ({ ...prev, pickup_address: address }));
+                    }
+                  }}
+                  placeholder="123 Rue de la Paix, 75001 Paris..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-green-900 mb-2">
+                  Contact à l'enlèvement *
+                </label>
+                <input
+                  type="text"
+                  name="pickup_contact_name"
+                  value={formData.pickup_contact_name}
+                  onChange={handleChange}
+                  placeholder="Nom et prénom du contact"
+                  className="w-full bg-white border-2 border-green-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-green-900 mb-2">
+                  Téléphone du contact *
+                </label>
+                <input
+                  type="tel"
+                  name="pickup_contact_phone"
+                  value={formData.pickup_contact_phone}
+                  onChange={handleChange}
+                  placeholder="06 12 34 56 78"
+                  className="w-full bg-white border-2 border-green-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-green-900 mb-2">
+                  Date et heure d'enlèvement *
+                </label>
+                <input
+                  type="datetime-local"
+                  name="pickup_date"
+                  value={formData.pickup_date}
+                  onChange={handleChange}
+                  className="w-full bg-white border-2 border-green-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  required
+                />
+              </div>
             </div>
           </div>
         );
 
       case 3:
         return (
-          <div className="space-y-6">
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Adresse d'arrivée *
-              </label>
-              <AddressAutocomplete
-                value={formData.delivery_address}
-                onChange={(address, lat, lng) => {
-                  if (lat && lng) {
-                    handleDeliveryAddressSelect(address, lat, lng);
-                  } else {
-                    setFormData(prev => ({ ...prev, delivery_address: address }));
-                  }
-                }}
-                placeholder="Rechercher une adresse..."
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Date d'arrivée
-              </label>
-              <input
-                type="datetime-local"
-                name="delivery_date"
-                value={formData.delivery_date}
-                onChange={handleChange}
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Nom du contact d'arrivée
-              </label>
-              <input
-                type="text"
-                name="delivery_contact_name"
-                value={formData.delivery_contact_name}
-                onChange={handleChange}
-                placeholder="Marie Martin"
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-slate-700 mb-2">
-                Téléphone du contact d'arrivée
-              </label>
-              <input
-                type="tel"
-                name="delivery_contact_phone"
-                value={formData.delivery_contact_phone}
-                onChange={handleChange}
-                placeholder="06 98 76 54 32"
-                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500"
-              />
+          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-xl p-6 border border-blue-200">
+            <h3 className="text-lg font-bold text-blue-900 mb-4 flex items-center gap-2">
+              <span className="text-2xl">🎯</span>
+              Point de Livraison
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-blue-900 mb-2">
+                  Adresse d'arrivée *
+                </label>
+                <AddressAutocomplete
+                  value={formData.delivery_address}
+                  onChange={(address, lat, lng) => {
+                    if (lat && lng) {
+                      handleDeliveryAddressSelect(address, lat, lng);
+                    } else {
+                      setFormData(prev => ({ ...prev, delivery_address: address }));
+                    }
+                  }}
+                  placeholder="456 Avenue du GENERAL, 69001 Lyon..."
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-blue-900 mb-2">
+                  Contact du réceptionnaire *
+                </label>
+                <input
+                  type="text"
+                  name="delivery_contact_name"
+                  value={formData.delivery_contact_name}
+                  onChange={handleChange}
+                  placeholder="Nom et prénom du réceptionnaire"
+                  className="w-full bg-white border-2 border-blue-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-blue-900 mb-2">
+                  Téléphone du réceptionnaire *
+                </label>
+                <input
+                  type="tel"
+                  name="delivery_contact_phone"
+                  value={formData.delivery_contact_phone}
+                  onChange={handleChange}
+                  placeholder="06 98 76 54 32"
+                  className="w-full bg-white border-2 border-blue-200 rounded-lg px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-blue-900 mb-2">
+                  Date et heure de livraison *
+                </label>
+                <input
+                  type="datetime-local"
+                  name="delivery_date"
+                  value={formData.delivery_date}
+                  onChange={handleChange}
+                  className="w-full bg-white border-2 border-blue-200 rounded-lg px-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  required
+                />
+              </div>
             </div>
           </div>
         );

@@ -142,15 +142,44 @@ export default function MissionDetail() {
               </div>
             )}
 
-            {(mission.vehicle_brand || mission.vehicle_model) && (
-              <div className="flex items-center gap-2 mb-4 p-3 bg-blue-50 rounded-lg">
-                <span className="text-2xl">🚗</span>
-                <div>
-                  <p className="text-sm text-gray-600">Véhicule</p>
-                  <p className="font-semibold text-gray-900">
-                    {mission.vehicle_brand} {mission.vehicle_model}
-                  </p>
+            {/* Section Mandataire */}
+            {(mission.mandataire_name || mission.mandataire_company) && (
+              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-4 mb-4 border border-purple-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">👤</span>
+                  <p className="text-sm font-semibold text-purple-900">Mandataire</p>
                 </div>
+                {mission.mandataire_name && (
+                  <p className="text-gray-900 font-medium">{mission.mandataire_name}</p>
+                )}
+                {mission.mandataire_company && (
+                  <p className="text-gray-700 text-sm">{mission.mandataire_company}</p>
+                )}
+              </div>
+            )}
+
+            {(mission.vehicle_brand || mission.vehicle_model || mission.vehicle_plate) && (
+              <div className="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-lg p-4 mb-4 border border-teal-200">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">🚗</span>
+                  <p className="text-sm font-semibold text-teal-900">Véhicule</p>
+                </div>
+                <p className="font-semibold text-gray-900">
+                  {mission.vehicle_brand} {mission.vehicle_model}
+                </p>
+                {mission.vehicle_plate && (
+                  <p className="text-gray-700 font-mono text-sm mt-1">
+                    📋 {mission.vehicle_plate}
+                  </p>
+                )}
+                {mission.vehicle_type && (
+                  <span className="inline-block mt-2 px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-xs font-semibold">
+                    {mission.vehicle_type === 'VL' ? '🚗 Véhicule Léger' :
+                     mission.vehicle_type === 'VU' ? '🚐 Véhicule Utilitaire' :
+                     mission.vehicle_type === 'PL' ? '🚛 Poids Lourd' :
+                     mission.vehicle_type}
+                  </span>
+                )}
               </div>
             )}
             
@@ -160,21 +189,79 @@ export default function MissionDetail() {
 
             <div className="space-y-3 text-sm">
               {mission.pickup_address && (
-                <div className="flex items-start gap-3 p-3 bg-green-50 rounded-lg">
-                  <span className="text-xl">📍</span>
-                  <div>
-                    <p className="font-medium text-gray-900">Départ</p>
-                    <p className="text-gray-700">{mission.pickup_address}</p>
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">📍</span>
+                    <p className="font-semibold text-green-900">Point d'Enlèvement</p>
                   </div>
+                  <p className="text-gray-900 font-medium mb-2">{mission.pickup_address}</p>
+                  {mission.pickup_contact_name && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-sm">👤</span>
+                      <p className="text-gray-700 text-sm">{mission.pickup_contact_name}</p>
+                    </div>
+                  )}
+                  {mission.pickup_contact_phone && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-sm">📞</span>
+                      <a href={`tel:${mission.pickup_contact_phone}`} className="text-green-700 font-medium text-sm hover:underline">
+                        {mission.pickup_contact_phone}
+                      </a>
+                    </div>
+                  )}
+                  {mission.pickup_date && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-sm">📅</span>
+                      <p className="text-gray-700 text-sm">
+                        {new Date(mission.pickup_date).toLocaleString('fr-FR', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
               {mission.delivery_address && (
-                <div className="flex items-start gap-3 p-3 bg-red-50 rounded-lg">
-                  <span className="text-xl">🏁</span>
-                  <div>
-                    <p className="font-medium text-gray-900">Arrivée</p>
-                    <p className="text-gray-700">{mission.delivery_address}</p>
+                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-xl">🎯</span>
+                    <p className="font-semibold text-blue-900">Point de Livraison</p>
                   </div>
+                  <p className="text-gray-900 font-medium mb-2">{mission.delivery_address}</p>
+                  {mission.delivery_contact_name && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-sm">👤</span>
+                      <p className="text-gray-700 text-sm">{mission.delivery_contact_name}</p>
+                    </div>
+                  )}
+                  {mission.delivery_contact_phone && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-sm">📞</span>
+                      <a href={`tel:${mission.delivery_contact_phone}`} className="text-blue-700 font-medium text-sm hover:underline">
+                        {mission.delivery_contact_phone}
+                      </a>
+                    </div>
+                  )}
+                  {mission.delivery_date && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <span className="text-sm">📅</span>
+                      <p className="text-gray-700 text-sm">
+                        {new Date(mission.delivery_date).toLocaleString('fr-FR', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </p>
+                    </div>
+                  )}
                 </div>
               )}
               {mission.scheduled_date && (
@@ -191,6 +278,12 @@ export default function MissionDetail() {
                       })}
                     </p>
                   </div>
+                </div>
+              )}
+              {mission.notes && (
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <p className="text-sm font-semibold text-gray-900 mb-2">📝 Notes</p>
+                  <p className="text-gray-700 text-sm whitespace-pre-wrap">{mission.notes}</p>
                 </div>
               )}
               {mission.price && (
