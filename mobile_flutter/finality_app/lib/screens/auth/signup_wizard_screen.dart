@@ -54,6 +54,11 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   final _companyNameController = TextEditingController();
   final _siretController = TextEditingController();
   final _ibanController = TextEditingController();
+  final _billingAddressController = TextEditingController();
+  final _billingPostalCodeController = TextEditingController();
+  final _billingCityController = TextEditingController();
+  final _billingEmailController = TextEditingController();
+  final _tvaNumberController = TextEditingController();
 
   @override
   void dispose() {
@@ -66,6 +71,11 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
     _companyNameController.dispose();
     _siretController.dispose();
     _ibanController.dispose();
+    _billingAddressController.dispose();
+    _billingPostalCodeController.dispose();
+    _billingCityController.dispose();
+    _billingEmailController.dispose();
+    _tvaNumberController.dispose();
     super.dispose();
   }
 
@@ -333,7 +343,11 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   Widget _buildStep3CompanyInfo() {
     // Si pas une entreprise, passer cette étape
     if (_signupData['user_type'] != 'company') {
-      Future.microtask(_nextStep);
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted && _currentStep == 2) {
+          _nextStep();
+        }
+      });
       return const Center(child: CircularProgressIndicator());
     }
 
@@ -606,16 +620,183 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const Text(
-              'Informations bancaires',
+              'Profil de facturation',
               style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 12),
             const Text(
-              'Optionnel - Pour recevoir vos paiements',
+              'Ces informations apparaîtront sur toutes vos factures',
               style: TextStyle(fontSize: 14, color: Colors.grey),
             ),
 
-            const SizedBox(height: 32),
+            const SizedBox(height: 24),
+
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.amber[50],
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.amber[300]!),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.receipt_long, color: Colors.amber[800], size: 28),
+                  const SizedBox(width: 12),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Pourquoi ces informations ?',
+                          style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          'Ces données seront automatiquement insérées sur les factures que vous générerez pour vos missions. Elles sont obligatoires pour une facturation conforme.',
+                          style: TextStyle(fontSize: 12),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 24),
+
+            // SIRET
+            TextFormField(
+              controller: _siretController,
+              decoration: const InputDecoration(
+                labelText: 'Numéro SIRET *',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.business),
+                hintText: '123 456 789 00012',
+                helperText: 'Obligatoire pour facturer en France',
+              ),
+              keyboardType: TextInputType.number,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'Le SIRET est obligatoire pour la facturation';
+                }
+                final siret = value.replaceAll(RegExp(r'\s'), '');
+                if (siret.length != 14) {
+                  return 'Le SIRET doit contenir 14 chiffres';
+                }
+                return null;
+              },
+              onChanged: (value) => _signupData['siret'] = value,
+            ),
+
+            const SizedBox(height: 16),
+
+            // Adresse de facturation
+            TextFormField(
+              controller: _billingAddressController,
+              decoration: const InputDecoration(
+                labelText: 'Adresse de facturation *',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.location_on),
+                hintText: '123 rue de la République',
+                helperText: 'Adresse qui apparaîtra sur vos factures',
+              ),
+              keyboardType: TextInputType.streetAddress,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'L\'adresse est obligatoire';
+                }
+                return null;
+              },
+              onChanged: (value) => _signupData['billing_address'] = value,
+            ),
+
+            const SizedBox(height: 16),
+
+            // Code postal et Ville
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: TextFormField(
+                    controller: _billingPostalCodeController,
+                    decoration: const InputDecoration(
+                      labelText: 'Code postal *',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.markunread_mailbox),
+                      hintText: '75001',
+                    ),
+                    keyboardType: TextInputType.number,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'Requis';
+                      }
+                      if (value.length != 5) {
+                        return 'Code postal invalide';
+                      }
+                      return null;
+                    },
+                    onChanged: (value) => _signupData['billing_postal_code'] = value,
+                  ),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  flex: 3,
+                  child: TextFormField(
+                    controller: _billingCityController,
+                    decoration: const InputDecoration(
+                      labelText: 'Ville *',
+                      border: OutlineInputBorder(),
+                      prefixIcon: Icon(Icons.location_city),
+                      hintText: 'Paris',
+                    ),
+                    keyboardType: TextInputType.text,
+                    validator: (value) {
+                      if (value == null || value.trim().isEmpty) {
+                        return 'La ville est requise';
+                      }
+                      return null;
+                    },
+                    onChanged: (value) => _signupData['billing_city'] = value,
+                  ),
+                ),
+              ],
+            ),
+
+            const SizedBox(height: 16),
+
+            // Email de facturation
+            TextFormField(
+              controller: _billingEmailController,
+              decoration: const InputDecoration(
+                labelText: 'Email de facturation *',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.email),
+                hintText: 'facturation@entreprise.fr',
+                helperText: 'Pour recevoir les notifications de facture',
+              ),
+              keyboardType: TextInputType.emailAddress,
+              validator: (value) {
+                if (value == null || value.trim().isEmpty) {
+                  return 'L\'email de facturation est obligatoire';
+                }
+                if (!value.contains('@')) {
+                  return 'Email invalide';
+                }
+                return null;
+              },
+              onChanged: (value) => _signupData['billing_email'] = value,
+            ),
+
+            const SizedBox(height: 24),
+
+            const Divider(),
+            const SizedBox(height: 8),
+            const Text(
+              'Informations optionnelles',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.grey),
+            ),
+            const SizedBox(height: 16),
 
             // IBAN
             TextFormField(
@@ -625,9 +806,26 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.account_balance),
                 hintText: 'FR76 1234 5678 9012 3456 7890 123',
+                helperText: 'Pour recevoir vos paiements',
               ),
               keyboardType: TextInputType.text,
               onChanged: (value) => _signupData['bank_iban'] = value,
+            ),
+
+            const SizedBox(height: 16),
+
+            // Numéro TVA intracommunautaire
+            TextFormField(
+              controller: _tvaNumberController,
+              decoration: const InputDecoration(
+                labelText: 'N° TVA intracommunautaire (optionnel)',
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.euro),
+                hintText: 'FR12345678901',
+                helperText: 'Si vous êtes assujetti à la TVA',
+              ),
+              keyboardType: TextInputType.text,
+              onChanged: (value) => _signupData['tva_number'] = value,
             ),
 
             const SizedBox(height: 16),
@@ -645,7 +843,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                   const SizedBox(width: 12),
                   const Expanded(
                     child: Text(
-                      'Vos informations bancaires sont chiffrées et sécurisées. Vous pourrez les modifier plus tard.',
+                      'Toutes ces informations sont modifiables à tout moment depuis votre profil.',
                       style: TextStyle(fontSize: 12),
                     ),
                   ),
@@ -656,18 +854,15 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
             const SizedBox(height: 24),
 
             ElevatedButton(
-              onPressed: _nextStep,
+              onPressed: () {
+                if (_step5FormKey.currentState!.validate()) {
+                  _nextStep();
+                }
+              },
               child: const Padding(
                 padding: EdgeInsets.all(16),
                 child: Text('Continuer', style: TextStyle(fontSize: 16)),
               ),
-            ),
-
-            const SizedBox(height: 8),
-
-            TextButton(
-              onPressed: _nextStep,
-              child: const Text('Passer cette étape'),
             ),
           ],
         ),
@@ -677,8 +872,8 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
 
   Widget _buildStep6FraudCheck() {
     // Vérification automatique en arrière-plan
-    Future.microtask(() async {
-      if (_isLoading) return; // Déjà en cours
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (_isLoading || !mounted || _currentStep != 5) return; // Déjà en cours ou pas sur cette étape
 
       setState(() => _isLoading = true);
 
