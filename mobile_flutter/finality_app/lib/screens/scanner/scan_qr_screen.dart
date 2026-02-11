@@ -1,6 +1,9 @@
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../../theme/premium_theme.dart';
 
+/// QR Code Scanner — PremiumTheme Light Design
 class ScanQRScreen extends StatefulWidget {
   const ScanQRScreen({super.key});
 
@@ -8,89 +11,125 @@ class ScanQRScreen extends StatefulWidget {
   State<ScanQRScreen> createState() => _ScanQRScreenState();
 }
 
-class _ScanQRScreenState extends State<ScanQRScreen> {
-  final MobileScannerController _controller = MobileScannerController(
+class _ScanQRScreenState extends State<ScanQRScreen>
+    with SingleTickerProviderStateMixin {
+  final MobileScannerController _ctrl = MobileScannerController(
     detectionSpeed: DetectionSpeed.normal,
     facing: CameraFacing.back,
   );
+  bool _scanned = false;
+  bool _torch = false;
+  late AnimationController _anim;
 
-  bool _hasScanned = false;
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(seconds: 2),
+    )..repeat(reverse: true);
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _anim.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
-  void _handleBarcode(BarcodeCapture capture) {
-    if (_hasScanned) return;
-
-    final barcodes = capture.barcodes;
-    if (barcodes.isEmpty) return;
-
-    final barcode = barcodes.first;
-    if (barcode.rawValue == null) return;
-
-    setState(() => _hasScanned = true);
-
-    // Vibrate or provide feedback
+  void _onDetect(BarcodeCapture capture) {
+    if (_scanned) return;
+    final bc = capture.barcodes;
+    if (bc.isEmpty || bc.first.rawValue == null) return;
+    setState(() => _scanned = true);
     Navigator.pop(context, {
       'type': 'QR',
-      'value': barcode.rawValue,
-      'format': barcode.format.name,
+      'value': bc.first.rawValue,
+      'format': bc.first.format.name,
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scanner QR Code'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.flash_on),
-            onPressed: () => _controller.toggleTorch(),
-            tooltip: 'Activer/Désactiver le flash',
-          ),
-          IconButton(
-            icon: const Icon(Icons.flip_camera_ios),
-            onPressed: () => _controller.switchCamera(),
-            tooltip: 'Changer de caméra',
-          ),
-        ],
-      ),
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          MobileScanner(
-            controller: _controller,
-            onDetect: _handleBarcode,
-          ),
-          
-          // Overlay with scanning frame
+          // Camera
+          MobileScanner(controller: _ctrl, onDetect: _onDetect),
+
+          // Overlay
           CustomPaint(
-            painter: ScannerOverlayPainter(),
-            child: Container(),
+            size: Size.infinite,
+            painter: _QROverlayPainter(_anim),
           ),
-          
-          // Instructions
+
+          // Top bar
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  _circleBtn(Icons.arrow_back_rounded, () => Navigator.pop(context)),
+                  const Spacer(),
+                  _circleBtn(
+                    _torch ? Icons.flash_off_rounded : Icons.flash_on_rounded,
+                    () {
+                      _ctrl.toggleTorch();
+                      setState(() => _torch = !_torch);
+                    },
+                  ),
+                  const SizedBox(width: 8),
+                  _circleBtn(Icons.flip_camera_ios_rounded, () => _ctrl.switchCamera()),
+                ],
+              ),
+            ),
+          ),
+
+          // Bottom instruction
           Positioned(
-            bottom: 80,
+            bottom: 0,
             left: 0,
             right: 0,
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.fromLTRB(
+                  24, 28, 24, MediaQuery.of(context).padding.bottom + 24),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: const Text(
-                'Placez le QR code dans le cadre',
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Colors.transparent, Colors.black.withValues(alpha: .85)],
                 ),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: PremiumTheme.primaryTeal.withValues(alpha: .15),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                        color: PremiumTheme.primaryTeal.withValues(alpha: .3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.qr_code_scanner_rounded,
+                            color: PremiumTheme.primaryTeal, size: 22),
+                        const SizedBox(width: 12),
+                        const Text(
+                          'Placez le QR code dans le cadre',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
             ),
           ),
@@ -98,90 +137,108 @@ class _ScanQRScreenState extends State<ScanQRScreen> {
       ),
     );
   }
+
+  Widget _circleBtn(IconData icon, VoidCallback onTap) {
+    return Material(
+      color: Colors.black38,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, color: Colors.white, size: 24),
+        ),
+      ),
+    );
+  }
 }
 
-class ScannerOverlayPainter extends CustomPainter {
+// ── Animated QR Overlay ────────────────────────────────────────
+class _QROverlayPainter extends CustomPainter {
+  final Animation<double> animation;
+  _QROverlayPainter(this.animation) : super(repaint: animation);
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.5)
-      ..style = PaintingStyle.fill;
+    final side = size.width * 0.68;
+    final left = (size.width - side) / 2;
+    final top = (size.height - side) / 2 - 40;
+    final rect = Rect.fromLTWH(left, top, side, side);
 
-    final scanAreaSize = size.width * 0.7;
-    final scanAreaLeft = (size.width - scanAreaSize) / 2;
-    final scanAreaTop = (size.height - scanAreaSize) / 2;
-
-    // Draw dark overlay
+    // Dim overlay
     canvas.drawPath(
       Path()
         ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
-        ..addRect(Rect.fromLTWH(
-          scanAreaLeft,
-          scanAreaTop,
-          scanAreaSize,
-          scanAreaSize,
-        ))
+        ..addRRect(RRect.fromRectAndRadius(rect, const Radius.circular(20)))
         ..fillType = PathFillType.evenOdd,
-      paint,
+      Paint()..color = Colors.black.withValues(alpha: .55),
     );
 
-    // Draw corner brackets
-    final borderPaint = Paint()
-      ..color = Colors.green
+    // Corner brackets
+    final cornerLen = 32.0;
+    final r = 8.0;
+    final p = Paint()
+      ..color = const Color(0xFF14B8A6)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 4;
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
 
-    final cornerLength = 30.0;
+    // top-left
+    canvas.drawPath(
+      Path()
+        ..moveTo(left, top + cornerLen)
+        ..lineTo(left, top + r)
+        ..arcToPoint(Offset(left + r, top), radius: Radius.circular(r))
+        ..lineTo(left + cornerLen, top),
+      p,
+    );
+    // top-right
+    canvas.drawPath(
+      Path()
+        ..moveTo(left + side - cornerLen, top)
+        ..lineTo(left + side - r, top)
+        ..arcToPoint(Offset(left + side, top + r), radius: Radius.circular(r))
+        ..lineTo(left + side, top + cornerLen),
+      p,
+    );
+    // bottom-left
+    canvas.drawPath(
+      Path()
+        ..moveTo(left, top + side - cornerLen)
+        ..lineTo(left, top + side - r)
+        ..arcToPoint(Offset(left + r, top + side), radius: Radius.circular(r))
+        ..lineTo(left + cornerLen, top + side),
+      p,
+    );
+    // bottom-right
+    canvas.drawPath(
+      Path()
+        ..moveTo(left + side - cornerLen, top + side)
+        ..lineTo(left + side - r, top + side)
+        ..arcToPoint(Offset(left + side, top + side - r), radius: Radius.circular(r))
+        ..lineTo(left + side, top + side - cornerLen),
+      p,
+    );
 
-    // Top-left corner
-    canvas.drawLine(
-      Offset(scanAreaLeft, scanAreaTop),
-      Offset(scanAreaLeft + cornerLength, scanAreaTop),
-      borderPaint,
+    // Animated scan line
+    final lineY = top + animation.value * side;
+    final gradient = LinearGradient(
+      colors: [
+        Colors.transparent,
+        const Color(0xFF14B8A6).withValues(alpha: .7),
+        Colors.transparent,
+      ],
     );
     canvas.drawLine(
-      Offset(scanAreaLeft, scanAreaTop),
-      Offset(scanAreaLeft, scanAreaTop + cornerLength),
-      borderPaint,
-    );
-
-    // Top-right corner
-    canvas.drawLine(
-      Offset(scanAreaLeft + scanAreaSize - cornerLength, scanAreaTop),
-      Offset(scanAreaLeft + scanAreaSize, scanAreaTop),
-      borderPaint,
-    );
-    canvas.drawLine(
-      Offset(scanAreaLeft + scanAreaSize, scanAreaTop),
-      Offset(scanAreaLeft + scanAreaSize, scanAreaTop + cornerLength),
-      borderPaint,
-    );
-
-    // Bottom-left corner
-    canvas.drawLine(
-      Offset(scanAreaLeft, scanAreaTop + scanAreaSize - cornerLength),
-      Offset(scanAreaLeft, scanAreaTop + scanAreaSize),
-      borderPaint,
-    );
-    canvas.drawLine(
-      Offset(scanAreaLeft, scanAreaTop + scanAreaSize),
-      Offset(scanAreaLeft + cornerLength, scanAreaTop + scanAreaSize),
-      borderPaint,
-    );
-
-    // Bottom-right corner
-    canvas.drawLine(
-      Offset(scanAreaLeft + scanAreaSize - cornerLength, scanAreaTop + scanAreaSize),
-      Offset(scanAreaLeft + scanAreaSize, scanAreaTop + scanAreaSize),
-      borderPaint,
-    );
-    canvas.drawLine(
-      Offset(scanAreaLeft + scanAreaSize, scanAreaTop + scanAreaSize - cornerLength),
-      Offset(scanAreaLeft + scanAreaSize, scanAreaTop + scanAreaSize),
-      borderPaint,
+      Offset(left + 12, lineY),
+      Offset(left + side - 12, lineY),
+      Paint()
+        ..shader = gradient.createShader(Rect.fromLTWH(left, lineY, side, 1))
+        ..strokeWidth = 2.5,
     );
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _QROverlayPainter old) => true;
 }

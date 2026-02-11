@@ -1,15 +1,15 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:image/image.dart' as img;
 import 'package:google_mlkit_text_recognition/google_mlkit_text_recognition.dart';
 import 'package:share_plus/share_plus.dart';
+import '../../theme/premium_theme.dart';
 
-/// Professional document scanner matching web design
-/// Uses Dynamsoft-like interface with teal accents (#14B8A6)
+/// Document Scanner — PremiumTheme Light Design
+/// Single-page scan with enhance, B&W filter, OCR, share & save
 class DocumentScannerScreen extends StatefulWidget {
   final String? inspectionId;
   final Function(String documentPath, String? extractedText)? onDocumentScanned;
@@ -25,795 +25,541 @@ class DocumentScannerScreen extends StatefulWidget {
 }
 
 class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
-  List<String> _scannedImagePaths = [];
-  int _currentImageIndex = 0;
-  String? _extractedText;
-  bool _isProcessing = false;
-  bool _isEnhancing = false;
-  bool _isExtractingText = false;
-  bool _hasStartedScan = false;
-  String _documentName = 'Document';
+  List<String> _paths = [];
+  int _idx = 0;
+  String? _text;
+  bool _processing = false;
+  bool _enhancing = false;
+  bool _extracting = false;
+  String _docName = 'Document';
 
-  @override
-  void initState() {
-    super.initState();
-    // Ne pas démarrer automatiquement - attendre que l'utilisateur clique
-  }
-
-  /// Start the document scanner
-  Future<void> _startScanning() async {
-    setState(() => _isProcessing = true);
-
+  // ── Scan ─────────────────────────────────────────────────────
+  Future<void> _scan() async {
+    setState(() => _processing = true);
     try {
-      final pictures = await CunningDocumentScanner.getPictures(
-        noOfPages: 1,
-      );
-
-      if (pictures != null && pictures.isNotEmpty && mounted) {
-        setState(() {
-          _scannedImagePaths = pictures;
-          _currentImageIndex = 0;
-          _isProcessing = false;
-        });
+      final pics = await CunningDocumentScanner.getPictures(noOfPages: 1);
+      if (pics != null && pics.isNotEmpty && mounted) {
+        setState(() { _paths = pics; _idx = 0; _processing = false; });
       } else {
-        if (mounted) {
-          Navigator.of(context).pop();
-        }
+        if (mounted) Navigator.pop(context);
       }
     } catch (e) {
-      debugPrint('Scanning error: $e');
-      if (mounted) {
-        setState(() => _isProcessing = false);
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors du scan: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
-        Navigator.of(context).pop();
-      }
-    }
-  }
-
-  /// Enhance the scanned image (brightness, contrast, sharpness)
-  Future<void> _enhanceImage() async {
-    if (_scannedImagePaths.isEmpty) return;
-
-    setState(() => _isEnhancing = true);
-
-    try {
-      final file = File(_scannedImagePaths[_currentImageIndex]);
-      final bytes = await file.readAsBytes();
-      final image = img.decodeImage(bytes);
-
-      if (image == null) {
-        throw Exception('Failed to decode image');
-      }
-
-      // Apply enhancements
-      var enhanced = image;
-      
-      // Augmenter légèrement le contraste et la luminosité
-      enhanced = img.adjustColor(
-        enhanced,
-        contrast: 1.15,  // Légère augmentation (au lieu de 1.3)
-        brightness: 1.05, // Légère augmentation (au lieu de 1.1)
-        saturation: 1.0,  // Garder saturation normale
-      );
-
-      // Sharpen
-      enhanced = img.convolution(
-        enhanced,
-        filter: [
-          0, -1, 0,
-          -1, 5, -1,
-          0, -1, 0,
-        ],
-      );
-
-      // Save enhanced image
-      final directory = await getApplicationDocumentsDirectory();
-      final enhancedPath = path.join(
-        directory.path,
-        'enhanced_doc_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      );
-      
-      final enhancedFile = File(enhancedPath);
-      await enhancedFile.writeAsBytes(img.encodeJpg(enhanced, quality: 95));
-
       if (!mounted) return;
-      setState(() {
-        _scannedImagePaths[_currentImageIndex] = enhancedPath;
-        _isEnhancing = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Image améliorée avec succès'),
-            backgroundColor: Color(0xFF14B8A6), // Teal
-            duration: Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } catch (e) {
-      debugPrint('Enhancement error: $e');
-      if (mounted) setState(() => _isEnhancing = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur amélioration: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      setState(() => _processing = false);
+      _snack('Erreur scan: $e', PremiumTheme.accentRed);
+      Navigator.pop(context);
     }
   }
 
-  /// Apply black & white filter for better readability
-  Future<void> _applyBlackWhiteFilter() async {
-    if (_scannedImagePaths.isEmpty) return;
-
-    setState(() => _isEnhancing = true);
-
+  // ── Enhance ──────────────────────────────────────────────────
+  Future<void> _enhance() async {
+    if (_paths.isEmpty) return;
+    setState(() => _enhancing = true);
     try {
-      final file = File(_scannedImagePaths[_currentImageIndex]);
-      final bytes = await file.readAsBytes();
-      final image = img.decodeImage(bytes);
-
-      if (image == null) {
-        throw Exception('Failed to decode image');
-      }
-
-      // Convert to grayscale then apply threshold
-      var processed = img.grayscale(image);
-      
-      // Appliquer un léger contraste pour N&B lisible
-      processed = img.adjustColor(
-        processed,
-        contrast: 1.3,    // Contraste modéré (au lieu de 1.5)
-        brightness: 1.1,  // Luminosité modérée (au lieu de 1.2)
-      );
-
-      // Save processed image
-      final directory = await getApplicationDocumentsDirectory();
-      final processedPath = path.join(
-        directory.path,
-        'bw_doc_${DateTime.now().millisecondsSinceEpoch}.jpg',
-      );
-      
-      final processedFile = File(processedPath);
-      await processedFile.writeAsBytes(img.encodeJpg(processed, quality: 95));
-
+      final bytes = await File(_paths[_idx]).readAsBytes();
+      var image = img.decodeImage(bytes);
+      if (image == null) throw Exception('Decode failed');
+      image = img.adjustColor(image, contrast: 1.15, brightness: 1.05, saturation: 1.0);
+      image = img.convolution(image, filter: [0, -1, 0, -1, 5, -1, 0, -1, 0]);
+      final dir = await getApplicationDocumentsDirectory();
+      final p = path.join(dir.path, 'enhanced_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      await File(p).writeAsBytes(img.encodeJpg(image, quality: 95));
       if (!mounted) return;
-      setState(() {
-        _scannedImagePaths[_currentImageIndex] = processedPath;
-        _isEnhancing = false;
-      });
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Filtre noir & blanc appliqué'),
-            backgroundColor: Color(0xFF14B8A6),
-            duration: Duration(seconds: 2),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      setState(() { _paths[_idx] = p; _enhancing = false; });
+      _snack('Image amelioree', PremiumTheme.primaryTeal);
     } catch (e) {
-      debugPrint('B&W filter error: $e');
-      if (mounted) setState(() => _isEnhancing = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur filtre: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      if (mounted) setState(() => _enhancing = false);
+      _snack('Erreur: $e', PremiumTheme.accentRed);
     }
   }
 
-  /// Extract text from the scanned document using ML Kit OCR
-  Future<void> _extractText() async {
-    if (_scannedImagePaths.isEmpty) return;
-
-    setState(() => _isExtractingText = true);
-
+  // ── B&W ──────────────────────────────────────────────────────
+  Future<void> _bw() async {
+    if (_paths.isEmpty) return;
+    setState(() => _enhancing = true);
     try {
-      final inputImage = InputImage.fromFilePath(_scannedImagePaths[_currentImageIndex]);
-      final textRecognizer = TextRecognizer(script: TextRecognitionScript.latin);
-
-      final RecognizedText recognizedText = await textRecognizer.processImage(inputImage);
-      
-      await textRecognizer.close();
-
+      final bytes = await File(_paths[_idx]).readAsBytes();
+      var image = img.decodeImage(bytes);
+      if (image == null) throw Exception('Decode failed');
+      image = img.grayscale(image);
+      image = img.adjustColor(image, contrast: 1.3, brightness: 1.1);
+      final dir = await getApplicationDocumentsDirectory();
+      final p = path.join(dir.path, 'bw_${DateTime.now().millisecondsSinceEpoch}.jpg');
+      await File(p).writeAsBytes(img.encodeJpg(image, quality: 95));
       if (!mounted) return;
-      setState(() {
-        _extractedText = recognizedText.text;
-        _isExtractingText = false;
-      });
-
-      if (mounted) {
-        if (_extractedText != null && _extractedText!.isNotEmpty) {
-          _showTextDialog();
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Aucun texte détecté dans le document'),
-              backgroundColor: Color(0xFFF59E0B), // orange
-              behavior: SnackBarBehavior.floating,
-            ),
-          );
-        }
-      }
+      setState(() { _paths[_idx] = p; _enhancing = false; });
+      _snack('Filtre noir & blanc applique', PremiumTheme.primaryTeal);
     } catch (e) {
-      debugPrint('OCR error: $e');
-      if (mounted) setState(() => _isExtractingText = false);
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur OCR: $e'),
-            backgroundColor: const Color(0xFFEF4444), // red
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
+      if (mounted) setState(() => _enhancing = false);
+      _snack('Erreur: $e', PremiumTheme.accentRed);
     }
   }
 
-  /// Show extracted text in a dialog - Web style
-  void _showTextDialog() {
-    showDialog(
+  // ── OCR ──────────────────────────────────────────────────────
+  Future<void> _ocr() async {
+    if (_paths.isEmpty) return;
+    if (_text != null) { _showText(); return; }
+    setState(() => _extracting = true);
+    try {
+      final input = InputImage.fromFilePath(_paths[_idx]);
+      final rec = TextRecognizer(script: TextRecognitionScript.latin);
+      final result = await rec.processImage(input);
+      await rec.close();
+      if (!mounted) return;
+      setState(() { _text = result.text; _extracting = false; });
+      if (_text != null && _text!.isNotEmpty) {
+        _showText();
+      } else {
+        _snack('Aucun texte detecte', PremiumTheme.accentAmber);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _extracting = false);
+      _snack('Erreur OCR: $e', PremiumTheme.accentRed);
+    }
+  }
+
+  void _showText() {
+    showModalBottomSheet(
       context: context,
-      builder: (context) => Dialog(
-        backgroundColor: const Color(0xFF374151), // gray-700
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        constraints: BoxConstraints(
+          maxHeight: MediaQuery.of(context).size.height * 0.6,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Texte extrait',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 16),
-              Container(
-                constraints: const BoxConstraints(maxHeight: 400),
-                child: SingleChildScrollView(
-                  child: SelectableText(
-                    _extractedText ?? '',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => Navigator.of(context).pop(),
-                  style: TextButton.styleFrom(
-                    foregroundColor: const Color(0xFF14B8A6),
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                  ),
-                  child: const Text(
-                    'FERMER',
-                    style: TextStyle(
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-      ),
-    );
-  }
-
-  /// Save and return the scanned document
-  void _saveDocument() {
-    if (_scannedImagePaths.isNotEmpty && widget.onDocumentScanned != null) {
-      widget.onDocumentScanned!(_scannedImagePaths[_currentImageIndex], _extractedText);
-    }
-    Navigator.of(context).pop(_scannedImagePaths.isNotEmpty ? _scannedImagePaths[_currentImageIndex] : null);
-  }
-
-  /// Rescan the document
-  void _rescan() {
-    setState(() {
-      _scannedImagePaths.clear();
-      _extractedText = null;
-      _currentImageIndex = 0;
-    });
-    _startScanning();
-  }
-
-  /// Share the scanned document
-  Future<void> _shareDocument() async {
-    if (_scannedImagePaths.isEmpty) return;
-
-    try {
-      final file = File(_scannedImagePaths[_currentImageIndex]);
-      await SharePlus.instance.share(
-        ShareParams(
-          files: [XFile(file.path)],
-          text: 'Document scanné: $_documentName',
-        ),
-      );
-    } catch (e) {
-      debugPrint('Share error: $e');
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Erreur lors du partage: $e'),
-            backgroundColor: const Color(0xFFEF4444),
-          ),
-        );
-      }
-    }
-  }
-
-  /// Rename the document
-  Future<void> _renameDocument() async {
-    final controller = TextEditingController(text: _documentName);
-    
-    final newName = await showDialog<String>(
-      context: context,
-      builder: (context) => Dialog(
-        backgroundColor: const Color(0xFF374151),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(width: 40, height: 4,
+              decoration: BoxDecoration(
+                  color: Colors.grey.shade300,
+                  borderRadius: BorderRadius.circular(2))),
+            Padding(
+              padding: const EdgeInsets.all(20),
+              child: Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(9),
                     decoration: BoxDecoration(
-                      color: const Color(0xFF14B8A6).withValues(alpha: 0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Icon(
-                      Icons.drive_file_rename_outline,
-                      color: Color(0xFF14B8A6),
-                      size: 24,
-                    ),
+                      color: PremiumTheme.primaryPurple.withValues(alpha: .1),
+                      borderRadius: BorderRadius.circular(10)),
+                    child: const Icon(Icons.text_fields_rounded,
+                        color: PremiumTheme.primaryPurple, size: 20),
                   ),
-                  const SizedBox(width: 12),
-                  const Text(
-                    'Renommer le document',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              TextField(
-                controller: controller,
-                autofocus: true,
-                style: const TextStyle(color: Colors.white),
-                decoration: InputDecoration(
-                  labelText: 'Nom du document',
-                  labelStyle: const TextStyle(color: Colors.white70),
-                  enabledBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFF4B5563)),
-                  ),
-                  focusedBorder: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                    borderSide: const BorderSide(color: Color(0xFF14B8A6), width: 2),
-                  ),
-                  filled: true,
-                  fillColor: const Color(0xFF1F2937),
-                ),
-              ),
-              const SizedBox(height: 24),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: () => Navigator.of(context).pop(),
-                    style: TextButton.styleFrom(
-                      foregroundColor: Colors.white70,
-                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
-                    ),
-                    child: const Text(
-                      'ANNULER',
+                  const SizedBox(width: 10),
+                  const Text('Texte extrait',
                       style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  ElevatedButton(
+                          fontSize: 17,
+                          fontWeight: FontWeight.w700,
+                          color: PremiumTheme.textPrimary)),
+                  const Spacer(),
+                  IconButton(
+                    icon: const Icon(Icons.copy_rounded,
+                        color: PremiumTheme.primaryBlue, size: 20),
                     onPressed: () {
-                      final name = controller.text.trim();
-                      if (name.isNotEmpty) {
-                        Navigator.of(context).pop(name);
-                      }
+                      // Copy to clipboard handled by SelectableText long press
                     },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF14B8A6),
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                    ),
-                    child: const Text(
-                      'RENOMMER',
-                      style: TextStyle(
-                        fontWeight: FontWeight.w600,
-                        fontSize: 14,
-                      ),
-                    ),
                   ),
                 ],
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-
-    if (newName != null && newName.isNotEmpty) {
-      setState(() {
-        _documentName = newName;
-      });
-      
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Document renommé: $newName'),
-            backgroundColor: const Color(0xFF14B8A6),
-            behavior: SnackBarBehavior.floating,
-            duration: const Duration(seconds: 2),
-          ),
-        );
-      }
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.black,
-      appBar: AppBar(
-        backgroundColor: const Color(0xFF111827), // gray-900
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white, size: 28),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-        title: Row(
-          children: [
-            Container(
-              width: 28,
-              height: 28,
-              padding: const EdgeInsets.all(4),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: Image.asset(
-                'assets/images/logo.png',
-                fit: BoxFit.contain,
               ),
             ),
-            const SizedBox(width: 12),
-            const Icon(Icons.document_scanner, color: Colors.white, size: 20),
-            const SizedBox(width: 8),
-            const Text(
-              'Scanner un document',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w600,
+            const Divider(height: 1),
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(20),
+                child: SelectableText(
+                  _text ?? '',
+                  style: const TextStyle(
+                    fontSize: 14,
+                    height: 1.6,
+                    color: PremiumTheme.textPrimary,
+                  ),
+                ),
               ),
             ),
           ],
         ),
       ),
-      body: _isProcessing
-          ? Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+    );
+  }
+
+  // ── Share ────────────────────────────────────────────────────
+  Future<void> _share() async {
+    if (_paths.isEmpty) return;
+    try {
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(_paths[_idx])],
+          text: 'Document scanne: $_docName',
+        ),
+      );
+    } catch (e) {
+      _snack('Erreur partage: $e', PremiumTheme.accentRed);
+    }
+  }
+
+  // ── Rename ───────────────────────────────────────────────────
+  Future<void> _rename() async {
+    final ctl = TextEditingController(text: _docName);
+    final name = await showDialog<String>(
+      context: context,
+      builder: (_) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: PremiumTheme.primaryBlue.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.drive_file_rename_outline_rounded,
+                color: PremiumTheme.primaryBlue, size: 22),
+          ),
+          const SizedBox(width: 10),
+          const Text('Renommer', style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+        ]),
+        content: TextField(
+          controller: ctl,
+          autofocus: true,
+          decoration: InputDecoration(
+            labelText: 'Nom du document',
+            filled: true,
+            fillColor: PremiumTheme.lightBg,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
+            ),
+            focusedBorder: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+              borderSide: const BorderSide(color: PremiumTheme.primaryBlue, width: 2),
+            ),
+          ),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler', style: TextStyle(color: PremiumTheme.textSecondary))),
+          ElevatedButton(
+            onPressed: () {
+              final n = ctl.text.trim();
+              if (n.isNotEmpty) Navigator.pop(context, n);
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: PremiumTheme.primaryBlue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              elevation: 0),
+            child: const Text('Renommer', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+    if (name != null && name.isNotEmpty) {
+      setState(() => _docName = name);
+      _snack('Renomme: $name', PremiumTheme.primaryTeal);
+    }
+  }
+
+  // ── Save ─────────────────────────────────────────────────────
+  void _save() {
+    if (_paths.isNotEmpty && widget.onDocumentScanned != null) {
+      widget.onDocumentScanned!(_paths[_idx], _text);
+    }
+    Navigator.pop(context, _paths.isNotEmpty ? _paths[_idx] : null);
+  }
+
+  void _rescan() {
+    setState(() { _paths.clear(); _text = null; _idx = 0; });
+    _scan();
+  }
+
+  void _snack(String msg, Color bg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(msg), backgroundColor: bg,
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 2)));
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  //  BUILD
+  // ══════════════════════════════════════════════════════════════
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: PremiumTheme.lightBg,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        foregroundColor: PremiumTheme.textPrimary,
+        title: Row(children: [
+          Container(
+            width: 28, height: 28,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: PremiumTheme.primaryTeal.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.document_scanner_rounded,
+                color: PremiumTheme.primaryTeal, size: 18),
+          ),
+          const SizedBox(width: 10),
+          const Text('Scanner document',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+        ]),
+        actions: [
+          if (_paths.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.drive_file_rename_outline_rounded,
+                  color: PremiumTheme.primaryBlue),
+              onPressed: _rename,
+              tooltip: 'Renommer',
+            ),
+        ],
+      ),
+      body: _processing
+          ? _loader()
+          : _paths.isEmpty
+              ? _empty()
+              : _preview(),
+    );
+  }
+
+  // ── Loading state ────────────────────────────────────────────
+  Widget _loader() {
+    return const Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SizedBox(width: 48, height: 48,
+            child: CircularProgressIndicator(
+                color: PremiumTheme.primaryTeal, strokeWidth: 3)),
+          SizedBox(height: 16),
+          Text('Traitement en cours...',
+              style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 14)),
+        ],
+      ),
+    );
+  }
+
+  // ── Empty state ──────────────────────────────────────────────
+  Widget _empty() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: PremiumTheme.primaryTeal.withValues(alpha: .08),
+                shape: BoxShape.circle,
+                border: Border.all(
+                    color: PremiumTheme.primaryTeal.withValues(alpha: .2),
+                    width: 2),
+              ),
+              child: const Icon(Icons.document_scanner_rounded,
+                  size: 64, color: PremiumTheme.primaryTeal),
+            ),
+            const SizedBox(height: 28),
+            const Text('Pret a scanner',
+                style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w700,
+                    color: PremiumTheme.textPrimary)),
+            const SizedBox(height: 8),
+            const Text('Appuyez sur le bouton ci-dessous pour commencer',
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                    color: PremiumTheme.textSecondary, fontSize: 14)),
+            const SizedBox(height: 32),
+            SizedBox(
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: _scan,
+                icon: const Icon(Icons.camera_alt_rounded, color: Colors.white),
+                label: const Text('Demarrer le scan',
+                    style: TextStyle(
+                        color: Colors.white,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: PremiumTheme.primaryTeal,
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  elevation: 0),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // ── Preview & actions ────────────────────────────────────────
+  Widget _preview() {
+    return Column(
+      children: [
+        // Image
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: .06),
+                    blurRadius: 16,
+                    offset: const Offset(0, 4)),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InteractiveViewer(
+              minScale: 0.5,
+              maxScale: 4.0,
+              child: Image.file(File(_paths[_idx]), fit: BoxFit.contain),
+            ),
+          ),
+        ),
+
+        // Actions bar
+        Container(
+          padding: EdgeInsets.fromLTRB(
+              16, 16, 16, MediaQuery.of(context).padding.bottom + 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(
+                  color: Colors.black.withValues(alpha: .05),
+                  blurRadius: 10,
+                  offset: const Offset(0, -4)),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Quick tools
+              Row(
                 children: [
-                  const SizedBox(
-                    width: 48,
-                    height: 48,
-                    child: CircularProgressIndicator(
-                      valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF14B8A6)),
-                      strokeWidth: 3,
-                    ),
+                  _toolBtn(
+                    icon: Icons.auto_fix_high_rounded,
+                    label: 'Ameliorer',
+                    color: PremiumTheme.primaryTeal,
+                    busy: _enhancing,
+                    onTap: _enhance,
                   ),
-                  const SizedBox(height: 16),
-                  const Text(
-                    'Traitement en cours...',
-                    style: TextStyle(color: Colors.white, fontSize: 14),
+                  const SizedBox(width: 10),
+                  _toolBtn(
+                    icon: Icons.filter_b_and_w_rounded,
+                    label: 'N&B',
+                    color: PremiumTheme.textPrimary,
+                    busy: _enhancing,
+                    onTap: _bw,
+                  ),
+                  const SizedBox(width: 10),
+                  _toolBtn(
+                    icon: Icons.text_fields_rounded,
+                    label: _text != null ? 'Voir texte' : 'OCR',
+                    color: PremiumTheme.primaryPurple,
+                    busy: _extracting,
+                    onTap: _ocr,
+                  ),
+                  const SizedBox(width: 10),
+                  _toolBtn(
+                    icon: Icons.share_rounded,
+                    label: 'Partager',
+                    color: PremiumTheme.primaryBlue,
+                    onTap: _share,
                   ),
                 ],
               ),
-            )
-          : _scannedImagePaths.isEmpty
-              ? Center(
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(
-                        Icons.document_scanner_outlined,
-                        size: 80,
-                        color: Colors.white24,
+              const SizedBox(height: 14),
+              // Main actions
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      onPressed: _rescan,
+                      icon: const Icon(Icons.refresh_rounded, size: 20),
+                      label: const Text('Reprendre',
+                          style: TextStyle(fontWeight: FontWeight.w600)),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: PremiumTheme.textSecondary,
+                        side: const BorderSide(color: PremiumTheme.textTertiary),
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
                       ),
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Prêt à scanner',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 20,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      const Text(
-                        'Appuyez sur le bouton ci-dessous pour commencer',
-                        style: TextStyle(color: Colors.white70, fontSize: 14),
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 32),
-                      ElevatedButton.icon(
-                        onPressed: () {
-                          setState(() => _hasStartedScan = true);
-                          _startScanning();
-                        },
-                        icon: const Icon(Icons.camera_alt, size: 24),
-                        label: const Text(
-                          'Démarrer le scan',
-                          style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
-                        ),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: const Color(0xFF14B8A6),
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
-                )
-              : Column(
-                  children: [
-                    // Image preview
-                    Expanded(
-                      child: Container(
-                        color: Colors.black,
-                        child: Center(
-                          child: Image.file(
-                            File(_scannedImagePaths[_currentImageIndex]),
-                            fit: BoxFit.contain,
-                          ),
-                        ),
-                      ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: ElevatedButton.icon(
+                      onPressed: _save,
+                      icon: const Icon(Icons.check_rounded,
+                          color: Colors.white, size: 20),
+                      label: const Text('Valider',
+                          style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: PremiumTheme.primaryTeal,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        elevation: 0),
                     ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
 
-                    // Action buttons - Web style
-                    Container(
-                      padding: const EdgeInsets.all(24),
-                      decoration: const BoxDecoration(
-                        color: Color(0xFF111827), // gray-900
-                      ),
-                      child: Column(
-                        children: [
-                          // Enhancement buttons row
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _isEnhancing ? null : _enhanceImage,
-                                  icon: _isEnhancing
-                                      ? const SizedBox(
-                                          width: 16,
-                                          height: 16,
-                                          child: CircularProgressIndicator(
-                                            strokeWidth: 2,
-                                            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF14B8A6)),
-                                          ),
-                                        )
-                                      : const Icon(Icons.auto_fix_high, size: 18),
-                                  label: const Text(
-                                    'Améliorer',
-                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                    side: const BorderSide(color: Color(0xFF14B8A6), width: 1.5),
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _isEnhancing ? null : _applyBlackWhiteFilter,
-                                  icon: const Icon(Icons.filter_b_and_w, size: 18),
-                                  label: const Text(
-                                    'N&B',
-                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                    side: const BorderSide(color: Color(0xFF14B8A6), width: 1.5),
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 12),
-
-                          // OCR button
-                          SizedBox(
-                            width: double.infinity,
-                            child: OutlinedButton.icon(
-                              onPressed: _isExtractingText ? null : _extractText,
-                              icon: _isExtractingText
-                                  ? const SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF14B8A6)),
-                                      ),
-                                    )
-                                  : const Icon(Icons.text_fields, size: 18),
-                              label: Text(
-                                _extractedText != null ? 'Voir le texte extrait' : 'Extraire le texte (OCR)',
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                              ),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.white,
-                                side: const BorderSide(color: Color(0xFF8B5CF6), width: 1.5),
-                                padding: const EdgeInsets.symmetric(vertical: 14),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(8),
-                                ),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Share and Rename buttons
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _shareDocument,
-                                  icon: const Icon(Icons.share, size: 18),
-                                  label: const Text(
-                                    'Partager',
-                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF14B8A6),
-                                    side: const BorderSide(color: Color(0xFF14B8A6), width: 1.5),
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _renameDocument,
-                                  icon: const Icon(Icons.drive_file_rename_outline, size: 18),
-                                  label: const Text(
-                                    'Renommer',
-                                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: const Color(0xFF8B5CF6),
-                                    side: const BorderSide(color: Color(0xFF8B5CF6), width: 1.5),
-                                    padding: const EdgeInsets.symmetric(vertical: 14),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-
-                          // Main action buttons - Web style
-                          Row(
-                            children: [
-                              Expanded(
-                                child: OutlinedButton.icon(
-                                  onPressed: _rescan,
-                                  icon: const Icon(Icons.refresh, size: 20),
-                                  label: const Text(
-                                    'Reprendre',
-                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                                  ),
-                                  style: OutlinedButton.styleFrom(
-                                    foregroundColor: Colors.white,
-                                    side: const BorderSide(color: Color(0xFF4B5563), width: 1.5),
-                                    backgroundColor: const Color(0xFF374151), // gray-700
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
-                              Expanded(
-                                flex: 2,
-                                child: ElevatedButton.icon(
-                                  onPressed: _saveDocument,
-                                  icon: const Icon(Icons.check, size: 20),
-                                  label: const Text(
-                                    'Valider',
-                                    style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600),
-                                  ),
-                                  style: ElevatedButton.styleFrom(
-                                    backgroundColor: const Color(0xFF14B8A6), // Teal
-                                    foregroundColor: Colors.white,
-                                    padding: const EdgeInsets.symmetric(vertical: 16),
-                                    elevation: 0,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
-                                  ),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
+  Widget _toolBtn({
+    required IconData icon,
+    required String label,
+    required Color color,
+    bool busy = false,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: InkWell(
+        onTap: busy ? null : onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: .06),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              busy
+                  ? SizedBox(
+                      width: 20, height: 20,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2, color: color))
+                  : Icon(icon, color: color, size: 22),
+              const SizedBox(height: 6),
+              Text(label,
+                  style: TextStyle(
+                      color: color, fontSize: 11, fontWeight: FontWeight.w600),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

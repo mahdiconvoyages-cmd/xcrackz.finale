@@ -9,8 +9,8 @@ import '../../services/supabase_service.dart';
 import '../../widgets/sync_indicator.dart';
 import '../../theme/premium_theme.dart';
 
-/// Professional Document Scanner Pro - Matching Expo ScannerProScreen
-/// Features: Multi-page, Filters, PDF Generation, Upload, Share
+/// Scanner Pro — PremiumTheme Light Design
+/// Multi-page scan with filters, PDF generation, upload & share
 class DocumentScannerProScreen extends StatefulWidget {
   final String? inspectionId;
   final Function(String documentPath)? onDocumentScanned;
@@ -22,55 +22,63 @@ class DocumentScannerProScreen extends StatefulWidget {
   });
 
   @override
-  State<DocumentScannerProScreen> createState() => _DocumentScannerProScreenState();
+  State<DocumentScannerProScreen> createState() =>
+      _DocumentScannerProScreenState();
 }
 
 class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
   final List<ScannedPage> _pages = [];
-  int _currentPageIndex = 0;
-  bool _isScanning = false;
-  bool _isProcessing = false;
-  SyncStatus _syncStatus = SyncStatus.idle;
-  double? _uploadProgress;
-  String? _selectedFilter;
+  int _idx = 0;
+  bool _scanning = false;
+  bool _processing = false;
+  SyncStatus _sync = SyncStatus.idle;
+  double? _progress;
 
+  // ══════════════════════════════════════════════════════════════
+  //  BUILD
+  // ══════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: PremiumTheme.lightBg,
       appBar: AppBar(
-        flexibleSpace: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              colors: [Color(0xFF14b8a6), Color(0xFF0d9488)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
+        backgroundColor: Colors.white,
+        elevation: 0,
+        foregroundColor: PremiumTheme.textPrimary,
+        title: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              gradient: PremiumTheme.tealGradient,
+              borderRadius: BorderRadius.circular(9)),
+            child: const Icon(Icons.document_scanner_rounded,
+                color: Colors.white, size: 18),
           ),
-        ),
-        title: const Text('Scanner Pro'),
+          const SizedBox(width: 10),
+          const Text('Scanner Pro',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        ]),
         actions: [
           if (_pages.isNotEmpty) ...[
             SyncIndicator(
-              status: _syncStatus,
-              progress: _uploadProgress,
-              showText: false,
-            ),
-            const SizedBox(width: 8),
+                status: _sync, progress: _progress, showText: false),
+            const SizedBox(width: 4),
             IconButton(
-              icon: const Icon(Icons.share),
-              tooltip: 'Partager',
+              icon: const Icon(Icons.share_rounded,
+                  color: PremiumTheme.primaryBlue),
+              tooltip: 'Partager PDF',
               onPressed: _sharePDF,
             ),
             IconButton(
-              icon: const Icon(Icons.save),
+              icon: const Icon(Icons.save_rounded,
+                  color: PremiumTheme.accentGreen),
               tooltip: 'Sauvegarder',
               onPressed: _savePDF,
             ),
           ],
         ],
       ),
-      body: _pages.isEmpty ? _buildEmptyState() : _buildPageView(),
+      body: _pages.isEmpty ? _emptyState() : _pageView(),
       floatingActionButton: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -79,177 +87,195 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
               heroTag: 'filter',
               mini: true,
               backgroundColor: Colors.white,
-              onPressed: _showFilterModal,
-              child: Icon(Icons.filter, color: PremiumTheme.primaryBlue),
+              elevation: 3,
+              onPressed: _showFilters,
+              child: const Icon(Icons.tune_rounded,
+                  color: PremiumTheme.primaryPurple),
             ),
             const SizedBox(height: 12),
           ],
           FloatingActionButton.extended(
-            onPressed: _isScanning ? null : _scanNewPage,
-            backgroundColor: const Color(0xFF14b8a6),
-            icon: Icon(_pages.isEmpty ? Icons.camera_alt : Icons.add),
-            label: Text(_pages.isEmpty ? 'Scanner' : 'Ajouter page'),
+            heroTag: 'scan',
+            onPressed: _scanning ? null : _scanPage,
+            backgroundColor: PremiumTheme.primaryTeal,
+            elevation: 4,
+            icon: Icon(
+                _pages.isEmpty
+                    ? Icons.camera_alt_rounded
+                    : Icons.add_rounded,
+                color: Colors.white),
+            label: Text(
+              _pages.isEmpty ? 'Scanner' : 'Ajouter page',
+              style: const TextStyle(
+                  color: Colors.white, fontWeight: FontWeight.w700),
+            ),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEmptyState() {
+  // ── Empty state ──────────────────────────────────────────────
+  Widget _emptyState() {
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(32),
-            decoration: BoxDecoration(
-              color: const Color(0xFF14b8a6).withValues(alpha: 0.1),
-              shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: PremiumTheme.primaryTeal.withValues(alpha: .08),
+                shape: BoxShape.circle,
+                border: Border.all(
+                    color: PremiumTheme.primaryTeal.withValues(alpha: .2),
+                    width: 2),
+              ),
+              child: const Icon(Icons.document_scanner_rounded,
+                  size: 64, color: PremiumTheme.primaryTeal),
             ),
-            child: const Icon(
-              Icons.document_scanner,
-              size: 64,
-              color: Color(0xFF14b8a6),
+            const SizedBox(height: 28),
+            const Text('Scanner Pro',
+                style: TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.w800,
+                    color: PremiumTheme.textPrimary)),
+            const SizedBox(height: 8),
+            const Text(
+              'Scanner multi-pages professionnel\navec filtres et generation PDF',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                  color: PremiumTheme.textSecondary, fontSize: 14),
             ),
-          ),
-          const SizedBox(height: 24),
-          const Text(
-            'Scanner Pro',
-            style: TextStyle(
-              color: Colors.white,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Scanner professionnel multi-pages\navec filtres et génération PDF',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: Colors.white.withValues(alpha: 0.7),
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 32),
-          _buildFeaturesList(),
-        ],
+            const SizedBox(height: 32),
+            ..._features(),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _buildFeaturesList() {
-    final features = [
-      {'icon': Icons.filter_alt, 'text': 'Filtres N&B, Gris, Couleur'},
-      {'icon': Icons.layers, 'text': 'Scan multi-pages'},
-      {'icon': Icons.picture_as_pdf, 'text': 'Génération PDF'},
-      {'icon': Icons.cloud_upload, 'text': 'Upload automatique'},
+  List<Widget> _features() {
+    const items = [
+      (Icons.tune_rounded, 'Filtres N&B, Gris, Couleur', PremiumTheme.primaryPurple),
+      (Icons.layers_rounded, 'Scan multi-pages', PremiumTheme.primaryBlue),
+      (Icons.picture_as_pdf_rounded, 'Generation PDF', PremiumTheme.accentRed),
+      (Icons.cloud_upload_rounded, 'Upload automatique', PremiumTheme.accentGreen),
     ];
-
-    return Column(
-      children: features.map((feature) {
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 8),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(
-                feature['icon'] as IconData,
-                size: 20,
-                color: const Color(0xFF14b8a6),
-              ),
-              const SizedBox(width: 12),
-              Text(
-                feature['text'] as String,
-                style: TextStyle(
-                  color: Colors.white.withValues(alpha: 0.8),
-                  fontSize: 14,
+    return items
+        .map((f) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 6),
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                        color: Colors.black.withValues(alpha: .03),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2)),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                        color: f.$3.withValues(alpha: .1),
+                        borderRadius: BorderRadius.circular(10)),
+                      child: Icon(f.$1, color: f.$3, size: 20),
+                    ),
+                    const SizedBox(width: 14),
+                    Text(f.$2,
+                        style: const TextStyle(
+                            color: PremiumTheme.textPrimary,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500)),
+                  ],
                 ),
               ),
-            ],
-          ),
-        );
-      }).toList(),
-    );
+            ))
+        .toList();
   }
 
-  Widget _buildPageView() {
+  // ── Page view ────────────────────────────────────────────────
+  Widget _pageView() {
     return Column(
       children: [
-        // Horizontal page list
+        // Thumbnail strip
         Container(
-          height: 120,
-          color: const Color(0xFF1e293b),
+          height: 110,
+          color: Colors.white,
           child: ListView.builder(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.all(12),
             itemCount: _pages.length,
-            itemBuilder: (context, index) {
-              final page = _pages[index];
-              final isSelected = index == _currentPageIndex;
-              
+            itemBuilder: (_, i) {
+              final selected = i == _idx;
               return GestureDetector(
-                onTap: () => setState(() => _currentPageIndex = index),
+                onTap: () => setState(() => _idx = i),
                 child: Container(
-                  width: 80,
-                  margin: const EdgeInsets.only(right: 12),
+                  width: 72,
+                  margin: const EdgeInsets.only(right: 10),
                   decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
                     border: Border.all(
-                      color: isSelected 
-                        ? const Color(0xFF14b8a6) 
-                        : Colors.transparent,
-                      width: 3,
+                      color: selected
+                          ? PremiumTheme.primaryTeal
+                          : Colors.grey.shade200,
+                      width: selected ? 3 : 1.5,
                     ),
-                    borderRadius: BorderRadius.circular(8),
+                    boxShadow: selected
+                        ? [
+                            BoxShadow(
+                                color: PremiumTheme.primaryTeal
+                                    .withValues(alpha: .2),
+                                blurRadius: 8)
+                          ]
+                        : null,
                   ),
                   child: Stack(
                     children: [
                       ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
-                        child: Image.file(
-                          page.imageFile,
-                          fit: BoxFit.cover,
-                          width: 80,
-                          height: 120,
-                        ),
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.file(_pages[i].imageFile,
+                            fit: BoxFit.cover, width: 72, height: 110),
                       ),
+                      // Page number
                       Positioned(
                         top: 4,
                         right: 4,
                         child: Container(
                           padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: Colors.black54,
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            '${index + 1}',
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 10,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
+                            color: selected
+                                ? PremiumTheme.primaryTeal
+                                : Colors.black54,
+                            borderRadius: BorderRadius.circular(6)),
+                          child: Text('${i + 1}',
+                              style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w700)),
                         ),
                       ),
+                      // Delete
                       Positioned(
                         bottom: 4,
                         right: 4,
                         child: GestureDetector(
-                          onTap: () => _deletePage(index),
+                          onTap: () => _deletePage(i),
                           child: Container(
-                            padding: const EdgeInsets.all(4),
+                            padding: const EdgeInsets.all(3),
                             decoration: const BoxDecoration(
-                              color: Colors.red,
-                              shape: BoxShape.circle,
-                            ),
-                            child: const Icon(
-                              Icons.close,
-                              size: 12,
-                              color: Colors.white,
-                            ),
+                                color: PremiumTheme.accentRed,
+                                shape: BoxShape.circle),
+                            child: const Icon(Icons.close_rounded,
+                                size: 12, color: Colors.white),
                           ),
                         ),
                       ),
@@ -260,175 +286,222 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
             },
           ),
         ),
-        
-        // Current page preview
+
+        // Divider
+        Container(height: 1, color: Colors.grey.shade100),
+
+        // Preview
         Expanded(
-          child: Center(
-            child: _pages.isNotEmpty
-                ? InteractiveViewer(
+          child: Container(
+            margin: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                    color: Colors.black.withValues(alpha: .05),
+                    blurRadius: 12,
+                    offset: const Offset(0, 4)),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: _processing
+                ? const Center(
+                    child: CircularProgressIndicator(
+                        color: PremiumTheme.primaryTeal))
+                : InteractiveViewer(
                     minScale: 0.5,
                     maxScale: 4.0,
-                    child: Image.file(_pages[_currentPageIndex].imageFile),
-                  )
-                : const SizedBox(),
+                    child: _pages.isNotEmpty
+                        ? Image.file(_pages[_idx].imageFile)
+                        : const SizedBox(),
+                  ),
           ),
         ),
-        
+
         // Filter info
-        if (_pages.isNotEmpty && _pages[_currentPageIndex].filterApplied != null)
+        if (_pages.isNotEmpty &&
+            _pages[_idx].filterApplied != null)
           Container(
-            padding: const EdgeInsets.all(12),
-            color: const Color(0xFF1e293b),
+            margin: const EdgeInsets.symmetric(horizontal: 16),
+            padding: const EdgeInsets.symmetric(
+                horizontal: 14, vertical: 8),
+            decoration: BoxDecoration(
+              color: PremiumTheme.primaryPurple.withValues(alpha: .08),
+              borderRadius: BorderRadius.circular(10),
+            ),
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
               children: [
-                const Icon(Icons.filter_alt, size: 16, color: Color(0xFF14b8a6)),
+                const Icon(Icons.tune_rounded,
+                    size: 16, color: PremiumTheme.primaryPurple),
                 const SizedBox(width: 8),
                 Text(
-                  'Filtre: ${ImageFilterService.getFilterName(_pages[_currentPageIndex].filterApplied!)}',
+                  'Filtre: ${ImageFilterService.getFilterName(_pages[_idx].filterApplied!)}',
                   style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                  ),
+                      color: PremiumTheme.primaryPurple,
+                      fontSize: 12,
+                      fontWeight: FontWeight.w600),
                 ),
               ],
             ),
           ),
+
+        const SizedBox(height: 8),
+
+        // Page counter
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            'Page ${_idx + 1} / ${_pages.length}',
+            style: const TextStyle(
+                color: PremiumTheme.textSecondary,
+                fontSize: 13,
+                fontWeight: FontWeight.w600),
+          ),
+        ),
+
+        const SizedBox(height: 16),
       ],
     );
   }
 
-  Future<void> _scanNewPage() async {
-    setState(() => _isScanning = true);
-
+  // ══════════════════════════════════════════════════════════════
+  //  ACTIONS
+  // ══════════════════════════════════════════════════════════════
+  Future<void> _scanPage() async {
+    setState(() => _scanning = true);
     try {
-      final pictures = await CunningDocumentScanner.getPictures(noOfPages: 1);
-
-      if (pictures != null && pictures.isNotEmpty) {
-        final imageFile = File(pictures.first);
+      final pics = await CunningDocumentScanner.getPictures(noOfPages: 1);
+      if (pics != null && pics.isNotEmpty) {
         final page = ScannedPage(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
-          imageFile: imageFile,
+          imageFile: File(pics.first),
           order: _pages.length,
         );
-
         if (!mounted) return;
         setState(() {
           _pages.add(page);
-          _currentPageIndex = _pages.length - 1;
-          _isScanning = false;
+          _idx = _pages.length - 1;
+          _scanning = false;
         });
-
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Page ajoutée avec succès'),
-            backgroundColor: Color(0xFF14b8a6),
-            duration: Duration(seconds: 2),
-          ),
-        );
+        _snack('Page ajoutee', PremiumTheme.primaryTeal);
       } else {
-        if (mounted) setState(() => _isScanning = false);
+        if (mounted) setState(() => _scanning = false);
       }
     } catch (e) {
-      if (mounted) setState(() => _isScanning = false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ErrorHelper.cleanError(e)),
-          backgroundColor: Colors.red,
-        ),
-      );
+      if (mounted) setState(() => _scanning = false);
+      _snack(ErrorHelper.cleanError(e), PremiumTheme.accentRed);
     }
   }
 
-  void _deletePage(int index) {
+  void _deletePage(int i) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Supprimer la page'),
-        content: Text('Voulez-vous supprimer la page ${index + 1}?'),
+      builder: (_) => AlertDialog(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Supprimer la page ?',
+            style: TextStyle(fontWeight: FontWeight.w700)),
+        content: Text('Voulez-vous supprimer la page ${i + 1} ?'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: const Text('Annuler'),
+            child: const Text('Annuler',
+                style: TextStyle(color: PremiumTheme.textSecondary)),
           ),
-          TextButton(
+          ElevatedButton(
             onPressed: () {
               setState(() {
-                _pages.removeAt(index);
-                if (_currentPageIndex >= _pages.length && _pages.isNotEmpty) {
-                  _currentPageIndex = _pages.length - 1;
+                _pages.removeAt(i);
+                if (_idx >= _pages.length && _pages.isNotEmpty) {
+                  _idx = _pages.length - 1;
                 }
               });
               Navigator.pop(context);
             },
-            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: PremiumTheme.accentRed,
+              elevation: 0,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(10))),
+            child: const Text('Supprimer',
+                style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
     );
   }
 
-  void _showFilterModal() {
+  // ── Filters ──────────────────────────────────────────────────
+  void _showFilters() {
     showModalBottomSheet(
       context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
-      ),
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Appliquer un filtre',
+      backgroundColor: Colors.transparent,
+      builder: (_) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 12),
+            Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                    color: Colors.grey.shade300,
+                    borderRadius: BorderRadius.circular(2))),
+            const SizedBox(height: 20),
+            const Text('Appliquer un filtre',
                 style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              _buildFilterOption(
-                ImageFilterService.filterBlackWhite,
-                'Noir & Blanc',
-                'Contraste élevé pour texte',
-                Icons.contrast,
-              ),
-              _buildFilterOption(
-                ImageFilterService.filterGrayscale,
-                'Niveaux de gris',
-                'Conserve plus de détails',
-                Icons.gradient,
-              ),
-              _buildFilterOption(
-                ImageFilterService.filterColor,
-                'Couleur améliorée',
-                'Garde les couleurs avec amélioration',
-                Icons.palette,
-              ),
-              _buildFilterOption(
-                ImageFilterService.filterEnhanced,
-                'Auto-améliorer',
-                'Amélioration automatique',
-                Icons.auto_fix_high,
-              ),
-            ],
-          ),
-        );
-      },
+                    fontSize: 18,
+                    fontWeight: FontWeight.w700,
+                    color: PremiumTheme.textPrimary)),
+            const SizedBox(height: 16),
+            _filterTile(ImageFilterService.filterBlackWhite,
+                'Noir & Blanc', 'Contraste eleve pour texte',
+                Icons.contrast_rounded, PremiumTheme.textPrimary),
+            _filterTile(ImageFilterService.filterGrayscale,
+                'Niveaux de gris', 'Conserve plus de details',
+                Icons.gradient_rounded, PremiumTheme.textSecondary),
+            _filterTile(ImageFilterService.filterColor,
+                'Couleur amelioree', 'Garde les couleurs avec amelioration',
+                Icons.palette_rounded, PremiumTheme.primaryBlue),
+            _filterTile(ImageFilterService.filterEnhanced,
+                'Auto-ameliorer', 'Amelioration automatique',
+                Icons.auto_fix_high_rounded, PremiumTheme.primaryTeal),
+            SizedBox(height: MediaQuery.of(context).padding.bottom + 16),
+          ],
+        ),
+      ),
     );
   }
 
-  Widget _buildFilterOption(String filter, String title, String subtitle, IconData icon) {
+  Widget _filterTile(String filter, String title, String sub,
+      IconData icon, Color color) {
     return ListTile(
-      leading: Icon(icon, color: const Color(0xFF14b8a6)),
-      title: Text(title, style: const TextStyle(color: Colors.white)),
-      subtitle: Text(subtitle, style: TextStyle(color: Colors.white.withValues(alpha: 0.6))),
+      contentPadding: const EdgeInsets.symmetric(horizontal: 24),
+      leading: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: .1),
+          borderRadius: BorderRadius.circular(12)),
+        child: Icon(icon, color: color, size: 22),
+      ),
+      title: Text(title,
+          style: const TextStyle(
+              fontWeight: FontWeight.w600, color: PremiumTheme.textPrimary)),
+      subtitle: Text(sub,
+          style: const TextStyle(
+              color: PremiumTheme.textSecondary, fontSize: 13)),
+      trailing: const Icon(Icons.chevron_right_rounded,
+          color: PremiumTheme.textTertiary),
       onTap: () {
         Navigator.pop(context);
         _applyFilter(filter);
@@ -436,138 +509,90 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
     );
   }
 
-  Future<void> _applyFilter(String filterType) async {
+  Future<void> _applyFilter(String filter) async {
     if (_pages.isEmpty) return;
-
-    setState(() => _isProcessing = true);
-
+    setState(() => _processing = true);
     try {
-      final currentPage = _pages[_currentPageIndex];
-      final filteredFile = await ImageFilterService.applyFilter(
-        currentPage.imageFile,
-        filterType,
-      );
-
+      final page = _pages[_idx];
+      final filtered =
+          await ImageFilterService.applyFilter(page.imageFile, filter);
       if (!mounted) return;
       setState(() {
-        _pages[_currentPageIndex] = currentPage.copyWith(
-          imageFile: filteredFile,
-          filterApplied: filterType,
-        );
-        _isProcessing = false;
+        _pages[_idx] = page.copyWith(
+            imageFile: filtered, filterApplied: filter);
+        _processing = false;
       });
-
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Filtre ${ImageFilterService.getFilterName(filterType)} appliqué'),
-          backgroundColor: const Color(0xFF14b8a6),
-        ),
-      );
+      _snack(
+          'Filtre ${ImageFilterService.getFilterName(filter)} applique',
+          PremiumTheme.primaryTeal);
     } catch (e) {
-      if (mounted) setState(() => _isProcessing = false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: Colors.red),
-      );
+      if (mounted) setState(() => _processing = false);
+      _snack(ErrorHelper.cleanError(e), PremiumTheme.accentRed);
     }
   }
 
+  // ── PDF ──────────────────────────────────────────────────────
   Future<void> _savePDF() async {
     if (_pages.isEmpty) return;
-
-    setState(() {
-      _isProcessing = true;
-      _syncStatus = SyncStatus.syncing;
-    });
-
+    setState(() { _processing = true; _sync = SyncStatus.syncing; });
     try {
-      // Generate PDF
-      final imageFiles = _pages.map((p) => p.imageFile).toList();
-      final pdfFile = await PdfService.generatePDFFromPages(
-        imageFiles,
-        title: 'Document scanné ${DateTime.now().toIso8601String()}',
-        documentType: 'Scan',
-      );
-
-      // Upload to Supabase if inspection ID provided
+      final files = _pages.map((p) => p.imageFile).toList();
+      final pdf = await PdfService.generatePDFFromPages(files,
+          title: 'Document scanne ${DateTime.now().toIso8601String()}',
+          documentType: 'Scan');
       if (widget.inspectionId != null) {
-        if (mounted) setState(() => _uploadProgress = 0.0);
-        
-        final fileName = 'inspection_${widget.inspectionId}_${DateTime.now().millisecondsSinceEpoch}.pdf';
-        await SupabaseService.uploadFile(
-          pdfFile,
-          'scans/$fileName',
-          onProgress: (progress) {
-            if (mounted) setState(() => _uploadProgress = progress);
-          },
-        );
-        
-        if (!mounted) return;
-        setState(() {
-          _syncStatus = SyncStatus.synced;
-          _uploadProgress = null;
+        if (mounted) setState(() => _progress = 0.0);
+        final name =
+            'inspection_${widget.inspectionId}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+        await SupabaseService.uploadFile(pdf, 'scans/$name',
+            onProgress: (p) {
+          if (mounted) setState(() => _progress = p);
         });
-
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('PDF sauvegardé et synchronisé'),
-            backgroundColor: Colors.green,
-          ),
-        );
+        setState(() { _sync = SyncStatus.synced; _progress = null; });
+        _snack('PDF sauvegarde et synchronise', PremiumTheme.accentGreen);
       } else {
-        if (mounted) setState(() => _syncStatus = SyncStatus.synced);
-        
-        if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('PDF généré avec succès'),
-            backgroundColor: Color(0xFF14b8a6),
-          ),
-        );
+        if (mounted) setState(() => _sync = SyncStatus.synced);
+        _snack('PDF genere avec succes', PremiumTheme.primaryTeal);
       }
-
-      if (widget.onDocumentScanned != null) {
-        widget.onDocumentScanned!(pdfFile.path);
-      }
-
-      if (mounted) setState(() => _isProcessing = false);
+      widget.onDocumentScanned?.call(pdf.path);
+      if (mounted) setState(() => _processing = false);
     } catch (e) {
-      if (mounted) setState(() {
-        _isProcessing = false;
-        _syncStatus = SyncStatus.error;
-        _uploadProgress = null;
-      });
-      
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: Colors.red),
-      );
+      if (mounted) {
+        setState(() {
+          _processing = false;
+          _sync = SyncStatus.error;
+          _progress = null;
+        });
+      }
+      _snack(ErrorHelper.cleanError(e), PremiumTheme.accentRed);
     }
   }
 
   Future<void> _sharePDF() async {
     if (_pages.isEmpty) return;
-
-    setState(() => _isProcessing = true);
-
+    setState(() => _processing = true);
     try {
-      final imageFiles = _pages.map((p) => p.imageFile).toList();
-      final pdfFile = await PdfService.generatePDFFromPages(imageFiles);
-
+      final files = _pages.map((p) => p.imageFile).toList();
+      final pdf = await PdfService.generatePDFFromPages(files);
       await SharePlus.instance.shareXFiles(
-        [XFile(pdfFile.path)],
-        text: 'Document scanné (${_pages.length} page${_pages.length > 1 ? 's' : ''})',
+        [XFile(pdf.path)],
+        text:
+            'Document scanne (${_pages.length} page${_pages.length > 1 ? 's' : ''})',
       );
-
-      if (mounted) setState(() => _isProcessing = false);
+      if (mounted) setState(() => _processing = false);
     } catch (e) {
-      if (mounted) setState(() => _isProcessing = false);
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: Colors.red),
-      );
+      if (mounted) setState(() => _processing = false);
+      _snack(ErrorHelper.cleanError(e), PremiumTheme.accentRed);
     }
+  }
+
+  void _snack(String msg, Color bg) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text(msg),
+        backgroundColor: bg,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2)));
   }
 }

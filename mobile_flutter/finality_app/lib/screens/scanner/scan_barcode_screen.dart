@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import '../../theme/premium_theme.dart';
 
+/// Barcode Scanner — PremiumTheme Light Design
 class ScanBarcodeScreen extends StatefulWidget {
   const ScanBarcodeScreen({super.key});
 
@@ -8,8 +10,9 @@ class ScanBarcodeScreen extends StatefulWidget {
   State<ScanBarcodeScreen> createState() => _ScanBarcodeScreenState();
 }
 
-class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
-  final MobileScannerController _controller = MobileScannerController(
+class _ScanBarcodeScreenState extends State<ScanBarcodeScreen>
+    with SingleTickerProviderStateMixin {
+  final MobileScannerController _ctrl = MobileScannerController(
     detectionSpeed: DetectionSpeed.normal,
     facing: CameraFacing.back,
     formats: [
@@ -23,89 +26,129 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
       BarcodeFormat.upcE,
     ],
   );
+  bool _scanned = false;
+  bool _torch = false;
+  late AnimationController _anim;
 
-  bool _hasScanned = false;
+  @override
+  void initState() {
+    super.initState();
+    _anim = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1500),
+    )..repeat(reverse: true);
+  }
 
   @override
   void dispose() {
-    _controller.dispose();
+    _anim.dispose();
+    _ctrl.dispose();
     super.dispose();
   }
 
-  void _handleBarcode(BarcodeCapture capture) {
-    if (_hasScanned) return;
-
-    final barcodes = capture.barcodes;
-    if (barcodes.isEmpty) return;
-
-    final barcode = barcodes.first;
-    if (barcode.rawValue == null) return;
-
-    setState(() => _hasScanned = true);
-
+  void _onDetect(BarcodeCapture capture) {
+    if (_scanned) return;
+    final bc = capture.barcodes;
+    if (bc.isEmpty || bc.first.rawValue == null) return;
+    setState(() => _scanned = true);
     Navigator.pop(context, {
       'type': 'Barcode',
-      'value': barcode.rawValue,
-      'format': barcode.format.name,
+      'value': bc.first.rawValue,
+      'format': bc.first.format.name,
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Scanner Code-barres'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.flash_on),
-            onPressed: () => _controller.toggleTorch(),
-            tooltip: 'Activer/Désactiver le flash',
-          ),
-        ],
-      ),
+      backgroundColor: Colors.black,
       body: Stack(
         children: [
-          MobileScanner(
-            controller: _controller,
-            onDetect: _handleBarcode,
-          ),
-          
-          // Overlay with scanning line
+          // Camera
+          MobileScanner(controller: _ctrl, onDetect: _onDetect),
+
+          // Overlay
           CustomPaint(
-            painter: BarcodeOverlayPainter(),
-            child: Container(),
+            size: Size.infinite,
+            painter: _BarcodeOverlayPainter(_anim),
           ),
-          
-          // Instructions
+
+          // Top bar
+          SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              child: Row(
+                children: [
+                  _circleBtn(Icons.arrow_back_rounded,
+                      () => Navigator.pop(context)),
+                  const Spacer(),
+                  _circleBtn(
+                    _torch
+                        ? Icons.flash_off_rounded
+                        : Icons.flash_on_rounded,
+                    () {
+                      _ctrl.toggleTorch();
+                      setState(() => _torch = !_torch);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // Bottom info
           Positioned(
-            bottom: 80,
+            bottom: 0,
             left: 0,
             right: 0,
             child: Container(
-              margin: const EdgeInsets.symmetric(horizontal: 24),
-              padding: const EdgeInsets.all(16),
+              padding: EdgeInsets.fromLTRB(
+                  24, 32, 24, MediaQuery.of(context).padding.bottom + 24),
               decoration: BoxDecoration(
-                color: Colors.black.withValues(alpha: 0.7),
-                borderRadius: BorderRadius.circular(12),
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    Colors.transparent,
+                    Colors.black.withValues(alpha: .85)
+                  ],
+                ),
               ),
-              child: const Column(
+              child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    'Alignez le code-barres dans la zone',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 20, vertical: 12),
+                    decoration: BoxDecoration(
+                      color: PremiumTheme.accentAmber.withValues(alpha: .15),
+                      borderRadius: BorderRadius.circular(16),
+                      border: Border.all(
+                          color:
+                              PremiumTheme.accentAmber.withValues(alpha: .3)),
+                    ),
+                    child: const Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(Icons.barcode_reader,
+                            color: PremiumTheme.accentAmber, size: 22),
+                        SizedBox(width: 12),
+                        Text(
+                          'Alignez le code-barres dans la zone',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 12),
                   Text(
-                    'EAN-13, UPC, Code 128, Code 39...',
-                    textAlign: TextAlign.center,
+                    'EAN-13 / UPC / Code 128 / Code 39',
                     style: TextStyle(
-                      color: Colors.white70,
+                      color: Colors.white.withValues(alpha: .5),
                       fontSize: 12,
                     ),
                   ),
@@ -117,63 +160,92 @@ class _ScanBarcodeScreenState extends State<ScanBarcodeScreen> {
       ),
     );
   }
+
+  Widget _circleBtn(IconData icon, VoidCallback onTap) {
+    return Material(
+      color: Colors.black38,
+      shape: const CircleBorder(),
+      clipBehavior: Clip.antiAlias,
+      child: InkWell(
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.all(10),
+          child: Icon(icon, color: Colors.white, size: 24),
+        ),
+      ),
+    );
+  }
 }
 
-class BarcodeOverlayPainter extends CustomPainter {
+// ── Animated Barcode Overlay ───────────────────────────────────
+class _BarcodeOverlayPainter extends CustomPainter {
+  final Animation<double> animation;
+  _BarcodeOverlayPainter(this.animation) : super(repaint: animation);
+
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = Colors.black.withValues(alpha: 0.5)
-      ..style = PaintingStyle.fill;
+    final w = size.width * 0.82;
+    final h = size.height * 0.14;
+    final left = (size.width - w) / 2;
+    final top = (size.height - h) / 2 - 30;
+    final rect = Rect.fromLTWH(left, top, w, h);
 
-    final scanAreaWidth = size.width * 0.8;
-    final scanAreaHeight = size.height * 0.15;
-    final scanAreaLeft = (size.width - scanAreaWidth) / 2;
-    final scanAreaTop = (size.height - scanAreaHeight) / 2;
-
-    // Draw dark overlay
+    // Dim overlay
     canvas.drawPath(
       Path()
         ..addRect(Rect.fromLTWH(0, 0, size.width, size.height))
-        ..addRect(Rect.fromLTWH(
-          scanAreaLeft,
-          scanAreaTop,
-          scanAreaWidth,
-          scanAreaHeight,
-        ))
+        ..addRRect(RRect.fromRectAndRadius(rect, const Radius.circular(14)))
         ..fillType = PathFillType.evenOdd,
-      paint,
+      Paint()..color = Colors.black.withValues(alpha: .55),
     );
 
-    // Draw border
-    final borderPaint = Paint()
-      ..color = Colors.red
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 3;
-
-    canvas.drawRect(
-      Rect.fromLTWH(
-        scanAreaLeft,
-        scanAreaTop,
-        scanAreaWidth,
-        scanAreaHeight,
-      ),
-      borderPaint,
+    // Border
+    canvas.drawRRect(
+      RRect.fromRectAndRadius(rect, const Radius.circular(14)),
+      Paint()
+        ..color = const Color(0xFFF59E0B).withValues(alpha: .5)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
     );
 
-    // Draw scanning line
-    final linePaint = Paint()
-      ..color = Colors.red
+    // Corner highlights
+    final cp = Paint()
+      ..color = const Color(0xFFF59E0B)
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2;
+      ..strokeWidth = 4
+      ..strokeCap = StrokeCap.round;
+    final cl = 24.0;
 
+    // top-left
+    canvas.drawLine(Offset(left, top + cl), Offset(left, top), cp);
+    canvas.drawLine(Offset(left, top), Offset(left + cl, top), cp);
+    // top-right
     canvas.drawLine(
-      Offset(scanAreaLeft, scanAreaTop + scanAreaHeight / 2),
-      Offset(scanAreaLeft + scanAreaWidth, scanAreaTop + scanAreaHeight / 2),
-      linePaint,
+        Offset(left + w - cl, top), Offset(left + w, top), cp);
+    canvas.drawLine(
+        Offset(left + w, top), Offset(left + w, top + cl), cp);
+    // bottom-left
+    canvas.drawLine(
+        Offset(left, top + h - cl), Offset(left, top + h), cp);
+    canvas.drawLine(
+        Offset(left, top + h), Offset(left + cl, top + h), cp);
+    // bottom-right
+    canvas.drawLine(
+        Offset(left + w - cl, top + h), Offset(left + w, top + h), cp);
+    canvas.drawLine(
+        Offset(left + w, top + h - cl), Offset(left + w, top + h), cp);
+
+    // Animated scan line (horizontal sweep)
+    final lineX = left + 10 + animation.value * (w - 20);
+    canvas.drawLine(
+      Offset(lineX, top + 6),
+      Offset(lineX, top + h - 6),
+      Paint()
+        ..color = const Color(0xFFF59E0B).withValues(alpha: .8)
+        ..strokeWidth = 2,
     );
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant _BarcodeOverlayPainter old) => true;
 }
