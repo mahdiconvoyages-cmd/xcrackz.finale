@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../utils/error_helper.dart';
 import '../../models/mission.dart';
 import '../../services/mission_service.dart';
 import '../../services/background_tracking_service.dart';
+import '../invoices/invoice_form_screen.dart';
+import '../../theme/premium_theme.dart';
 import 'package:intl/intl.dart';
 
 class MissionDetailScreen extends StatefulWidget {
@@ -27,6 +30,10 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
   bool _isLoading = true;
   bool _isTrackingActive = false;
   String? _publicTrackingLink;
+  bool _isCreator = false;
+  bool _hasDepartureInspection = false;
+  bool _hasArrivalInspection = false;
+  String? _assignedDriverName;
 
   @override
   void initState() {
@@ -44,20 +51,56 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
 
   Future<void> _loadMission() async {
     setState(() => _isLoading = true);
-
     try {
       final mission = await _missionService.getMissionById(widget.missionId);
+      if (!mounted) return;
+
+      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
+
+      // Verifier si les inspections existent
+      final depInsp = await Supabase.instance.client
+          .from('vehicle_inspections')
+          .select('id')
+          .eq('mission_id', widget.missionId)
+          .eq('inspection_type', 'departure')
+          .maybeSingle();
+      final arrInsp = await Supabase.instance.client
+          .from('vehicle_inspections')
+          .select('id')
+          .eq('mission_id', widget.missionId)
+          .eq('inspection_type', 'arrival')
+          .maybeSingle();
+
+      // Recuperer le nom du chauffeur assigne
+      String? driverName;
+      if (mission.assignedToUserId != null) {
+        try {
+          final profile = await Supabase.instance.client
+              .from('profiles')
+              .select('full_name, email')
+              .eq('id', mission.assignedToUserId!)
+              .maybeSingle();
+          if (profile != null) {
+            driverName = profile['full_name'] as String? ?? profile['email'] as String? ?? 'Chauffeur';
+          }
+        } catch (_) {}
+      }
+
+      if (!mounted) return;
       setState(() {
         _mission = mission;
         _isLoading = false;
+        _isCreator = currentUserId != null && mission.userId == currentUserId;
+        _hasDepartureInspection = depInsp != null;
+        _hasArrivalInspection = arrInsp != null;
+        _assignedDriverName = driverName;
       });
 
-      // AUTO-START: Démarrer le tracking automatiquement si mission en cours
+      // AUTO-START: Demarrer le tracking automatiquement si mission en cours
       if (mission.status == 'in_progress' && !_trackingService.isTracking) {
         final started = await _trackingService.startTracking(mission.id, autoStart: true);
-        if (started) {
+        if (started && mounted) {
           setState(() => _isTrackingActive = true);
-          // Générer le lien public
           _generatePublicLink();
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
@@ -66,7 +109,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
                   children: [
                     Icon(Icons.gps_fixed, color: Colors.white, size: 20),
                     SizedBox(width: 8),
-                    Text('📍 Tracking GPS activé automatiquement'),
+                    Text('Tracking GPS active automatiquement'),
                   ],
                 ),
                 backgroundColor: Colors.green,
@@ -77,6 +120,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         }
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -89,336 +133,1310 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
   Widget build(BuildContext context) {
     if (_isLoading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Détails de la mission')),
-        body: const Center(child: CircularProgressIndicator()),
+        backgroundColor: PremiumTheme.lightBg,
+        body: const Center(child: CircularProgressIndicator(color: PremiumTheme.primaryBlue)),
       );
     }
 
     if (_mission == null) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Détails de la mission')),
-        body: const Center(child: Text('Mission introuvable')),
+        backgroundColor: PremiumTheme.lightBg,
+        appBar: AppBar(
+          backgroundColor: PremiumTheme.cardBg,
+          title: const Text('Mission', style: TextStyle(color: PremiumTheme.textPrimary)),
+          iconTheme: const IconThemeData(color: PremiumTheme.textPrimary),
+        ),
+        body: const Center(child: Text('Mission introuvable', style: TextStyle(color: PremiumTheme.textSecondary))),
       );
     }
 
-    final dateFormat = DateFormat('dd/MM/yyyy à HH:mm');
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Détails de la mission'),
-        actions: [
-          PopupMenuButton(
-            itemBuilder: (context) => [
-              const PopupMenuItem(
-                value: 'edit',
-                child: Row(
-                  children: [
-                    Icon(Icons.edit),
-                    SizedBox(width: 8),
-                    Text('Modifier'),
-                  ],
-                ),
-              ),
-              const PopupMenuItem(
-                value: 'delete',
-                child: Row(
-                  children: [
-                    Icon(Icons.delete, color: Colors.red),
-                    SizedBox(width: 8),
-                    Text('Supprimer', style: TextStyle(color: Colors.red)),
-                  ],
-                ),
-              ),
-            ],
-            onSelected: (value) {
-              if (value == 'delete') {
-                _confirmDelete();
-              }
-            },
-          ),
-        ],
-      ),
+      backgroundColor: PremiumTheme.lightBg,
       body: RefreshIndicator(
         onRefresh: _loadMission,
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _StatusCard(mission: _mission!),
-              if (_mission!.mandataireName != null || _mission!.mandataireCompany != null) ...[
-                const SizedBox(height: 16),
-                _MandataireCard(mission: _mission!),
-              ],
-              const SizedBox(height: 16),
-              _AddressCard(mission: _mission!),
-              const SizedBox(height: 16),
-              _VehicleCard(mission: _mission!),
-              const SizedBox(height: 16),
-              _ClientCard(mission: _mission!),
-              if (_mission!.notes != null) ...[
-                const SizedBox(height: 16),
-                _NotesCard(mission: _mission!),
-              ],
-            ],
-          ),
+        child: CustomScrollView(
+          slivers: [
+            _buildSliverAppBar(),
+            SliverPadding(
+              padding: const EdgeInsets.all(16),
+              sliver: SliverList(
+                delegate: SliverChildListDelegate([
+                  // Code de partage (createur uniquement)
+                  if (_isCreator && _mission!.shareCode != null) ...[
+                    _buildShareCodeCard(),
+                    const SizedBox(height: 16),
+                  ],
+                  // Chauffeur assigne + changement
+                  if (_mission!.assignedToUserId != null || _isCreator) ...[
+                    _buildDriverCard(),
+                    const SizedBox(height: 16),
+                  ],
+                  // Etat des inspections (visible quand en cours ou terminee)
+                  if (_mission!.status == 'in_progress' || _mission!.status == 'completed') ...[
+                    _buildInspectionStatusCard(),
+                    const SizedBox(height: 16),
+                  ],
+                  // Mandataire
+                  _buildMandataireCard(),
+                  const SizedBox(height: 16),
+                  // Vehicule
+                  _buildVehicleCard(),
+                  const SizedBox(height: 16),
+                  // Itineraire
+                  _buildItineraireCard(),
+                  const SizedBox(height: 16),
+                  // Prix
+                  if (_mission!.price != null) ...[
+                    _buildPriceCard(),
+                    const SizedBox(height: 16),
+                  ],
+                  // Notes
+                  if (_mission!.notes != null && _mission!.notes!.isNotEmpty) ...[
+                    _buildNotesCard(),
+                    const SizedBox(height: 16),
+                  ],
+                  // Tracking GPS
+                  if (_mission!.status == 'in_progress') ...[
+                    _buildTrackingCard(),
+                    const SizedBox(height: 16),
+                  ],
+                  const SizedBox(height: 80),
+                ]),
+              ),
+            ),
+          ],
         ),
       ),
       bottomNavigationBar: _buildBottomActions(),
     );
   }
 
-  Widget _buildBottomActions() {
-    final bool canTrack = _mission!.status == 'in_progress';
-    
-    return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Bouton toggle GPS (visible si mission en cours)
-            if (canTrack) ...[
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                decoration: BoxDecoration(
-                  color: _isTrackingActive ? Colors.green.shade50 : Colors.grey.shade100,
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: _isTrackingActive ? Colors.green : Colors.grey.shade300,
-                    width: 2,
-                  ),
-                ),
+  // ==============================================
+  //  APP BAR
+  // ==============================================
+  SliverAppBar _buildSliverAppBar() {
+    return SliverAppBar(
+      backgroundColor: PremiumTheme.cardBg,
+      pinned: true,
+      expandedHeight: 120,
+      iconTheme: const IconThemeData(color: PremiumTheme.textPrimary),
+      actions: [
+        if (_isCreator)
+          PopupMenuButton(
+            icon: const Icon(Icons.more_vert, color: PremiumTheme.textSecondary),
+            color: PremiumTheme.cardBg,
+            itemBuilder: (context) => [
+              const PopupMenuItem(
+                value: 'delete',
                 child: Row(
                   children: [
-                    Icon(
-                      _isTrackingActive ? Icons.gps_fixed : Icons.gps_off,
-                      color: _isTrackingActive ? Colors.green : Colors.grey,
-                      size: 24,
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _isTrackingActive ? 'Tracking GPS Actif' : 'Tracking GPS Inactif',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: _isTrackingActive ? Colors.green.shade900 : Colors.grey.shade700,
-                            ),
-                          ),
-                          Text(
-                            _isTrackingActive 
-                                ? 'Position mise à jour toutes les 3s'
-                                : 'Activez pour partager votre position',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: _isTrackingActive ? Colors.green.shade700 : Colors.grey.shade600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    Switch(
-                      value: _isTrackingActive,
-                      onChanged: (_) => _toggleTracking(),
-                      activeColor: Colors.green,
-                    ),
+                    Icon(Icons.delete, color: PremiumTheme.accentRed),
+                    SizedBox(width: 8),
+                    Text('Supprimer', style: TextStyle(color: PremiumTheme.accentRed)),
                   ],
                 ),
               ),
-              
-              // Carte lien public (si tracking actif et lien généré)
-              if (_isTrackingActive && _publicTrackingLink != null) ...[
-                const SizedBox(height: 12),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.shade50,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.blue.shade200, width: 1),
+            ],
+            onSelected: (value) {
+              if (value == 'delete') _confirmDelete();
+            },
+          ),
+      ],
+      flexibleSpace: FlexibleSpaceBar(
+        background: Container(
+          decoration: const BoxDecoration(
+            gradient: PremiumTheme.primaryGradient,
+          ),
+          child: SafeArea(
+            child: Padding(
+              padding: const EdgeInsets.only(left: 56, right: 16, bottom: 12),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.end,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      _statusBadge(_mission!.status),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Text(
+                          _mission!.reference ?? '',
+                          style: const TextStyle(
+                            color: Colors.white70,
+                            fontSize: 14,
+                            fontWeight: FontWeight.w500,
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_mission!.vehicleBrand ?? ''} ${_mission!.vehicleModel ?? ''}'.trim(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _statusBadge(String status) {
+    Color bgColor;
+    String label;
+    switch (status) {
+      case 'pending':
+        bgColor = PremiumTheme.accentAmber;
+        label = 'En attente';
+        break;
+      case 'assigned':
+        bgColor = PremiumTheme.primaryBlue;
+        label = 'Assignee';
+        break;
+      case 'in_progress':
+        bgColor = PremiumTheme.primaryPurple;
+        label = 'En cours';
+        break;
+      case 'completed':
+        bgColor = PremiumTheme.accentGreen;
+        label = 'Terminee';
+        break;
+      default:
+        bgColor = PremiumTheme.textSecondary;
+        label = status;
+    }
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: bgColor,
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        label,
+        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+      ),
+    );
+  }
+
+  // ==============================================
+  //  SHARE CODE CARD
+  // ==============================================
+  Widget _buildShareCodeCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Row(
+            children: [
+              Icon(Icons.key, color: Colors.white, size: 22),
+              SizedBox(width: 8),
+              Text(
+                'Code de mission',
+                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            _mission!.status == 'in_progress'
+                ? 'Ce code reste actif. Un autre chauffeur peut prendre le relais.'
+                : 'Partagez ce code pour permettre a un chauffeur de rejoindre la mission',
+            style: const TextStyle(color: Colors.white70, fontSize: 13),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                  ),
+                  child: Text(
+                    _mission!.shareCode!,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 2,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              IconButton(
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: _mission!.shareCode!));
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                        content: Text('Code copie dans le presse-papier'),
+                        backgroundColor: PremiumTheme.accentGreen,
+                        duration: Duration(seconds: 2),
+                      ),
+                    );
+                  }
+                },
+                icon: const Icon(Icons.copy, color: Colors.white),
+                style: IconButton.styleFrom(
+                  backgroundColor: Colors.white.withOpacity(0.2),
+                  padding: const EdgeInsets.all(14),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==============================================
+  //  DRIVER CARD
+  // ==============================================
+  Widget _buildDriverCard() {
+    final hasDriver = _mission!.assignedToUserId != null;
+    return _card(
+      icon: Icons.person_pin,
+      title: 'Chauffeur',
+      color: PremiumTheme.primaryBlue,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (hasDriver) ...[
+            Row(
+              children: [
+                Container(
+                  width: 40, height: 40,
+                  decoration: BoxDecoration(
+                    color: PremiumTheme.primaryBlue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: const Icon(Icons.person, color: PremiumTheme.primaryBlue, size: 22),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Row(
-                        children: [
-                          Icon(Icons.share_location, color: Colors.blue.shade700, size: 20),
-                          const SizedBox(width: 8),
-                          Text(
-                            'Lien de suivi client',
-                            style: TextStyle(
-                              fontWeight: FontWeight.bold,
-                              color: Colors.blue.shade900,
-                              fontSize: 14,
-                            ),
-                          ),
-                        ],
+                      Text(
+                        _assignedDriverName ?? 'Chauffeur assigne',
+                        style: const TextStyle(color: PremiumTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
                       ),
-                      const SizedBox(height: 8),
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          _publicTrackingLink!,
-                          style: const TextStyle(fontSize: 12, color: Colors.black87),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Row(
-                        children: [
-                          Expanded(
-                            child: OutlinedButton.icon(
-                              onPressed: _copyLinkToClipboard,
-                              icon: const Icon(Icons.copy, size: 16),
-                              label: const Text('Copier'),
-                              style: OutlinedButton.styleFrom(
-                                foregroundColor: Colors.blue.shade700,
-                                side: BorderSide(color: Colors.blue.shade300),
-                              ),
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: FilledButton.icon(
-                              onPressed: _shareTrackingLink,
-                              icon: const Icon(Icons.share, size: 16),
-                              label: const Text('Partager'),
-                              style: FilledButton.styleFrom(
-                                backgroundColor: Colors.blue.shade700,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
+                      const Text('Chauffeur actuel', style: TextStyle(color: PremiumTheme.textTertiary, fontSize: 13)),
                     ],
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
-            ],
-            // Boutons d'action principaux
-            Row(
-              children: [
-                if (_mission!.status == 'pending') ...[
+            ),
+          ] else ...[
+            const Text(
+              'Aucun chauffeur assigne',
+              style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 15),
+            ),
+            const SizedBox(height: 4),
+            const Text(
+              'Partagez le code de mission pour qu\'un chauffeur rejoigne',
+              style: TextStyle(color: PremiumTheme.textTertiary, fontSize: 13),
+            ),
+          ],
+          // Bouton changer de chauffeur (createur uniquement, mission en cours)
+          if (_isCreator && hasDriver && _mission!.status == 'in_progress') ...[
+            const SizedBox(height: 14),
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                onPressed: _changeDriver,
+                icon: const Icon(Icons.swap_horiz, size: 20),
+                label: const Text('Changer de chauffeur'),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: PremiumTheme.accentAmber,
+                  side: BorderSide(color: PremiumTheme.accentAmber.withOpacity(0.5)),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                ),
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Le code de mission restera actif pour le nouveau chauffeur.',
+              style: TextStyle(color: PremiumTheme.textTertiary, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ==============================================
+  //  INSPECTION STATUS CARD
+  // ==============================================
+  Widget _buildInspectionStatusCard() {
+    return _card(
+      icon: Icons.checklist,
+      title: 'Inspections',
+      color: PremiumTheme.primaryTeal,
+      child: Column(
+        children: [
+          _inspectionRow(
+            'Inspection depart',
+            _hasDepartureInspection,
+            Icons.login,
+          ),
+          const SizedBox(height: 10),
+          _inspectionRow(
+            'Inspection arrivee',
+            _hasArrivalInspection,
+            Icons.logout,
+          ),
+          if (_mission!.status == 'in_progress' && (!_hasDepartureInspection || !_hasArrivalInspection)) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: PremiumTheme.accentAmber.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: PremiumTheme.accentAmber.withOpacity(0.3)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.warning_amber_rounded, color: PremiumTheme.accentAmber, size: 18),
+                  const SizedBox(width: 8),
                   Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => _updateStatus('in_progress'),
-                      icon: const Icon(Icons.play_arrow),
-                      label: const Text('Démarrer'),
-                    ),
-                  ),
-                ] else if (_mission!.status == 'in_progress') ...[
-                  Expanded(
-                    child: FilledButton.icon(
-                      onPressed: () => _updateStatus('completed'),
-                      icon: const Icon(Icons.check),
-                      label: const Text('Terminer'),
+                    child: Text(
+                      'Les deux inspections (depart et arrivee) sont obligatoires pour terminer la mission.',
+                      style: TextStyle(color: PremiumTheme.accentAmber.withOpacity(0.9), fontSize: 12),
                     ),
                   ),
                 ],
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  Widget _inspectionRow(String label, bool done, IconData icon) {
+    return Row(
+      children: [
+        Container(
+          width: 32, height: 32,
+          decoration: BoxDecoration(
+            color: done ? PremiumTheme.accentGreen.withOpacity(0.1) : PremiumTheme.textTertiary.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          child: Icon(
+            done ? Icons.check_circle : Icons.radio_button_unchecked,
+            color: done ? PremiumTheme.accentGreen : PremiumTheme.textTertiary,
+            size: 20,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Icon(icon, size: 18, color: done ? PremiumTheme.textPrimary : PremiumTheme.textTertiary),
+        const SizedBox(width: 8),
+        Text(
+          label,
+          style: TextStyle(
+            color: done ? PremiumTheme.textPrimary : PremiumTheme.textTertiary,
+            fontSize: 15,
+            fontWeight: done ? FontWeight.w600 : FontWeight.normal,
+            decoration: done ? TextDecoration.lineThrough : null,
+          ),
+        ),
+        const Spacer(),
+        Text(
+          done ? 'Fait' : 'A faire',
+          style: TextStyle(
+            color: done ? PremiumTheme.accentGreen : PremiumTheme.accentAmber,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==============================================
+  //  MANDATAIRE CARD
+  // ==============================================
+  Widget _buildMandataireCard() {
+    return _card(
+      icon: Icons.person_outline,
+      title: 'Mandataire',
+      color: PremiumTheme.primaryPurple,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            _mission!.mandataireName ?? 'Non renseigne',
+            style: const TextStyle(color: PremiumTheme.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
+          ),
+          if (_mission!.mandataireCompany != null && _mission!.mandataireCompany!.isNotEmpty) ...[
+            const SizedBox(height: 6),
+            Row(
+              children: [
+                const Icon(Icons.business, color: PremiumTheme.primaryPurple, size: 16),
+                const SizedBox(width: 6),
+                Text(
+                  _mission!.mandataireCompany!,
+                  style: const TextStyle(color: PremiumTheme.textSecondary, fontSize: 15),
+                ),
               ],
             ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ==============================================
+  //  VEHICLE CARD
+  // ==============================================
+  Widget _buildVehicleCard() {
+    return _card(
+      icon: Icons.directions_car,
+      title: 'Vehicule',
+      color: PremiumTheme.primaryTeal,
+      child: Column(
+        children: [
+          if (_mission!.vehicleBrand != null || _mission!.vehicleModel != null)
+            _infoRow(Icons.directions_car, 'Marque / Modele',
+                '${_mission!.vehicleBrand ?? ''} ${_mission!.vehicleModel ?? ''}'.trim()),
+          if (_mission!.vehicleType != null)
+            _infoRow(Icons.category, 'Type', _mission!.vehicleType!),
+          if (_mission!.vehiclePlate != null)
+            _infoRow(Icons.pin, 'Immatriculation', _mission!.vehiclePlate!),
+          if (_mission!.vehicleVin != null)
+            _infoRow(Icons.confirmation_number, 'N VIN', _mission!.vehicleVin!),
+        ],
+      ),
+    );
+  }
+
+  // ==============================================
+  //  ITINERAIRE CARD
+  // ==============================================
+  Widget _buildItineraireCard() {
+    final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
+    return _card(
+      icon: Icons.route,
+      title: 'Itineraire',
+      color: PremiumTheme.accentGreen,
+      child: Column(
+        children: [
+          _locationBlock(
+            color: PremiumTheme.accentGreen,
+            label: 'ENLEVEMENT',
+            address: _mission!.pickupAddress ?? 'Non specifie',
+            contactName: _mission!.pickupContactName,
+            contactPhone: _mission!.pickupContactPhone,
+            date: _mission!.pickupDate != null ? dateFormat.format(_mission!.pickupDate!) : null,
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 8),
+            child: Row(
+              children: [
+                const SizedBox(width: 16),
+                Container(
+                  width: 2,
+                  height: 30,
+                  decoration: const BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [PremiumTheme.accentGreen, PremiumTheme.primaryBlue],
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(Icons.arrow_downward, color: PremiumTheme.textTertiary, size: 16),
+              ],
+            ),
+          ),
+          _locationBlock(
+            color: PremiumTheme.primaryBlue,
+            label: 'LIVRAISON',
+            address: _mission!.deliveryAddress ?? 'Non specifie',
+            contactName: _mission!.deliveryContactName,
+            contactPhone: _mission!.deliveryContactPhone,
+            date: _mission!.deliveryDate != null ? dateFormat.format(_mission!.deliveryDate!) : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _locationBlock({
+    required Color color,
+    required String label,
+    required String address,
+    String? contactName,
+    String? contactPhone,
+    String? date,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.05),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withOpacity(0.2)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.circle, color: color, size: 10),
+              const SizedBox(width: 8),
+              Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(address, style: const TextStyle(color: PremiumTheme.textPrimary, fontSize: 15, fontWeight: FontWeight.w500)),
+          if (date != null) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Icon(Icons.calendar_today, color: color.withOpacity(0.7), size: 14),
+                const SizedBox(width: 6),
+                Text(date, style: const TextStyle(color: PremiumTheme.textSecondary, fontSize: 13)),
+              ],
+            ),
+          ],
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: color.withOpacity(0.04),
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: color.withOpacity(0.15)),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(Icons.person, color: color, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        contactName != null && contactName.isNotEmpty
+                            ? contactName
+                            : 'Contact non renseigne',
+                        style: TextStyle(
+                          color: contactName != null && contactName.isNotEmpty
+                              ? PremiumTheme.textPrimary
+                              : PremiumTheme.textTertiary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                if (contactPhone != null && contactPhone.isNotEmpty)
+                  InkWell(
+                    onTap: () => _makePhoneCall(contactPhone),
+                    borderRadius: BorderRadius.circular(10),
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                      decoration: BoxDecoration(
+                        color: color.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(10),
+                        border: Border.all(color: color.withOpacity(0.3)),
+                      ),
+                      child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(Icons.phone, color: color, size: 20),
+                          const SizedBox(width: 10),
+                          Text(
+                            contactPhone,
+                            style: const TextStyle(
+                              color: PremiumTheme.textPrimary,
+                              fontSize: 17,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 0.5,
+                            ),
+                          ),
+                          const SizedBox(width: 10),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: color,
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: const Text(
+                              'Appeler',
+                              style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
+                    decoration: BoxDecoration(
+                      color: PremiumTheme.textTertiary.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: const Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.phone_disabled, color: PremiumTheme.textTertiary, size: 18),
+                        SizedBox(width: 8),
+                        Text(
+                          'Aucun numero de telephone',
+                          style: TextStyle(color: PremiumTheme.textTertiary, fontSize: 14),
+                        ),
+                      ],
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==============================================
+  //  PRICE CARD
+  // ==============================================
+  Widget _buildPriceCard() {
+    return _card(
+      icon: Icons.euro,
+      title: 'Prix',
+      color: PremiumTheme.accentAmber,
+      child: Text(
+        '${_mission!.price!.toStringAsFixed(2)} EUR',
+        style: const TextStyle(color: PremiumTheme.textPrimary, fontSize: 22, fontWeight: FontWeight.bold),
+      ),
+    );
+  }
+
+  // ==============================================
+  //  NOTES CARD
+  // ==============================================
+  Widget _buildNotesCard() {
+    return _card(
+      icon: Icons.note_outlined,
+      title: 'Notes',
+      color: PremiumTheme.textSecondary,
+      child: Text(
+        _mission!.notes!,
+        style: const TextStyle(color: PremiumTheme.textSecondary, fontSize: 15),
+      ),
+    );
+  }
+
+  // ==============================================
+  //  TRACKING CARD
+  // ==============================================
+  Widget _buildTrackingCard() {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: PremiumTheme.cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: _isTrackingActive ? PremiumTheme.accentGreen.withOpacity(0.5) : const Color(0xFFE5E7EB),
+        ),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        children: [
+          Row(
+            children: [
+              Icon(
+                _isTrackingActive ? Icons.gps_fixed : Icons.gps_off,
+                color: _isTrackingActive ? PremiumTheme.accentGreen : PremiumTheme.textTertiary,
+                size: 24,
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _isTrackingActive ? 'Tracking GPS Actif' : 'Tracking GPS Inactif',
+                      style: TextStyle(
+                        color: _isTrackingActive ? PremiumTheme.accentGreen : PremiumTheme.textSecondary,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 15,
+                      ),
+                    ),
+                    Text(
+                      _isTrackingActive
+                          ? 'Position mise a jour toutes les 3s'
+                          : 'Activez pour partager votre position',
+                      style: const TextStyle(color: PremiumTheme.textTertiary, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+              Switch(
+                value: _isTrackingActive,
+                onChanged: (_) => _toggleTracking(),
+                activeColor: PremiumTheme.accentGreen,
+              ),
+            ],
+          ),
+          if (_isTrackingActive && _publicTrackingLink != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: PremiumTheme.lightBg,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFE5E7EB)),
+              ),
+              child: Text(
+                _publicTrackingLink!,
+                style: const TextStyle(color: PremiumTheme.textSecondary, fontSize: 12),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    onPressed: _copyLinkToClipboard,
+                    icon: const Icon(Icons.copy, size: 16),
+                    label: const Text('Copier'),
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: PremiumTheme.primaryTeal,
+                      side: const BorderSide(color: Color(0xFFE5E7EB)),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: ElevatedButton.icon(
+                    onPressed: _shareTrackingLink,
+                    icon: const Icon(Icons.share, size: 16),
+                    label: const Text('Partager'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: PremiumTheme.primaryTeal,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  // ==============================================
+  //  BOTTOM ACTIONS
+  // ==============================================
+  Widget _buildBottomActions() {
+    return SafeArea(
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: PremiumTheme.cardBg,
+          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -3))],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_mission!.status == 'pending')
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => _updateStatus('in_progress'),
+                  icon: const Icon(Icons.play_arrow),
+                  label: const Text('Demarrer la mission', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: PremiumTheme.primaryTeal,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            if (_mission!.status == 'in_progress') ...[
+              // Afficher avertissement si inspections manquantes
+              if (!_hasDepartureInspection || !_hasArrivalInspection)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: PremiumTheme.accentAmber, size: 16),
+                      const SizedBox(width: 6),
+                      Expanded(
+                        child: Text(
+                          !_hasDepartureInspection && !_hasArrivalInspection
+                              ? 'Inspections depart et arrivee requises'
+                              : !_hasDepartureInspection
+                                  ? 'Inspection depart requise'
+                                  : 'Inspection arrivee requise',
+                          style: const TextStyle(color: PremiumTheme.accentAmber, fontSize: 12, fontWeight: FontWeight.w500),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: (_hasDepartureInspection && _hasArrivalInspection)
+                      ? () => _updateStatus('completed')
+                      : () => _showInspectionRequiredDialog(),
+                  icon: const Icon(Icons.check_circle),
+                  label: const Text('Terminer la mission', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: (_hasDepartureInspection && _hasArrivalInspection)
+                        ? PremiumTheme.accentGreen
+                        : PremiumTheme.textTertiary,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ),
+            ],
+            if (_mission!.status == 'completed') ...[
+              // Boutons pour mission terminee: Voir rapport + Creer facture
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _viewReport,
+                      icon: const Icon(Icons.description, size: 20),
+                      label: const Text('Voir le rapport', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: PremiumTheme.primaryBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: _createInvoice,
+                      icon: const Icon(Icons.receipt_long, size: 20),
+                      label: const Text('Creer facture', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: PremiumTheme.accentGreen,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
           ],
         ),
       ),
     );
   }
 
+  // ==============================================
+  //  WIDGETS REUTILISABLES
+  // ==============================================
+  Widget _card({required IconData icon, required String title, required Color color, required Widget child}) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: PremiumTheme.cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withOpacity(0.15)),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, color: color, size: 22),
+              const SizedBox(width: 8),
+              Text(title, style: TextStyle(color: color, fontSize: 17, fontWeight: FontWeight.bold)),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+
+  Widget _infoRow(IconData icon, String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        children: [
+          Icon(icon, color: PremiumTheme.primaryTeal.withOpacity(0.7), size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(label, style: const TextStyle(color: PremiumTheme.textTertiary, fontSize: 12)),
+                const SizedBox(height: 2),
+                Text(value, style: const TextStyle(color: PremiumTheme.textPrimary, fontSize: 15)),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==============================================
+  //  ACTIONS
+  // ==============================================
+  Future<void> _makePhoneCall(String phoneNumber) async {
+    final Uri launchUri = Uri(scheme: 'tel', path: phoneNumber);
+    if (await canLaunchUrl(launchUri)) {
+      await launchUrl(launchUri);
+    }
+  }
+
+  void _showInspectionRequiredDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: PremiumTheme.cardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.warning_amber_rounded, color: PremiumTheme.accentAmber, size: 28),
+            SizedBox(width: 10),
+            Expanded(child: Text('Inspections requises', style: TextStyle(color: PremiumTheme.textPrimary, fontSize: 18))),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Vous ne pouvez pas terminer cette mission sans avoir effectue les deux inspections:',
+              style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 14),
+            ),
+            const SizedBox(height: 16),
+            _dialogInspectionItem('Inspection de depart', _hasDepartureInspection),
+            const SizedBox(height: 8),
+            _dialogInspectionItem('Inspection d\'arrivee', _hasArrivalInspection),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Compris', style: TextStyle(color: PremiumTheme.primaryBlue, fontWeight: FontWeight.w600)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _dialogInspectionItem(String label, bool done) {
+    return Row(
+      children: [
+        Icon(
+          done ? Icons.check_circle : Icons.cancel,
+          color: done ? PremiumTheme.accentGreen : PremiumTheme.accentRed,
+          size: 22,
+        ),
+        const SizedBox(width: 10),
+        Text(
+          label,
+          style: TextStyle(
+            color: done ? PremiumTheme.accentGreen : PremiumTheme.accentRed,
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+      ],
+    );
+  }
+
   Future<void> _updateStatus(String newStatus) async {
+    // Bloquer la completion sans les deux inspections
+    if (newStatus == 'completed') {
+      if (!_hasDepartureInspection || !_hasArrivalInspection) {
+        _showInspectionRequiredDialog();
+        return;
+      }
+    }
+
     try {
-      // Mettre à jour le statut
       await _missionService.updateMissionStatus(_mission!.id, newStatus);
-      
-      // Gérer le tracking GPS automatiquement
+
       if (newStatus == 'in_progress') {
-        // Démarrer le tracking quand la mission commence
         final started = await _trackingService.startTracking(_mission!.id, autoStart: true);
-        if (started) {
+        if (started && mounted) {
           setState(() => _isTrackingActive = true);
-          print('✅ Tracking GPS démarré automatiquement');
         }
       } else if (newStatus == 'completed') {
-        // Arrêter le tracking quand la mission est terminée
         await _trackingService.stopTracking();
-        setState(() => _isTrackingActive = false);
-        print('⏹️ Tracking GPS arrêté automatiquement');
+        if (mounted) setState(() => _isTrackingActive = false);
       }
-      
+
       await _loadMission();
       if (!mounted) return;
-      
-      String message = 'Statut mis à jour';
+
+      String message = 'Statut mis a jour';
       if (newStatus == 'in_progress') {
-        message = 'Mission démarrée - Tracking GPS activé 📍';
+        message = 'Mission demarree - Tracking GPS active';
       } else if (newStatus == 'completed') {
-        message = 'Mission terminée - Tracking GPS arrêté ✅';
+        message = 'Mission terminee';
       }
-      
+
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(message),
-          backgroundColor: Colors.green,
+        SnackBar(content: Text(message), backgroundColor: PremiumTheme.accentGreen, behavior: SnackBarBehavior.floating),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: PremiumTheme.accentRed, behavior: SnackBarBehavior.floating),
+      );
+    }
+  }
+
+  // ==============================================
+  //  CHANGER DE CHAUFFEUR
+  // ==============================================
+  Future<void> _changeDriver() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: PremiumTheme.cardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Row(
+          children: [
+            Icon(Icons.swap_horiz, color: PremiumTheme.accentAmber, size: 28),
+            SizedBox(width: 10),
+            Expanded(child: Text('Changer de chauffeur', style: TextStyle(color: PremiumTheme.textPrimary, fontSize: 18))),
+          ],
+        ),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Le chauffeur actuel sera retire de la mission. Un nouveau chauffeur pourra rejoindre avec le meme code de mission.',
+              style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 14),
+            ),
+            SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.key, color: PremiumTheme.primaryPurple, size: 18),
+                SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    'Le code de mission reste inchange et fonctionnel.',
+                    style: TextStyle(color: PremiumTheme.primaryPurple, fontSize: 13, fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Annuler', style: TextStyle(color: PremiumTheme.textSecondary)),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: PremiumTheme.accentAmber,
+              foregroundColor: Colors.white,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            child: const Text('Confirmer le changement'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      // Liberer le chauffeur actuel en mettant assigned_user_id a null
+      await Supabase.instance.client
+          .from('missions')
+          .update({
+            'assigned_user_id': null,
+            'status': 'pending',
+          })
+          .eq('id', _mission!.id);
+
+      await _loadMission();
+      if (!mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Expanded(child: Text('Chauffeur libere. Le code de mission est toujours actif pour un nouveau chauffeur.')),
+            ],
+          ),
+          backgroundColor: PremiumTheme.accentGreen,
           behavior: SnackBarBehavior.floating,
+          duration: Duration(seconds: 4),
         ),
       );
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(ErrorHelper.cleanError(e)),
-          backgroundColor: Colors.red,
+          content: Text('Erreur: ${ErrorHelper.cleanError(e)}'),
+          backgroundColor: PremiumTheme.accentRed,
           behavior: SnackBarBehavior.floating,
         ),
       );
     }
   }
 
+  // ==============================================
+  //  VOIR LE RAPPORT
+  // ==============================================
+  Future<void> _viewReport() async {
+    try {
+      // Chercher un token existant
+      final existing = await Supabase.instance.client
+          .from('inspection_report_shares')
+          .select('share_token')
+          .eq('mission_id', _mission!.id)
+          .eq('is_active', true)
+          .maybeSingle();
+
+      String shareToken;
+      if (existing != null) {
+        shareToken = existing['share_token'] as String;
+      } else {
+        // Creer un nouveau token
+        final userId = Supabase.instance.client.auth.currentUser?.id;
+        if (userId == null) {
+          if (!mounted) return;
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Erreur: utilisateur non connecte'), backgroundColor: PremiumTheme.accentRed),
+          );
+          return;
+        }
+
+        final token = DateTime.now().millisecondsSinceEpoch.toRadixString(36) +
+            userId.substring(0, 8);
+
+        await Supabase.instance.client.from('inspection_report_shares').insert({
+          'mission_id': _mission!.id,
+          'user_id': userId,
+          'share_token': token,
+          'report_type': 'complete',
+          'is_active': true,
+          'expires_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+        });
+        shareToken = token;
+      }
+
+      final reportUrl = 'https://www.checksfleet.com/rapport-inspection/$shareToken';
+      final uri = Uri.parse(reportUrl);
+      try {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } catch (_) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Impossible d\'ouvrir le navigateur'), backgroundColor: PremiumTheme.accentRed),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: ${ErrorHelper.cleanError(e)}'),
+          backgroundColor: PremiumTheme.accentRed,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
+  }
+
+  // ==============================================
+  //  CREER FACTURE
+  // ==============================================
+  void _createInvoice() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (_) => const InvoiceFormScreen()),
+    );
+  }
+
   Future<void> _toggleTracking() async {
     try {
       if (_isTrackingActive) {
-        // Arrêter le tracking
         await _trackingService.stopTracking();
-        setState(() => _isTrackingActive = false);
-        
+        if (mounted) setState(() => _isTrackingActive = false);
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Row(
-              children: [
-                Icon(Icons.gps_off, color: Colors.white, size: 20),
-                SizedBox(width: 8),
-                Text('Tracking GPS désactivé'),
-              ],
-            ),
+            content: Row(children: [
+              Icon(Icons.gps_off, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Text('Tracking GPS desactive'),
+            ]),
             backgroundColor: Colors.orange,
             duration: Duration(seconds: 2),
           ),
         );
       } else {
-        // Démarrer le tracking
         final started = await _trackingService.startTracking(_mission!.id);
-        if (started) {
+        if (started && mounted) {
           setState(() => _isTrackingActive = true);
-          // Générer le lien public
           _generatePublicLink();
-          
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Row(
-                children: [
-                  Icon(Icons.gps_fixed, color: Colors.white, size: 20),
-                  SizedBox(width: 8),
-                  Text('📍 Tracking GPS activé (3s)'),
-                ],
-              ),
+              content: Row(children: [
+                Icon(Icons.gps_fixed, color: Colors.white, size: 20),
+                SizedBox(width: 8),
+                Text('Tracking GPS active'),
+              ]),
               backgroundColor: Colors.green,
               duration: Duration(seconds: 2),
             ),
@@ -427,8 +1445,8 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
-              content: Text('❌ Impossible de démarrer le GPS (permissions?)'),
-              backgroundColor: Colors.red,
+              content: Text('Impossible de demarrer le GPS (permissions?)'),
+              backgroundColor: PremiumTheme.accentRed,
             ),
           );
         }
@@ -436,10 +1454,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(ErrorHelper.cleanError(e)),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: PremiumTheme.accentRed),
       );
     }
   }
@@ -448,19 +1463,19 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Supprimer la mission'),
-        content: const Text('Êtes-vous sûr de vouloir supprimer cette mission ?'),
+        backgroundColor: PremiumTheme.cardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Supprimer la mission', style: TextStyle(color: PremiumTheme.textPrimary)),
+        content: const Text('Etes-vous sur de vouloir supprimer cette mission ?', style: TextStyle(color: PremiumTheme.textSecondary)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
+            child: const Text('Annuler', style: TextStyle(color: PremiumTheme.textSecondary)),
           ),
-          FilledButton(
+          ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Colors.red,
-            ),
-            child: const Text('Supprimer'),
+            style: ElevatedButton.styleFrom(backgroundColor: PremiumTheme.accentRed),
+            child: const Text('Supprimer', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -472,12 +1487,12 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         if (!mounted) return;
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Mission supprimée')),
+          const SnackBar(content: Text('Mission supprimee'), backgroundColor: PremiumTheme.accentGreen),
         );
       } catch (e) {
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(ErrorHelper.cleanError(e))),
+          SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: PremiumTheme.accentRed),
         );
       }
     }
@@ -486,31 +1501,22 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
   Future<void> _generatePublicLink() async {
     try {
       final link = await _missionService.generatePublicTrackingLink(_mission!.id);
-      if (link != null) {
+      if (link != null && mounted) {
         setState(() => _publicTrackingLink = link);
       }
     } catch (e) {
-      // Log silencieusement, pas critique
-      print('Erreur génération lien public: $e');
+      debugPrint('Erreur generation lien public: $e');
     }
   }
 
   Future<void> _copyLinkToClipboard() async {
     if (_publicTrackingLink == null) return;
-    
     await Clipboard.setData(ClipboardData(text: _publicTrackingLink!));
-    
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.white, size: 20),
-            SizedBox(width: 8),
-            Text('✅ Lien copié dans le presse-papier'),
-          ],
-        ),
-        backgroundColor: Colors.green,
+        content: Text('Lien copie dans le presse-papier'),
+        backgroundColor: PremiumTheme.accentGreen,
         duration: Duration(seconds: 2),
       ),
     );
@@ -518,619 +1524,18 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
 
   Future<void> _shareTrackingLink() async {
     if (_publicTrackingLink == null) return;
-    
-    final message = '''
-🚗 Suivi de votre livraison en temps réel
-
-Mission: ${_mission!.reference}
-📍 Suivez votre commande en direct:
-
-$_publicTrackingLink
-
-Actualisé toutes les 3 secondes.
-ChecksFleet - Votre transporteur de confiance
-''';
-    
+    final message = 'Suivi de votre livraison en temps reel\n\n'
+        'Mission: ${_mission!.reference}\n'
+        'Suivez votre commande en direct:\n\n'
+        '$_publicTrackingLink\n\n'
+        'ChecksFleet';
     try {
-      await Share.share(
-        message,
-        subject: 'Suivi GPS - Mission ${_mission!.reference}',
-      );
+      await Share.share(message, subject: 'Suivi GPS - Mission ${_mission!.reference}');
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Erreur partage: ${ErrorHelper.cleanError(e)}'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Erreur partage: ${ErrorHelper.cleanError(e)}'), backgroundColor: PremiumTheme.accentRed),
       );
     }
-  }
-}
-
-class _StatusCard extends StatelessWidget {
-  final Mission mission;
-
-  const _StatusCard({required this.mission});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(
-                  _getStatusIcon(mission.status),
-                  color: _getStatusColor(mission.status),
-                ),
-                const SizedBox(width: 8),
-                Text(
-                  _getStatusText(mission.status),
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: _getStatusColor(mission.status),
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  IconData _getStatusIcon(String status) {
-    switch (status) {
-      case 'pending':
-        return Icons.schedule;
-      case 'assigned':
-        return Icons.assignment_ind;
-      case 'in_progress':
-        return Icons.local_shipping;
-      case 'completed':
-        return Icons.check_circle;
-      default:
-        return Icons.info;
-    }
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'pending':
-        return Colors.orange;
-      case 'assigned':
-        return Colors.blue;
-      case 'in_progress':
-        return Colors.purple;
-      case 'completed':
-        return Colors.green;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getStatusText(String status) {
-    switch (status) {
-      case 'pending':
-        return 'En attente';
-      case 'assigned':
-        return 'Assignée';
-      case 'in_progress':
-        return 'En cours';
-      case 'completed':
-        return 'Terminée';
-      default:
-        return status;
-    }
-  }
-}
-
-class _MandataireCard extends StatelessWidget {
-  final Mission mission;
-
-  const _MandataireCard({required this.mission});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      color: Colors.purple.shade50,
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Icon(Icons.person, color: Colors.purple.shade700),
-                const SizedBox(width: 8),
-                Text(
-                  'Mandataire',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.purple.shade900,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            if (mission.mandataireName != null)
-              Text(
-                mission.mandataireName!,
-                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
-                    ),
-              ),
-            if (mission.mandataireCompany != null) ...[
-              const SizedBox(height: 4),
-              Row(
-                children: [
-                  Icon(Icons.business, color: Colors.purple.shade600, size: 16),
-                  const SizedBox(width: 4),
-                  Text(
-                    mission.mandataireCompany!,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: Colors.grey.shade700,
-                        ),
-                  ),
-                ],
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _AddressCard extends StatelessWidget {
-  final Mission mission;
-
-  const _AddressCard({required this.mission});
-
-  @override
-  Widget build(BuildContext context) {
-    final dateFormat = DateFormat('EEEE d MMMM yyyy, HH:mm', 'fr_FR');
-    
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  'Itinéraire',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
-                      ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Point d'enlèvement
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.green.shade50, const Color(0xFF10B981).withOpacity(0.2)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.green.shade200),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Text('📍', style: TextStyle(fontSize: 20)),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Point d\'Enlèvement',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.green.shade900,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    mission.pickupAddress ?? 'Non spécifié',
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                  if (mission.pickupContactName != null) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Text('👤', style: TextStyle(fontSize: 16)),
-                        const SizedBox(width: 4),
-                        Text(
-                          mission.pickupContactName!,
-                          style: TextStyle(color: Colors.grey.shade700),
-                        ),
-                      ],
-                    ),
-                  ],
-                  if (mission.pickupContactPhone != null) ...[
-                    const SizedBox(height: 4),
-                    InkWell(
-                      onTap: () => _makePhoneCall(mission.pickupContactPhone!),
-                      child: Row(
-                        children: [
-                          const Text('📞', style: TextStyle(fontSize: 16)),
-                          const SizedBox(width: 4),
-                          Text(
-                            mission.pickupContactPhone!,
-                            style: TextStyle(
-                              color: Colors.green.shade700,
-                              decoration: TextDecoration.underline,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (mission.pickupDate != null) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Text('📅', style: TextStyle(fontSize: 16)),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            dateFormat.format(mission.pickupDate!),
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 12),
-            // Point de livraison
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Colors.blue.shade50, Colors.indigo.shade50],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.blue.shade200),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Text('🎯', style: TextStyle(fontSize: 20)),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Point de Livraison',
-                        style: TextStyle(
-                          fontWeight: FontWeight.bold,
-                          color: Colors.blue.shade900,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    mission.deliveryAddress ?? 'Non spécifié',
-                    style: const TextStyle(fontWeight: FontWeight.w500),
-                  ),
-                  if (mission.deliveryContactName != null) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Text('👤', style: TextStyle(fontSize: 16)),
-                        const SizedBox(width: 4),
-                        Text(
-                          'Réceptionnaire: ${mission.deliveryContactName!}',
-                          style: TextStyle(color: Colors.grey.shade700),
-                        ),
-                      ],
-                    ),
-                  ],
-                  if (mission.deliveryContactPhone != null) ...[
-                    const SizedBox(height: 4),
-                    InkWell(
-                      onTap: () => _makePhoneCall(mission.deliveryContactPhone!),
-                      child: Row(
-                        children: [
-                          const Text('📞', style: TextStyle(fontSize: 16)),
-                          const SizedBox(width: 4),
-                          Text(
-                            mission.deliveryContactPhone!,
-                            style: TextStyle(
-                              color: Colors.blue.shade700,
-                              decoration: TextDecoration.underline,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                  if (mission.deliveryDate != null) ...[
-                    const SizedBox(height: 8),
-                    Row(
-                      children: [
-                        const Text('📅', style: TextStyle(fontSize: 16)),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(
-                            dateFormat.format(mission.deliveryDate!),
-                            style: TextStyle(
-                              fontSize: 13,
-                              color: Colors.grey.shade700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _makePhoneCall(String phoneNumber) async {
-    final Uri launchUri = Uri(
-      scheme: 'tel',
-      path: phoneNumber,
-    );
-    if (await canLaunchUrl(launchUri)) {
-      await launchUrl(launchUri);
-    }
-  }
-}
-
-class _AddressItem extends StatelessWidget {
-  final IconData icon;
-  final String title;
-  final String address;
-  final String? city;
-
-  const _AddressItem({
-    required this.icon,
-    required this.title,
-    required this.address,
-    this.city,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(icon, color: Theme.of(context).colorScheme.primary),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
-                    ),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                address,
-                style: Theme.of(context).textTheme.bodyMedium,
-              ),
-              if (city != null) ...[
-                const SizedBox(height: 2),
-                Text(
-                  city!,
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ],
-            ],
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _VehicleCard extends StatelessWidget {
-  final Mission mission;
-
-  const _VehicleCard({required this.mission});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Véhicule',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            if (mission.vehicleBrand != null || mission.vehicleModel != null)
-              _InfoRow(
-                icon: Icons.directions_car,
-                label: 'Marque / Modèle',
-                value: '${mission.vehicleBrand ?? ''} ${mission.vehicleModel ?? ''}'.trim(),
-              ),
-            if (mission.vehicleType != null)
-              _InfoRow(
-                icon: Icons.category,
-                label: 'Type',
-                value: mission.vehicleType!,
-              ),
-            if (mission.vehiclePlate != null)
-              _InfoRow(
-                icon: Icons.credit_card,
-                label: 'Immatriculation',
-                value: mission.vehiclePlate!,
-              ),
-            if (mission.vehicleVin != null)
-              _InfoRow(
-                icon: Icons.numbers,
-                label: 'N° VIN',
-                value: mission.vehicleVin!,
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _ClientCard extends StatelessWidget {
-  final Mission mission;
-
-  const _ClientCard({required this.mission});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Client',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 16),
-            if (mission.clientName != null)
-              _InfoRow(
-                icon: Icons.person,
-                label: 'Nom',
-                value: mission.clientName!,
-              ),
-            if (mission.clientPhone != null)
-              _InfoRow(
-                icon: Icons.phone,
-                label: 'Téléphone',
-                value: mission.clientPhone!,
-              ),
-            if (mission.clientEmail != null)
-              _InfoRow(
-                icon: Icons.email,
-                label: 'Email',
-                value: mission.clientEmail!,
-              ),
-            if (mission.price != null)
-              _InfoRow(
-                icon: Icons.euro,
-                label: 'Prix',
-                value: '${mission.price!.toStringAsFixed(2)} €',
-              ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _NotesCard extends StatelessWidget {
-  final Mission mission;
-
-  const _NotesCard({required this.mission});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Notes',
-              style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              mission.notes!,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _InfoRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _InfoRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Row(
-        children: [
-          Icon(
-            icon,
-            size: 20,
-            color: Theme.of(context).colorScheme.onSurfaceVariant,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  label,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
-                      ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  value,
-                  style: Theme.of(context).textTheme.bodyMedium,
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }

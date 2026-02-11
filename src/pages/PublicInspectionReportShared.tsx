@@ -85,11 +85,31 @@ export default function PublicInspectionReportShared() {
 
   const loadReport = async () => {
     try {
-      const { data, error: rpcError } = await supabase.rpc('get_full_inspection_report', { p_token: token });
+      const { data, error: rpcError } = await supabase.rpc('get_inspection_report_by_token', { p_token: token });
       if (rpcError) throw rpcError;
       if (!data || data.error) throw new Error(data?.error || 'Rapport non trouvé');
 
-      setReportData(data);
+      // Le RPC déployé (get_inspection_report_by_token) retourne le format:
+      // { mission_data, vehicle_data, inspection_departure, inspection_arrival, report_type }
+      // Si jamais get_full_inspection_report est déployé plus tard (format timeline),
+      // on transforme conditionnellement comme dans la version mobile.
+      let transformed = data;
+      if (data.mission && !data.mission_data) {
+        // Format timeline: { mission, vehicle, timeline, report_type }
+        const timeline = data.timeline || [];
+        const departureEvent = timeline.find((e: any) => e.event_type === 'departure_inspection');
+        const arrivalEvent = timeline.find((e: any) => e.event_type === 'arrival_inspection');
+        transformed = {
+          mission_data: data.mission,
+          vehicle_data: data.vehicle,
+          inspection_departure: departureEvent?.data || null,
+          inspection_arrival: arrivalEvent?.data || null,
+          report_type: data.report_type || 'complete',
+          timeline: timeline,
+        };
+      }
+
+      setReportData(transformed);
     } catch (err: any) {
       setError(err.message);
     } finally {
