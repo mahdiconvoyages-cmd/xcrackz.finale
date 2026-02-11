@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter/foundation.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import '../screens/scanned_documents/scanned_documents_screen_new.dart';
 import '../screens/onboarding/onboarding_screen.dart';
 import '../screens/sharing/public_sharing_screen.dart';
@@ -236,22 +237,28 @@ class AppDrawer extends StatelessWidget {
           const SizedBox(height: 24),
 
           // App Version
-          Center(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              decoration: BoxDecoration(
-                color: const Color(0xFF1E293B),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Text(
-                'CHECKSFLEET v3.2.5',
-                style: TextStyle(
-                  color: Color(0xFF9CA3AF),
-                  fontSize: 11,
-                  fontWeight: FontWeight.w600,
+          FutureBuilder<PackageInfo>(
+            future: PackageInfo.fromPlatform(),
+            builder: (context, snapshot) {
+              final version = snapshot.data?.version ?? '...';
+              return Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF1E293B),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    'CHECKSFLEET v$version',
+                    style: const TextStyle(
+                      color: Color(0xFF9CA3AF),
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
-              ),
-            ),
+              );
+            },
           ),
 
           const SizedBox(height: 24),

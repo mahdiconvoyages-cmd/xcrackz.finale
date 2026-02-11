@@ -297,6 +297,8 @@ class PremiumTheme {
   // THEME DATA - THÈME CLAIR MODERNE
   // ============================================
   
+  static ThemeData get lightTheme => darkTheme;
+
   static ThemeData darkTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,

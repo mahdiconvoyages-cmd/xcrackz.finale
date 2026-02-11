@@ -1,0 +1,171 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <!-- Gradient principal Teal (couleur primaire ChecksFleet) -->
+    <linearGradient id="tealGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#14b8a6"/>
+      <stop offset="50%" style="stop-color:#0d9488"/>
+      <stop offset="100%" style="stop-color:#14b8a6"/>
+    </linearGradient>
+    
+    <!-- Gradient secondaire Bleu -->
+    <linearGradient id="blueGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#3b82f6"/>
+      <stop offset="100%" style="stop-color:#2563eb"/>
+    </linearGradient>
+    
+    <!-- Gradient accent Violet -->
+    <linearGradient id="violetGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+    
+    <!-- Background avec les couleurs slate du site -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/>
+      <stop offset="50%" style="stop-color:#1e293b"/>
+      <stop offset="100%" style="stop-color:#334155"/>
+    </linearGradient>
+    
+    <!-- Gradient roues (Teal vers Bleu) -->
+    <radialGradient id="wheelGrad" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" style="stop-color:#14b8a6"/>
+      <stop offset="100%" style="stop-color:#3b82f6"/>
+    </radialGradient>
+    
+    <!-- Ombre douce -->
+    <filter id="softShadow">
+      <feGaussianBlur in="SourceAlpha" stdDeviation="3"/>
+      <feOffset dx="0" dy="2"/>
+      <feComponentTransfer>
+        <feFuncA type="linear" slope="0.25"/>
+      </feComponentTransfer>
+      <feMerge>
+        <feMergeNode/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Background moderne avec coins arrondis -->
+  <rect width="512" height="512" rx="110" fill="url(#bgGrad)"/>
+
+  <!-- Formes décoratives d'arrière-plan (subtiles) -->
+  <circle cx="100" cy="100" r="80" fill="url(#tealGrad)" opacity="0.08"/>
+  <circle cx="420" cy="380" r="100" fill="url(#blueGrad)" opacity="0.08"/>
+  <circle cx="380" cy="120" r="60" fill="url(#violetGrad)" opacity="0.06"/>
+
+  <!-- Camion moderne avec bordures colorées -->
+  <g transform="translate(256, 170)">
+    <!-- Remorque principale -->
+    <rect x="-100" y="-30" width="125" height="70" rx="8" fill="white" filter="url(#softShadow)"/>
+    <!-- Bordure Teal -->
+    <rect x="-100" y="-30" width="125" height="70" rx="8" fill="none" stroke="url(#tealGrad)" stroke-width="4"/>
+    
+    <!-- Lignes de style intérieures -->
+    <line x1="-85" y1="-15" x2="-40" y2="-15" stroke="url(#tealGrad)" stroke-width="2" opacity="0.3"/>
+    <line x1="-85" y1="0" x2="-35" y2="0" stroke="url(#tealGrad)" stroke-width="2" opacity="0.3"/>
+    <line x1="-85" y1="15" x2="-40" y2="15" stroke="url(#tealGrad)" stroke-width="2" opacity="0.3"/>
+    
+    <!-- Cabine principale -->
+    <rect x="30" y="-22" width="75" height="60" rx="6" fill="white" filter="url(#softShadow)"/>
+    <!-- Bordure Bleu -->
+    <rect x="30" y="-22" width="75" height="60" rx="6" fill="none" stroke="url(#blueGrad)" stroke-width="3"/>
+    
+    <!-- Pare-brise moderne avec gradient Teal -->
+    <rect x="38" y="-14" width="32" height="22" rx="3" fill="url(#tealGrad)" opacity="0.8"/>
+    
+    <!-- Capot/Avant du camion -->
+    <rect x="75" y="-8" width="28" height="45" rx="4" fill="white" filter="url(#softShadow)"/>
+    <!-- Bordure Violet -->
+    <rect x="75" y="-8" width="28" height="45" rx="4" fill="none" stroke="url(#violetGrad)" stroke-width="2"/>
+    
+    <!-- Grille avant stylisée -->
+    <line x1="80" y1="2" x2="95" y2="2" stroke="url(#tealGrad)" stroke-width="2" opacity="0.4"/>
+    <line x1="80" y1="12" x2="95" y2="12" stroke="url(#tealGrad)" stroke-width="2" opacity="0.4"/>
+    <line x1="80" y1="22" x2="95" y2="22" stroke="url(#tealGrad)" stroke-width="2" opacity="0.4"/>
+    
+    <!-- Lignes de vitesse (motion) -->
+    <line x1="-85" y1="-38" x2="-55" y2="-38" stroke="url(#tealGrad)" stroke-width="3" stroke-linecap="round" opacity="0.5"/>
+    <line x1="-80" y1="-45" x2="-45" y2="-45" stroke="url(#blueGrad)" stroke-width="2.5" stroke-linecap="round" opacity="0.4"/>
+    
+    <!-- Roues stylisées avec gradient site -->
+    <!-- Roue arrière 1 -->
+    <g>
+      <circle cx="-72" cy="48" r="20" fill="#1e293b"/>
+      <circle cx="-72" cy="48" r="15" fill="url(#wheelGrad)"/>
+      <circle cx="-72" cy="48" r="8" fill="#0f172a"/>
+      <circle cx="-72" cy="48" r="15" fill="none" stroke="white" stroke-width="1" opacity="0.4"/>
+    </g>
+    
+    <!-- Roue arrière 2 -->
+    <g>
+      <circle cx="-32" cy="48" r="20" fill="#1e293b"/>
+      <circle cx="-32" cy="48" r="15" fill="url(#wheelGrad)"/>
+      <circle cx="-32" cy="48" r="8" fill="#0f172a"/>
+      <circle cx="-32" cy="48" r="15" fill="none" stroke="white" stroke-width="1" opacity="0.4"/>
+    </g>
+    
+    <!-- Roue avant -->
+    <g>
+      <circle cx="52" cy="48" r="20" fill="#1e293b"/>
+      <circle cx="52" cy="48" r="15" fill="url(#wheelGrad)"/>
+      <circle cx="52" cy="48" r="8" fill="#0f172a"/>
+      <circle cx="52" cy="48" r="15" fill="none" stroke="white" stroke-width="1" opacity="0.4"/>
+    </g>
+  </g>
+
+  <!-- Badge de validation (Success green ChecksFleet) -->
+  <g transform="translate(380, 140)">
+    <circle r="32" fill="#10b981" filter="url(#softShadow)"/>
+    <circle r="26" fill="none" stroke="white" stroke-width="3" opacity="0.9"/>
+    <path d="M -8 0 L -2 7 L 10 -9" stroke="white" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Icône GPS/Tracking (couleur Bleu) -->
+  <g transform="translate(130, 140)">
+    <circle r="26" fill="url(#blueGrad)" opacity="0.95" filter="url(#softShadow)"/>
+    <circle r="9" fill="white"/>
+    <circle r="15" fill="none" stroke="white" stroke-width="2" opacity="0.6"/>
+    <circle r="20" fill="none" stroke="white" stroke-width="1.5" opacity="0.3"/>
+  </g>
+
+  <!-- Texte ChecksFleet avec espacement moderne -->
+  <text 
+    x="256" 
+    y="355" 
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif" 
+    font-size="74" 
+    font-weight="900" 
+    fill="white" 
+    text-anchor="middle"
+    letter-spacing="0">ChecksFleet</text>
+  
+  <!-- Ligne décorative avec gradient Teal (couleur primaire) -->
+  <line x1="145" y1="380" x2="367" y2="380" stroke="url(#tealGrad)" stroke-width="5" stroke-linecap="round"/>
+  
+  <!-- Sous-titre avec couleur Teal -->
+  <text 
+    x="256" 
+    y="418" 
+    font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif" 
+    font-size="28" 
+    font-weight="700" 
+    fill="#14b8a6" 
+    text-anchor="middle"
+    letter-spacing="5">SMART LOGISTICS</text>
+
+  <!-- Points GPS animés (couleurs du site) -->
+  <circle cx="412" cy="300" r="7" fill="#14b8a6" opacity="0.85">
+    <animate attributeName="opacity" values="0.85;0.3;0.85" dur="2s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="428" cy="322" r="6" fill="#3b82f6" opacity="0.65">
+    <animate attributeName="opacity" values="0.65;0.2;0.65" dur="2.5s" repeatCount="indefinite"/>
+  </circle>
+  <circle cx="408" cy="342" r="5" fill="#8b5cf6" opacity="0.5">
+    <animate attributeName="opacity" values="0.5;0.15;0.5" dur="3s" repeatCount="indefinite"/>
+  </circle>
+
+  <!-- Bordure avec gradient Teal -->
+  <rect width="512" height="512" rx="110" fill="none" stroke="url(#tealGrad)" stroke-width="4" opacity="0.25"/>
+</svg>

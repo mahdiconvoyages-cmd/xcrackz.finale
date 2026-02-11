@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../utils/logger.dart';
 
 /// Service d'autocomplétion d'adresses utilisant l'API Adresse du gouvernement français
 class AddressAutocompleteService {
@@ -41,7 +42,7 @@ class AddressAutocompleteService {
         }).toList();
       }
     } catch (e) {
-      debugPrint('Error fetching address suggestions: $e');
+      logger.e('Error fetching address suggestions: $e');
     }
 
     return [];
@@ -79,7 +80,7 @@ class AddressAutocompleteService {
         }).toList();
       }
     } catch (e) {
-      debugPrint('Error fetching city suggestions: $e');
+      logger.e('Error fetching city suggestions: $e');
     }
 
     return [];
@@ -114,7 +115,7 @@ class AddressAutocompleteService {
         );
       }
     } catch (e) {
-      debugPrint('Error reverse geocoding: $e');
+      logger.e('Error reverse geocoding: $e');
     }
 
     return null;

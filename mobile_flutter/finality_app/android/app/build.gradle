@@ -13,7 +13,7 @@ if (keystorePropertiesFile.exists()) {
 }
 
 android {
-    namespace = "com.xcrackz.app"
+    namespace = "com.checksfleet.app"
     compileSdk = 36
     ndkVersion = flutter.ndkVersion
 
@@ -29,7 +29,7 @@ android {
 
     defaultConfig {
         // Application ID - Unique identifier for your app
-        applicationId = "com.xcrackz.app"
+        applicationId = "com.checksfleet.app"
         // Minimum Android version (Android 5.0 Lollipop)
         minSdkVersion = flutter.minSdkVersion
         // Target latest Android version
@@ -58,12 +58,10 @@ android {
         release {
             // Use release signing config if available, otherwise debug
             signingConfig = keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
-            // Enable code shrinking and obfuscation
-            minifyEnabled true
-            // Enable resource shrinking
-            shrinkResources true
-            // ProGuard rules
-            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // Disable R8 minification - Flutter handles its own optimization via Dart AOT
+            // R8 can strip native plugin classes (sqflite, supabase, etc.) causing crashes
+            minifyEnabled false
+            shrinkResources false
         }
         debug {
             signingConfig = signingConfigs.debug

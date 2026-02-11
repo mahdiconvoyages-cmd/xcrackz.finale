@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/client.dart';
+import '../utils/logger.dart';
 
 /// Service de gestion des clients
 /// CRUD complet avec recherche SIRET via API INSEE
@@ -181,7 +182,7 @@ class ClientService {
 
       return [];
     } catch (e) {
-      print('Erreur recherche SIRET: $e');
+      logger.e('Erreur recherche SIRET: $e');
       return [];
     }
   }

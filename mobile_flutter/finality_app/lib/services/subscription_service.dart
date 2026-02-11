@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_subscription.dart';
+import '../utils/logger.dart';
 
 class SubscriptionService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -16,7 +17,7 @@ class SubscriptionService {
         if (subscription.expiresAt!.isBefore(now) && subscription.status != 'expired') {
           // Marquer comme expiré et reset les crédits
           await _updateSubscriptionStatus(userId, 'expired');
-          print('✅ Abonnement expiré - Crédits remis à 0 pour user: $userId');
+          logger.i('Abonnement expiré - Crédits remis à 0 pour user: $userId');
         } else if (subscription.status == 'expired') {
           // Déjà expiré, s'assurer que les crédits sont à 0
           await _ensureCreditsAreZero(userId);
@@ -28,7 +29,7 @@ class SubscriptionService {
         await _ensureCreditsAreZero(userId);
       }
     } catch (e) {
-      print('❌ Erreur checkAndResetExpiredCredits: $e');
+      logger.e('Erreur checkAndResetExpiredCredits: $e');
     }
   }
 
@@ -45,10 +46,10 @@ class SubscriptionService {
       
       if (currentCredits > 0) {
         await _resetCreditsOnExpiration(userId);
-        print('✅ Crédits forcés à 0 pour abonnement expiré: $userId');
+        logger.i('Crédits forcés à 0 pour abonnement expiré: $userId');
       }
     } catch (e) {
-      print('❌ Erreur _ensureCreditsAreZero: $e');
+      logger.e('Erreur _ensureCreditsAreZero: $e');
     }
   }
 
@@ -175,7 +176,7 @@ class SubscriptionService {
       }
     } catch (e) {
       // Log mais ne pas bloquer
-      print('Erreur lors de la remise à zéro des crédits: $e');
+      logger.e('Erreur lors de la remise à zéro des crédits: $e');
     }
   }
 

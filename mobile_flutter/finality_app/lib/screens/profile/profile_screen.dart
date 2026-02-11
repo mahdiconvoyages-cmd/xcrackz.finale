@@ -39,16 +39,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
             .maybeSingle();
         
         if (response != null) {
+          if (!mounted) return;
           setState(() {
             _firstName = response['first_name'] ?? '';
             _lastName = response['last_name'] ?? '';
             _isLoading = false;
           });
         } else {
+          if (!mounted) return;
           setState(() => _isLoading = false);
         }
       }
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }
@@ -90,8 +93,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ],
               ),
-              child: SvgPicture.asset(
-                'assets/images/logo.svg',
+              child: Image.asset(
+                'assets/images/logo.png',
                 fit: BoxFit.contain,
               ),
             ),

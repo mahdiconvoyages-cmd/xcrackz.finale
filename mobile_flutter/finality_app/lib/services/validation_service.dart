@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import '../utils/logger.dart';
 
 /// Service de validation des données d'inscription
 /// Valide SIRET via API INSEE, format email, téléphone, etc.
@@ -205,7 +206,7 @@ class ValidationService {
         );
       } else if (response.statusCode == 401 || response.statusCode == 403) {
         // Token manquant ou invalide - on accepte quand même le SIRET pour l'instant
-        debugPrint('⚠️ Token INSEE manquant - validation SIRET locale uniquement');
+        logger.w('Token INSEE manquant - validation SIRET locale uniquement');
         return SiretValidationResult(
           isValid: true,
           warningMessage: 'Validation complète SIRET impossible (Token INSEE requis)',
@@ -217,7 +218,7 @@ class ValidationService {
         );
       }
     } catch (e) {
-      debugPrint('❌ Erreur validation SIRET: $e');
+      logger.e('Erreur validation SIRET: $e');
       // En cas d'erreur réseau, on accepte si le format et checksum sont OK
       return SiretValidationResult(
         isValid: true,

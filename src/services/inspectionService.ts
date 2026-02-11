@@ -1,6 +1,4 @@
 import { supabase } from '../lib/supabase';
-import * as ImageManipulator from 'expo-image-manipulator';
-import Constants from 'expo-constants';
 
 export interface VehicleInspection {
   id: string;
@@ -182,8 +180,8 @@ export async function uploadInspectionPhoto(
     console.log('✅ Session OK, token:', session.access_token.substring(0, 20) + '...');
 
     // Get Supabase config from environment
-    const supabaseUrl = Constants.expoConfig?.extra?.supabaseUrl || process.env.EXPO_PUBLIC_SUPABASE_URL;
-    const supabaseKey = Constants.expoConfig?.extra?.supabaseAnonKey || process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
+    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
     console.log('🔧 Supabase URL:', supabaseUrl);
 

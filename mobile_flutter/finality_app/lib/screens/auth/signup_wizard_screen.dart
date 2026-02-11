@@ -488,6 +488,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                   final siretResult = await ValidationService.validateSiretWithInsee(
                     _siretController.text,
                   );
+                  if (!mounted) return;
                   setState(() => _isLoading = false);
 
                   if (!mounted) return;
@@ -884,6 +885,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
         siret: _signupData['siret'],
       );
 
+      if (!mounted) return;
       setState(() => _isLoading = false);
 
       if (!mounted) return;
@@ -1009,7 +1011,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   Future<void> _pickAvatar() async {
     final picker = ImagePicker();
     final image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
+    if (image != null && mounted) {
       setState(() => _signupData['avatar_path'] = image.path);
     }
   }
@@ -1017,7 +1019,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   Future<void> _pickLogo() async {
     final picker = ImagePicker();
     final image = await picker.pickImage(source: ImageSource.gallery);
-    if (image != null) {
+    if (image != null && mounted) {
       setState(() => _signupData['logo_path'] = image.path);
     }
   }
@@ -1095,8 +1097,8 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
         );
       }
     } catch (e) {
-      setState(() => _isLoading = false);
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Erreur: $e'),

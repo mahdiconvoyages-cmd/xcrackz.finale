@@ -77,10 +77,10 @@ class Subscription extends _$Subscription {
 
   @override
   SubscriptionState build() {
-    // Initialiser automatiquement si l'utilisateur est connecté
+    // Schedule initialization after build() returns the initial state
     final user = _supabase.auth.currentUser;
     if (user != null) {
-      _initialize(user.id);
+      Future.microtask(() => _initialize(user.id));
     }
     return const SubscriptionState();
   }

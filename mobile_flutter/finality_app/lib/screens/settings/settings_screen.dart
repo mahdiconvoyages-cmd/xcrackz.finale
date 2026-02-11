@@ -63,11 +63,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _loadAppInfo() async {
     try {
       final packageInfo = await PackageInfo.fromPlatform();
+      if (!mounted) return;
       setState(() {
         _appVersion = packageInfo.version;
         _buildNumber = packageInfo.buildNumber;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _appVersion = '3.1.0';
         _buildNumber = '26';
@@ -110,6 +112,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       final locationStatus = await Permission.location.status;
       final locationAlwaysStatus = await Permission.locationAlways.status;
       
+      if (!mounted) return;
       setState(() {
         _locationPermissionGranted = locationStatus.isGranted;
         _backgroundLocationGranted = locationAlwaysStatus.isGranted;
@@ -118,6 +121,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       });
     } catch (e) {
       debugPrint('Erreur chargement paramètres: $e');
+      if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }
@@ -566,6 +570,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
 
   Future<void> _requestLocationPermission() async {
     final status = await Permission.location.request();
+    if (!mounted) return;
     setState(() {
       _locationPermissionGranted = status.isGranted;
       _locationEnabled = status.isGranted;
@@ -586,6 +591,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     }
     
     final status = await Permission.locationAlways.request();
+    if (!mounted) return;
     setState(() {
       _backgroundLocationGranted = status.isGranted;
     });
@@ -1156,7 +1162,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         title: 'FAQ',
                         subtitle: 'Questions fréquentes',
                         color: PremiumTheme.primaryIndigo,
-                        onTap: () => _openUrl('https://finality.app/faq'),
+                        onTap: () => _openUrl('https://checksfleet.com/faq'),
                       ),
                       _buildDivider(),
                       _buildActionTile(
@@ -1164,7 +1170,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         title: 'Signaler un bug',
                         subtitle: 'Aidez-nous à améliorer l\'app',
                         color: PremiumTheme.accentAmber,
-                        onTap: () => _openUrl('mailto:bugs@finality.app?subject=Bug Report'),
+                        onTap: () => _openUrl('mailto:bugs@checksfleet.com?subject=Bug Report'),
                       ),
                       _buildDivider(),
                       _buildActionTile(
@@ -1172,7 +1178,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         title: 'Tutoriels',
                         subtitle: 'Apprendre à utiliser l\'app',
                         color: PremiumTheme.primaryPurple,
-                        onTap: () => _openUrl('https://finality.app/tutorials'),
+                        onTap: () => _openUrl('https://checksfleet.com/tutorials'),
                       ),
                     ],
                   ),
@@ -1194,7 +1200,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         title: 'Politique de confidentialité',
                         subtitle: 'Comment nous protégeons vos données',
                         color: PremiumTheme.primaryTeal,
-                        onTap: () => _openUrl('https://finality.app/privacy'),
+                        onTap: () => _openUrl('https://checksfleet.com/privacy'),
                       ),
                       _buildDivider(),
                       _buildActionTile(
@@ -1202,7 +1208,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         title: 'Conditions d\'utilisation',
                         subtitle: 'CGU et CGV',
                         color: PremiumTheme.primaryBlue,
-                        onTap: () => _openUrl('https://finality.app/terms'),
+                        onTap: () => _openUrl('https://checksfleet.com/terms'),
                       ),
                       _buildDivider(),
                       _buildActionTile(
@@ -1213,7 +1219,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         onTap: () {
                           showLicensePage(
                             context: context,
-                            applicationName: 'Finality',
+                            applicationName: 'ChecksFleet',
                             applicationVersion: '$_appVersion ($_buildNumber)',
                             applicationIcon: Padding(
                               padding: const EdgeInsets.all(16),

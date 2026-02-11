@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_credits.dart';
+import '../utils/logger.dart';
 
 class CreditsService {
   final SupabaseClient _supabase = Supabase.instance.client;
@@ -25,7 +26,7 @@ class CreditsService {
         lastUpdated: DateTime.now(),
       );
     } catch (e) {
-      print('❌ CREDITS_SERVICE: Error getting credits: $e');
+      logger.e('CREDITS_SERVICE: Error getting credits: $e');
       throw Exception('Erreur lors de la récupération des crédits: $e');
     }
   }
@@ -64,7 +65,7 @@ class CreditsService {
         'balance_after': newBalance,
       });
 
-      print('✅ CREDITS_SERVICE: Added $amount credits, new balance = $newBalance');
+      logger.i('CREDITS_SERVICE: Added $amount credits, new balance = $newBalance');
       return await getUserCredits(userId);
     } catch (e) {
       throw Exception('Erreur lors de l\'ajout de crédits: $e');
@@ -84,7 +85,7 @@ class CreditsService {
       final currentCredits = await getUserCredits(userId);
       
       if (currentCredits.credits < amount) {
-        print('❌ CREDITS_SERVICE: Insufficient credits: ${currentCredits.credits} < $amount');
+        logger.w('CREDITS_SERVICE: Insufficient credits: ${currentCredits.credits} < $amount');
         throw Exception('Crédits insuffisants');
       }
 
@@ -110,7 +111,7 @@ class CreditsService {
         'balance_after': newBalance,
       });
 
-      print('✅ CREDITS_SERVICE: Spent $amount credits, new balance = $newBalance');
+      logger.i('CREDITS_SERVICE: Spent $amount credits, new balance = $newBalance');
       return await getUserCredits(userId);
     } catch (e) {
       throw Exception('Erreur lors de la dépense de crédits: $e');

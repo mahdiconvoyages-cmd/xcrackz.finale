@@ -175,6 +175,7 @@ class _InspectionDepartureScreenState
           .maybeSingle();
 
       if (response != null && response['vehicle_type'] != null) {
+        if (!mounted) return;
         setState(() {
           _vehicleType = response['vehicle_type'].toString().toUpperCase();
           _initializePhotoGuides(); // Réinitialiser avec les bonnes images selon le type
@@ -199,6 +200,7 @@ class _InspectionDepartureScreenState
           .maybeSingle();
 
       if (response != null) {
+        if (!mounted) return;
         setState(() {
           _driverName = response['full_name'] ?? '';
         });
@@ -229,6 +231,7 @@ class _InspectionDepartureScreenState
       );
 
       if (image != null) {
+        if (!mounted) return;
         setState(() {
           if (isOptional) {
             _optionalPhotos[index] = image.path;
@@ -252,6 +255,7 @@ class _InspectionDepartureScreenState
       );
 
       if (image != null) {
+        if (!mounted) return;
         setState(() {
           _dashboardPhoto = image.path;
         });
@@ -408,7 +412,7 @@ class _InspectionDepartureScreenState
     } catch (e) {
       _showError('Erreur lors de l\'enregistrement de l\'inspection');
     } finally {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

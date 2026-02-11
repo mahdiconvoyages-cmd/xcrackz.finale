@@ -183,6 +183,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           .maybeSingle();
 
       if (response != null && response['vehicle_type'] != null) {
+        if (!mounted) return;
         setState(() {
           _vehicleType = response['vehicle_type'].toString().toUpperCase();
           _initializePhotoGuides(); // Réinitialiser avec les bonnes images selon le type
@@ -449,6 +450,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
       );
 
       if (image != null) {
+        if (!mounted) return;
         setState(() {
           if (isOptional) {
             _optionalPhotos[index] = image.path;
@@ -472,6 +474,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
       );
 
       if (image != null) {
+        if (!mounted) return;
         setState(() {
           _dashboardPhoto = image.path;
         });
@@ -616,7 +619,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
         'updated_at': DateTime.now().toIso8601String(),
       }).eq('id', widget.missionId);
 
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -630,7 +633,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
         Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
       _showError('Erreur lors de la soumission: $e');
     }
   }

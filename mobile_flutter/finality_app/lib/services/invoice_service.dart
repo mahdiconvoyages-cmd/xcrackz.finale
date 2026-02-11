@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/invoice.dart';
+import '../utils/logger.dart';
 
 class InvoiceService {
   final _supabase = Supabase.instance.client;
@@ -7,27 +8,37 @@ class InvoiceService {
   // Créer une facture
   Future<Invoice> createInvoice(Invoice invoice) async {
     try {
-      print('🔵 InvoiceService.createInvoice - Début');
+      logger.i('InvoiceService.createInvoice - Début');
       
       // Récupérer l'utilisateur connecté
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) {
         throw Exception('Utilisateur non connecté');
       }
-      print('✅ User ID: $userId');
+      logger.d('User ID: $userId');
       
       // Copier l'invoice avec le bon userId
       final invoiceWithUserId = invoice.copyWith(userId: userId);
       
       // Extraire les items avant de sérialiser
       final items = invoiceWithUserId.items;
-      print('📦 Nombre d\'items: ${items.length}');
+      logger.d('Nombre d\'items: ${items.length}');
       
       // Créer un JSON sans les items
       final invoiceJson = invoiceWithUserId.toJson();
       invoiceJson.remove('items'); // Retirer les items car ils sont dans une table séparée
       
-      print('📄 JSON invoice (sans items): $invoiceJson');
+      // S'assurer que client_name et client_email sont presents (requis par la DB)
+      if (invoiceJson['client_name'] == null || invoiceJson['client_name'] == '') {
+        final clientInfo = invoiceJson['client_info'] as Map<String, dynamic>?;
+        invoiceJson['client_name'] = clientInfo?['name'] ?? 'Client';
+      }
+      if (invoiceJson['client_email'] == null || invoiceJson['client_email'] == '') {
+        final clientInfo = invoiceJson['client_info'] as Map<String, dynamic>?;
+        invoiceJson['client_email'] = clientInfo?['email'] ?? '';
+      }
+      
+      logger.d('JSON invoice (sans items): $invoiceJson');
       
       // 1. Créer l'invoice
       final invoiceResponse = await _supabase
@@ -36,12 +47,12 @@ class InvoiceService {
           .select()
           .single();
       
-      print('✅ Invoice créée avec ID: ${invoiceResponse['id']}');
+      logger.i('Invoice créée avec ID: ${invoiceResponse['id']}');
       final createdInvoiceId = invoiceResponse['id'] as String;
       
       // 2. Créer les items si présents
       if (items.isNotEmpty) {
-        print('📦 Création des ${items.length} items...');
+        logger.d('Création des ${items.length} items...');
         final itemsJson = items.asMap().entries.map((entry) {
           final index = entry.key;
           final item = entry.value;
@@ -57,16 +68,16 @@ class InvoiceService {
         }).toList();
         
         await _supabase.from('invoice_items').insert(itemsJson);
-        print('✅ Items créés avec succès');
+        logger.i('Items créés avec succès');
       }
       
       // 3. Récupérer l'invoice complète avec les items
       final completeInvoice = await getInvoiceByIdWithItems(createdInvoiceId);
-      print('🎉 Invoice complète créée avec succès!');
+      logger.i('Invoice complète créée avec succès!');
       
       return completeInvoice ?? Invoice.fromJson(invoiceResponse);
     } catch (e) {
-      print('❌ Erreur création facture: $e');
+      logger.e('Erreur création facture: $e');
       throw Exception('Erreur création facture: $e');
     }
   }
@@ -132,11 +143,11 @@ class InvoiceService {
   // Mettre à jour une facture
   Future<Invoice> updateInvoice(String id, Invoice invoice) async {
     try {
-      print('🔵 InvoiceService.updateInvoice - ID: $id');
+      logger.i('InvoiceService.updateInvoice - ID: $id');
       
       // Extraire les items
       final items = invoice.items;
-      print('📦 Nombre d\'items: ${items.length}');
+      logger.d('Nombre d\'items: ${items.length}');
       
       // JSON sans les items
       final invoiceJson = invoice.toJson();
@@ -150,11 +161,11 @@ class InvoiceService {
           .select()
           .single();
       
-      print('✅ Invoice mise à jour');
+      logger.i('Invoice mise à jour');
       
       // 2. Supprimer les anciens items
       await _supabase.from('invoice_items').delete().eq('invoice_id', id);
-      print('🗑️ Anciens items supprimés');
+      logger.d('Anciens items supprimés');
       
       // 3. Créer les nouveaux items
       if (items.isNotEmpty) {
@@ -173,16 +184,16 @@ class InvoiceService {
         }).toList();
         
         await _supabase.from('invoice_items').insert(itemsJson);
-        print('✅ Nouveaux items créés');
+        logger.i('Nouveaux items créés');
       }
       
       // 4. Récupérer l'invoice complète
       final completeInvoice = await getInvoiceByIdWithItems(id);
-      print('🎉 Invoice mise à jour avec succès!');
+      logger.i('Invoice mise à jour avec succès!');
       
       return completeInvoice ?? Invoice.fromJson(invoiceResponse);
     } catch (e) {
-      print('❌ Erreur mise à jour facture: $e');
+      logger.e('Erreur mise à jour facture: $e');
       throw Exception('Erreur mise à jour facture: $e');
     }
   }
@@ -331,11 +342,19 @@ class InvoiceService {
 
       final mission = missionResponse;
       final price = (mission['price'] ?? 0).toDouble();
+      if (price <= 0) throw Exception('Prix de la mission non defini');
+      
       final taxRate = 20.0;
       final subtotal = price / (1 + taxRate / 100);
       final taxAmount = price - subtotal;
 
       final invoiceNumber = await generateInvoiceNumber();
+
+      // Recuperer le nom et email du mandataire/client
+      final clientName = mission['mandataire_name'] as String? ?? 
+                         mission['client_name'] as String? ?? 
+                         'Client Mission';
+      final clientEmail = mission['client_email'] as String? ?? '';
 
       final invoice = Invoice(
         userId: userId,
@@ -343,14 +362,19 @@ class InvoiceService {
         invoiceNumber: invoiceNumber,
         invoiceDate: DateTime.now(),
         dueDate: DateTime.now().add(const Duration(days: 30)),
-        status: 'pending',
+        status: 'draft',
         subtotal: subtotal,
         taxRate: taxRate,
         taxAmount: taxAmount,
         total: price,
+        clientInfo: {
+          'name': clientName,
+          'email': clientEmail,
+          'company': mission['mandataire_company'] as String? ?? '',
+        },
         items: [
           InvoiceItem(
-            description: 'Mission ${mission['reference']} - ${mission['vehicle_brand']} ${mission['vehicle_model']}',
+            description: 'Convoyage ${mission['reference'] ?? ''} - ${mission['vehicle_brand'] ?? ''} ${mission['vehicle_model'] ?? ''}'.trim(),
             quantity: 1,
             unitPrice: subtotal,
             total: subtotal,

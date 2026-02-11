@@ -30,13 +30,14 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // For now, load all inspections
-      // In production, you'd filter by user or mission
+      final inspections = await _inspectionService.getUserInspections();
+      if (!mounted) return;
       setState(() {
-        _inspections = [];
+        _inspections = inspections;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -84,8 +85,8 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
                   ),
                 ],
               ),
-              child: SvgPicture.asset(
-                'assets/images/logo.svg',
+              child: Image.asset(
+                'assets/images/logo.png',
                 fit: BoxFit.contain,
               ),
             ),

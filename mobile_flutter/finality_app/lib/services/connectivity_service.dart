@@ -1,5 +1,6 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:flutter/foundation.dart';
+import '../utils/logger.dart';
 
 /// Service de gestion de la connectivité réseau
 /// Permet de détecter si l'application est en ligne ou hors ligne
@@ -21,9 +22,7 @@ class ConnectivityService extends ChangeNotifier {
       final result = await _connectivity.checkConnectivity();
       _updateConnectionStatus(result);
     } catch (e) {
-      if (kDebugMode) {
-        print('Erreur vérification connectivité: $e');
-      }
+      logger.e('Erreur vérification connectivité: $e');
       _isOnline = false;
       notifyListeners();
     }
@@ -48,9 +47,7 @@ class ConnectivityService extends ChangeNotifier {
     
     // Notifier uniquement si le statut a changé
     if (wasOnline != _isOnline) {
-      if (kDebugMode) {
-        print('📡 Connectivité changée: ${_isOnline ? "EN LIGNE" : "HORS LIGNE"}');
-      }
+      logger.i('Connectivité changée: ${_isOnline ? "EN LIGNE" : "HORS LIGNE"}');
       notifyListeners();
     }
   }
@@ -62,9 +59,7 @@ class ConnectivityService extends ChangeNotifier {
       _updateConnectionStatus(results);
       return _isOnline;
     } catch (e) {
-      if (kDebugMode) {
-        print('Erreur vérification manuelle: $e');
-      }
+      logger.e('Erreur vérification manuelle: $e');
       return false;
     }
   }

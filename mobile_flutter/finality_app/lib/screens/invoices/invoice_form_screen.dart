@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:intl/intl.dart';
 import '../../utils/error_helper.dart';
 import '../../models/invoice.dart';
 import '../../models/client.dart';
@@ -9,1735 +10,812 @@ import '../../services/invoice_service.dart';
 import '../../services/insee_service.dart';
 import '../../widgets/siret_autocomplete_field.dart';
 import '../../widgets/client_selector.dart';
+import '../../theme/premium_theme.dart';
 
-/// Version optimisée de la page de création/édition de facture
-/// Améliorations: Performance, UX, Validation, Design moderne
 class InvoiceFormScreen extends StatefulWidget {
   final Invoice? invoice;
-
   const InvoiceFormScreen({super.key, this.invoice});
 
   @override
   State<InvoiceFormScreen> createState() => _InvoiceFormScreenState();
 }
 
-class _InvoiceFormScreenState extends State<InvoiceFormScreen> 
-    with SingleTickerProviderStateMixin {
+class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
   final _formKey = GlobalKey<FormState>();
   final InvoiceService _invoiceService = InvoiceService();
   final InseeService _inseeService = InseeService();
-  
+
   // Controllers
-  final _clientNameController = TextEditingController();
-  final _clientEmailController = TextEditingController();
-  final _clientPhoneController = TextEditingController();
-  final _clientAddressController = TextEditingController();
-  final _clientSiretController = TextEditingController();
-  final _clientVatController = TextEditingController();
-  final _notesController = TextEditingController();
-  final _paymentTermsController = TextEditingController();
-  
-  // État
+  final _clientName = TextEditingController();
+  final _clientEmail = TextEditingController();
+  final _clientPhone = TextEditingController();
+  final _clientAddress = TextEditingController();
+  final _clientSiret = TextEditingController();
+  final _clientVat = TextEditingController();
+  final _notes = TextEditingController();
+  final _paymentTerms = TextEditingController();
+
+  // State
   InseeCompanyInfo? _selectedCompany;
   Client? _selectedClient;
-  bool _useExistingClient = true;
+  bool _useExisting = true;
   DateTime _invoiceDate = DateTime.now();
   DateTime? _dueDate;
   double _taxRate = 20.0;
-  List<_InvoiceItemForm> _items = [];
-  bool _isSaving = false;
-  bool _isSiretLoading = false;
+  List<_ItemForm> _items = [];
+  bool _saving = false;
+  bool _siretLoading = false;
   String? _siretError;
-  
-  // Performance: Debounce timer pour SIRET
   Timer? _siretDebounce;
-  
-  // Animation controller
-  late AnimationController _animController;
-  late Animation<double> _fadeAnimation;
-  
-  // Autovalidate après première tentative
-  AutovalidateMode _autovalidateMode = AutovalidateMode.disabled;
-  
-  // Section expansion states
-  bool _clientSectionExpanded = true;
-  bool _datesSectionExpanded = true;
-  bool _itemsSectionExpanded = true;
-  
+  AutovalidateMode _autovalidate = AutovalidateMode.disabled;
+
+  bool get _isEdit => widget.invoice?.id != null;
+
   @override
   void initState() {
     super.initState();
-    
-    _animController = AnimationController(
-      duration: const Duration(milliseconds: 300),
-      vsync: this,
-    );
-    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
-      CurvedAnimation(parent: _animController, curve: Curves.easeIn),
-    );
-    _animController.forward();
-    
-    if (widget.invoice != null) {
-      _loadExistingInvoice();
+    if (_isEdit) {
+      _loadExisting();
     } else {
-      _initializeNewInvoice();
+      _dueDate = DateTime.now().add(const Duration(days: 30));
+      _paymentTerms.text = 'Paiement a 30 jours';
+      _items.add(_ItemForm());
     }
-    
-    // Listener pour debounce SIRET
-    _clientSiretController.addListener(_onSiretChanged);
+    _clientSiret.addListener(_onSiretChanged);
   }
 
-  void _loadExistingInvoice() {
-    final clientInfo = widget.invoice!.clientInfo ?? {};
-    _clientNameController.text = clientInfo['name'] ?? '';
-    _clientEmailController.text = clientInfo['email'] ?? '';
-    _clientPhoneController.text = clientInfo['phone'] ?? '';
-    _clientAddressController.text = clientInfo['address'] ?? '';
-    _clientSiretController.text = clientInfo['siret'] ?? '';
-    _clientVatController.text = clientInfo['vat_number'] ?? '';
-    _notesController.text = widget.invoice!.notes ?? '';
-    _paymentTermsController.text = clientInfo['payment_terms'] ?? 'Paiement à 30 jours';
+  void _loadExisting() {
+    final ci = widget.invoice!.clientInfo ?? {};
+    _clientName.text = ci['name'] ?? '';
+    _clientEmail.text = ci['email'] ?? '';
+    _clientPhone.text = ci['phone'] ?? '';
+    _clientAddress.text = ci['address'] ?? '';
+    _clientSiret.text = ci['siret'] ?? '';
+    _clientVat.text = ci['vat_number'] ?? '';
+    _notes.text = widget.invoice!.notes ?? '';
+    _paymentTerms.text = ci['payment_terms'] ?? 'Paiement a 30 jours';
     _invoiceDate = widget.invoice!.invoiceDate;
     _dueDate = widget.invoice!.dueDate;
     _taxRate = widget.invoice!.taxRate;
     _items = widget.invoice!.items
-        .map((item) => _InvoiceItemForm(
-              description: item.description,
-              quantity: item.quantity.toDouble(),
-              unitPrice: item.unitPrice,
-            ))
+        .map((i) => _ItemForm(desc: i.description, qty: i.quantity.toDouble(), price: i.unitPrice))
         .toList();
   }
 
-  void _initializeNewInvoice() {
-    _dueDate = DateTime.now().add(const Duration(days: 30));
-    _paymentTermsController.text = 'Paiement à 30 jours';
-    _addItem();
-  }
-
   void _onSiretChanged() {
-    // Annuler le précédent timer
     _siretDebounce?.cancel();
-
-    // Si le SIRET est vide, reset
-    if (_clientSiretController.text.isEmpty) {
-      setState(() {
-        _siretError = null;
-        _selectedCompany = null;
-      });
+    if (_clientSiret.text.isEmpty) {
+      setState(() { _siretError = null; _selectedCompany = null; });
       return;
     }
-
-    // Nouveau timer de 800ms (debounce)
-    _siretDebounce = Timer(const Duration(milliseconds: 800), () {
-      _searchCompanyBySiret(_clientSiretController.text);
-    });
+    _siretDebounce = Timer(const Duration(milliseconds: 800), () => _lookupSiret(_clientSiret.text));
   }
 
-  Future<void> _searchCompanyBySiret(String siret) async {
+  Future<void> _lookupSiret(String siret) async {
     if (siret.length < 14) {
-      setState(() {
-        _siretError = 'Le SIRET doit contenir 14 chiffres';
-        _isSiretLoading = false;
-      });
+      setState(() { _siretError = 'SIRET = 14 chiffres'; _siretLoading = false; });
       return;
     }
-
-    setState(() {
-      _isSiretLoading = true;
-      _siretError = null;
-    });
-
+    setState(() { _siretLoading = true; _siretError = null; });
     try {
-      final company = await _inseeService.getCompanyBySiret(siret);
-      
+      final co = await _inseeService.getCompanyBySiret(siret);
       if (!mounted) return;
-      
-      if (company != null) {
+      if (co != null) {
         setState(() {
-          _selectedCompany = company;
-          _clientNameController.text = company.companyName ?? '';
-          _clientAddressController.text = company.fullAddress;
-          _clientVatController.text = company.vatNumber ?? '';
-          _isSiretLoading = false;
-          _siretError = null;
+          _selectedCompany = co;
+          _clientName.text = co.companyName ?? '';
+          _clientAddress.text = co.fullAddress;
+          _clientVat.text = co.vatNumber ?? '';
+          _siretLoading = false;
         });
-        
-        _showSuccessSnackbar('✅ Entreprise trouvée: ${company.companyName}');
+        _snack('Entreprise trouvee : ${co.companyName}', PremiumTheme.accentGreen);
       } else {
-        setState(() {
-          _siretError = 'Aucune entreprise trouvée pour ce SIRET';
-          _isSiretLoading = false;
-        });
+        setState(() { _siretError = 'Aucune entreprise trouvee'; _siretLoading = false; });
       }
-    } catch (e) {
+    } catch (_) {
       if (!mounted) return;
-      setState(() {
-        _siretError = 'Erreur lors de la recherche';
-        _isSiretLoading = false;
-      });
+      setState(() { _siretError = 'Erreur de recherche'; _siretLoading = false; });
     }
   }
 
   @override
   void dispose() {
     _siretDebounce?.cancel();
-    _animController.dispose();
-    _clientNameController.dispose();
-    _clientEmailController.dispose();
-    _clientPhoneController.dispose();
-    _clientAddressController.dispose();
-    _clientSiretController.dispose();
-    _clientVatController.dispose();
-    _notesController.dispose();
-    _paymentTermsController.dispose();
+    _clientName.dispose(); _clientEmail.dispose(); _clientPhone.dispose();
+    _clientAddress.dispose(); _clientSiret.dispose(); _clientVat.dispose();
+    _notes.dispose(); _paymentTerms.dispose();
     super.dispose();
   }
 
-  void _addItem() {
-    setState(() {
-      _items.add(_InvoiceItemForm(
-        description: '',
-        quantity: 1,
-        unitPrice: 0,
-      ));
-    });
+  void _addItem() => setState(() => _items.add(_ItemForm()));
+
+  void _removeItem(int i) {
+    if (_items.length <= 1) { _snack('Au moins un article requis', PremiumTheme.accentAmber); return; }
+    setState(() => _items.removeAt(i));
   }
 
-  void _removeItem(int index) {
-    if (_items.length == 1) {
-      _showErrorSnackbar('⚠️ Au moins un article est requis');
-      return;
-    }
-    setState(() {
-      _items.removeAt(index);
-    });
-  }
+  double get _subtotal => _items.fold(0, (s, i) => s + i.qty * i.price);
+  double get _tax => _subtotal * (_taxRate / 100);
+  double get _total => _subtotal + _tax;
 
-  double _calculateSubtotal() {
-    return _items.fold(
-        0.0, (sum, item) => sum + (item.quantity * item.unitPrice));
-  }
-
-  double _calculateTax() {
-    return _calculateSubtotal() * (_taxRate / 100);
-  }
-
-  double _calculateTotal() {
-    return _calculateSubtotal() + _calculateTax();
-  }
-
-  void _showSuccessSnackbar(String message) {
+  void _snack(String msg, Color bg) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.check_circle, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: const Color(0xFF10B981),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
+      SnackBar(content: Text(msg), backgroundColor: bg, behavior: SnackBarBehavior.floating));
   }
 
-  void _showErrorSnackbar(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.error_outline, color: Colors.white),
-            const SizedBox(width: 12),
-            Expanded(child: Text(message)),
-          ],
-        ),
-        backgroundColor: const Color(0xFFEF4444),
-        behavior: SnackBarBehavior.floating,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-      ),
-    );
-  }
-
-  Future<void> _saveInvoice() async {
-    print('🔵 DEBUG: _saveInvoice appelée');
-    
-    setState(() => _autovalidateMode = AutovalidateMode.always);
-    
+  // ── Save ─────────────────────────────────────────────────────
+  Future<void> _save() async {
+    setState(() => _autovalidate = AutovalidateMode.always);
     if (!_formKey.currentState!.validate()) {
-      print('⚠️ DEBUG: Validation du formulaire échouée');
-      _showErrorSnackbar('⚠️ Veuillez corriger les erreurs dans le formulaire');
+      _snack('Corrigez les erreurs', PremiumTheme.accentRed);
       return;
     }
-    
-    print('✅ DEBUG: Validation réussie');
-
-    if (_items.isEmpty || _items.any((item) => item.description.trim().isEmpty)) {
-      print('⚠️ DEBUG: Articles invalides');
-      _showErrorSnackbar('⚠️ Veuillez ajouter au moins un article valide avec description');
+    if (_items.isEmpty || _items.any((i) => i.desc.trim().isEmpty)) {
+      _snack('Ajoutez au moins un article valide', PremiumTheme.accentRed);
       return;
     }
-    
-    print('✅ DEBUG: Articles valides (${_items.length} articles)');
-
-    if (!_useExistingClient && _clientNameController.text.trim().isEmpty) {
-      print('⚠️ DEBUG: Nom client manquant');
-      _showErrorSnackbar('⚠️ Le nom du client est requis');
+    if (!_useExisting && _clientName.text.trim().isEmpty) {
+      _snack('Nom du client requis', PremiumTheme.accentRed);
       return;
     }
-    
-    print('✅ DEBUG: Client valide');
 
-    setState(() => _isSaving = true);
-    print('🔄 DEBUG: Début de l\'enregistrement...');
-
+    setState(() => _saving = true);
     try {
-      final subtotal = _calculateSubtotal();
-      final taxAmount = _calculateTax();
-      final total = _calculateTotal();
-      
-      print('💰 DEBUG: Calculs - Subtotal: $subtotal, Tax: $taxAmount, Total: $total');
+      final uid = Supabase.instance.client.auth.currentUser?.id;
+      if (uid == null) throw Exception('Non connecte');
 
-      // Récupérer le userId depuis l'authentification
-      final currentUserId = Supabase.instance.client.auth.currentUser?.id;
-      if (currentUserId == null) {
-        throw Exception('Utilisateur non connecté');
-      }
-      
       final invoice = Invoice(
         id: widget.invoice?.id,
-        invoiceNumber: widget.invoice?.invoiceNumber ??
-            await _invoiceService.generateInvoiceNumber(),
-        userId: currentUserId,
+        invoiceNumber: widget.invoice?.invoiceNumber ?? await _invoiceService.generateInvoiceNumber(),
+        userId: uid,
         missionId: widget.invoice?.missionId,
         invoiceDate: _invoiceDate,
         dueDate: _dueDate,
-        items: _items
-            .map((item) => InvoiceItem(
-                  description: item.description.trim(),
-                  quantity: item.quantity.toInt(),
-                  unitPrice: item.unitPrice,
-                  total: item.quantity * item.unitPrice,
-                ))
-            .toList(),
-        subtotal: subtotal,
+        items: _items.map((i) => InvoiceItem(
+          description: i.desc.trim(), quantity: i.qty.toInt(),
+          unitPrice: i.price, total: i.qty * i.price)).toList(),
+        subtotal: _subtotal,
         taxRate: _taxRate,
-        taxAmount: taxAmount,
-        total: total,
+        taxAmount: _tax,
+        total: _total,
         status: widget.invoice?.status ?? 'draft',
-        notes: _notesController.text.trim(),
+        notes: _notes.text.trim(),
         clientInfo: {
-          'name': _clientNameController.text.trim(),
-          'email': _clientEmailController.text.trim(),
-          'phone': _clientPhoneController.text.trim(),
-          'address': _clientAddressController.text.trim(),
-          'siret': _clientSiretController.text.trim(),
-          'vat_number': _clientVatController.text.trim(),
-          'payment_terms': _paymentTermsController.text.trim(),
+          'name': _clientName.text.trim(),
+          'email': _clientEmail.text.trim(),
+          'phone': _clientPhone.text.trim(),
+          'address': _clientAddress.text.trim(),
+          'siret': _clientSiret.text.trim(),
+          'vat_number': _clientVat.text.trim(),
+          'payment_terms': _paymentTerms.text.trim(),
           if (_selectedCompany != null) ...{
             'company_name': _selectedCompany!.companyName,
             'legal_form': _selectedCompany!.legalForm,
             'activity_code': _selectedCompany!.activityCode,
             'activity_label': _selectedCompany!.activityLabel,
-            'is_headquarters': _selectedCompany!.isHeadquarters,
-            'is_active': _selectedCompany!.isActive,
           },
         },
-        createdAt: widget.invoice?.createdAt,
-        updatedAt: DateTime.now(),
       );
-      
-      print('📄 DEBUG: Objet Invoice créé - N°: ${invoice.invoiceNumber}');
-      print('🔍 DEBUG: widget.invoice?.id = ${widget.invoice?.id}');
 
-      if (widget.invoice?.id == null) {
-        print('➕ DEBUG: Création d\'une nouvelle facture (id est null)...');
-        await _invoiceService.createInvoice(invoice);
-        print('✅ DEBUG: Facture créée avec succès');
-      } else {
-        print('📝 DEBUG: Mise à jour de la facture ${widget.invoice!.id}...');
+      if (_isEdit) {
         await _invoiceService.updateInvoice(widget.invoice!.id!, invoice);
-        print('✅ DEBUG: Facture mise à jour avec succès');
+      } else {
+        await _invoiceService.createInvoice(invoice);
       }
 
-      if (!mounted) {
-        print('⚠️ DEBUG: Widget non monté, abandon');
-        return;
-      }
-      
-      print('🎉 DEBUG: Succès ! Fermeture de l\'écran...');
-
-      // Afficher le message AVANT de fermer l'écran
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Row(
-            children: [
-              const Icon(Icons.check_circle, color: Colors.white),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  widget.invoice?.id == null
-                      ? '✅ Facture créée avec succès'
-                      : '✅ Facture mise à jour avec succès',
-                ),
-              ),
-            ],
-          ),
-          backgroundColor: const Color(0xFF10B981),
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-          duration: const Duration(seconds: 2),
-        ),
-      );
-      
-      // Attendre un peu pour que la snackbar s'affiche, puis fermer
-      await Future.delayed(const Duration(milliseconds: 500));
-      
       if (!mounted) return;
-      Navigator.of(context).pop(true);
-      
+      _snack(_isEdit ? 'Facture mise a jour' : 'Facture creee', PremiumTheme.accentGreen);
+      await Future.delayed(const Duration(milliseconds: 400));
+      if (!mounted) return;
+      Navigator.pop(context, true);
     } catch (e) {
-      print('❌ DEBUG: Erreur lors de l\'enregistrement: $e');
-      if (!mounted) return;
-      _showErrorSnackbar('❌ Erreur: ${ErrorHelper.cleanError(e)}');
+      _snack('Erreur : ${ErrorHelper.cleanError(e)}', PremiumTheme.accentRed);
     } finally {
-      if (mounted) {
-        setState(() => _isSaving = false);
-        print('🔄 DEBUG: État _isSaving réinitialisé');
-      }
+      if (mounted) setState(() => _saving = false);
     }
   }
 
+  // ══════════════════════════════════════════════════════════════
+  //  BUILD
+  // ══════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [
-              Color(0xFFF8FAFC),
-              Color(0xFFE2E8F0),
-            ],
-          ),
-        ),
-        child: SafeArea(
-          child: Column(
-            children: [
-              _buildModernAppBar(),
-              Expanded(
-                child: FadeTransition(
-                  opacity: _fadeAnimation,
-                  child: Form(
-                    key: _formKey,
-                    autovalidateMode: _autovalidateMode,
-                    child: ListView(
-                      padding: const EdgeInsets.all(20),
-                      children: [
-                        _buildProgressIndicator(),
-                        const SizedBox(height: 20),
-                        _buildClientSection(),
-                        const SizedBox(height: 20),
-                        _buildDateSection(),
-                        const SizedBox(height: 20),
-                        _buildItemsSection(),
-                        const SizedBox(height: 20),
-                        _buildTotalsSection(),
-                        const SizedBox(height: 20),
-                        _buildNotesSection(),
-                        const SizedBox(height: 100),
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-      floatingActionButton: _buildSaveButton(),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-    );
-  }
-
-  Widget _buildModernAppBar() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF14B8A6), Color(0xFF06B6D4)],
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF14B8A6).withValues(alpha: 0.3),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back_ios, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-          const SizedBox(width: 12),
+      backgroundColor: PremiumTheme.lightBg,
+      body: SafeArea(
+        child: Column(children: [
+          _header(),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  widget.invoice == null 
-                      ? 'Nouvelle Facture' 
-                      : 'Modifier Facture',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-                if (widget.invoice?.invoiceNumber != null)
-                  Text(
-                    'N° ${widget.invoice!.invoiceNumber}',
-                    style: const TextStyle(
-                      color: Colors.white70,
-                      fontSize: 14,
-                    ),
-                  ),
-              ],
-            ),
-          ),
-          if (_isSaving)
-            const SizedBox(
-              width: 24,
-              height: 24,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            child: Form(
+              key: _formKey,
+              autovalidateMode: _autovalidate,
+              child: ListView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 120),
+                children: [
+                  _sectionClient(),
+                  const SizedBox(height: 16),
+                  _sectionDates(),
+                  const SizedBox(height: 16),
+                  _sectionItems(),
+                  const SizedBox(height: 16),
+                  _sectionTotals(),
+                  const SizedBox(height: 16),
+                  _sectionNotes(),
+                ],
               ),
             ),
-        ],
+          ),
+        ]),
       ),
+      bottomSheet: _saveBar(),
     );
   }
 
-  Widget _buildProgressIndicator() {
-    int completedSteps = 0;
-    int totalSteps = 4;
-
-    // Client
-    if (_clientNameController.text.isNotEmpty) completedSteps++;
-    // Dates
-    if (_invoiceDate != null && _dueDate != null) completedSteps++;
-    // Items
-    if (_items.isNotEmpty && _items.any((i) => i.description.isNotEmpty)) {
-      completedSteps++;
-    }
-    // Total
-    if (_calculateTotal() > 0) completedSteps++;
-
-    final progress = completedSteps / totalSteps;
-
+  // ── Header ───────────────────────────────────────────────────
+  Widget _header() {
     return Container(
-      padding: const EdgeInsets.all(20),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 8)],
       ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text(
-                'Progression',
-                style: TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.w600,
-                  color: Color(0xFF1E293B),
-                ),
-              ),
-              Text(
-                '${(progress * 100).toInt()}%',
-                style: const TextStyle(
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  color: Color(0xFF14B8A6),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(10),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 10,
-              backgroundColor: const Color(0xFFE2E8F0),
-              valueColor: const AlwaysStoppedAnimation<Color>(
-                Color(0xFF14B8A6),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildClientSection() {
-    return _buildSection(
-      title: 'Informations Client',
-      icon: Icons.person,
-      iconColor: const Color(0xFF8B5CF6),
-      isExpanded: _clientSectionExpanded,
-      onToggle: () => setState(() =>
-          _clientSectionExpanded = !_clientSectionExpanded),
-      child: Column(
-        children: [
-          // Toggle Existant/Manuel
-          SegmentedButton<bool>(
-            segments: const [
-              ButtonSegment(
-                value: true,
-                icon: Icon(Icons.person_search, size: 18),
-                label: Text('Client existant'),
-              ),
-              ButtonSegment(
-                value: false,
-                icon: Icon(Icons.edit, size: 18),
-                label: Text('Saisie manuelle'),
-              ),
-            ],
-            selected: {_useExistingClient},
-            onSelectionChanged: (value) {
-              setState(() => _useExistingClient = value.first);
-            },
-            style: ButtonStyle(
-              visualDensity: VisualDensity.comfortable,
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          if (_useExistingClient) ...[
-            ClientSelector(
-              selectedClient: _selectedClient,
-              onClientSelected: (client) {
-                setState(() {
-                  _selectedClient = client;
-                  _clientNameController.text = client.displayName;
-                  _clientEmailController.text = client.email;
-                  _clientPhoneController.text = client.phone ?? '';
-                  _clientAddressController.text = client.fullAddress;
-                  _clientSiretController.text = client.siret ?? '';
-                  _clientVatController.text = client.tvaNumber ?? '';
-                });
-                _showSuccessSnackbar('✅ Client sélectionné: ${client.displayName}');
-              },
-            ),
-            if (_selectedClient != null) ...[
-              const SizedBox(height: 16),
-              Container(
-                padding: const EdgeInsets.all(16),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      const Color(0xFF10B981).withValues(alpha: 0.1),
-                      const Color(0xFF059669).withValues(alpha: 0.05),
-                    ],
-                  ),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(
-                    color: const Color(0xFF10B981).withValues(alpha: 0.3),
-                    width: 2,
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF10B981),
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: const Icon(Icons.check_circle,
-                          color: Colors.white, size: 24),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text(
-                            'Client sélectionné',
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: Color(0xFF059669),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            _selectedClient!.displayName,
-                            style: const TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: Color(0xFF065F46),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ] else ...[
-            // Saisie manuelle
-            _buildModernTextField(
-              controller: _clientSiretController,
-              label: 'SIRET (optionnel)',
-              hint: '14 chiffres - Recherche automatique',
-              icon: Icons.business,
-              keyboardType: TextInputType.number,
-              inputFormatters: [
-                FilteringTextInputFormatter.digitsOnly,
-                LengthLimitingTextInputFormatter(14),
-              ],
-              suffixIcon: _isSiretLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : (_siretError != null
-                      ? const Icon(Icons.error, color: Color(0xFFEF4444))
-                      : (_selectedCompany != null
-                          ? const Icon(Icons.check_circle,
-                              color: Color(0xFF10B981))
-                          : null)),
-              errorText: _siretError,
-              helperText:
-                  'Saisissez un SIRET pour auto-compléter les informations',
-            ),
-            const SizedBox(height: 16),
-            _buildModernTextField(
-              controller: _clientNameController,
-              label: 'Nom du client / Entreprise *',
-              hint: 'Nom complet ou raison sociale',
-              icon: Icons.person,
-              validator: (value) {
-                if (!_useExistingClient &&
-                    (value == null || value.trim().isEmpty)) {
-                  return '⚠️ Le nom du client est requis';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildModernTextField(
-              controller: _clientEmailController,
-              label: 'Email',
-              hint: 'email@exemple.com',
-              icon: Icons.email,
-              keyboardType: TextInputType.emailAddress,
-              validator: (value) {
-                if (value != null &&
-                    value.isNotEmpty &&
-                    !RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$')
-                        .hasMatch(value)) {
-                  return '⚠️ Email invalide';
-                }
-                return null;
-              },
-            ),
-            const SizedBox(height: 16),
-            _buildModernTextField(
-              controller: _clientPhoneController,
-              label: 'Téléphone',
-              hint: '06 12 34 56 78',
-              icon: Icons.phone,
-              keyboardType: TextInputType.phone,
-            ),
-            const SizedBox(height: 16),
-            _buildModernTextField(
-              controller: _clientAddressController,
-              label: 'Adresse',
-              hint: 'Adresse complète du client',
-              icon: Icons.location_on,
-              maxLines: 3,
-            ),
-            if (_clientVatController.text.isNotEmpty) ...[
-              const SizedBox(height: 16),
-              _buildModernTextField(
-                controller: _clientVatController,
-                label: 'Numéro de TVA intracommunautaire',
-                hint: 'FR12345678901',
-                icon: Icons.receipt_long,
-                enabled: false,
-              ),
-            ],
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDateSection() {
-    return _buildSection(
-      title: 'Dates & Conditions',
-      icon: Icons.calendar_today,
-      iconColor: const Color(0xFFF59E0B),
-      isExpanded: _datesSectionExpanded,
-      onToggle: () =>
-          setState(() => _datesSectionExpanded = !_datesSectionExpanded),
-      child: Column(
-        children: [
-          _buildDateTile(
-            icon: Icons.calendar_today,
-            label: 'Date de la facture',
-            date: _invoiceDate,
-            onTap: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate: _invoiceDate,
-                firstDate: DateTime(2020),
-                lastDate: DateTime(2030),
-                builder: (context, child) {
-                  return Theme(
-                    data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.light(
-                        primary: Color(0xFF14B8A6),
-                      ),
-                    ),
-                    child: child!,
-                  );
-                },
-              );
-              if (date != null) {
-                setState(() => _invoiceDate = date);
-              }
-            },
-          ),
-          const SizedBox(height: 12),
-          _buildDateTile(
-            icon: Icons.event,
-            label: 'Date d\'échéance',
-            date: _dueDate,
-            onTap: () async {
-              final date = await showDatePicker(
-                context: context,
-                initialDate:
-                    _dueDate ?? _invoiceDate.add(const Duration(days: 30)),
-                firstDate: _invoiceDate,
-                lastDate: DateTime(2030),
-                builder: (context, child) {
-                  return Theme(
-                    data: Theme.of(context).copyWith(
-                      colorScheme: const ColorScheme.light(
-                        primary: Color(0xFF14B8A6),
-                      ),
-                    ),
-                    child: child!,
-                  );
-                },
-              );
-              if (date != null) {
-                setState(() => _dueDate = date);
-              }
-            },
-          ),
-          const SizedBox(height: 16),
-          _buildModernTextField(
-            controller: _paymentTermsController,
-            label: 'Conditions de paiement',
-            hint: 'Ex: Paiement à 30 jours',
-            icon: Icons.payment,
-            maxLines: 2,
-          ),
-          const SizedBox(height: 16),
-          _buildTaxRateTile(),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildDateTile({
-    required IconData icon,
-    required String label,
-    required DateTime? date,
-    required VoidCallback onTap,
-  }) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              const Color(0xFFF59E0B).withValues(alpha: 0.1),
-              const Color(0xFFD97706).withValues(alpha: 0.05),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: const Color(0xFFF59E0B).withValues(alpha: 0.3),
-          ),
+      child: Row(children: [
+        IconButton(
+          icon: const Icon(Icons.arrow_back_ios_rounded, size: 20),
+          onPressed: () => Navigator.pop(context),
         ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF59E0B),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Icon(icon, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    label,
-                    style: const TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF92400E),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    date != null
-                        ? "${date.day.toString().padLeft(2, '0')}/${date.month.toString().padLeft(2, '0')}/${date.year}"
-                        : 'Non défini',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF78350F),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: Color(0xFFF59E0B)),
-          ],
+        const SizedBox(width: 4),
+        Expanded(
+          child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(_isEdit ? 'Modifier la facture' : 'Nouvelle facture',
+                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: PremiumTheme.textPrimary)),
+            if (widget.invoice?.invoiceNumber != null)
+              Text('N\u00B0 ${widget.invoice!.invoiceNumber}',
+                  style: const TextStyle(fontSize: 13, color: PremiumTheme.textSecondary)),
+          ]),
         ),
-      ),
+        if (_saving)
+          const SizedBox(width: 24, height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2, color: PremiumTheme.primaryBlue)),
+      ]),
     );
   }
 
-  Widget _buildTaxRateTile() {
-    return InkWell(
-      onTap: () async {
-        final rate = await showDialog<double>(
-          context: context,
-          builder: (context) => _TaxRateDialog(initialRate: _taxRate),
-        );
-        if (rate != null) {
-          setState(() => _taxRate = rate);
-        }
-      },
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            colors: [
-              const Color(0xFF3B82F6).withValues(alpha: 0.1),
-              const Color(0xFF2563EB).withValues(alpha: 0.05),
-            ],
-          ),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: const Color(0xFF3B82F6).withValues(alpha: 0.3),
-          ),
-        ),
-        child: Row(
-          children: [
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: const Color(0xFF3B82F6),
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: const Icon(Icons.percent, color: Colors.white, size: 20),
-            ),
-            const SizedBox(width: 16),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Taux de TVA',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Color(0xFF1E40AF),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${_taxRate.toStringAsFixed(1)}%',
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF1E3A8A),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const Icon(Icons.chevron_right, color: Color(0xFF3B82F6)),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildItemsSection() {
-    return _buildSection(
-      title: 'Articles / Prestations',
-      icon: Icons.shopping_cart,
-      iconColor: const Color(0xFF10B981),
-      isExpanded: _itemsSectionExpanded,
-      onToggle: () =>
-          setState(() => _itemsSectionExpanded = !_itemsSectionExpanded),
-      trailing: IconButton(
-        icon: const Icon(Icons.add_circle),
-        onPressed: _addItem,
-        color: const Color(0xFF10B981),
-        iconSize: 28,
-        tooltip: 'Ajouter un article',
-      ),
-      child: Column(
-        children: [
-          if (_items.isEmpty)
-            Container(
-              padding: const EdgeInsets.all(32),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: const Color(0xFFCBD5E1),
-                  style: BorderStyle.solid,
-                ),
-              ),
-              child: const Column(
-                children: [
-                  Icon(Icons.inbox, size: 48, color: Color(0xFF94A3B8)),
-                  SizedBox(height: 12),
-                  Text(
-                    'Aucun article ajouté',
-                    style: TextStyle(
-                      fontSize: 16,
-                      color: Color(0xFF64748B),
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  SizedBox(height: 4),
-                  Text(
-                    'Appuyez sur + pour ajouter un article',
-                    style: TextStyle(
-                      fontSize: 14,
-                      color: Color(0xFF94A3B8),
-                    ),
-                  ),
-                ],
-              ),
-            )
-          else
-            ..._items.asMap().entries.map((entry) {
-              final index = entry.key;
-              final item = entry.value;
-              return _buildItemRow(index, item);
-            }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildItemRow(int index, _InvoiceItemForm item) {
+  // ── Save bar ─────────────────────────────────────────────────
+  Widget _saveBar() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Colors.white,
-            const Color(0xFFF8FAFC),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE2E8F0), width: 2),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        color: Colors.white,
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .06), blurRadius: 12, offset: const Offset(0, -2))],
       ),
-      child: Column(
-        children: [
-          // Header
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF10B981), Color(0xFF059669)],
-              ),
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(14),
-                topRight: Radius.circular(14),
-              ),
-            ),
-            child: Row(
-              children: [
-                Container(
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withValues(alpha: 0.3),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    'Article ${index + 1}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 14,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-                const Spacer(),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.white),
-                  onPressed: () => _removeItem(index),
-                  iconSize: 22,
-                ),
-              ],
-            ),
+      child: SizedBox(
+        width: double.infinity,
+        height: 52,
+        child: ElevatedButton.icon(
+          onPressed: _saving ? null : _save,
+          icon: _saving
+              ? const SizedBox(width: 20, height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+              : const Icon(Icons.check_rounded, color: Colors.white),
+          label: Text(_saving ? 'Enregistrement...' : (_isEdit ? 'Enregistrer' : 'Creer la facture'),
+              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: PremiumTheme.primaryBlue,
+            disabledBackgroundColor: PremiumTheme.primaryBlue.withValues(alpha: .5),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+            elevation: 0,
           ),
-          // Content
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                _buildModernTextField(
-                  initialValue: item.description,
-                  label: 'Description de l\'article *',
-                  hint: 'Décrivez le produit ou la prestation',
-                  icon: Icons.description,
-                  onChanged: (value) => item.description = value,
-                  validator: (value) {
-                    if (value == null || value.trim().isEmpty) {
-                      return '⚠️ Description requise';
-                    }
-                    return null;
-                  },
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      flex: 2,
-                      child: _buildModernTextField(
-                        initialValue: item.quantity.toString(),
-                        label: 'Qté',
-                        hint: '1',
-                        icon: Icons.add_shopping_cart,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                              RegExp(r'^\d+\.?\d{0,2}')),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            item.quantity = double.tryParse(value) ?? 1;
-                          });
-                        },
-                        validator: (value) {
-                          final qty = double.tryParse(value ?? '0');
-                          if (qty == null || qty <= 0) {
-                            return '⚠️ Qté > 0';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      flex: 3,
-                      child: _buildModernTextField(
-                        initialValue: item.unitPrice.toStringAsFixed(2),
-                        label: 'Prix unitaire',
-                        hint: '0.00',
-                        icon: Icons.euro,
-                        keyboardType: TextInputType.number,
-                        inputFormatters: [
-                          FilteringTextInputFormatter.allow(
-                              RegExp(r'^\d+\.?\d{0,2}')),
-                        ],
-                        onChanged: (value) {
-                          setState(() {
-                            item.unitPrice = double.tryParse(value) ?? 0;
-                          });
-                        },
-                        validator: (value) {
-                          final price = double.tryParse(value ?? '0');
-                          if (price == null || price < 0) {
-                            return '⚠️ Prix ≥ 0';
-                          }
-                          return null;
-                        },
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                // Total ligne
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        const Color(0xFF10B981).withValues(alpha: 0.1),
-                        const Color(0xFF059669).withValues(alpha: 0.05),
-                      ],
-                    ),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: const Color(0xFF10B981).withValues(alpha: 0.3),
-                    ),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      const Text(
-                        'Total ligne',
-                        style: TextStyle(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w600,
-                          color: Color(0xFF065F46),
-                        ),
-                      ),
-                      Text(
-                        '${(item.quantity * item.unitPrice).toStringAsFixed(2)} €',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Color(0xFF047857),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  Widget _buildTotalsSection() {
-    final subtotal = _calculateSubtotal();
-    final tax = _calculateTax();
-    final total = _calculateTotal();
+  // ══════════════════════════════════════════════════════════════
+  //  SECTIONS
+  // ══════════════════════════════════════════════════════════════
 
-    return Container(
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            Color(0xFF1E293B),
-            Color(0xFF0F172A),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF1E293B).withValues(alpha: 0.4),
-            blurRadius: 20,
-            offset: const Offset(0, 8),
-          ),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: const Icon(
-                  Icons.calculate,
-                  color: Colors.white,
-                  size: 24,
-                ),
-              ),
-              const SizedBox(width: 16),
-              const Text(
-                'Récapitulatif',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 20,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _buildTotalRow('Sous-total HT', subtotal, Colors.white70),
-          const SizedBox(height: 12),
-          _buildTotalRow(
-            'TVA (${_taxRate.toStringAsFixed(1)}%)',
-            tax,
-            Colors.white70,
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  const Color(0xFF14B8A6).withValues(alpha: 0.3),
-                  const Color(0xFF06B6D4).withValues(alpha: 0.3),
-                ],
-              ),
-              borderRadius: BorderRadius.circular(16),
-            ),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text(
-                  'TOTAL TTC',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                Text(
-                  '${total.toStringAsFixed(2)} €',
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 28,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTotalRow(String label, double amount, Color textColor) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+  // ── Client ───────────────────────────────────────────────────
+  Widget _sectionClient() {
+    return _card(
+      icon: Icons.person_rounded,
+      color: PremiumTheme.primaryPurple,
+      title: 'Client',
       children: [
-        Text(
-          label,
-          style: TextStyle(
-            fontSize: 16,
-            color: textColor,
-            fontWeight: FontWeight.w500,
+        // Toggle
+        Container(
+          decoration: BoxDecoration(
+            color: PremiumTheme.lightBg,
+            borderRadius: BorderRadius.circular(12),
           ),
+          child: Row(children: [
+            _toggle('Client existant', Icons.person_search_rounded, _useExisting,
+                () => setState(() => _useExisting = true)),
+            _toggle('Saisie manuelle', Icons.edit_rounded, !_useExisting,
+                () => setState(() => _useExisting = false)),
+          ]),
         ),
-        Text(
-          '${amount.toStringAsFixed(2)} €',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.bold,
-            color: textColor,
+        const SizedBox(height: 16),
+
+        if (_useExisting) ...[
+          ClientSelector(
+            selectedClient: _selectedClient,
+            onClientSelected: (c) {
+              setState(() {
+                _selectedClient = c;
+                _clientName.text = c.displayName;
+                _clientEmail.text = c.email;
+                _clientPhone.text = c.phone ?? '';
+                _clientAddress.text = c.fullAddress;
+                _clientSiret.text = c.siret ?? '';
+                _clientVat.text = c.tvaNumber ?? '';
+              });
+            },
           ),
-        ),
+          if (_selectedClient != null) ...[
+            const SizedBox(height: 12),
+            Container(
+              padding: const EdgeInsets.all(14),
+              decoration: BoxDecoration(
+                color: PremiumTheme.accentGreen.withValues(alpha: .06),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: PremiumTheme.accentGreen.withValues(alpha: .2)),
+              ),
+              child: Row(children: [
+                Icon(Icons.check_circle_rounded, color: PremiumTheme.accentGreen, size: 20),
+                const SizedBox(width: 10),
+                Expanded(child: Text(_selectedClient!.displayName,
+                    style: const TextStyle(fontWeight: FontWeight.w600, color: PremiumTheme.textPrimary))),
+              ]),
+            ),
+          ],
+        ] else ...[
+          _field(_clientSiret, 'SIRET (optionnel)', Icons.business_rounded,
+            keyboard: TextInputType.number,
+            formatters: [FilteringTextInputFormatter.digitsOnly, LengthLimitingTextInputFormatter(14)],
+            suffix: _siretLoading
+                ? const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))
+                : _selectedCompany != null
+                    ? const Icon(Icons.check_circle, color: PremiumTheme.accentGreen, size: 20)
+                    : null,
+            error: _siretError),
+          const SizedBox(height: 12),
+          _field(_clientName, 'Nom / Raison sociale *', Icons.person_rounded,
+            validator: (v) => !_useExisting && (v == null || v.trim().isEmpty) ? 'Requis' : null),
+          const SizedBox(height: 12),
+          _field(_clientEmail, 'Email', Icons.email_rounded, keyboard: TextInputType.emailAddress),
+          const SizedBox(height: 12),
+          _field(_clientPhone, 'Telephone', Icons.phone_rounded, keyboard: TextInputType.phone),
+          const SizedBox(height: 12),
+          _field(_clientAddress, 'Adresse', Icons.location_on_rounded, lines: 2),
+          if (_clientVat.text.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            _field(_clientVat, 'TVA Intracom.', Icons.receipt_long_rounded, enabled: false),
+          ],
+        ],
       ],
     );
   }
 
-  Widget _buildNotesSection() {
-    return _buildSection(
-      title: 'Notes additionnelles',
-      icon: Icons.note,
-      iconColor: const Color(0xFF64748B),
-      isExpanded: true,
-      onToggle: null,
-      child: _buildModernTextField(
-        controller: _notesController,
-        label: 'Notes (optionnel)',
-        hint: 'Informations supplémentaires pour le client...',
-        icon: Icons.edit_note,
-        maxLines: 4,
+  Widget _toggle(String label, IconData icon, bool active, VoidCallback onTap) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          decoration: BoxDecoration(
+            color: active ? PremiumTheme.primaryBlue : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+            Icon(icon, size: 16, color: active ? Colors.white : PremiumTheme.textTertiary),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                color: active ? Colors.white : PremiumTheme.textSecondary)),
+          ]),
+        ),
       ),
     );
   }
 
-  Widget _buildSection({
-    required String title,
+  // ── Dates ────────────────────────────────────────────────────
+  Widget _sectionDates() {
+    return _card(
+      icon: Icons.calendar_month_rounded,
+      color: PremiumTheme.accentAmber,
+      title: 'Dates & Conditions',
+      children: [
+        _dateTile('Date de facturation', _invoiceDate, Icons.calendar_today_rounded, () async {
+          final d = await _pickDate(_invoiceDate);
+          if (d != null) setState(() => _invoiceDate = d);
+        }),
+        const SizedBox(height: 10),
+        _dateTile('Date d\'echeance', _dueDate, Icons.event_rounded, () async {
+          final d = await _pickDate(_dueDate ?? _invoiceDate.add(const Duration(days: 30)), first: _invoiceDate);
+          if (d != null) setState(() => _dueDate = d);
+        }),
+        const SizedBox(height: 10),
+        _taxTile(),
+        const SizedBox(height: 10),
+        _field(_paymentTerms, 'Conditions de paiement', Icons.payment_rounded),
+      ],
+    );
+  }
+
+  Future<DateTime?> _pickDate(DateTime init, {DateTime? first}) {
+    return showDatePicker(
+      context: context, initialDate: init,
+      firstDate: first ?? DateTime(2020), lastDate: DateTime(2035),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(colorScheme: const ColorScheme.light(primary: PremiumTheme.primaryBlue)),
+        child: child!),
+    );
+  }
+
+  Widget _dateTile(String label, DateTime? date, IconData icon, VoidCallback onTap) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: PremiumTheme.lightBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Row(children: [
+          Icon(icon, color: PremiumTheme.accentAmber, size: 20),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            Text(label, style: const TextStyle(fontSize: 12, color: PremiumTheme.textTertiary)),
+            const SizedBox(height: 2),
+            Text(date != null ? DateFormat('dd/MM/yyyy').format(date) : 'Non definie',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: PremiumTheme.textPrimary)),
+          ])),
+          const Icon(Icons.chevron_right_rounded, color: PremiumTheme.textTertiary),
+        ]),
+      ),
+    );
+  }
+
+  Widget _taxTile() {
+    return InkWell(
+      onTap: () async {
+        final r = await showDialog<double>(context: context,
+          builder: (_) => _TaxDialog(rate: _taxRate));
+        if (r != null) setState(() => _taxRate = r);
+      },
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: PremiumTheme.lightBg,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Row(children: [
+          const Icon(Icons.percent_rounded, color: PremiumTheme.primaryBlue, size: 20),
+          const SizedBox(width: 12),
+          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+            const Text('Taux de TVA', style: TextStyle(fontSize: 12, color: PremiumTheme.textTertiary)),
+            const SizedBox(height: 2),
+            Text('${_taxRate.toStringAsFixed(1)} %',
+                style: const TextStyle(fontSize: 15, fontWeight: FontWeight.w600, color: PremiumTheme.textPrimary)),
+          ])),
+          const Icon(Icons.chevron_right_rounded, color: PremiumTheme.textTertiary),
+        ]),
+      ),
+    );
+  }
+
+  // ── Items ────────────────────────────────────────────────────
+  Widget _sectionItems() {
+    return _card(
+      icon: Icons.shopping_bag_rounded,
+      color: PremiumTheme.accentGreen,
+      title: 'Articles / Prestations',
+      trailing: IconButton(
+        icon: const Icon(Icons.add_circle_rounded),
+        color: PremiumTheme.accentGreen,
+        onPressed: _addItem,
+      ),
+      children: [
+        if (_items.isEmpty)
+          Container(
+            padding: const EdgeInsets.all(24),
+            decoration: BoxDecoration(
+              color: PremiumTheme.lightBg, borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFE5E7EB)),
+            ),
+            child: const Column(children: [
+              Icon(Icons.inbox_rounded, size: 40, color: PremiumTheme.textTertiary),
+              SizedBox(height: 8),
+              Text('Aucun article', style: TextStyle(color: PremiumTheme.textSecondary)),
+            ]),
+          )
+        else
+          ...List.generate(_items.length, (i) => _itemTile(i)),
+      ],
+    );
+  }
+
+  Widget _itemTile(int index) {
+    final item = _items[index];
+    return Container(
+      margin: EdgeInsets.only(bottom: index < _items.length - 1 ? 12 : 0),
+      decoration: BoxDecoration(
+        color: PremiumTheme.lightBg,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(children: [
+        // Header
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: PremiumTheme.accentGreen.withValues(alpha: .06),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(13)),
+          ),
+          child: Row(children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              decoration: BoxDecoration(
+                color: PremiumTheme.accentGreen.withValues(alpha: .12),
+                borderRadius: BorderRadius.circular(8)),
+              child: Text('# ${index + 1}',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: PremiumTheme.accentGreen)),
+            ),
+            const Spacer(),
+            GestureDetector(
+              onTap: () => _removeItem(index),
+              child: Icon(Icons.delete_outline_rounded, size: 20, color: PremiumTheme.accentRed.withValues(alpha: .7)),
+            ),
+          ]),
+        ),
+        // Fields
+        Padding(
+          padding: const EdgeInsets.all(14),
+          child: Column(children: [
+            TextFormField(
+              initialValue: item.desc,
+              decoration: _inputDeco('Description *', Icons.description_rounded),
+              onChanged: (v) => item.desc = v,
+              validator: (v) => (v == null || v.trim().isEmpty) ? 'Requis' : null,
+            ),
+            const SizedBox(height: 12),
+            Row(children: [
+              Expanded(flex: 2, child: TextFormField(
+                initialValue: item.qty.toStringAsFixed(0),
+                decoration: _inputDeco('Qte', Icons.tag_rounded),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
+                onChanged: (v) => setState(() => item.qty = double.tryParse(v) ?? 1),
+                validator: (v) => (double.tryParse(v ?? '0') ?? 0) <= 0 ? '> 0' : null,
+              )),
+              const SizedBox(width: 10),
+              Expanded(flex: 3, child: TextFormField(
+                initialValue: item.price.toStringAsFixed(2),
+                decoration: _inputDeco('Prix HT (\u20AC)', Icons.euro_rounded),
+                keyboardType: TextInputType.number,
+                inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
+                onChanged: (v) => setState(() => item.price = double.tryParse(v) ?? 0),
+                validator: (v) => (double.tryParse(v ?? '0') ?? -1) < 0 ? '>= 0' : null,
+              )),
+            ]),
+            const SizedBox(height: 12),
+            // Line total
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: PremiumTheme.accentGreen.withValues(alpha: .06),
+                borderRadius: BorderRadius.circular(10)),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                const Text('Total HT', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: PremiumTheme.textSecondary)),
+                Text('${(item.qty * item.price).toStringAsFixed(2)} \u20AC',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: PremiumTheme.accentGreen)),
+              ]),
+            ),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  // ── Totals ───────────────────────────────────────────────────
+  Widget _sectionTotals() {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: const Color(0xFF1A1A2E),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .12), blurRadius: 16, offset: const Offset(0, 4))],
+      ),
+      child: Column(children: [
+        Row(children: [
+          Container(
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: .08), borderRadius: BorderRadius.circular(10)),
+            child: const Icon(Icons.calculate_rounded, color: Colors.white, size: 22),
+          ),
+          const SizedBox(width: 12),
+          const Text('Recapitulatif', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white)),
+        ]),
+        const SizedBox(height: 20),
+        _totalRow('Sous-total HT', _subtotal, Colors.white70),
+        const SizedBox(height: 8),
+        _totalRow('TVA (${_taxRate.toStringAsFixed(1)}%)', _tax, Colors.white70),
+        const SizedBox(height: 12),
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: PremiumTheme.primaryBlue.withValues(alpha: .15),
+            borderRadius: BorderRadius.circular(12)),
+          child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            const Text('TOTAL TTC', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: Colors.white, letterSpacing: 1)),
+            Text('${_total.toStringAsFixed(2)} \u20AC',
+                style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Colors.white)),
+          ]),
+        ),
+      ]),
+    );
+  }
+
+  Widget _totalRow(String label, double val, Color c) {
+    return Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+      Text(label, style: TextStyle(fontSize: 15, color: c)),
+      Text('${val.toStringAsFixed(2)} \u20AC', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600, color: c)),
+    ]);
+  }
+
+  // ── Notes ────────────────────────────────────────────────────
+  Widget _sectionNotes() {
+    return _card(
+      icon: Icons.note_rounded,
+      color: PremiumTheme.textSecondary,
+      title: 'Notes',
+      children: [
+        _field(_notes, 'Notes (optionnel)', Icons.edit_note_rounded, lines: 3),
+      ],
+    );
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  //  SHARED WIDGETS
+  // ══════════════════════════════════════════════════════════════
+
+  Widget _card({
     required IconData icon,
-    required Color iconColor,
-    required bool isExpanded,
-    required VoidCallback? onToggle,
+    required Color color,
+    required String title,
     Widget? trailing,
-    required Widget child,
+    required List<Widget> children,
   }) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.08),
-            blurRadius: 20,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: .04), blurRadius: 10, offset: const Offset(0, 2))],
       ),
-      child: Column(
-        children: [
-          InkWell(
-            onTap: onToggle,
-            borderRadius: const BorderRadius.only(
-              topLeft: Radius.circular(20),
-              topRight: Radius.circular(20),
-            ),
-            child: Container(
-              padding: const EdgeInsets.all(20),
+      child: Column(children: [
+        // Header
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 8, 0),
+          child: Row(children: [
+            Container(
+              padding: const EdgeInsets.all(9),
               decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [
-                    iconColor.withValues(alpha: 0.1),
-                    iconColor.withValues(alpha: 0.05),
-                  ],
-                ),
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(20),
-                  topRight: Radius.circular(20),
-                ),
-              ),
-              child: Row(
-                children: [
-                  Container(
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: iconColor,
-                      borderRadius: BorderRadius.circular(12),
-                      boxShadow: [
-                        BoxShadow(
-                          color: iconColor.withValues(alpha: 0.3),
-                          blurRadius: 8,
-                          offset: const Offset(0, 4),
-                        ),
-                      ],
-                    ),
-                    child: Icon(icon, color: Colors.white, size: 24),
-                  ),
-                  const SizedBox(width: 16),
-                  Expanded(
-                    child: Text(
-                      title,
-                      style: const TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF1E293B),
-                      ),
-                    ),
-                  ),
-                  if (trailing != null) trailing,
-                  if (onToggle != null)
-                    Icon(
-                      isExpanded
-                          ? Icons.keyboard_arrow_up
-                          : Icons.keyboard_arrow_down,
-                      color: iconColor,
-                    ),
-                ],
-              ),
+                color: color.withValues(alpha: .1), borderRadius: BorderRadius.circular(10)),
+              child: Icon(icon, color: color, size: 20),
             ),
-          ),
-          if (isExpanded)
-            Padding(
-              padding: const EdgeInsets.all(20),
-              child: child,
-            ),
-        ],
-      ),
+            const SizedBox(width: 10),
+            Expanded(child: Text(title,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: PremiumTheme.textPrimary))),
+            if (trailing != null) trailing,
+          ]),
+        ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+          child: Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+        ),
+      ]),
     );
   }
 
-  Widget _buildModernTextField({
-    TextEditingController? controller,
-    String? initialValue,
-    required String label,
-    required String hint,
-    required IconData icon,
-    TextInputType? keyboardType,
-    List<TextInputFormatter>? inputFormatters,
-    String? Function(String?)? validator,
-    void Function(String)? onChanged,
-    int maxLines = 1,
-    bool enabled = true,
-    Widget? suffixIcon,
-    String? errorText,
-    String? helperText,
+  Widget _field(TextEditingController ctrl, String label, IconData icon, {
+    TextInputType? keyboard, List<TextInputFormatter>? formatters,
+    String? Function(String?)? validator, int lines = 1,
+    bool enabled = true, Widget? suffix, String? error,
   }) {
     return TextFormField(
-      controller: controller,
-      initialValue: initialValue,
-      decoration: InputDecoration(
-        labelText: label,
-        hintText: hint,
-        helperText: helperText,
-        errorText: errorText,
-        prefixIcon: Icon(icon, color: const Color(0xFF14B8A6)),
-        suffixIcon: suffixIcon,
-        filled: true,
-        fillColor: enabled ? Colors.white : const Color(0xFFF8FAFC),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 2),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFE2E8F0), width: 2),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF14B8A6), width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFEF4444), width: 2),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFFEF4444), width: 2),
-        ),
-        contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-      ),
-      keyboardType: keyboardType,
-      inputFormatters: inputFormatters,
+      controller: ctrl,
+      decoration: _inputDeco(label, icon, suffix: suffix, error: error),
+      keyboardType: keyboard,
+      inputFormatters: formatters,
       validator: validator,
-      onChanged: onChanged,
-      maxLines: maxLines,
+      maxLines: lines,
       enabled: enabled,
     );
   }
 
-  Widget _buildSaveButton() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 20),
-      width: double.infinity,
-      height: 60,
-      child: ElevatedButton(
-        onPressed: _isSaving ? null : _saveInvoice,
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.transparent,
-          shadowColor: Colors.transparent,
-          padding: EdgeInsets.zero,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-        ),
-        child: Ink(
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF14B8A6), Color(0xFF06B6D4)],
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF14B8A6).withValues(alpha: 0.5),
-                blurRadius: 20,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Container(
-            alignment: Alignment.center,
-            child: _isSaving
-                ? const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SizedBox(
-                        width: 24,
-                        height: 24,
-                        child: CircularProgressIndicator(
-                          strokeWidth: 3,
-                          valueColor:
-                              AlwaysStoppedAnimation<Color>(Colors.white),
-                        ),
-                      ),
-                      SizedBox(width: 16),
-                      Text(
-                        'Enregistrement...',
-                        style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  )
-                : Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Icon(Icons.save, color: Colors.white, size: 24),
-                      const SizedBox(width: 12),
-                      Text(
-                        widget.invoice == null
-                            ? 'Créer la facture'
-                            : 'Enregistrer',
-                        style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 0.5,
-                        ),
-                      ),
-                    ],
-                  ),
-          ),
-        ),
-      ),
+  InputDecoration _inputDeco(String label, IconData icon, {Widget? suffix, String? error}) {
+    return InputDecoration(
+      labelText: label,
+      errorText: error,
+      prefixIcon: Icon(icon, color: PremiumTheme.primaryBlue, size: 20),
+      suffixIcon: suffix,
+      filled: true,
+      fillColor: PremiumTheme.lightBg,
+      contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE5E7EB))),
+      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: PremiumTheme.primaryBlue, width: 2)),
+      errorBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: PremiumTheme.accentRed)),
     );
   }
 }
 
-// ============================================================================
-// CLASSES AUXILIAIRES
-// ============================================================================
-
-class _InvoiceItemForm {
-  String description;
-  double quantity;
-  double unitPrice;
-
-  _InvoiceItemForm({
-    required this.description,
-    required this.quantity,
-    required this.unitPrice,
-  });
+// ── Item form model ────────────────────────────────────────────
+class _ItemForm {
+  String desc;
+  double qty;
+  double price;
+  _ItemForm({this.desc = '', this.qty = 1, this.price = 0});
 }
 
-class _TaxRateDialog extends StatefulWidget {
-  final double initialRate;
-
-  const _TaxRateDialog({required this.initialRate});
-
+// ── Tax rate dialog ────────────────────────────────────────────
+class _TaxDialog extends StatefulWidget {
+  final double rate;
+  const _TaxDialog({required this.rate});
   @override
-  State<_TaxRateDialog> createState() => _TaxRateDialogState();
+  State<_TaxDialog> createState() => _TaxDialogState();
 }
 
-class _TaxRateDialogState extends State<_TaxRateDialog> {
-  late double _selectedRate;
+class _TaxDialogState extends State<_TaxDialog> {
+  late double _sel;
+  @override
+  void initState() { super.initState(); _sel = widget.rate; }
 
-  final List<Map<String, dynamic>> _commonRates = [
-    {'rate': 0.0, 'label': '0% (Exonéré)'},
-    {'rate': 5.5, 'label': '5,5% (Taux réduit)'},
-    {'rate': 10.0, 'label': '10% (Taux intermédiaire)'},
-    {'rate': 20.0, 'label': '20% (Taux normal)'},
+  static const _rates = [
+    (0.0, '0 % (Exonere)'),
+    (5.5, '5,5 % (Reduit)'),
+    (10.0, '10 % (Intermediaire)'),
+    (20.0, '20 % (Normal)'),
   ];
-
-  @override
-  void initState() {
-    super.initState();
-    _selectedRate = widget.initialRate;
-  }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
-      ),
-      title: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              gradient: const LinearGradient(
-                colors: [Color(0xFF3B82F6), Color(0xFF2563EB)],
-              ),
-              borderRadius: BorderRadius.circular(10),
-            ),
-            child: const Icon(Icons.percent, color: Colors.white, size: 24),
-          ),
-          const SizedBox(width: 12),
-          const Text(
-            'Taux de TVA',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-      content: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: _commonRates.map((rateInfo) {
-          return RadioListTile<double>(
-            title: Text(
-              rateInfo['label'],
-              style: const TextStyle(fontWeight: FontWeight.w600),
-            ),
-            value: rateInfo['rate'],
-            groupValue: _selectedRate,
-            onChanged: (value) {
-              setState(() => _selectedRate = value!);
-            },
-            activeColor: const Color(0xFF14B8A6),
-          );
-        }).toList(),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: const Text(
-            'Annuler',
-            style: TextStyle(color: Color(0xFF64748B)),
-          ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      title: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(8),
+          decoration: BoxDecoration(color: PremiumTheme.primaryBlue.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(10)),
+          child: const Icon(Icons.percent_rounded, color: PremiumTheme.primaryBlue),
         ),
+        const SizedBox(width: 10),
+        const Text('Taux de TVA', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+      ]),
+      content: Column(mainAxisSize: MainAxisSize.min,
+          children: _rates.map((r) => RadioListTile<double>(
+            title: Text(r.$2, style: const TextStyle(fontWeight: FontWeight.w600)),
+            value: r.$1, groupValue: _sel,
+            activeColor: PremiumTheme.primaryBlue,
+            onChanged: (v) => setState(() => _sel = v!),
+          )).toList()),
+      actions: [
+        TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
         ElevatedButton(
-          onPressed: () => Navigator.of(context).pop(_selectedRate),
-          style: ElevatedButton.styleFrom(
-            backgroundColor: const Color(0xFF14B8A6),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(10),
-            ),
-          ),
-          child: const Text(
-            'Valider',
-            style: TextStyle(
-              color: Colors.white,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
+          onPressed: () => Navigator.pop(context, _sel),
+          style: ElevatedButton.styleFrom(backgroundColor: PremiumTheme.primaryBlue,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+          child: const Text('Valider', style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600)),
         ),
       ],
     );

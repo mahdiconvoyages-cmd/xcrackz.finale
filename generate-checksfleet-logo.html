@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Générateur Logo ChecksFleet</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            padding: 40px;
+            max-width: 1200px;
+            width: 100%;
+        }
+        h1 {
+            text-align: center;
+            color: #2d3748;
+            margin-bottom: 30px;
+            font-size: 2.5rem;
+        }
+        .logo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        .logo-card {
+            background: #f7fafc;
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            transition: transform 0.3s;
+            border: 2px solid #e2e8f0;
+        }
+        .logo-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+        }
+        .logo-card h3 {
+            color: #4a5568;
+            margin-bottom: 20px;
+            font-size: 1.2rem;
+        }
+        .logo-display {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 200px;
+        }
+        canvas {
+            max-width: 100%;
+            height: auto;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            width: 100%;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+        .info {
+            background: #edf2f7;
+            border-left: 4px solid #667eea;
+            padding: 20px;
+            border-radius: 8px;
+            margin-top: 30px;
+        }
+        .info h3 {
+            color: #2d3748;
+            margin-bottom: 10px;
+        }
+        .info ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        .info li {
+            color: #4a5568;
+            margin: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        .info li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #667eea;
+            font-weight: bold;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚚 ChecksFleet Logo Generator</h1>
+        
+        <div class="logo-grid">
+            <!-- Logo 1: Icon SVG -->
+            <div class="logo-card">
+                <h3>Icon SVG (App Icon)</h3>
+                <div class="logo-display">
+                    <canvas id="canvas1" width="512" height="512"></canvas>
+                </div>
+                <button onclick="downloadSVG('icon')">📥 Télécharger SVG</button>
+            </div>
+
+            <!-- Logo 2: Full Logo with Text -->
+            <div class="logo-card">
+                <h3>Logo Complet (Header)</h3>
+                <div class="logo-display">
+                    <canvas id="canvas2" width="1024" height="256"></canvas>
+                </div>
+                <button onclick="downloadSVG('full')">📥 Télécharger SVG</button>
+            </div>
+
+            <!-- Logo 3: PNG High-Res -->
+            <div class="logo-card">
+                <h3>PNG 512x512 (Android)</h3>
+                <div class="logo-display">
+                    <canvas id="canvas3" width="512" height="512"></canvas>
+                </div>
+                <button onclick="downloadPNG('icon', 512)">📥 Télécharger PNG</button>
+            </div>
+
+            <!-- Logo 4: PNG Full -->
+            <div class="logo-card">
+                <h3>PNG Full Logo</h3>
+                <div class="logo-display">
+                    <canvas id="canvas4" width="1024" height="256"></canvas>
+                </div>
+                <button onclick="downloadPNG('full', 1024)">📥 Télécharger PNG</button>
+            </div>
+        </div>
+
+        <div class="info">
+            <h3>📋 Instructions d'utilisation</h3>
+            <ul>
+                <li>Icon SVG → Pour l'icône de l'application Flutter (assets/icons/)</li>
+                <li>Logo Complet → Pour le header web et l'écran de splash</li>
+                <li>PNG 512x512 → Pour l'Android launcher icon</li>
+                <li>PNG Full Logo → Pour les emails et documents</li>
+                <li>Tous les logos sont générés en haute qualité</li>
+                <li>Couleur principale: Violet gradient (#667eea → #764ba2)</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // Draw Icon Logo (truck with check)
+        function drawIconLogo(canvas) {
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width;
+            const centerX = size / 2;
+            const centerY = size / 2;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, size, size);
+
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+
+            // Truck body (simplified)
+            ctx.fillStyle = 'white';
+            ctx.fillRect(size * 0.2, size * 0.35, size * 0.35, size * 0.25);
+            
+            // Truck cabin
+            ctx.fillRect(size * 0.56, size * 0.4, size * 0.2, size * 0.2);
+            
+            // Wheels
+            ctx.beginPath();
+            ctx.arc(size * 0.35, size * 0.65, size * 0.08, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(size * 0.62, size * 0.65, size * 0.08, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Check mark overlay
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = size * 0.08;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(size * 0.25, size * 0.47);
+            ctx.lineTo(size * 0.35, size * 0.57);
+            ctx.lineTo(size * 0.52, size * 0.35);
+            ctx.stroke();
+
+            // Border circle
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+            ctx.lineWidth = size * 0.02;
+            ctx.beginPath();
+            ctx.arc(centerX, centerY, size * 0.45, 0, Math.PI * 2);
+            ctx.stroke();
+        }
+
+        // Draw Full Logo with Text
+        function drawFullLogo(canvas) {
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Clear canvas
+            ctx.clearRect(0, 0, width, height);
+
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, width, 0);
+            gradient.addColorStop(0, '#667eea');
+            gradient.addColorStop(1, '#764ba2');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+
+            // Icon section (left side)
+            const iconSize = height * 0.7;
+            const iconX = height / 2;
+            const iconY = height / 2;
+
+            // Truck mini version
+            ctx.fillStyle = 'white';
+            ctx.fillRect(iconX - iconSize * 0.25, iconY - iconSize * 0.15, iconSize * 0.25, iconSize * 0.18);
+            ctx.fillRect(iconX + iconSize * 0.02, iconY - iconSize * 0.1, iconSize * 0.15, iconSize * 0.13);
+            
+            // Wheels mini
+            ctx.beginPath();
+            ctx.arc(iconX - iconSize * 0.08, iconY + iconSize * 0.08, iconSize * 0.06, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(iconX + iconSize * 0.08, iconY + iconSize * 0.08, iconSize * 0.06, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Check mark mini
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = iconSize * 0.08;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(iconX - iconSize * 0.2, iconY - iconSize * 0.02);
+            ctx.lineTo(iconX - iconSize * 0.08, iconY + iconSize * 0.08);
+            ctx.lineTo(iconX + iconSize * 0.12, iconY - iconSize * 0.15);
+            ctx.stroke();
+
+            // Text "ChecksFleet"
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${height * 0.45}px 'Segoe UI', Arial, sans-serif`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('ChecksFleet', iconX + iconSize * 0.6, iconY - height * 0.05);
+
+            // Tagline
+            ctx.font = `${height * 0.15}px 'Segoe UI', Arial, sans-serif`;
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.fillText('Convoyage Intelligent', iconX + iconSize * 0.6, iconY + height * 0.15);
+        }
+
+        // Download SVG
+        function downloadSVG(type) {
+            let svg;
+            let filename;
+
+            if (type === 'icon') {
+                svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="512" height="512" viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="512" height="512" fill="url(#grad1)"/>
+  
+  <!-- Truck body -->
+  <rect x="102" y="179" width="179" height="128" fill="white"/>
+  
+  <!-- Truck cabin -->
+  <rect x="287" y="205" width="102" height="102" fill="white"/>
+  
+  <!-- Wheels -->
+  <circle cx="179" cy="333" r="41" fill="white"/>
+  <circle cx="318" cy="333" r="41" fill="white"/>
+  
+  <!-- Check mark -->
+  <path d="M 128 241 L 179 292 L 266 179" stroke="#10b981" stroke-width="41" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  
+  <!-- Border circle -->
+  <circle cx="256" cy="256" r="230" stroke="rgba(255,255,255,0.3)" stroke-width="10" fill="none"/>
+</svg>`;
+                filename = 'checksfleet-icon.svg';
+            } else {
+                svg = `<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="256" viewBox="0 0 1024 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="grad2" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#667eea;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#764ba2;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background -->
+  <rect width="1024" height="256" fill="url(#grad2)"/>
+  
+  <!-- Icon section -->
+  <rect x="83" y="105" width="45" height="32" fill="white"/>
+  <rect x="130" y="115" width="27" fill="white" height="23"/>
+  <circle cx="113" cy="148" r="11" fill="white"/>
+  <circle cx="148" cy="148" r="11" fill="white"/>
+  <path d="M 92 125 L 113 143 L 149 108" stroke="#10b981" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  
+  <!-- Text ChecksFleet -->
+  <text x="220" y="115" font-family="'Segoe UI', Arial, sans-serif" font-size="115" font-weight="bold" fill="white">ChecksFleet</text>
+  
+  <!-- Tagline -->
+  <text x="220" y="166" font-family="'Segoe UI', Arial, sans-serif" font-size="38" fill="rgba(255,255,255,0.9)">Convoyage Intelligent</text>
+</svg>`;
+                filename = 'checksfleet-logo-full.svg';
+            }
+
+            const blob = new Blob([svg], { type: 'image/svg+xml' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // Download PNG
+        function downloadPNG(type, size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = type === 'icon' ? size : size / 4;
+
+            if (type === 'icon') {
+                drawIconLogo(canvas);
+            } else {
+                drawFullLogo(canvas);
+            }
+
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = type === 'icon' ? 'checksfleet-icon.png' : 'checksfleet-logo-full.png';
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        // Initialize all canvases
+        window.onload = () => {
+            drawIconLogo(document.getElementById('canvas1'));
+            drawFullLogo(document.getElementById('canvas2'));
+            drawIconLogo(document.getElementById('canvas3'));
+            drawFullLogo(document.getElementById('canvas4'));
+        };
+    </script>
+</body>
+</html>

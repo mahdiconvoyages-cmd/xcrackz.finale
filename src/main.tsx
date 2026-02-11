@@ -1,108 +1,10 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import * as Sentry from '@sentry/react';
-import { ThemeProvider, createTheme } from '@mui/material/styles';
-import CssBaseline from '@mui/material/CssBaseline';
 import App from './App.tsx';
 import './index.css';
 import './styles/accessibility-simple.css';
 import { errorLogger, showStoredErrors } from './utils/errorLogger';
-
-// Créer le thème Material-UI personnalisé
-const theme = createTheme({
-  palette: {
-    mode: 'light',
-    primary: {
-      main: '#667eea',
-      light: '#8c9eff',
-      dark: '#3f51b5',
-      contrastText: '#ffffff',
-    },
-    secondary: {
-      main: '#764ba2',
-      light: '#9575cd',
-      dark: '#512da8',
-      contrastText: '#ffffff',
-    },
-    background: {
-      default: '#f5f5f7',
-      paper: '#ffffff',
-    },
-  },
-  typography: {
-    fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-    h1: {
-      fontWeight: 700,
-    },
-    h2: {
-      fontWeight: 700,
-    },
-    h3: {
-      fontWeight: 600,
-    },
-    h4: {
-      fontWeight: 600,
-    },
-    h5: {
-      fontWeight: 600,
-    },
-    h6: {
-      fontWeight: 600,
-    },
-    button: {
-      fontWeight: 600,
-      textTransform: 'none',
-    },
-  },
-  shape: {
-    borderRadius: 12,
-  },
-  components: {
-    MuiButton: {
-      styleOverrides: {
-        root: {
-          borderRadius: 8,
-          padding: '10px 24px',
-          boxShadow: 'none',
-          '&:hover': {
-            boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-          },
-        },
-        contained: {
-          '&:hover': {
-            boxShadow: '0 6px 16px rgba(0,0,0,0.2)',
-          },
-        },
-      },
-    },
-    MuiCard: {
-      styleOverrides: {
-        root: {
-          borderRadius: 16,
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        },
-      },
-    },
-    MuiPaper: {
-      styleOverrides: {
-        root: {
-          borderRadius: 16,
-        },
-        elevation1: {
-          boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-        },
-        elevation3: {
-          boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
-        },
-      },
-    },
-    MuiTextField: {
-      defaultProps: {
-        variant: 'outlined',
-      },
-    },
-  },
-});
 
 // Initialiser Sentry
 if (import.meta.env.VITE_SENTRY_DSN) {
@@ -117,9 +19,9 @@ if (import.meta.env.VITE_SENTRY_DSN) {
       }),
     ],
     // Performance Monitoring
-    tracesSampleRate: 1.0, // Capture 100% des transactions
+    tracesSampleRate: 0.2, // 20% des transactions
     // Session Replay
-    replaysSessionSampleRate: 0.1, // 10% des sessions
+    replaysSessionSampleRate: 0.05, // 5% des sessions
     replaysOnErrorSampleRate: 1.0, // 100% des erreurs
   });
   console.log('✅ Sentry initialisé avec succès');
@@ -212,10 +114,7 @@ try {
 
   createRoot(rootElement).render(
     <StrictMode>
-      <ThemeProvider theme={theme}>
-        <CssBaseline />
-        <App />
-      </ThemeProvider>
+      <App />
     </StrictMode>
   );
   

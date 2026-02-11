@@ -1,6 +1,8 @@
 class Mission {
   final String id;
+  final String? userId;
   final String? reference;
+  final String? shareCode;
   final String? mandataireName;
   final String? mandataireCompany;
   final String? pickupAddress;
@@ -24,13 +26,16 @@ class Mission {
   final String? vehicleModel;
   final String? vehiclePlate;
   final String? vehicleVin;
+  final int? vehicleYear;
   final String status;
   final String? driverId;
+  final String? assignedToUserId;
   final String? clientName;
   final String? clientPhone;
   final String? clientEmail;
   final String? agentName;
   final String? notes;
+  final String? specialInstructions;
   final double? price;
   final String? publicTrackingLink;
   final String? reportId;
@@ -39,7 +44,9 @@ class Mission {
 
   Mission({
     required this.id,
+    this.userId,
     this.reference,
+    this.shareCode,
     this.mandataireName,
     this.mandataireCompany,
     this.pickupAddress,
@@ -63,13 +70,16 @@ class Mission {
     this.vehicleModel,
     this.vehiclePlate,
     this.vehicleVin,
+    this.vehicleYear,
     required this.status,
     this.driverId,
+    this.assignedToUserId,
     this.clientName,
     this.clientPhone,
     this.clientEmail,
     this.agentName,
     this.notes,
+    this.specialInstructions,
     this.price,
     this.publicTrackingLink,
     this.reportId,
@@ -80,7 +90,9 @@ class Mission {
   factory Mission.fromJson(Map<String, dynamic> json) {
     return Mission(
       id: json['id'] as String,
+      userId: json['user_id'] as String?,
       reference: json['reference'] as String?,
+      shareCode: json['share_code'] as String?,
       mandataireName: json['mandataire_name'] as String?,
       mandataireCompany: json['mandataire_company'] as String?,
       pickupAddress: json['pickup_address'] as String?,
@@ -104,13 +116,16 @@ class Mission {
       vehicleModel: json['vehicle_model'] as String?,
       vehiclePlate: json['vehicle_plate'] as String?,
       vehicleVin: json['vehicle_vin'] as String?,
+      vehicleYear: json['vehicle_year'] != null ? (json['vehicle_year'] as num).toInt() : null,
       status: json['status'] as String? ?? 'pending',
       driverId: json['driver_id'] as String?,
+      assignedToUserId: json['assigned_user_id'] as String?,
       clientName: json['client_name'] as String?,
       clientPhone: json['client_phone'] as String?,
       clientEmail: json['client_email'] as String?,
       agentName: json['agent_name'] as String?,
       notes: json['notes'] as String?,
+      specialInstructions: json['special_instructions'] as String?,
       price: json['price'] != null ? (json['price'] as num).toDouble() : null,
       publicTrackingLink: json['public_tracking_link'] as String?,
       reportId: json['report_id'] as String?,
@@ -122,7 +137,9 @@ class Mission {
   Map<String, dynamic> toJson() {
     return {
       'id': id,
+      'user_id': userId,
       'reference': reference,
+      'share_code': shareCode,
       'mandataire_name': mandataireName,
       'mandataire_company': mandataireCompany,
       'pickup_address': pickupAddress,
@@ -146,6 +163,7 @@ class Mission {
       'vehicle_model': vehicleModel,
       'vehicle_plate': vehiclePlate,
       'vehicle_vin': vehicleVin,
+      'vehicle_year': vehicleYear,
       'status': status,
       'driver_id': driverId,
       'client_name': clientName,
@@ -153,6 +171,7 @@ class Mission {
       'client_email': clientEmail,
       'agent_name': agentName,
       'notes': notes,
+      'special_instructions': specialInstructions,
       'price': price,
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
@@ -161,7 +180,9 @@ class Mission {
 
   Mission copyWith({
     String? id,
+    String? userId,
     String? reference,
+    String? shareCode,
     String? mandataireName,
     String? mandataireCompany,
     String? pickupAddress,
@@ -185,6 +206,7 @@ class Mission {
     String? vehicleModel,
     String? vehiclePlate,
     String? vehicleVin,
+    int? vehicleYear,
     String? status,
     String? driverId,
     String? clientName,
@@ -192,6 +214,7 @@ class Mission {
     String? clientEmail,
     String? agentName,
     String? notes,
+    String? specialInstructions,
     double? price,
     String? publicTrackingLink,
     String? reportId,
@@ -200,7 +223,9 @@ class Mission {
   }) {
     return Mission(
       id: id ?? this.id,
+      userId: userId ?? this.userId,
       reference: reference ?? this.reference,
+      shareCode: shareCode ?? this.shareCode,
       mandataireName: mandataireName ?? this.mandataireName,
       mandataireCompany: mandataireCompany ?? this.mandataireCompany,
       pickupAddress: pickupAddress ?? this.pickupAddress,
@@ -224,6 +249,7 @@ class Mission {
       vehicleModel: vehicleModel ?? this.vehicleModel,
       vehiclePlate: vehiclePlate ?? this.vehiclePlate,
       vehicleVin: vehicleVin ?? this.vehicleVin,
+      vehicleYear: vehicleYear ?? this.vehicleYear,
       status: status ?? this.status,
       driverId: driverId ?? this.driverId,
       clientName: clientName ?? this.clientName,
@@ -231,6 +257,7 @@ class Mission {
       clientEmail: clientEmail ?? this.clientEmail,
       agentName: agentName ?? this.agentName,
       notes: notes ?? this.notes,
+      specialInstructions: specialInstructions ?? this.specialInstructions,
       price: price ?? this.price,
       publicTrackingLink: publicTrackingLink ?? this.publicTrackingLink,
       reportId: reportId ?? this.reportId,

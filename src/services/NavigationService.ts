@@ -10,7 +10,6 @@
 
 import { supabase } from '../lib/supabase';
 import { MAPBOX_CONFIG, validateMapboxConfig } from '../../mapbox-config';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export interface NavigationRoute {
   distance: number; // meters
@@ -280,7 +279,7 @@ class NavigationService {
     if (!MAPBOX_CONFIG.cache.enabled) return null;
     
     try {
-      const cached = await AsyncStorage.getItem(key);
+      const cached = localStorage.getItem(key);
       if (!cached) return null;
       
       const { route, timestamp } = JSON.parse(cached);
@@ -288,7 +287,7 @@ class NavigationService {
       
       // Vérifier TTL
       if (age > MAPBOX_CONFIG.cache.ttl * 1000) {
-        await AsyncStorage.removeItem(key);
+        localStorage.removeItem(key);
         return null;
       }
       
@@ -302,7 +301,7 @@ class NavigationService {
     if (!MAPBOX_CONFIG.cache.enabled) return;
     
     try {
-      await AsyncStorage.setItem(key, JSON.stringify({
+      localStorage.setItem(key, JSON.stringify({
         route,
         timestamp: Date.now(),
       }));

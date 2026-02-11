@@ -53,7 +53,10 @@ const cleanText = (text: string): string => {
     .replace(/Ç/g, 'C')
     .replace(/Ñ/g, 'N')
     .replace(/€/g, 'EUR')
-    .replace(/°/g, 'deg');
+    .replace(/°/g, 'deg')
+    .replace(/[\u{1F300}-\u{1F9FF}]/gu, '')
+    .replace(/[\u{2600}-\u{26FF}]/gu, '')
+    .replace(/[\u{2700}-\u{27BF}]/gu, '');
 };
 
 export async function generateMissionPDF(mission: Mission, assignment?: Assignment) {
@@ -92,10 +95,11 @@ export async function generateMissionPDF(mission: Mission, assignment?: Assignme
   doc.circle(15, 25, 25, 'F');
   // doc.setGState(doc.GState({ opacity: 1 }));
 
-  // Icône de camion (emoji simplifié)
-  doc.setFontSize(32);
+  // Icone de camion (symbole texte compatible jsPDF)
+  doc.setFontSize(20);
+  doc.setFont('helvetica', 'bold');
   doc.setTextColor(colors.white[0], colors.white[1], colors.white[2]);
-  doc.text('🚚', margin, 30);
+  doc.text('[>]', margin, 28);
 
   // Titre
   doc.setFontSize(24);
@@ -192,7 +196,7 @@ export async function generateMissionPDF(mission: Mission, assignment?: Assignme
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(21, 128, 61); // Green-700
-  doc.text('📍 DEPART', margin + 5, y + 8);
+  doc.text('> DEPART', margin + 5, y + 8);
 
   // Date et heure
   doc.setFontSize(9);
@@ -252,7 +256,7 @@ export async function generateMissionPDF(mission: Mission, assignment?: Assignme
   doc.setFontSize(12);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(185, 28, 28); // Red-700
-  doc.text('📍 ARRIVEE', margin + 5, y + 8);
+  doc.text('> ARRIVEE', margin + 5, y + 8);
 
   // Date et heure
   doc.setFontSize(9);

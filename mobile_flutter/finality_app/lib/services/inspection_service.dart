@@ -6,6 +6,25 @@ import 'dart:typed_data';
 class InspectionService {
   final SupabaseClient _supabase = Supabase.instance.client;
 
+  // Get all inspections for the current user
+  Future<List<VehicleInspection>> getUserInspections() async {
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) return [];
+      
+      final response = await _supabase
+          .from('vehicle_inspections')
+          .select()
+          .eq('inspector_id', userId)
+          .order('created_at', ascending: false)
+          .limit(50);
+
+      return (response as List).map((json) => VehicleInspection.fromJson(json)).toList();
+    } catch (e) {
+      throw Exception('Erreur lors du chargement des inspections: $e');
+    }
+  }
+
   // Get inspections for a mission
   Future<List<VehicleInspection>> getInspectionsByMission(String missionId) async {
     try {

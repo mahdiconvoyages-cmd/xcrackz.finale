@@ -39,11 +39,13 @@ class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
 
     try {
       final quote = await _quoteService.getQuoteById(widget.quoteId);
+      if (!mounted) return;
       setState(() {
         _quote = quote;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(

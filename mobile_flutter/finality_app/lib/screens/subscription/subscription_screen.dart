@@ -100,11 +100,13 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       }
 
       final subscription = await _subscriptionService.getActiveSubscription(userId);
+      if (!mounted) return;
       setState(() {
         _currentSubscription = subscription;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() {
         _error = e.toString();
         _isLoading = false;

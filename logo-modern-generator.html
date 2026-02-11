@@ -1,0 +1,522 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChecksFleet - Logo Professionnel Moderne</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #1e3a8a 0%, #7c3aed 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: white;
+            text-align: center;
+            font-size: 3rem;
+            margin-bottom: 20px;
+            text-shadow: 0 4px 20px rgba(0,0,0,0.3);
+        }
+        .subtitle {
+            color: rgba(255,255,255,0.9);
+            text-align: center;
+            font-size: 1.2rem;
+            margin-bottom: 50px;
+        }
+        .logo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 30px;
+            margin-bottom: 50px;
+        }
+        .logo-card {
+            background: white;
+            border-radius: 24px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            transition: transform 0.3s;
+        }
+        .logo-card:hover {
+            transform: translateY(-10px);
+        }
+        .logo-card h3 {
+            color: #1e3a8a;
+            margin-bottom: 20px;
+            font-size: 1.5rem;
+            text-align: center;
+        }
+        .logo-display {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            padding: 40px;
+            border-radius: 16px;
+            margin-bottom: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 280px;
+            position: relative;
+            overflow: hidden;
+        }
+        .logo-display::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            left: -50%;
+            width: 200%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(124,58,237,0.1) 0%, transparent 70%);
+            animation: rotate 20s linear infinite;
+        }
+        @keyframes rotate {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        canvas {
+            position: relative;
+            z-index: 1;
+            max-width: 100%;
+            height: auto;
+            filter: drop-shadow(0 10px 30px rgba(0,0,0,0.15));
+        }
+        .btn-group {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        button {
+            flex: 1;
+            min-width: 140px;
+            background: linear-gradient(135deg, #7c3aed 0%, #1e3a8a 100%);
+            color: white;
+            border: none;
+            padding: 14px 24px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(124,58,237,0.4);
+        }
+        .info-section {
+            background: white;
+            border-radius: 24px;
+            padding: 40px;
+            margin-top: 30px;
+        }
+        .info-section h2 {
+            color: #1e3a8a;
+            margin-bottom: 20px;
+        }
+        .design-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        .design-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            padding: 20px;
+            border-radius: 12px;
+            border-left: 4px solid #7c3aed;
+        }
+        .design-card h4 {
+            color: #1e3a8a;
+            margin-bottom: 10px;
+        }
+        .design-card p {
+            color: #64748b;
+            line-height: 1.6;
+        }
+        .color-palette {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        .color-box {
+            flex: 1;
+            min-width: 120px;
+            height: 100px;
+            border-radius: 12px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 0.9rem;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 ChecksFleet Logos Professionnels</h1>
+        <p class="subtitle">Designs modernes pour votre application de convoyage</p>
+        
+        <div class="logo-grid">
+            <!-- Style 1: Géométrique Minimaliste -->
+            <div class="logo-card">
+                <h3>Style 1 : Géométrique</h3>
+                <div class="logo-display">
+                    <canvas id="geo-canvas" width="400" height="400"></canvas>
+                </div>
+                <div class="btn-group">
+                    <button onclick="downloadLogo('geo', 'svg')">📥 SVG</button>
+                    <button onclick="downloadLogo('geo', 'png')">📥 PNG</button>
+                </div>
+            </div>
+
+            <!-- Style 2: Ligne Continue -->
+            <div class="logo-card">
+                <h3>Style 2 : Ligne Continue</h3>
+                <div class="logo-display">
+                    <canvas id="line-canvas" width="400" height="400"></canvas>
+                </div>
+                <div class="btn-group">
+                    <button onclick="downloadLogo('line', 'svg')">📥 SVG</button>
+                    <button onclick="downloadLogo('line', 'png')">📥 PNG</button>
+                </div>
+            </div>
+
+            <!-- Style 3: Badge Moderne -->
+            <div class="logo-card">
+                <h3>Style 3 : Badge Premium</h3>
+                <div class="logo-display">
+                    <canvas id="badge-canvas" width="400" height="400"></canvas>
+                </div>
+                <div class="btn-group">
+                    <button onclick="downloadLogo('badge', 'svg')">📥 SVG</button>
+                    <button onclick="downloadLogo('badge', 'png')">📥 PNG</button>
+                </div>
+            </div>
+
+            <!-- Style 4: Typographie Forte -->
+            <div class="logo-card">
+                <h3>Style 4 : Typographie</h3>
+                <div class="logo-display">
+                    <canvas id="typo-canvas" width="400" height="400"></canvas>
+                </div>
+                <div class="btn-group">
+                    <button onclick="downloadLogo('typo', 'svg')">📥 SVG</button>
+                    <button onclick="downloadLogo('typo', 'png')">📥 PNG</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Info Section -->
+        <div class="info-section">
+            <h2>🎨 Palette de Couleurs Professionnelle</h2>
+            <div class="color-palette">
+                <div class="color-box" style="background: #7c3aed;">
+                    <span>#7C3AED</span>
+                    <small>Violet Principal</small>
+                </div>
+                <div class="color-box" style="background: #1e3a8a;">
+                    <span>#1E3A8A</span>
+                    <small>Bleu Profond</small>
+                </div>
+                <div class="color-box" style="background: #10b981;">
+                    <span>#10B981</span>
+                    <small>Vert Succès</small>
+                </div>
+                <div class="color-box" style="background: #f59e0b;">
+                    <span>#F59E0B</span>
+                    <small>Orange Accent</small>
+                </div>
+                <div class="color-box" style="background: #1e293b;">
+                    <span>#1E293B</span>
+                    <small>Gris Foncé</small>
+                </div>
+            </div>
+        </div>
+
+        <div class="info-section">
+            <h2>✨ Principes de Design</h2>
+            <div class="design-grid">
+                <div class="design-card">
+                    <h4>🎯 Simplicité</h4>
+                    <p>Un logo doit être reconnaissable même à 16x16 pixels. Évitez les détails complexes.</p>
+                </div>
+                <div class="design-card">
+                    <h4>🎨 Couleurs Limitées</h4>
+                    <p>2-3 couleurs maximum pour un impact visuel fort et une mémorisation facile.</p>
+                </div>
+                <div class="design-card">
+                    <h4>⚡ Scalabilité</h4>
+                    <p>Le logo doit fonctionner du favicon 16px à l'affiche 5 mètres.</p>
+                </div>
+                <div class="design-card">
+                    <h4>🔄 Versatilité</h4>
+                    <p>Testez votre logo sur fond clair, foncé, et en noir & blanc.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Style 1: Géométrique Minimaliste (Camion abstrait + Check)
+        function drawGeoLogo(canvas) {
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width;
+            ctx.clearRect(0, 0, size, size);
+
+            // Gradient background
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#7c3aed');
+            gradient.addColorStop(1, '#1e3a8a');
+            
+            // Rounded square background
+            ctx.fillStyle = gradient;
+            roundRect(ctx, 0, 0, size, size, size * 0.15);
+            ctx.fill();
+
+            // Truck shape (hexagone stylisé)
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            const cx = size * 0.5;
+            const cy = size * 0.48;
+            const r = size * 0.25;
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i - Math.PI / 6;
+                const x = cx + r * Math.cos(angle);
+                const y = cy + r * Math.sin(angle);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            // Check mark moderne (trait fluide)
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = size * 0.055;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(size * 0.33, size * 0.48);
+            ctx.lineTo(size * 0.45, size * 0.6);
+            ctx.lineTo(size * 0.68, size * 0.35);
+            ctx.stroke();
+
+            // Texte "CF" simplifié
+            ctx.fillStyle = 'rgba(255,255,255,0.15)';
+            ctx.font = `bold ${size * 0.15}px -apple-system, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'bottom';
+            ctx.fillText('CF', cx, size * 0.92);
+        }
+
+        // Style 2: Ligne Continue (One-line drawing)
+        function drawLineLogo(canvas) {
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width;
+            ctx.clearRect(0, 0, size, size);
+
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#7c3aed');
+            gradient.addColorStop(1, '#1e3a8a');
+            ctx.fillStyle = gradient;
+            roundRect(ctx, 0, 0, size, size, size * 0.15);
+            ctx.fill();
+
+            // Dessin en ligne continue du camion + check
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = size * 0.035;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            
+            ctx.beginPath();
+            // Camion simplifié
+            ctx.moveTo(size * 0.2, size * 0.6);
+            ctx.lineTo(size * 0.2, size * 0.4);
+            ctx.lineTo(size * 0.5, size * 0.4);
+            ctx.lineTo(size * 0.5, size * 0.35);
+            ctx.lineTo(size * 0.7, size * 0.35);
+            ctx.lineTo(size * 0.7, size * 0.6);
+            
+            // Roues
+            ctx.moveTo(size * 0.32, size * 0.6);
+            ctx.arc(size * 0.32, size * 0.65, size * 0.05, -Math.PI, 0);
+            ctx.moveTo(size * 0.58, size * 0.6);
+            ctx.arc(size * 0.58, size * 0.65, size * 0.05, -Math.PI, 0);
+            
+            // Check fluide
+            ctx.moveTo(size * 0.25, size * 0.5);
+            ctx.quadraticCurveTo(size * 0.35, size * 0.52, size * 0.4, size * 0.58);
+            ctx.quadraticCurveTo(size * 0.45, size * 0.52, size * 0.65, size * 0.25);
+            
+            ctx.stroke();
+
+            // Glow effect
+            ctx.strokeStyle = 'rgba(16,185,129,0.6)';
+            ctx.lineWidth = size * 0.05;
+            ctx.beginPath();
+            ctx.moveTo(size * 0.25, size * 0.5);
+            ctx.quadraticCurveTo(size * 0.35, size * 0.52, size * 0.4, size * 0.58);
+            ctx.quadraticCurveTo(size * 0.45, size * 0.52, size * 0.65, size * 0.25);
+            ctx.stroke();
+        }
+
+        // Style 3: Badge Moderne
+        function drawBadgeLogo(canvas) {
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width;
+            ctx.clearRect(0, 0, size, size);
+
+            // Badge shape avec dégradé
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#7c3aed');
+            gradient.addColorStop(0.5, '#5b21b6');
+            gradient.addColorStop(1, '#1e3a8a');
+            
+            // Octogone (badge classique)
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            const sides = 8;
+            const cx = size / 2;
+            const cy = size / 2;
+            const radius = size * 0.42;
+            for (let i = 0; i <= sides; i++) {
+                const angle = (Math.PI * 2 / sides) * i - Math.PI / 2;
+                const x = cx + radius * Math.cos(angle);
+                const y = cy + radius * Math.sin(angle);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            // Border blanc
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = size * 0.02;
+            ctx.stroke();
+
+            // Icône camion minimaliste
+            ctx.fillStyle = 'white';
+            ctx.fillRect(size * 0.32, size * 0.42, size * 0.2, size * 0.12);
+            ctx.fillRect(size * 0.52, size * 0.46, size * 0.12, size * 0.08);
+            
+            // Check dans cercle
+            ctx.beginPath();
+            ctx.arc(size * 0.62, size * 0.38, size * 0.1, 0, Math.PI * 2);
+            ctx.fillStyle = '#10b981';
+            ctx.fill();
+            
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = size * 0.025;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(size * 0.57, size * 0.38);
+            ctx.lineTo(size * 0.6, size * 0.41);
+            ctx.lineTo(size * 0.67, size * 0.34);
+            ctx.stroke();
+
+            // Texte sous le badge
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.12}px -apple-system, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.fillText('ChecksFleet', cx, size * 0.82);
+        }
+
+        // Style 4: Typographie Forte
+        function drawTypoLogo(canvas) {
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width;
+            ctx.clearRect(0, 0, size, size);
+
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#1e3a8a');
+            gradient.addColorStop(1, '#7c3aed');
+            ctx.fillStyle = gradient;
+            roundRect(ctx, 0, 0, size, size, size * 0.15);
+            ctx.fill();
+
+            // Lettres "CF" en grande taille moderne
+            const textGrad = ctx.createLinearGradient(0, size * 0.3, 0, size * 0.7);
+            textGrad.addColorStop(0, 'white');
+            textGrad.addColorStop(1, 'rgba(255,255,255,0.8)');
+            
+            ctx.fillStyle = textGrad;
+            ctx.font = `900 ${size * 0.35}px -apple-system, BlinkMacSystemFont, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.letterSpacing = '-0.05em';
+            ctx.fillText('CF', size / 2, size * 0.48);
+
+            // Check mark intégré dans le F
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = size * 0.04;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(size * 0.55, size * 0.42);
+            ctx.lineTo(size * 0.62, size * 0.5);
+            ctx.lineTo(size * 0.76, size * 0.32);
+            ctx.stroke();
+
+            // Sous-titre
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.font = `600 ${size * 0.08}px -apple-system, sans-serif`;
+            ctx.fillText('ChecksFleet', size / 2, size * 0.75);
+        }
+
+        // Helper: Rounded Rectangle
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.arcTo(x + width, y, x + width, y + radius, radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+            ctx.lineTo(x + radius, y + height);
+            ctx.arcTo(x, y + height, x, y + height - radius, radius);
+            ctx.lineTo(x, y + radius);
+            ctx.arcTo(x, y, x + radius, y, radius);
+            ctx.closePath();
+        }
+
+        // Download Functions
+        function downloadLogo(type, format) {
+            let canvas;
+            let filename = `checksfleet-${type}-logo`;
+
+            switch(type) {
+                case 'geo': canvas = document.getElementById('geo-canvas'); break;
+                case 'line': canvas = document.getElementById('line-canvas'); break;
+                case 'badge': canvas = document.getElementById('badge-canvas'); break;
+                case 'typo': canvas = document.getElementById('typo-canvas'); break;
+            }
+
+            if (format === 'png') {
+                canvas.toBlob((blob) => {
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename + '.png';
+                    a.click();
+                    URL.revokeObjectURL(url);
+                });
+            } else {
+                // SVG export simplifié
+                alert('Téléchargez le PNG, puis convertissez sur vectorizer.ai ou convertio.co pour un SVG parfait !');
+            }
+        }
+
+        // Initialize
+        window.onload = () => {
+            drawGeoLogo(document.getElementById('geo-canvas'));
+            drawLineLogo(document.getElementById('line-canvas'));
+            drawBadgeLogo(document.getElementById('badge-canvas'));
+            drawTypoLogo(document.getElementById('typo-canvas'));
+        };
+    </script>
+</body>
+</html>

@@ -3,6 +3,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:io' show Platform;
 import 'package:device_info_plus/device_info_plus.dart';
 import '../main.dart';
+import '../utils/logger.dart';
 
 /// Service de prévention de fraude lors de l'inscription
 /// Détecte les comptes multiples, SIRET dupliqués, emails jetables, etc.
@@ -23,7 +24,7 @@ class FraudPreventionService {
         fingerprint = '${iosInfo.identifierForVendor}_${iosInfo.model}_${iosInfo.systemVersion}';
       }
     } catch (e) {
-      debugPrint('❌ Erreur génération device fingerprint: $e');
+      logger.e('Erreur génération device fingerprint: $e');
       fingerprint = 'unknown_${DateTime.now().millisecondsSinceEpoch}';
     }
 
@@ -38,7 +39,7 @@ class FraudPreventionService {
       // Pour l'instant, on retourne un placeholder
       return 'unknown_ip';
     } catch (e) {
-      debugPrint('❌ Erreur récupération IP: $e');
+      logger.e('Erreur récupération IP: $e');
       return 'unknown_ip';
     }
   }
@@ -52,7 +53,7 @@ class FraudPreventionService {
 
       return response as bool? ?? false;
     } catch (e) {
-      debugPrint('❌ Erreur vérification email: $e');
+      logger.e('Erreur vérification email: $e');
       return false;
     }
   }
@@ -66,7 +67,7 @@ class FraudPreventionService {
 
       return response as bool? ?? false;
     } catch (e) {
-      debugPrint('❌ Erreur vérification SIRET: $e');
+      logger.e('Erreur vérification SIRET: $e');
       return false;
     }
   }
@@ -80,7 +81,7 @@ class FraudPreventionService {
 
       return response as int? ?? 0;
     } catch (e) {
-      debugPrint('❌ Erreur vérification téléphone: $e');
+      logger.e('Erreur vérification téléphone: $e');
       return 0;
     }
   }
@@ -106,7 +107,7 @@ class FraudPreventionService {
 
       return FraudCheckResult.fromJson(response as Map<String, dynamic>);
     } catch (e) {
-      debugPrint('❌ Erreur analyse fraude: $e');
+      logger.e('Erreur analyse fraude: $e');
       // En cas d'erreur, on permet l'inscription par défaut (fail-open)
       return FraudCheckResult(
         fraudScore: 0,
@@ -140,7 +141,7 @@ class FraudPreventionService {
         'failure_reason': failureReason,
       });
     } catch (e) {
-      debugPrint('⚠️ Erreur log tentative inscription: $e');
+      logger.w('Erreur log tentative inscription: $e');
       // Non bloquant
     }
   }

@@ -2,57 +2,45 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'dart:async';
 import '../screens/missions/mission_detail_screen.dart';
+import '../utils/logger.dart';
 
 class DeepLinkService {
   static final DeepLinkService _instance = DeepLinkService._internal();
   factory DeepLinkService() => _instance;
   DeepLinkService._internal();
 
-  static const platform = MethodChannel('app.finality/deeplink');
-  
-  StreamController<Uri> _linkStreamController = StreamController<Uri>.broadcast();
+  final StreamController<Uri> _linkStreamController = StreamController<Uri>.broadcast();
   Stream<Uri> get linkStream => _linkStreamController.stream;
 
   void initialize() {
-    // Listen for app opened via deep link (app was killed)
+    // Deep links are handled via Android intent filters / iOS universal links
+    // No native MethodChannel needed — use Flutter's built-in mechanism
     _getInitialLink();
-    
-    // Listen for deep links while app is running
-    _listenForLinks();
   }
 
   Future<void> _getInitialLink() async {
     try {
-      final String? initialLink = await platform.invokeMethod('getInitialLink');
-      if (initialLink != null) {
-        final uri = Uri.parse(initialLink);
-        _linkStreamController.add(uri);
+      // Use ServicesBinding to get the initial URI if available
+      final initialUri = Uri.base;
+      if (initialUri.pathSegments.isNotEmpty) {
+        logger.d('Initial URI detected: $initialUri');
+        _linkStreamController.add(initialUri);
       }
-    } on PlatformException catch (e) {
-      debugPrint('Failed to get initial link: ${e.message}');
+    } catch (e) {
+      logger.e('Failed to get initial link: $e');
     }
-  }
-
-  void _listenForLinks() {
-    platform.setMethodCallHandler((call) async {
-      if (call.method == 'onNewLink') {
-        final String link = call.arguments;
-        final uri = Uri.parse(link);
-        _linkStreamController.add(uri);
-      }
-    });
   }
 
   /// Handle deep link and navigate to appropriate screen
   Future<void> handleDeepLink(BuildContext context, Uri uri) async {
-    debugPrint('Handling deep link: $uri');
+    logger.d('Handling deep link: $uri');
 
     // Parse the URI
     final path = uri.path;
     final pathSegments = uri.pathSegments;
 
     if (pathSegments.isEmpty) {
-      debugPrint('No path segments in URI');
+      logger.w('No path segments in URI');
       return;
     }
 
@@ -71,7 +59,7 @@ class DeepLinkService {
       }
     }
     else {
-      debugPrint('Unknown deep link format: $uri');
+      logger.w('Unknown deep link format: $uri');
       _showError(context, 'Lien non reconnu');
     }
   }
@@ -84,7 +72,7 @@ class DeepLinkService {
         ),
       );
     } catch (e) {
-      debugPrint('Error navigating to mission: $e');
+      logger.e('Error navigating to mission: $e');
       _showError(context, 'Impossible d\'ouvrir la mission');
     }
   }

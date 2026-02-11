@@ -60,12 +60,14 @@ class _TrackingListScreenState extends State<TrackingListScreen> {
         });
       }
 
+      if (!mounted) return;
       setState(() {
         _trackedMissions = missionsWithGPS;
         _isLoading = false;
       });
     } catch (e) {
       print('Erreur chargement missions: $e');
+      if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }

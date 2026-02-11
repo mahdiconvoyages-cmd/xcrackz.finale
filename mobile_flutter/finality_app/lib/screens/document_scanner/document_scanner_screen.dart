@@ -121,6 +121,7 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
       final enhancedFile = File(enhancedPath);
       await enhancedFile.writeAsBytes(img.encodeJpg(enhanced, quality: 95));
 
+      if (!mounted) return;
       setState(() {
         _scannedImagePaths[_currentImageIndex] = enhancedPath;
         _isEnhancing = false;
@@ -138,7 +139,7 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
       }
     } catch (e) {
       debugPrint('Enhancement error: $e');
-      setState(() => _isEnhancing = false);
+      if (mounted) setState(() => _isEnhancing = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -186,6 +187,7 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
       final processedFile = File(processedPath);
       await processedFile.writeAsBytes(img.encodeJpg(processed, quality: 95));
 
+      if (!mounted) return;
       setState(() {
         _scannedImagePaths[_currentImageIndex] = processedPath;
         _isEnhancing = false;
@@ -203,7 +205,7 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
       }
     } catch (e) {
       debugPrint('B&W filter error: $e');
-      setState(() => _isEnhancing = false);
+      if (mounted) setState(() => _isEnhancing = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -230,6 +232,7 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
       
       await textRecognizer.close();
 
+      if (!mounted) return;
       setState(() {
         _extractedText = recognizedText.text;
         _isExtractingText = false;
@@ -250,7 +253,7 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
       }
     } catch (e) {
       debugPrint('OCR error: $e');
-      setState(() => _isExtractingText = false);
+      if (mounted) setState(() => _isExtractingText = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
@@ -521,8 +524,8 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(6),
               ),
-              child: SvgPicture.asset(
-                'assets/images/logo.svg',
+              child: Image.asset(
+                'assets/images/logo.png',
                 fit: BoxFit.contain,
               ),
             ),

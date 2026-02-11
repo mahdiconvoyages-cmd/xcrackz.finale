@@ -69,6 +69,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     if (widget.client == null) return;
     try {
       final stats = await _clientService.getClientStats(widget.client!.id);
+      if (!mounted) return;
       setState(() => _stats = stats);
     } catch (e) {
       // Ignorer les erreurs de stats
@@ -190,7 +191,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
         ),
       );
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) setState(() => _isSaving = false);
     }
   }
 

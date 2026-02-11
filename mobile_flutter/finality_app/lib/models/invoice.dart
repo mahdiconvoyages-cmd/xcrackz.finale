@@ -50,7 +50,9 @@ class Invoice {
       invoiceNumber: json['invoice_number']?.toString() ?? '',
       invoiceDate: json['invoice_date'] != null 
           ? DateTime.parse(json['invoice_date'].toString()) 
-          : DateTime.now(),
+          : json['issue_date'] != null
+              ? DateTime.parse(json['issue_date'].toString())
+              : DateTime.now(),
       dueDate: json['due_date'] != null ? DateTime.parse(json['due_date'].toString()) : null,
       status: json['status']?.toString() ?? 'pending',
       subtotal: (json['subtotal'] ?? 0).toDouble(),
@@ -76,8 +78,9 @@ class Invoice {
       if (clientId != null) 'client_id': clientId,
       if (missionId != null) 'mission_id': missionId,
       'invoice_number': invoiceNumber,
-      'invoice_date': invoiceDate.toIso8601String(),
-      if (dueDate != null) 'due_date': dueDate!.toIso8601String(),
+      'invoice_date': invoiceDate.toIso8601String().split('T').first,
+      'issue_date': invoiceDate.toIso8601String().split('T').first,
+      if (dueDate != null) 'due_date': dueDate!.toIso8601String().split('T').first,
       'status': status,
       'subtotal': subtotal,
       'tax_rate': taxRate,

@@ -44,12 +44,14 @@ class _ClientListScreenState extends State<ClientListScreen> {
       );
       final stats = await _clientService.getClientsCount();
       
+      if (!mounted) return;
       setState(() {
         _clients = clients;
         _stats = stats;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(

@@ -1,7 +1,7 @@
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:async';
-import 'package:flutter/foundation.dart';
+import '../utils/logger.dart';
 
 /// Service de tracking GPS en arrière-plan ultra-fluide
 /// 
@@ -38,7 +38,7 @@ class BackgroundTrackingService {
   /// Démarre le tracking GPS pour une mission
   Future<bool> startTracking(String missionId, {bool autoStart = false}) async {
     if (_isTracking && _currentMissionId == missionId) {
-      if (kDebugMode) print('⚠️ Tracking déjà actif pour cette mission');
+      logger.w('Tracking déjà actif pour cette mission');
       return true;
     }
 
@@ -50,7 +50,7 @@ class BackgroundTrackingService {
     // Vérifier permissions
     final hasPermission = await _checkPermissions();
     if (!hasPermission) {
-      if (kDebugMode) print('❌ Permissions GPS refusées');
+      logger.e('Permissions GPS refusées');
       return false;
     }
 
@@ -73,7 +73,7 @@ class BackgroundTrackingService {
         _handlePositionUpdate(position);
       },
       onError: (error) {
-        if (kDebugMode) print('❌ Erreur GPS stream: $error');
+        logger.e('Erreur GPS stream: $error');
       },
     );
 
@@ -86,10 +86,8 @@ class BackgroundTrackingService {
     // S'abonner au channel Realtime
     _subscribeToChannel(missionId);
 
-    if (kDebugMode) {
-      print('✅ ${autoStart ? "Auto-" : ""}Tracking GPS démarré pour mission: $missionId');
-      print('📡 Intervalle: ${_updateIntervalSeconds}s (ULTRA-FLUIDE)');
-    }
+    logger.i('${autoStart ? "Auto-" : ""}Tracking GPS démarré pour mission: $missionId');
+    logger.d('Intervalle: ${_updateIntervalSeconds}s (ULTRA-FLUIDE)');
 
     return true;
   }
@@ -108,7 +106,7 @@ class BackgroundTrackingService {
           'is_active': false,
         }).eq('mission_id', _currentMissionId!);
       } catch (e) {
-        if (kDebugMode) print('⚠️ Erreur désactivation tracking: $e');
+        logger.w('Erreur désactivation tracking: $e');
       }
     }
 
@@ -123,7 +121,7 @@ class BackgroundTrackingService {
     _lastPosition = null;
     _isTracking = false;
 
-    if (kDebugMode) print('⏹️ Tracking GPS arrêté');
+    logger.i('Tracking GPS arrêté');
   }
 
   /// Gère chaque nouvelle position GPS
@@ -192,11 +190,9 @@ class BackgroundTrackingService {
         },
       );
 
-      if (kDebugMode) {
-        print('📍 Position live: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)} | ${position.speed.toStringAsFixed(1)} m/s');
-      }
+      logger.d('Position live: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)} | ${position.speed.toStringAsFixed(1)} m/s');
     } catch (e) {
-      if (kDebugMode) print('❌ Erreur broadcast position: $e');
+      logger.e('Erreur broadcast position: $e');
     }
   }
 
@@ -222,9 +218,9 @@ class BackgroundTrackingService {
 
       _lastHistorySnapshot = DateTime.now();
       
-      if (kDebugMode) print('💾 Snapshot historique sauvegardé');
+      logger.d('Snapshot historique sauvegardé');
     } catch (e) {
-      if (kDebugMode) print('⚠️ Erreur snapshot historique: $e');
+      logger.w('Erreur snapshot historique: $e');
     }
   }
 
@@ -233,7 +229,7 @@ class BackgroundTrackingService {
     // Vérifier si le service est activé
     bool serviceEnabled = await Geolocator.isLocationServiceEnabled();
     if (!serviceEnabled) {
-      if (kDebugMode) print('❌ Service de localisation désactivé');
+      logger.e('Service de localisation désactivé');
       return false;
     }
 
@@ -242,13 +238,13 @@ class BackgroundTrackingService {
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
       if (permission == LocationPermission.denied) {
-        if (kDebugMode) print('❌ Permission de localisation refusée');
+        logger.e('Permission de localisation refusée');
         return false;
       }
     }
 
     if (permission == LocationPermission.deniedForever) {
-      if (kDebugMode) print('❌ Permission de localisation refusée définitivement');
+      logger.e('Permission de localisation refusée définitivement');
       return false;
     }
 
@@ -262,13 +258,13 @@ class BackgroundTrackingService {
     _channel!.onBroadcast(
       event: 'position_update',
       callback: (payload) {
-        if (kDebugMode) print('📡 Position reçue via Realtime: $payload');
+        logger.d('Position reçue via Realtime: $payload');
       },
     ).subscribe((status, error) {
       if (status == RealtimeSubscribeStatus.subscribed) {
-        if (kDebugMode) print('✅ Abonné au channel: mission:$missionId:gps');
+        logger.i('Abonné au channel: mission:$missionId:gps');
       } else {
-        if (kDebugMode) print('❌ Erreur subscription Realtime: $error');
+        logger.e('Erreur subscription Realtime: $error');
       }
     });
   }
@@ -280,7 +276,7 @@ class BackgroundTrackingService {
         desiredAccuracy: LocationAccuracy.high,
       );
     } catch (e) {
-      if (kDebugMode) print('❌ Erreur getCurrentPosition: $e');
+      logger.e('Erreur getCurrentPosition: $e');
       return null;
     }
   }

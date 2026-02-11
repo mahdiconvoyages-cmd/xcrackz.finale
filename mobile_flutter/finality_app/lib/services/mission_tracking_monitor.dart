@@ -1,5 +1,6 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'background_tracking_service.dart';
+import '../utils/logger.dart';
 
 /// Service de surveillance pour gérer automatiquement le tracking GPS
 /// en fonction des changements de statut des missions
@@ -18,13 +19,13 @@ class MissionTrackingMonitor {
   /// Démarre la surveillance des missions de l'utilisateur courant
   Future<void> startMonitoring() async {
     if (_isMonitoring) {
-      print('⚠️ Surveillance déjà active');
+      logger.w('Surveillance déjà active');
       return;
     }
 
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) {
-      print('❌ Utilisateur non connecté - Impossible de surveiller');
+      logger.e('Utilisateur non connecté - Impossible de surveiller');
       return;
     }
 
@@ -43,9 +44,9 @@ class MissionTrackingMonitor {
           .subscribe();
 
       _isMonitoring = true;
-      print('✅ Surveillance des missions démarrée');
+      logger.i('Surveillance des missions démarrée');
     } catch (e) {
-      print('❌ Erreur démarrage surveillance: $e');
+      logger.e('Erreur démarrage surveillance: $e');
     }
   }
 
@@ -57,7 +58,7 @@ class MissionTrackingMonitor {
     _channel = null;
     _isMonitoring = false;
 
-    print('⏹️ Surveillance des missions arrêtée');
+    logger.i('Surveillance des missions arrêtée');
   }
 
   /// Gère les mises à jour de missions
@@ -78,12 +79,12 @@ class MissionTrackingMonitor {
         return; // Cette mission ne concerne pas cet utilisateur
       }
 
-      print('🔔 Mission $missionId - Nouveau statut: $status');
+      logger.i('Mission $missionId - Nouveau statut: $status');
 
       // Gérer le tracking GPS selon le statut
       _handleTrackingForStatus(missionId, status);
     } catch (e) {
-      print('❌ Erreur traitement mise à jour mission: $e');
+      logger.e('Erreur traitement mise à jour mission: $e');
     }
   }
 
@@ -95,13 +96,13 @@ class MissionTrackingMonitor {
         if (!_gpsService.isTracking) {
           final started = await _gpsService.startTracking(missionId);
           if (started) {
-            print('✅ Tracking GPS démarré automatiquement (surveillance)');
+            logger.i('Tracking GPS démarré automatiquement (surveillance)');
           }
         } else if (_gpsService.currentMissionId != missionId) {
           // Une autre mission est en tracking, arrêter l'ancienne et démarrer la nouvelle
           await _gpsService.stopTracking();
           await _gpsService.startTracking(missionId);
-          print('🔄 Tracking GPS basculé vers nouvelle mission');
+          logger.i('Tracking GPS basculé vers nouvelle mission');
         }
         break;
 
@@ -110,7 +111,7 @@ class MissionTrackingMonitor {
         // Arrêter le tracking si c'est la mission courante
         if (_gpsService.isTracking && _gpsService.currentMissionId == missionId) {
           await _gpsService.stopTracking();
-          print('⏹️ Tracking GPS arrêté automatiquement (surveillance)');
+          logger.i('Tracking GPS arrêté automatiquement (surveillance)');
         }
         break;
 
@@ -140,17 +141,17 @@ class MissionTrackingMonitor {
         // Si une mission est en cours mais le tracking n'est pas actif
         if (!_gpsService.isTracking) {
           await _gpsService.startTracking(missionId);
-          print('🔄 Tracking GPS synchronisé pour mission en cours: $missionId');
+          logger.i('Tracking GPS synchronisé pour mission en cours: $missionId');
         }
       } else {
         // Aucune mission en cours, arrêter le tracking si actif
         if (_gpsService.isTracking) {
           await _gpsService.stopTracking();
-          print('🔄 Tracking GPS arrêté - Aucune mission en cours');
+          logger.i('Tracking GPS arrêté - Aucune mission en cours');
         }
       }
     } catch (e) {
-      print('❌ Erreur synchronisation tracking: $e');
+      logger.e('Erreur synchronisation tracking: $e');
     }
   }
 }

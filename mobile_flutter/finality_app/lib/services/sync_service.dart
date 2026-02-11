@@ -1,10 +1,11 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/logger.dart';
 
 /// Service de synchronisation en temps réel avec le backend web
 class SyncService {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  SupabaseClient get _supabase => Supabase.instance.client;
   final Map<String, RealtimeChannel> _channels = {};
   final Map<String, StreamController> _controllers = {};
 
@@ -218,7 +219,7 @@ class SyncService {
           .order('created_at', ascending: false);
       return List<Map<String, dynamic>>.from(response as List);
     } catch (e) {
-      debugPrint('Error loading missions: $e');
+      logger.e('Error loading missions: $e');
       return [];
     }
   }
@@ -231,7 +232,7 @@ class SyncService {
           .order('created_at', ascending: false);
       return List<Map<String, dynamic>>.from(response as List);
     } catch (e) {
-      debugPrint('Error loading inspections: $e');
+      logger.e('Error loading inspections: $e');
       return [];
     }
   }
@@ -244,7 +245,7 @@ class SyncService {
           .order('created_at', ascending: false);
       return List<Map<String, dynamic>>.from(response as List);
     } catch (e) {
-      debugPrint('Error loading invoices: $e');
+      logger.e('Error loading invoices: $e');
       return [];
     }
   }
@@ -257,7 +258,7 @@ class SyncService {
           .order('created_at', ascending: false);
       return List<Map<String, dynamic>>.from(response as List);
     } catch (e) {
-      debugPrint('Error loading quotes: $e');
+      logger.e('Error loading quotes: $e');
       return [];
     }
   }
@@ -271,7 +272,7 @@ class SyncService {
           .single();
       return response as Map<String, dynamic>;
     } catch (e) {
-      debugPrint('Error loading user profile: $e');
+      logger.e('Error loading user profile: $e');
       return null;
     }
   }

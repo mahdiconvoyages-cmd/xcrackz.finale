@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <defs>
+        <!-- Gradients Tech (Repris du logo Voiture validé) -->
+        <linearGradient id="primaryGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#00f2fe;stop-opacity:1" /> <!-- Cyan -->
+            <stop offset="100%" style="stop-color:#4facfe;stop-opacity:1" /> <!-- Blue -->
+        </linearGradient>
+
+        <linearGradient id="bgSurface" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1e293b;stop-opacity:1" />
+        </linearGradient>
+
+        <!-- Filtre Néon -->
+        <filter id="ultraGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="4" result="blur" />
+            <feFlood flood-color="#00f2fe" flood-opacity="0.6" result="flood" />
+            <feComposite in="flood" in2="blur" operator="in" result="glow" />
+            <feMerge>
+                <feMergeNode in="glow" />
+                <feMergeNode in="SourceGraphic" />
+            </feMerge>
+        </filter>
+    </defs>
+
+    <!-- Fond Sombre -->
+    <rect width="512" height="512" rx="120" fill="url(#bgSurface)" />
+    
+    <!-- Grille Tech Arrière-plan -->
+    <path d="M 0 128 L 512 128 M 0 256 L 512 256 M 0 384 L 512 384" stroke="#334155" stroke-width="1" opacity="0.1" />
+    <path d="M 128 0 L 128 512 M 256 0 L 256 512 M 384 0 L 384 512" stroke="#334155" stroke-width="1" opacity="0.1" />
+
+    <g transform="translate(256, 256)" filter="url(#ultraGlow)">
+        
+        <!-- MAIN GAUCHE (Cybernétique/Fil de fer) - Donne -->
+        <g transform="translate(-80, -40)">
+            <!-- Segments de doigts stylisés (Lignes Tech) -->
+            <path d="M -60,-60 L 0,-20" stroke="url(#primaryGlow)" stroke-width="4" stroke-linecap="round" />
+            <path d="M -70,-30 L -10,10" stroke="url(#primaryGlow)" stroke-width="4" stroke-linecap="round" />
+            <path d="M -60,0 L -20,30" stroke="url(#primaryGlow)" stroke-width="4" stroke-linecap="round" />
+            
+            <!-- Nodes (Jointures) -->
+            <circle cx="-60" cy="-60" r="4" fill="#00f2fe" />
+            <circle cx="0" cy="-20" r="4" fill="#00f2fe" />
+            <circle cx="-10" cy="10" r="4" fill="#00f2fe" />
+        </g>
+
+        <!-- LA CLÉ (Symbole Central Flottant) -->
+        <g transform="rotate(45)">
+            <!-- Anneau Clé -->
+            <circle cx="-30" cy="0" r="15" fill="none" stroke="white" stroke-width="4" />
+            <!-- Corps Clé -->
+            <path d="M -15,0 L 40,0" stroke="white" stroke-width="8" stroke-linecap="round" />
+            <!-- Dents Clé (Circuit style) -->
+            <path d="M 10,0 L 10,10 M 25,0 L 25,15" stroke="white" stroke-width="6" stroke-linecap="square" />
+            
+            <!-- Aura Clé -->
+            <path d="M -40,-20 L 50,-20 L 60,0 L 50,20 L -40,20 Z" fill="url(#primaryGlow)" opacity="0.2" />
+        </g>
+
+        <!-- MAIN DROITE (Cybernétique/Fil de fer) - Reçoit -->
+        <g transform="translate(80, 80)">
+             <!-- Segments de doigts stylisés -->
+            <path d="M 60,60 L 0,20" stroke="url(#primaryGlow)" stroke-width="4" stroke-linecap="round" />
+            <path d="M 70,30 L 10,-10" stroke="url(#primaryGlow)" stroke-width="4" stroke-linecap="round" />
+            <path d="M 60,0 L 20,-30" stroke="url(#primaryGlow)" stroke-width="4" stroke-linecap="round" />
+
+            <!-- Nodes -->
+            <circle cx="60" cy="60" r="4" fill="#00f2fe" />
+            <circle cx="0" cy="20" r="4" fill="#00f2fe" />
+            <circle cx="10" cy="-10" r="4" fill="#00f2fe" />
+        </g>
+
+        <!-- Particules de transfert (Data Flow entre les mains) -->
+        <circle cx="-20" cy="-60" r="2" fill="white" opacity="0.8">
+            <animate attributeName="cy" values="-60;0" dur="1s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.8;0" dur="1s" repeatCount="indefinite" />
+        </circle>
+        <circle cx="40" cy="20" r="2" fill="white" opacity="0.8">
+            <animate attributeName="cy" values="20;80" dur="1.5s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.8;0" dur="1.5s" repeatCount="indefinite" />
+        </circle>
+
+    </g>
+
+    <text x="256" y="460" font-family="'Segoe UI', sans-serif" font-size="34" font-weight="800" fill="white" text-anchor="middle" letter-spacing="8" opacity="0.8">TRANSFER</text>
+</svg>

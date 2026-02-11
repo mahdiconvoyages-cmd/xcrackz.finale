@@ -312,6 +312,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
           order: _pages.length,
         );
 
+        if (!mounted) return;
         setState(() {
           _pages.add(page);
           _currentPageIndex = _pages.length - 1;
@@ -327,10 +328,10 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
           ),
         );
       } else {
-        setState(() => _isScanning = false);
+        if (mounted) setState(() => _isScanning = false);
       }
     } catch (e) {
-      setState(() => _isScanning = false);
+      if (mounted) setState(() => _isScanning = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -447,6 +448,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
         filterType,
       );
 
+      if (!mounted) return;
       setState(() {
         _pages[_currentPageIndex] = currentPage.copyWith(
           imageFile: filteredFile,
@@ -463,7 +465,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
         ),
       );
     } catch (e) {
-      setState(() => _isProcessing = false);
+      if (mounted) setState(() => _isProcessing = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: Colors.red),
@@ -490,17 +492,18 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
 
       // Upload to Supabase if inspection ID provided
       if (widget.inspectionId != null) {
-        setState(() => _uploadProgress = 0.0);
+        if (mounted) setState(() => _uploadProgress = 0.0);
         
         final fileName = 'inspection_${widget.inspectionId}_${DateTime.now().millisecondsSinceEpoch}.pdf';
         await SupabaseService.uploadFile(
           pdfFile,
           'scans/$fileName',
           onProgress: (progress) {
-            setState(() => _uploadProgress = progress);
+            if (mounted) setState(() => _uploadProgress = progress);
           },
         );
         
+        if (!mounted) return;
         setState(() {
           _syncStatus = SyncStatus.synced;
           _uploadProgress = null;
@@ -514,7 +517,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
           ),
         );
       } else {
-        setState(() => _syncStatus = SyncStatus.synced);
+        if (mounted) setState(() => _syncStatus = SyncStatus.synced);
         
         if (!mounted) return;
         ScaffoldMessenger.of(context).showSnackBar(
@@ -529,9 +532,9 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
         widget.onDocumentScanned!(pdfFile.path);
       }
 
-      setState(() => _isProcessing = false);
+      if (mounted) setState(() => _isProcessing = false);
     } catch (e) {
-      setState(() {
+      if (mounted) setState(() {
         _isProcessing = false;
         _syncStatus = SyncStatus.error;
         _uploadProgress = null;
@@ -558,9 +561,9 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
         text: 'Document scanné (${_pages.length} page${_pages.length > 1 ? 's' : ''})',
       );
 
-      setState(() => _isProcessing = false);
+      if (mounted) setState(() => _isProcessing = false);
     } catch (e) {
-      setState(() => _isProcessing = false);
+      if (mounted) setState(() => _isProcessing = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: Colors.red),

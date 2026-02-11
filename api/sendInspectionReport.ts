@@ -225,7 +225,7 @@ async function generateInspectionPDF(inspection: InspectionData): Promise<Buffer
       </div>
     </div>
     <div class="footer">
-      <p>Généré automatiquement par Finality • ${new Date().toLocaleDateString('fr-FR')}</p>
+      <p>Généré automatiquement par ChecksFleet • ${new Date().toLocaleDateString('fr-FR')}</p>
     </div>
   </body>
   </html>`;
@@ -343,9 +343,9 @@ function generateEmailHTMLSingle(inspection: InspectionData, introMessage?: stri
           ${photoCount > 0 ? '<li>✅ Archive ZIP avec toutes les photos haute résolution</li>' : ''}
         </ul>
         <p>Ces documents constituent le dossier officiel de l'état des lieux.</p>
-        <p>Cordialement,<br><strong>Finality Transport</strong></p>
+        <p>Cordialement,<br><strong>ChecksFleet Transport</strong></p>
       </div>
-      <div class="footer">© 2025 Finality • Rapport d'état des lieux</div>
+      <div class="footer">© 2025 ChecksFleet • Rapport d'état des lieux</div>
     </div>
   </body>
   </html>`;
@@ -395,9 +395,9 @@ function generateEmailHTMLCombined(inspections: InspectionData[], introMessage?:
           </div>`: ''}
         </div>
         <p><strong>📎 Pièces jointes :</strong> 2 rapports PDF + archive photos</p>
-        <p>Cordialement,<br><strong>Finality Transport</strong></p>
+        <p>Cordialement,<br><strong>ChecksFleet Transport</strong></p>
       </div>
-      <div class="footer">© 2025 Finality • Rapport d'état des lieux</div>
+      <div class="footer">© 2025 ChecksFleet • Rapport d'état des lieux</div>
     </div>
   </body>
   </html>`;
@@ -411,8 +411,8 @@ async function sendEmailGeneric(toEmail: string, subject: string, html: string, 
       Messages: [
         {
           From: {
-            Email: process.env.MAILJET_FROM_EMAIL || 'no-reply@finality.app',
-            Name: process.env.MAILJET_FROM_NAME || 'Finality',
+            Email: process.env.MAILJET_FROM_EMAIL || 'no-reply@checksfleet.com',
+            Name: process.env.MAILJET_FROM_NAME || 'ChecksFleet',
           },
           To: [{ Email: toEmail }],
           Cc: process.env.INTERNAL_EMAIL ? [{ Email: process.env.INTERNAL_EMAIL }] : undefined,

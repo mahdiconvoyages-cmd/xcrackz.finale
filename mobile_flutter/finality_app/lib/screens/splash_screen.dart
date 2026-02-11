@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../main.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -57,9 +56,14 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
       return;
     }
 
-    final session = supabase.auth.currentSession;
-    if (session != null) {
-      Navigator.of(context).pushReplacementNamed('/home');
+    // Check if Supabase is initialized and user has a session
+    if (supabaseInitialized) {
+      final session = supabase.auth.currentSession;
+      if (session != null) {
+        Navigator.of(context).pushReplacementNamed('/home');
+      } else {
+        Navigator.of(context).pushReplacementNamed('/login');
+      }
     } else {
       Navigator.of(context).pushReplacementNamed('/login');
     }
@@ -157,13 +161,9 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                             ),
                           ],
                         ),
-                        child: SvgPicture.asset(
-                          'assets/images/logo.svg',
+                        child: Image.asset(
+                          'assets/images/logo.png',
                           fit: BoxFit.contain,
-                          colorFilter: const ColorFilter.mode(
-                            Colors.white,
-                            BlendMode.srcIn,
-                          ),
                         ),
                       ),
                       

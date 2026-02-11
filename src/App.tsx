@@ -7,54 +7,66 @@ import ErrorBoundary from './components/ErrorBoundary';
 import ToastContainer from './components/Toast';
 import AccessibilityZoom from './components/AccessibilityZoom';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
-
-import Home from './pages/Home';
-import Legal from './pages/Legal';
-import About from './pages/About';
-import Privacy from './pages/Privacy';
-import Terms from './pages/Terms';
-import Login from './pages/Login';
 import CookieConsent from './components/CookieConsent';
-import SignupWizard from './pages/SignupWizard';
-import ForgotPassword from './pages/ForgotPassword';
-import DashboardPremium from './pages/DashboardPremium';
-import MissionCreate from './pages/MissionCreate';
-import MissionView from './pages/MissionView';
-import Clients from './pages/Clients';
-import Billing from './pages/Billing';
-import QuoteGenerator from './pages/QuoteGenerator';
-import CRM from './pages/CRM';
-import Settings from './pages/Settings';
-import Profile from './pages/Profile';
-import MissionTracking from './pages/MissionTracking';
-import Shop from './pages/Shop';
-import Support from './pages/Support';
-import Admin from './pages/Admin';
-import AdminSupport from './pages/AdminSupport';
-import AccountSecurity from './pages/AccountSecurity';
-import PublicTrackingNew from './pages/PublicTrackingNew';
-import TrackingCommand from './pages/TrackingCommand';
-import TeamMissions from './pages/TeamMissions';
-import InspectionDeparturePerfect from './pages/InspectionDeparturePerfect';
-import InspectionArrivalNew from './pages/InspectionArrivalNew';
-import PublicInspectionReport from './pages/PublicInspectionReport';
-import TestSentry from './pages/TestSentry';
-import PublicInspectionReportShared from './pages/PublicInspectionReportShared';
-import PrivacyPolicy from './pages/legal/PrivacyPolicy';
-import TermsOfService from './pages/legal/TermsOfService';
-import CookiePolicy from './pages/legal/CookiePolicy';
-import VoiceSettings from './pages/VoiceSettings';
-import MobileDownload from './pages/MobileDownload';
-import ResetPassword from './pages/ResetPassword';
-import MissionDetail from './pages/MissionDetail';
-import ScannerHomePage from './pages/ScannerHomePage';
-import ProfessionalScannerPage from './pages/ProfessionalScannerPage';
-import MyDocuments from './pages/MyDocuments';
-import MissionEdit from './pages/MissionEdit';
+import { lazy, Suspense } from 'react';
+
+// Public pages (loaded eagerly for fast LCP)
+import Home from './pages/Home';
+import Login from './pages/Login';
+
+// Loading fallback
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-teal-50">
+    <div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-500 border-t-transparent"></div>
+  </div>
+);
+
+// Lazy-loaded pages
+const Legal = lazy(() => import('./pages/Legal'));
+const About = lazy(() => import('./pages/About'));
+const Privacy = lazy(() => import('./pages/Privacy'));
+const Terms = lazy(() => import('./pages/Terms'));
+const SignupWizard = lazy(() => import('./pages/SignupWizard'));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazy(() => import('./pages/ResetPassword'));
+const DashboardPremium = lazy(() => import('./pages/DashboardPremium'));
+const MissionCreate = lazy(() => import('./pages/MissionCreate'));
+const MissionView = lazy(() => import('./pages/MissionView'));
+const MissionEdit = lazy(() => import('./pages/MissionEdit'));
+const Clients = lazy(() => import('./pages/Clients'));
+const Billing = lazy(() => import('./pages/Billing'));
+const QuoteGenerator = lazy(() => import('./pages/QuoteGenerator'));
+const CRM = lazy(() => import('./pages/CRM'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Profile = lazy(() => import('./pages/Profile'));
+const MissionTracking = lazy(() => import('./pages/MissionTracking'));
+const Shop = lazy(() => import('./pages/Shop'));
+const Support = lazy(() => import('./pages/Support'));
+const Admin = lazy(() => import('./pages/Admin'));
+const AdminSupport = lazy(() => import('./pages/AdminSupport'));
+const AccountSecurity = lazy(() => import('./pages/AccountSecurity'));
+const PublicTrackingNew = lazy(() => import('./pages/PublicTrackingNew'));
+const TrackingCommand = lazy(() => import('./pages/TrackingCommand'));
+const TeamMissions = lazy(() => import('./pages/TeamMissions'));
+const InspectionDeparturePerfect = lazy(() => import('./pages/InspectionDeparturePerfect'));
+const InspectionArrivalNew = lazy(() => import('./pages/InspectionArrivalNew'));
+const PublicInspectionReport = lazy(() => import('./pages/PublicInspectionReport'));
+const TestSentry = lazy(() => import('./pages/TestSentry'));
+const PublicInspectionReportShared = lazy(() => import('./pages/PublicInspectionReportShared'));
+const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy'));
+const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'));
+const CookiePolicy = lazy(() => import('./pages/legal/CookiePolicy'));
+const VoiceSettings = lazy(() => import('./pages/VoiceSettings'));
+const MobileDownload = lazy(() => import('./pages/MobileDownload'));
+const MissionDetail = lazy(() => import('./pages/MissionDetail'));
+const ScannerHomePage = lazy(() => import('./pages/ScannerHomePage'));
+const ProfessionalScannerPage = lazy(() => import('./pages/ProfessionalScannerPage'));
+const MyDocuments = lazy(() => import('./pages/MyDocuments'));
 
 function AppContent() {
   return (
     <>
+      <Suspense fallback={<PageLoader />}>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/legal" element={<Legal />} />
@@ -160,16 +172,9 @@ function AppContent() {
             path="/missions/:missionId/tracking"
             element={
               <ProtectedRoute>
-                <MissionTracking />
-              </ProtectedRoute>
-            }
-          />
-
-          <Route
-            path="/missions/:missionId/realtime"
-            element={
-              <ProtectedRoute>
-                <MissionTracking />
+                <Layout>
+                  <MissionTracking />
+                </Layout>
               </ProtectedRoute>
             }
           />
@@ -377,6 +382,7 @@ function AppContent() {
           </div>
         } />
       </Routes>
+      </Suspense>
       <CookieConsent />
       <ToastContainer />
     </>

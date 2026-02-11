@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -14,53 +15,78 @@ import 'theme/premium_theme.dart';
 import 'utils/logger.dart';
 import 'l10n/app_localizations.dart';
 
-Future<void> main() async {
-  WidgetsFlutterBinding.ensureInitialized();
+/// Whether Supabase has been initialized successfully
+bool supabaseInitialized = false;
 
-  // Initialiser le logger
-  logger.init();
-  logger.i('🚀 Starting CHECKSFLEET app...');
+/// Startup error for display
+String? startupError;
 
-  // Charger les variables d'environnement (OBLIGATOIRE)
-  try {
-    await dotenv.load(fileName: ".env");
-    logger.i('✅ Environment variables loaded');
-  } catch (e) {
-    logger.f('❌ FATAL: Could not load .env file. Please create .env with SUPABASE_URL and SUPABASE_ANON_KEY');
-    throw Exception('Missing .env file with Supabase credentials');
-  }
+void main() {
+  // Wrap absolutely everything in try-catch
+  runZonedGuarded(() async {
+    WidgetsFlutterBinding.ensureInitialized();
 
-  // Vérifier que les credentials sont présents
-  final supabaseUrl = dotenv.env['SUPABASE_URL'];
-  final supabaseAnonKey = dotenv.env['SUPABASE_ANON_KEY'];
-  
-  if (supabaseUrl == null || supabaseUrl.isEmpty) {
-    throw Exception('SUPABASE_URL is required in .env file');
-  }
-  if (supabaseAnonKey == null || supabaseAnonKey.isEmpty) {
-    throw Exception('SUPABASE_ANON_KEY is required in .env file');
-  }
+    // Logger
+    try { logger.init(); } catch (_) {}
 
-  await Supabase.initialize(
-    url: supabaseUrl,
-    anonKey: supabaseAnonKey,
-  );
-  
-  logger.i('✅ Supabase initialized');
-  
-  // Initialiser OfflineService
-  final offlineService = OfflineService();
-  await offlineService.initialize();
-  logger.i('✅ OfflineService initialized');
+    // dotenv
+    try {
+      await dotenv.load(fileName: ".env");
+    } catch (e) {
+      startupError = '.env: $e';
+    }
 
-  runApp(
-    const ProviderScope(
-      child: CHECKSFLEETApp(),
-    ),
-  );
+    // Supabase
+    final url = dotenv.env['SUPABASE_URL'] ?? '';
+    final key = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+
+    if (url.isNotEmpty && key.isNotEmpty) {
+      try {
+        await Supabase.initialize(url: url, anonKey: key);
+        supabaseInitialized = true;
+      } catch (e) {
+        startupError = 'Supabase: $e';
+      }
+    } else {
+      startupError = 'Credentials manquants dans .env';
+    }
+
+    // OfflineService
+    try {
+      await OfflineService().initialize();
+    } catch (_) {}
+
+    // Error handler
+    FlutterError.onError = (d) => FlutterError.presentError(d);
+
+    runApp(const ProviderScope(child: CHECKSFLEETApp()));
+  }, (error, stack) {
+    // Fatal crash — show red error screen
+    runApp(MaterialApp(
+      home: Scaffold(
+        backgroundColor: const Color(0xFF1a1a2e),
+        body: SafeArea(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              children: [
+                const Icon(Icons.error, color: Colors.red, size: 48),
+                const SizedBox(height: 16),
+                const Text('Erreur fatale', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 16),
+                Text('$error', style: const TextStyle(color: Colors.orange, fontSize: 13)),
+                const SizedBox(height: 12),
+                Text('$stack', style: const TextStyle(color: Colors.white38, fontSize: 10)),
+              ],
+            ),
+          ),
+        ),
+      ),
+    ));
+  });
 }
 
-/// Client Supabase global (pour compatibilité)
+/// Client Supabase global
 SupabaseClient get supabase => Supabase.instance.client;
 
 class CHECKSFLEETApp extends ConsumerWidget {
@@ -68,36 +94,60 @@ class CHECKSFLEETApp extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Écouter le provider de locale
-    final locale = ref.watch(localeProvider);
-    
-    return SyncProvider(
-      syncService: SyncService(),
-      child: MaterialApp(
-        title: 'CHECKSFLEET - Inspections',
-        debugShowCheckedModeBanner: false,
-        theme: PremiumTheme.darkTheme,
-        darkTheme: PremiumTheme.darkTheme,
-        themeMode: ThemeMode.light,
-        
-        // Localisation
-        locale: locale,
-        supportedLocales: AppLocalizations.supportedLocales,
-        localizationsDelegates: const [
-          AppLocalizations.delegate,
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate,
-          GlobalCupertinoLocalizations.delegate,
-        ],
-        
-        initialRoute: '/',
-        routes: {
-          '/': (context) => const SplashScreen(),
-          '/onboarding': (context) => const OnboardingScreen(),
-          '/login': (context) => const LoginScreen(),
-          '/home': (context) => const HomeScreen(),
-        },
-      ),
+    // Erreur de démarrage
+    if (startupError != null && !supabaseInitialized) {
+      return MaterialApp(
+        home: Scaffold(
+          backgroundColor: const Color(0xFF0F172A),
+          body: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, color: Colors.red, size: 64),
+                  const SizedBox(height: 24),
+                  const Text('Erreur de configuration', style: TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 16),
+                  Text(startupError!, style: const TextStyle(color: Colors.white70, fontSize: 14), textAlign: TextAlign.center),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    // Locale
+    Locale locale;
+    try {
+      locale = ref.watch(localeProvider);
+    } catch (_) {
+      locale = const Locale('fr');
+    }
+
+    // Build the app WITHOUT SyncProvider to isolate the crash
+    return MaterialApp(
+      title: 'CHECKSFLEET',
+      debugShowCheckedModeBanner: false,
+      theme: PremiumTheme.lightTheme,
+      darkTheme: PremiumTheme.darkTheme,
+      themeMode: ThemeMode.light,
+      locale: locale,
+      supportedLocales: AppLocalizations.supportedLocales,
+      localizationsDelegates: const [
+        AppLocalizations.delegate,
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate,
+        GlobalCupertinoLocalizations.delegate,
+      ],
+      initialRoute: '/',
+      routes: {
+        '/': (context) => const SplashScreen(),
+        '/onboarding': (context) => const OnboardingScreen(),
+        '/login': (context) => const LoginScreen(),
+        '/home': (context) => const HomeScreen(),
+      },
     );
   }
 }

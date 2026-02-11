@@ -16,7 +16,7 @@ class DashboardScreen extends StatefulWidget {
 
 class _DashboardScreenState extends State<DashboardScreen> 
     with SingleTickerProviderStateMixin {
-  final supabase = Supabase.instance.client;
+  SupabaseClient get supabase => Supabase.instance.client;
   final RealtimeService _realtimeService = RealtimeService();
   late AnimationController _animationController;
 
@@ -66,11 +66,15 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   Future<void> _loadDashboardData() async {
+    if (!mounted) return;
     setState(() => _isLoading = true);
 
     try {
       final userId = supabase.auth.currentUser?.id;
-      if (userId == null) return;
+      if (userId == null) {
+        if (mounted) setState(() => _isLoading = false);
+        return;
+      }
 
       // Load profile
       final profile = await supabase
@@ -125,10 +129,10 @@ class _DashboardScreenState extends State<DashboardScreen>
           .eq('user_id', userId);
       _totalContacts = contacts.length;
 
-      setState(() => _isLoading = false);
+      if (mounted) setState(() => _isLoading = false);
     } catch (e) {
-      print('Erreur chargement dashboard: $e');
-      setState(() => _isLoading = false);
+      debugPrint('Erreur chargement dashboard: $e');
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 

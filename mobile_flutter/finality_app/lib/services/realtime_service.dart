@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../utils/logger.dart';
 
 /// Service de gestion des subscriptions Supabase Realtime
 /// Permet d'écouter les changements en temps réel sur les tables
@@ -31,7 +32,7 @@ class RealtimeService {
             value: userId,
           ),
           callback: (payload) {
-            print('🔵 REALTIME: Mission inserted: ${payload.newRecord['id']}');
+            logger.i('REALTIME: Mission inserted: ${payload.newRecord['id']}');
             onInsert(payload.newRecord);
           },
         )
@@ -45,7 +46,7 @@ class RealtimeService {
             value: userId,
           ),
           callback: (payload) {
-            print('🟡 REALTIME: Mission updated: ${payload.newRecord['id']}');
+            logger.i('REALTIME: Mission updated: ${payload.newRecord['id']}');
             onUpdate(payload.newRecord);
           },
         )
@@ -77,7 +78,7 @@ class RealtimeService {
           ),
           callback: (payload) {
             final newCredits = payload.newRecord['credits'] as int? ?? 0;
-            print('💳 REALTIME: Credits updated: $newCredits');
+            logger.i('REALTIME: Credits updated: $newCredits');
             onChange(newCredits);
           },
         )
@@ -108,7 +109,7 @@ class RealtimeService {
             value: userId,
           ),
           callback: (payload) {
-            print('📅 REALTIME: Subscription changed');
+            logger.i('REALTIME: Subscription changed');
             onChange(payload.newRecord);
           },
         )
@@ -135,7 +136,7 @@ class RealtimeService {
           schema: 'public',
           table: 'vehicle_inspections',
           callback: (payload) {
-            print('🔍 REALTIME: Inspection inserted: ${payload.newRecord['id']}');
+            logger.i('REALTIME: Inspection inserted: ${payload.newRecord['id']}');
             onInsert(payload.newRecord);
           },
         )
@@ -144,7 +145,7 @@ class RealtimeService {
           schema: 'public',
           table: 'vehicle_inspections',
           callback: (payload) {
-            print('🔍 REALTIME: Inspection updated: ${payload.newRecord['id']}');
+            logger.i('REALTIME: Inspection updated: ${payload.newRecord['id']}');
             onUpdate(payload.newRecord);
           },
         )
@@ -158,7 +159,7 @@ class RealtimeService {
   void unsubscribe(String channelKey) {
     _channels[channelKey]?.unsubscribe();
     _channels.remove(channelKey);
-    print('🔴 REALTIME: Unsubscribed from $channelKey');
+    logger.d('REALTIME: Unsubscribed from $channelKey');
   }
 
   /// Unsubscribe from all channels
@@ -167,7 +168,7 @@ class RealtimeService {
       channel.unsubscribe();
     }
     _channels.clear();
-    print('🔴 REALTIME: Unsubscribed from all channels');
+    logger.d('REALTIME: Unsubscribed from all channels');
   }
 
   /// Check if a channel is active

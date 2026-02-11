@@ -49,11 +49,13 @@ class _QuoteListScreenState extends State<QuoteListScreen>
         status: _filter == 'all' ? null : _filter,
       );
 
+      if (!mounted) return;
       setState(() {
         _quotes = quotes;
         _isLoading = false;
       });
     } catch (e) {
+      if (!mounted) return;
       setState(() => _isLoading = false);
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -68,6 +70,7 @@ class _QuoteListScreenState extends State<QuoteListScreen>
   Future<void> _loadStats() async {
     try {
       final stats = await _quoteService.getQuoteStats();
+      if (!mounted) return;
       setState(() => _stats = stats);
     } catch (e) {
       print('Erreur chargement stats: $e');

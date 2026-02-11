@@ -7,77 +7,67 @@ import '../../services/subscription_service.dart';
 import '../../services/credits_service.dart';
 import '../../theme/premium_theme.dart';
 
-/// Écran de création de mission identique au web
-/// Design moderne et responsive pour Samsung Android
+/// Ecran de creation de mission — version moderne / theme clair
+/// 3 etapes : Mandataire + Vehicule -> Enlevement -> Livraison + Options
 class MissionCreateScreenNew extends StatefulWidget {
   const MissionCreateScreenNew({super.key});
 
   @override
-  State<MissionCreateScreenNew> createState() => _MissionCreateScreenNewState();
+  State<MissionCreateScreenNew> createState() =>
+      _MissionCreateScreenNewState();
 }
 
 class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   final _formKey = GlobalKey<FormState>();
   final supabase = Supabase.instance.client;
-  final AddressAutocompleteService _addressService = AddressAutocompleteService();
   final SubscriptionService _subscriptionService = SubscriptionService();
   final CreditsService _creditsService = CreditsService();
-  
+
   bool _isLoading = false;
   bool _hasActiveSubscription = false;
   int _availableCredits = 0;
   int _currentStep = 0;
-  
-  // Autocomplétion d'adresses
-  List<AddressSuggestion> _pickupSuggestions = [];
-  List<AddressSuggestion> _deliverySuggestions = [];
-  Timer? _pickupDebounce;
-  Timer? _deliveryDebounce;
-  bool _showPickupSuggestions = false;
-  bool _showDeliverySuggestions = false;
 
-  // Étape 1: Informations mandataire et véhicule
+  // -- Etape 1 : Mandataire + Vehicule --
   final _mandataireNameController = TextEditingController();
   final _mandataireCompanyController = TextEditingController();
   final _brandController = TextEditingController();
   final _modelController = TextEditingController();
   final _plateController = TextEditingController();
   final _vinController = TextEditingController();
-  String _vehicleType = 'VL'; // VL, VU, PL
-  int? _vehicleYear;
+  String _vehicleType = 'VL';
 
-  // Étape 2: Départ
-  final _pickupClientNameController = TextEditingController();
+  // -- Etape 2 : Enlevement --
   final _pickupAddressController = TextEditingController();
-  final _pickupPostcodeController = TextEditingController();
   final _pickupCityController = TextEditingController();
+  final _pickupPostcodeController = TextEditingController();
+  final _pickupContactNameController = TextEditingController();
+  final _pickupContactPhoneController = TextEditingController();
   double? _pickupLat;
   double? _pickupLng;
   DateTime? _pickupDate;
   TimeOfDay? _pickupTime;
-  final _pickupContactNameController = TextEditingController();
-  final _pickupContactPhoneController = TextEditingController();
 
-  // Étape 3: Arrivée
-  final _deliveryClientNameController = TextEditingController();
+  // -- Etape 3 : Livraison + Options --
   final _deliveryAddressController = TextEditingController();
-  final _deliveryPostcodeController = TextEditingController();
   final _deliveryCityController = TextEditingController();
+  final _deliveryPostcodeController = TextEditingController();
+  final _deliveryContactNameController = TextEditingController();
+  final _deliveryContactPhoneController = TextEditingController();
   double? _deliveryLat;
   double? _deliveryLng;
   DateTime? _deliveryDate;
   TimeOfDay? _deliveryTime;
-  final _deliveryContactNameController = TextEditingController();
-  final _deliveryContactPhoneController = TextEditingController();
-
-  // Étape 4: Détails supplémentaires
-  final _clientNameController = TextEditingController();
-  final _clientPhoneController = TextEditingController();
-  final _clientEmailController = TextEditingController();
-  final _agentNameController = TextEditingController();
   final _priceController = TextEditingController();
   final _notesController = TextEditingController();
-  final _specialInstructionsController = TextEditingController();
+
+  // Autocompletion
+  List<AddressSuggestion> _pickupSuggestions = [];
+  List<AddressSuggestion> _deliverySuggestions = [];
+  Timer? _pickupDebounce;
+  Timer? _deliveryDebounce;
+  bool _showPickupSuggestions = false;
+  bool _showDeliverySuggestions = false;
 
   @override
   void initState() {
@@ -88,37 +78,24 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   Future<void> _checkSubscription() async {
     final userId = supabase.auth.currentUser?.id;
     if (userId == null) return;
-    
     try {
-      // Vérifier l'abonnement
-      final hasActive = await _subscriptionService.hasActiveSubscription(userId);
-      
-      // Récupérer les crédits disponibles
+      final hasActive =
+          await _subscriptionService.hasActiveSubscription(userId);
       final userCredits = await _creditsService.getUserCredits(userId);
-      
       if (mounted) {
         setState(() {
           _hasActiveSubscription = hasActive;
           _availableCredits = userCredits.credits;
         });
       }
-      
-      // Si l'abonnement n'est pas actif OU si les crédits sont à 0
       if ((!hasActive || userCredits.credits <= 0) && mounted) {
-        String message = '';
-        if (!hasActive && userCredits.credits <= 0) {
-          message = '⚠️ Votre abonnement a expiré et vos crédits sont épuisés. Renouvelez votre abonnement pour créer des missions.';
-        } else if (!hasActive) {
-          message = '⚠️ Votre abonnement a expiré. Renouvelez-le pour créer des missions.';
-        } else {
-          message = '⚠️ Vous n\'avez plus de crédits. Rechargez pour créer des missions.';
-        }
-        
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(message),
-            backgroundColor: const Color(0xFFF59E0B),
-            duration: const Duration(seconds: 5),
+            content: Text(!hasActive
+                ? 'Abonnement expire. Renouvelez pour creer des missions.'
+                : 'Plus de credits disponibles.'),
+            backgroundColor: PremiumTheme.accentAmber,
+            duration: const Duration(seconds: 4),
           ),
         );
       }
@@ -127,218 +104,221 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
     }
   }
 
-  void _onPickupAddressChanged(String value) {
-    _pickupDebounce?.cancel();
-    if (value.length < 3) {
-      setState(() {
-        _pickupSuggestions = [];
-        _showPickupSuggestions = false;
-      });
-      return;
-    }
-    
-    _pickupDebounce = Timer(const Duration(milliseconds: 300), () async {
-      final suggestions = await AddressAutocompleteService.searchAddresses(value);
-      if (mounted) {
-        setState(() {
-          _pickupSuggestions = suggestions;
-          _showPickupSuggestions = suggestions.isNotEmpty;
-        });
-      }
-    });
-  }
-
-  void _onDeliveryAddressChanged(String value) {
-    _deliveryDebounce?.cancel();
-    if (value.length < 3) {
-      setState(() {
-        _deliverySuggestions = [];
-        _showDeliverySuggestions = false;
-      });
-      return;
-    }
-    
-    _deliveryDebounce = Timer(const Duration(milliseconds: 300), () async {
-      final suggestions = await AddressAutocompleteService.searchAddresses(value);
-      if (mounted) {
-        setState(() {
-          _deliverySuggestions = suggestions;
-          _showDeliverySuggestions = suggestions.isNotEmpty;
-        });
-      }
-    });
-  }
-
-  void _selectPickupSuggestion(AddressSuggestion suggestion) {
-    setState(() {
-      _pickupAddressController.text = suggestion.label;
-      _pickupLat = suggestion.latitude;
-      _pickupLng = suggestion.longitude;
-      _pickupSuggestions = [];
-      _showPickupSuggestions = false;
-    });
-  }
-
-  void _selectDeliverySuggestion(AddressSuggestion suggestion) {
-    setState(() {
-      _deliveryAddressController.text = suggestion.label;
-      _deliveryLat = suggestion.latitude;
-      _deliveryLng = suggestion.longitude;
-      _deliverySuggestions = [];
-      _showDeliverySuggestions = false;
-    });
-  }
-
   @override
   void dispose() {
     _pickupDebounce?.cancel();
     _deliveryDebounce?.cancel();
-    _mandataireNameController.dispose();
-    _mandataireCompanyController.dispose();
-    _brandController.dispose();
-    _modelController.dispose();
-    _plateController.dispose();
-    _vinController.dispose();
-    _pickupClientNameController.dispose();
-    _pickupAddressController.dispose();
-    _pickupPostcodeController.dispose();
-    _pickupCityController.dispose();
-    _pickupContactNameController.dispose();
-    _pickupContactPhoneController.dispose();
-    _deliveryClientNameController.dispose();
-    _deliveryAddressController.dispose();
-    _deliveryPostcodeController.dispose();
-    _deliveryCityController.dispose();
-    _deliveryContactNameController.dispose();
-    _deliveryContactPhoneController.dispose();
-    _clientNameController.dispose();
-    _clientPhoneController.dispose();
-    _clientEmailController.dispose();
-    _agentNameController.dispose();
-    _priceController.dispose();
-    _notesController.dispose();
-    _specialInstructionsController.dispose();
+    for (final c in [
+      _mandataireNameController, _mandataireCompanyController,
+      _brandController, _modelController, _plateController, _vinController,
+      _pickupAddressController, _pickupCityController,
+      _pickupPostcodeController,
+      _pickupContactNameController, _pickupContactPhoneController,
+      _deliveryAddressController, _deliveryCityController,
+      _deliveryPostcodeController,
+      _deliveryContactNameController, _deliveryContactPhoneController,
+      _priceController, _notesController,
+    ]) {
+      c.dispose();
+    }
     super.dispose();
   }
 
+  // -- Autocompletion adresses --
+  void _onAddressChanged(String value, bool isPickup) {
+    final debounce = isPickup ? _pickupDebounce : _deliveryDebounce;
+    debounce?.cancel();
+    if (value.length < 3) {
+      setState(() {
+        if (isPickup) {
+          _pickupSuggestions = [];
+          _showPickupSuggestions = false;
+        } else {
+          _deliverySuggestions = [];
+          _showDeliverySuggestions = false;
+        }
+      });
+      return;
+    }
+    final timer = Timer(const Duration(milliseconds: 300), () async {
+      final suggestions =
+          await AddressAutocompleteService.searchAddresses(value);
+      if (mounted) {
+        setState(() {
+          if (isPickup) {
+            _pickupSuggestions = suggestions;
+            _showPickupSuggestions = suggestions.isNotEmpty;
+          } else {
+            _deliverySuggestions = suggestions;
+            _showDeliverySuggestions = suggestions.isNotEmpty;
+          }
+        });
+      }
+    });
+    if (isPickup) {
+      _pickupDebounce = timer;
+    } else {
+      _deliveryDebounce = timer;
+    }
+  }
+
+  void _selectSuggestion(AddressSuggestion s, bool isPickup) {
+    setState(() {
+      if (isPickup) {
+        _pickupAddressController.text = s.name;
+        _pickupCityController.text = s.city;
+        _pickupPostcodeController.text = s.postcode;
+        _pickupLat = s.latitude;
+        _pickupLng = s.longitude;
+        _pickupSuggestions = [];
+        _showPickupSuggestions = false;
+      } else {
+        _deliveryAddressController.text = s.name;
+        _deliveryCityController.text = s.city;
+        _deliveryPostcodeController.text = s.postcode;
+        _deliveryLat = s.latitude;
+        _deliveryLng = s.longitude;
+        _deliverySuggestions = [];
+        _showDeliverySuggestions = false;
+      }
+    });
+  }
+
+  // -- Validation --
   bool _canProceed() {
     switch (_currentStep) {
-      case 0: // Mandataire et Véhicule
+      case 0:
         return _mandataireNameController.text.isNotEmpty &&
             _brandController.text.isNotEmpty &&
             _modelController.text.isNotEmpty;
-      case 1: // Départ
-        return _pickupClientNameController.text.isNotEmpty &&
-            _pickupAddressController.text.isNotEmpty &&
-            _pickupPostcodeController.text.isNotEmpty &&
+      case 1:
+        return _pickupAddressController.text.isNotEmpty &&
             _pickupCityController.text.isNotEmpty &&
+            _pickupContactNameController.text.isNotEmpty &&
             _pickupDate != null;
-      case 2: // Arrivée
-        return _deliveryClientNameController.text.isNotEmpty &&
-            _deliveryAddressController.text.isNotEmpty &&
-            _deliveryPostcodeController.text.isNotEmpty &&
+      case 2:
+        return _deliveryAddressController.text.isNotEmpty &&
             _deliveryCityController.text.isNotEmpty &&
+            _deliveryContactNameController.text.isNotEmpty &&
             _deliveryDate != null;
-      case 3: // Détails
-        return true; // Optionnel
       default:
         return false;
     }
   }
 
+  // -- Soumission --
   Future<void> _submit() async {
-    if (!_formKey.currentState!.validate() || !_canProceed()) {
+    if (!_canProceed()) {
       _showError('Veuillez remplir tous les champs obligatoires');
       return;
     }
-
-    // Vérifier l'abonnement avant de créer la mission
     if (!_hasActiveSubscription) {
-      _showError('Votre abonnement a expiré. Veuillez le renouveler pour créer des missions.');
+      _showError('Abonnement expire. Veuillez le renouveler.');
       return;
     }
-
-    // Vérifier les crédits disponibles
     if (_availableCredits <= 0) {
-      _showError('Vous n\'avez plus de crédits. Veuillez recharger votre compte pour créer des missions.');
+      _showError('Plus de credits disponibles.');
       return;
     }
 
     setState(() => _isLoading = true);
-
     try {
       final userId = supabase.auth.currentUser?.id;
-      if (userId == null) throw 'Non authentifié';
+      if (userId == null) throw 'Non authentifie';
 
-      // Combiner date et heure
-      DateTime? pickupDateTime;
-      if (_pickupDate != null && _pickupTime != null) {
-        pickupDateTime = DateTime(
+      DateTime? pickupDT;
+      if (_pickupDate != null) {
+        pickupDT = DateTime(
           _pickupDate!.year,
           _pickupDate!.month,
           _pickupDate!.day,
-          _pickupTime!.hour,
-          _pickupTime!.minute,
+          _pickupTime?.hour ?? 0,
+          _pickupTime?.minute ?? 0,
         );
       }
-
-      DateTime? deliveryDateTime;
-      if (_deliveryDate != null && _deliveryTime != null) {
-        deliveryDateTime = DateTime(
+      DateTime? deliveryDT;
+      if (_deliveryDate != null) {
+        deliveryDT = DateTime(
           _deliveryDate!.year,
           _deliveryDate!.month,
           _deliveryDate!.day,
-          _deliveryTime!.hour,
-          _deliveryTime!.minute,
+          _deliveryTime?.hour ?? 0,
+          _deliveryTime?.minute ?? 0,
         );
       }
 
-      // Générer référence unique
-      final reference = 'MSN${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+      final ref =
+          'MSN${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
+      final pickupAddr =
+          '${_pickupAddressController.text}, ${_pickupPostcodeController.text} ${_pickupCityController.text}';
+      final deliveryAddr =
+          '${_deliveryAddressController.text}, ${_deliveryPostcodeController.text} ${_deliveryCityController.text}';
 
-      // Construire les adresses complétes à partir des 4 champs
-      final pickupAddress = '${_pickupAddressController.text}, ${_pickupPostcodeController.text} ${_pickupCityController.text}';
-      final deliveryAddress = '${_deliveryAddressController.text}, ${_deliveryPostcodeController.text} ${_deliveryCityController.text}';
-
-      final missionData = {
+      final data = {
         'user_id': userId,
-        'reference': reference,
+        'reference': ref,
         'status': 'pending',
-        'mandataire_name': _mandataireNameController.text.isNotEmpty ? _mandataireNameController.text : null,
-        'mandataire_company': _mandataireCompanyController.text.isNotEmpty ? _mandataireCompanyController.text : null,
-        'vehicle_brand': _brandController.text,
-        'vehicle_model': _modelController.text,
-        'vehicle_plate': _plateController.text.isNotEmpty ? _plateController.text : null,
-        'vehicle_vin': _vinController.text.isNotEmpty ? _vinController.text : null,
+        'mandataire_name':
+            _mandataireNameController.text.trim().isNotEmpty
+                ? _mandataireNameController.text.trim()
+                : null,
+        'mandataire_company':
+            _mandataireCompanyController.text.trim().isNotEmpty
+                ? _mandataireCompanyController.text.trim()
+                : null,
+        'vehicle_brand': _brandController.text.trim(),
+        'vehicle_model': _modelController.text.trim(),
+        'vehicle_plate': _plateController.text.trim().isNotEmpty
+            ? _plateController.text.trim().toUpperCase()
+            : null,
+        'vehicle_vin': _vinController.text.trim().isNotEmpty
+            ? _vinController.text.trim().toUpperCase()
+            : null,
         'vehicle_type': _vehicleType,
-        'pickup_address': pickupAddress,
+        'pickup_address': pickupAddr,
+        'pickup_city': _pickupCityController.text.trim(),
+        'pickup_postal_code': _pickupPostcodeController.text.trim(),
         'pickup_lat': _pickupLat,
         'pickup_lng': _pickupLng,
-        'pickup_date': pickupDateTime?.toIso8601String(),
-        'pickup_contact_name': _pickupContactNameController.text.isNotEmpty ? _pickupContactNameController.text : null,
-        'pickup_contact_phone': _pickupContactPhoneController.text.isNotEmpty ? _pickupContactPhoneController.text : null,
-        'delivery_address': deliveryAddress,
+        'pickup_date': pickupDT?.toIso8601String(),
+        'pickup_contact_name':
+            _pickupContactNameController.text.trim().isNotEmpty
+                ? _pickupContactNameController.text.trim()
+                : null,
+        'pickup_contact_phone':
+            _pickupContactPhoneController.text.trim().isNotEmpty
+                ? _pickupContactPhoneController.text.trim()
+                : null,
+        'delivery_address': deliveryAddr,
+        'delivery_city': _deliveryCityController.text.trim(),
+        'delivery_postal_code':
+            _deliveryPostcodeController.text.trim(),
         'delivery_lat': _deliveryLat,
         'delivery_lng': _deliveryLng,
-        'delivery_date': deliveryDateTime?.toIso8601String(),
-        'delivery_contact_name': _deliveryContactNameController.text.isNotEmpty ? _deliveryContactNameController.text : null,
-        'delivery_contact_phone': _deliveryContactPhoneController.text.isNotEmpty ? _deliveryContactPhoneController.text : null,
-        'client_name': _clientNameController.text.isNotEmpty ? _clientNameController.text : null,
-        'client_phone': _clientPhoneController.text.isNotEmpty ? _clientPhoneController.text : null,
-        'client_email': _clientEmailController.text.isNotEmpty ? _clientEmailController.text : null,
-        'agent_name': _agentNameController.text.isNotEmpty ? _agentNameController.text : null,
-        'price': _priceController.text.isNotEmpty ? double.tryParse(_priceController.text) : null,
-        'notes': _notesController.text.isNotEmpty ? _notesController.text : null,
-        'special_instructions': _specialInstructionsController.text.isNotEmpty ? _specialInstructionsController.text : null,
+        'delivery_date': deliveryDT?.toIso8601String(),
+        'delivery_contact_name':
+            _deliveryContactNameController.text.trim().isNotEmpty
+                ? _deliveryContactNameController.text.trim()
+                : null,
+        'delivery_contact_phone':
+            _deliveryContactPhoneController.text.trim().isNotEmpty
+                ? _deliveryContactPhoneController.text.trim()
+                : null,
+        'price': _priceController.text.isNotEmpty
+            ? double.tryParse(_priceController.text)
+            : null,
+        'notes': _notesController.text.trim().isNotEmpty
+            ? _notesController.text.trim()
+            : null,
       };
 
-      await supabase.from('missions').insert(missionData);
+      await supabase.from('missions').insert(data);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('✅ Mission créée avec succès'),
-            backgroundColor: Color(0xFF10B981),
+          SnackBar(
+            content: const Text('Mission creee avec succes'),
+            backgroundColor: PremiumTheme.accentGreen,
           ),
         );
         Navigator.pop(context, true);
@@ -346,222 +326,101 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
     } catch (e) {
       _showError('Erreur: $e');
     } finally {
-      if (mounted) {
-        setState(() => _isLoading = false);
-      }
+      if (mounted) setState(() => _isLoading = false);
     }
   }
 
-  void _showError(String message) {
+  void _showError(String msg) {
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(message),
-          backgroundColor: const Color(0xFFEF4444),
-        ),
+            content: Text(msg),
+            backgroundColor: PremiumTheme.accentRed),
       );
     }
   }
 
-  Future<void> _selectDate(BuildContext context, bool isPickup) async {
-    final DateTime? picked = await showDatePicker(
+  Future<void> _selectDate(bool isPickup) async {
+    final picked = await showDatePicker(
       context: context,
       initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
+      firstDate: DateTime.now().subtract(const Duration(days: 1)),
       lastDate: DateTime.now().add(const Duration(days: 365)),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF14B8A6),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1F2937),
-              onSurface: Colors.white,
-            ),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: PremiumTheme.primaryBlue,
+            onPrimary: Colors.white,
+            surface: Colors.white,
+            onSurface: PremiumTheme.textPrimary,
           ),
-          child: child!,
-        );
-      },
+          dialogBackgroundColor: Colors.white,
+        ),
+        child: child!,
+      ),
     );
-
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() {
-        if (isPickup) {
-          _pickupDate = picked;
-        } else {
-          _deliveryDate = picked;
-        }
+        if (isPickup) _pickupDate = picked;
+        else _deliveryDate = picked;
       });
     }
   }
 
-  Future<void> _selectTime(BuildContext context, bool isPickup) async {
-    final TimeOfDay? picked = await showTimePicker(
+  Future<void> _selectTime(bool isPickup) async {
+    final picked = await showTimePicker(
       context: context,
       initialTime: TimeOfDay.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: Color(0xFF14B8A6),
-              onPrimary: Colors.white,
-              surface: Color(0xFF1F2937),
-              onSurface: Colors.white,
-            ),
+      builder: (ctx, child) => Theme(
+        data: Theme.of(ctx).copyWith(
+          colorScheme: ColorScheme.light(
+            primary: PremiumTheme.primaryBlue,
+            onPrimary: Colors.white,
+            surface: Colors.white,
+            onSurface: PremiumTheme.textPrimary,
           ),
-          child: child!,
-        );
-      },
+          dialogBackgroundColor: Colors.white,
+        ),
+        child: child!,
+      ),
     );
-
-    if (picked != null) {
+    if (picked != null && mounted) {
       setState(() {
-        if (isPickup) {
-          _pickupTime = picked;
-        } else {
-          _deliveryTime = picked;
-        }
+        if (isPickup) _pickupTime = picked;
+        else _deliveryTime = picked;
       });
     }
   }
 
-  Future<void> _searchAddress(BuildContext context, bool isPickup) async {
-    final controller = isPickup ? _pickupAddressController : _deliveryAddressController;
-    
-    if (controller.text.isEmpty) {
-      _showError('Entrez une adresse pour rechercher');
-      return;
-    }
-
-    try {
-      final suggestions = await AddressAutocompleteService.searchAddresses(controller.text);
-      
-      if (!mounted) return;
-      
-      if (suggestions.isEmpty) {
-        _showError('Aucune adresse trouvée');
-        return;
-      }
-
-      // Afficher les résultats
-      final selected = await showModalBottomSheet<AddressSuggestion>(
-        context: context,
-        backgroundColor: const Color(0xFF1F2937),
-        shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-        ),
-        builder: (context) => Container(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text(
-                'Sélectionnez une adresse',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-              const SizedBox(height: 16),
-              ...suggestions.map((suggestion) => ListTile(
-                leading: const Icon(Icons.location_on, color: Color(0xFF14B8A6)),
-                title: Text(
-                  suggestion.label,
-                  style: const TextStyle(color: Colors.white),
-                ),
-                onTap: () => Navigator.pop(context, suggestion),
-              )).toList(),
-            ],
-          ),
-        ),
-      );
-
-      if (selected != null) {
-        setState(() {
-          controller.text = selected.label;
-          if (isPickup) {
-            _pickupLat = selected.latitude;
-            _pickupLng = selected.longitude;
-          } else {
-            _deliveryLat = selected.latitude;
-            _deliveryLng = selected.longitude;
-          }
-        });
-      }
-    } catch (e) {
-      _showError('Erreur de recherche: $e');
-    }
-  }
-
+  // ==============================================
+  //  BUILD
+  // ==============================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFF0F172A),
+      backgroundColor: PremiumTheme.lightBg,
       appBar: AppBar(
-        backgroundColor: const Color(0xFF1E293B),
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.close, color: Colors.white),
+          icon: Icon(Icons.close_rounded,
+              color: PremiumTheme.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Nouvelle mission',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-          ),
+          style: PremiumTheme.heading4.copyWith(fontSize: 18),
         ),
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(56),
-          child: Container(
-            color: const Color(0xFF1E293B),
-            child: Row(
-              children: List.generate(4, (index) {
-                final isActive = index == _currentStep;
-                final isCompleted = index < _currentStep;
-                
-                return Expanded(
-                  child: Container(
-                    margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
-                    child: Column(
-                      children: [
-                        Container(
-                          height: 4,
-                          decoration: BoxDecoration(
-                            color: isCompleted || isActive
-                                ? const Color(0xFF14B8A6)
-                                : const Color(0xFF334155),
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _getStepTitle(index),
-                          style: TextStyle(
-                            color: isActive
-                                ? const Color(0xFF14B8A6)
-                                : Colors.white54,
-                            fontSize: 11,
-                            fontWeight: isActive ? FontWeight.w600 : FontWeight.normal,
-                          ),
-                          textAlign: TextAlign.center,
-                        ),
-                      ],
-                    ),
-                  ),
-                );
-              }),
-            ),
-          ),
+          child: _buildStepper(),
         ),
       ),
       body: _isLoading
-          ? const Center(
-              child: CircularProgressIndicator(color: Color(0xFF14B8A6)),
-            )
+          ? Center(
+              child: CircularProgressIndicator(
+                  color: PremiumTheme.primaryBlue))
           : Form(
               key: _formKey,
               child: Column(
@@ -569,741 +428,531 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
                   Expanded(
                     child: SingleChildScrollView(
                       padding: const EdgeInsets.all(16),
-                      child: _buildStepContent(),
+                      child: _buildCurrentStep(),
                     ),
                   ),
-                  _buildNavigationButtons(),
+                  _buildNavButtons(),
                 ],
               ),
             ),
     );
   }
 
-  String _getStepTitle(int index) {
-    switch (index) {
-      case 0:
-        return 'Mandataire';
-      case 1:
-        return 'Enlèvement';
-      case 2:
-        return 'Livraison';
-      case 3:
-        return 'Détails';
-      default:
-        return '';
-    }
+  // -- Stepper indicator --
+  Widget _buildStepper() {
+    const labels = ['Vehicule', 'Enlevement', 'Livraison'];
+    const icons = [
+      Icons.directions_car_rounded,
+      Icons.upload_rounded,
+      Icons.download_rounded,
+    ];
+    const colors = [
+      PremiumTheme.primaryTeal,
+      PremiumTheme.accentGreen,
+      PremiumTheme.primaryBlue,
+    ];
+
+    return Container(
+      color: Colors.white,
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 12),
+      child: Row(
+        children: List.generate(3, (i) {
+          final active = i == _currentStep;
+          final done = i < _currentStep;
+          final col = active || done ? colors[i] : PremiumTheme.textTertiary;
+          return Expanded(
+            child: Padding(
+              padding: EdgeInsets.only(
+                  left: i == 0 ? 0 : 6, right: i == 2 ? 0 : 6),
+              child: Column(
+                children: [
+                  // Progress bar
+                  Container(
+                    height: 4,
+                    decoration: BoxDecoration(
+                      color: done
+                          ? col
+                          : active
+                              ? col.withValues(alpha: 0.5)
+                              : const Color(0xFFE5E7EB),
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      if (done)
+                        Icon(Icons.check_circle_rounded,
+                            color: col, size: 16)
+                      else
+                        Icon(icons[i], color: col, size: 16),
+                      const SizedBox(width: 4),
+                      Text(
+                        labels[i],
+                        style: TextStyle(
+                          color: col,
+                          fontSize: 12,
+                          fontWeight:
+                              active ? FontWeight.w700 : FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        }),
+      ),
+    );
   }
 
-  Widget _buildStepContent() {
+  Widget _buildCurrentStep() {
     switch (_currentStep) {
       case 0:
-        return _buildVehicleStep();
+        return _buildStep1();
       case 1:
-        return _buildPickupStep();
+        return _buildStep2();
       case 2:
-        return _buildDeliveryStep();
-      case 3:
-        return _buildDetailsStep();
+        return _buildStep3();
       default:
         return const SizedBox();
     }
   }
 
-  Widget _buildVehicleStep() {
+  // ==============================================
+  //  ETAPE 1 : MANDATAIRE + VEHICULE
+  // ==============================================
+  Widget _buildStep1() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Section Mandataire
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF9333EA), Color(0xFF6366F1)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF9333EA).withOpacity(0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Text('👤', style: TextStyle(fontSize: 24)),
-                  SizedBox(width: 8),
-                  Text(
-                    'Informations Mandataire',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              
-              // Nom du mandataire
-              _buildTextField(
-                controller: _mandataireNameController,
-                label: 'Nom du mandataire *',
-                hint: 'Ex: Jean Dupont',
-                icon: Icons.person,
-                required: true,
-              ),
-              const SizedBox(height: 12),
-              
-              // Société mandante
-              _buildTextField(
-                controller: _mandataireCompanyController,
-                label: 'Société mandante',
-                hint: 'Ex: Transport Express SARL',
-                icon: Icons.business,
-              ),
-            ],
-          ),
+        _sectionCard(
+          icon: Icons.person_outline_rounded,
+          title: 'Mandataire',
+          color: PremiumTheme.primaryPurple,
+          children: [
+            _field(_mandataireNameController, 'Nom du mandataire *',
+                Icons.person_rounded,
+                isRequired: true),
+            const SizedBox(height: 12),
+            _field(_mandataireCompanyController, 'Societe mandante',
+                Icons.business_rounded),
+          ],
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 16),
+        _sectionCard(
+          icon: Icons.directions_car_rounded,
+          title: 'Vehicule',
+          color: PremiumTheme.primaryTeal,
+          children: [
+            _vehicleTypeSelector(),
+            const SizedBox(height: 16),
+            _field(_brandController, 'Marque *',
+                Icons.directions_car_rounded,
+                isRequired: true),
+            const SizedBox(height: 12),
+            _field(_modelController, 'Modele *',
+                Icons.directions_car_filled_rounded,
+                isRequired: true),
+            const SizedBox(height: 12),
+            _field(
+                _plateController, 'Immatriculation', Icons.pin_rounded,
+                caps: true),
+            const SizedBox(height: 12),
+            _field(_vinController, 'Numero VIN',
+                Icons.confirmation_number_rounded,
+                caps: true),
+          ],
+        ),
+      ],
+    );
+  }
 
-        // Section Véhicule
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF14B8A6), Color(0xFF06B6D4)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+  // ==============================================
+  //  ETAPE 2 : ENLEVEMENT
+  // ==============================================
+  Widget _buildStep2() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionCard(
+          icon: Icons.upload_rounded,
+          title: "Lieu d'enlevement",
+          color: PremiumTheme.accentGreen,
+          children: [
+            _field(
+              _pickupAddressController,
+              'Adresse *',
+              Icons.location_on_rounded,
+              isRequired: true,
+              onChanged: (v) => _onAddressChanged(v, true),
             ),
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF14B8A6).withOpacity(0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Row(
-                children: [
-                  Text('🚗', style: TextStyle(fontSize: 24)),
-                  SizedBox(width: 8),
-                  Text(
-                    'Informations du véhicule',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
+            if (_showPickupSuggestions)
+              _suggestionsList(_pickupSuggestions, true),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: _field(_pickupPostcodeController,
+                      'Code postal', Icons.markunread_mailbox_rounded),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 3,
+                  child: _field(_pickupCityController, 'Ville *',
+                      Icons.location_city_rounded,
+                      isRequired: true),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _dateTimeRow(true),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _sectionCard(
+          icon: Icons.person_pin_rounded,
+          title: 'Expediteur (contact sur place)',
+          color: PremiumTheme.accentGreen,
+          children: [
+            _field(_pickupContactNameController,
+                "Nom de l'expediteur *", Icons.person_rounded,
+                isRequired: true),
+            const SizedBox(height: 12),
+            _field(_pickupContactPhoneController, 'Telephone',
+                Icons.phone_rounded,
+                keyboard: TextInputType.phone),
+          ],
+        ),
+      ],
+    );
+  }
 
-              // Type de véhicule
-              const Text(
-                'Type de véhicule *',
-                style: TextStyle(
-                  color: Colors.white,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
+  // ==============================================
+  //  ETAPE 3 : LIVRAISON + OPTIONS
+  // ==============================================
+  Widget _buildStep3() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionCard(
+          icon: Icons.download_rounded,
+          title: 'Lieu de livraison',
+          color: PremiumTheme.primaryBlue,
+          children: [
+            _field(
+              _deliveryAddressController,
+              'Adresse *',
+              Icons.location_on_rounded,
+              isRequired: true,
+              onChanged: (v) => _onAddressChanged(v, false),
+            ),
+            if (_showDeliverySuggestions)
+              _suggestionsList(_deliverySuggestions, false),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  flex: 2,
+                  child: _field(_deliveryPostcodeController,
+                      'Code postal', Icons.markunread_mailbox_rounded),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 3,
+                  child: _field(_deliveryCityController, 'Ville *',
+                      Icons.location_city_rounded,
+                      isRequired: true),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            _dateTimeRow(false),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _sectionCard(
+          icon: Icons.person_pin_rounded,
+          title: 'Receptionnaire (contact sur place)',
+          color: PremiumTheme.primaryBlue,
+          children: [
+            _field(_deliveryContactNameController,
+                'Nom du receptionnaire *', Icons.person_rounded,
+                isRequired: true),
+            const SizedBox(height: 12),
+            _field(_deliveryContactPhoneController, 'Telephone',
+                Icons.phone_rounded,
+                keyboard: TextInputType.phone),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _sectionCard(
+          icon: Icons.tune_rounded,
+          title: 'Options',
+          color: PremiumTheme.primaryIndigo,
+          children: [
+            _field(_priceController, 'Prix (EUR)',
+                Icons.euro_rounded,
+                keyboard: TextInputType.number),
+            const SizedBox(height: 12),
+            _field(_notesController, 'Notes internes',
+                Icons.note_alt_rounded,
+                maxLines: 3),
+          ],
+        ),
+      ],
+    );
+  }
+
+  // ==============================================
+  //  WIDGETS REUTILISABLES
+  // ==============================================
+  Widget _sectionCard({
+    required IconData icon,
+    required String title,
+    required Color color,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+        boxShadow: [
+          BoxShadow(
+            color: color.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.03),
+            blurRadius: 6,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              const SizedBox(width: 10),
+              Text(
+                title,
+                style: PremiumTheme.heading4.copyWith(
+                  color: color,
+                  fontSize: 16,
                 ),
               ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  _buildVehicleTypeChip('VL', 'Voiture'),
-                  const SizedBox(width: 8),
-                  _buildVehicleTypeChip('VU', 'Utilitaire'),
-                  const SizedBox(width: 8),
-                  _buildVehicleTypeChip('PL', 'Poids lourd'),
-                ],
-              ),
-              const SizedBox(height: 16),
-
-              // Marque
-              _buildTextField(
-                controller: _brandController,
-                label: 'Marque *',
-                hint: 'Ex: Renault, Peugeot...',
-                icon: Icons.directions_car,
-                required: true,
-              ),
-              const SizedBox(height: 12),
-
-              // Modèle
-              _buildTextField(
-                controller: _modelController,
-                label: 'Modèle *',
-                hint: 'Ex: Clio, 308...',
-                icon: Icons.directions_car_outlined,
-                required: true,
-              ),
-              const SizedBox(height: 12),
-
-              // Immatriculation
-              _buildTextField(
-                controller: _plateController,
-                label: 'Immatriculation',
-                hint: 'Ex: AB-123-CD',
-                icon: Icons.pin,
-                textCapitalization: TextCapitalization.characters,
-              ),
-              const SizedBox(height: 12),
-
-              // VIN
-              _buildTextField(
-                controller: _vinController,
-                label: 'Numéro VIN',
-                hint: 'Numéro de série du véhicule',
-                icon: Icons.confirmation_number,
-                textCapitalization: TextCapitalization.characters,
-              ),
             ],
           ),
-        ),
-      ],
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
     );
   }
 
-  Widget _buildPickupStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+  Widget _field(
+    TextEditingController ctrl,
+    String label,
+    IconData icon, {
+    bool isRequired = false,
+    TextInputType keyboard = TextInputType.text,
+    bool caps = false,
+    int maxLines = 1,
+    void Function(String)? onChanged,
+  }) {
+    return TextField(
+      controller: ctrl,
+      style: PremiumTheme.body.copyWith(fontSize: 15),
+      keyboardType: keyboard,
+      textCapitalization:
+          caps ? TextCapitalization.characters : TextCapitalization.none,
+      maxLines: maxLines,
+      onChanged: onChanged,
+      decoration: InputDecoration(
+        labelText: label,
+        labelStyle: PremiumTheme.bodySmall.copyWith(
+          color: isRequired
+              ? PremiumTheme.primaryBlue
+              : PremiumTheme.textTertiary,
+          fontSize: 14,
+        ),
+        prefixIcon: Icon(icon,
+            color: PremiumTheme.primaryBlue.withValues(alpha: 0.6),
+            size: 20),
+        filled: true,
+        fillColor: const Color(0xFFF8FAFC),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+        ),
+        enabledBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+        ),
+        focusedBorder: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+          borderSide:
+              BorderSide(color: PremiumTheme.primaryBlue, width: 2),
+        ),
+        contentPadding:
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      ),
+    );
+  }
+
+  Widget _vehicleTypeSelector() {
+    return Row(
       children: [
-        const Text(
-          '📍 Lieu de départ',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Nom du client *
-        _buildTextField(
-          controller: _pickupClientNameController,
-          label: 'Nom du client *',
-          hint: 'Ex: Jean Dupont',
-          icon: Icons.person,
-          required: true,
-        ),
-        const SizedBox(height: 16),
-
-        // Adresse *
-        _buildTextField(
-          controller: _pickupAddressController,
-          label: 'Adresse de départ *',
-          hint: 'Ex: 123 Rue de la Paix',
-          icon: Icons.location_on,
-          required: true,
-          maxLines: 2,
-        ),
-        const SizedBox(height: 16),
-
-        // Code postal et Ville sur la même ligne
-        Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: _buildTextField(
-                controller: _pickupPostcodeController,
-                label: 'Code postal *',
-                hint: 'Ex: 75001',
-                icon: Icons.mail,
-                required: true,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 3,
-              child: _buildTextField(
-                controller: _pickupCityController,
-                label: 'Ville *',
-                hint: 'Ex: Paris',
-                icon: Icons.location_city,
-                required: true,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-
-        // Date et heure
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Date *',
-                    style: TextStyle(
-                      color: Color(0xFF14B8A6),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () => _selectDate(context, true),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF334155)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.calendar_today, color: Color(0xFF14B8A6), size: 20),
-                          const SizedBox(width: 12),
-                          Text(
-                            _pickupDate != null
-                                ? DateFormat('dd/MM/yyyy').format(_pickupDate!)
-                                : 'Sélectionner',
-                            style: TextStyle(
-                              color: _pickupDate != null ? Colors.white : Colors.white54,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Heure',
-                    style: TextStyle(
-                      color: Color(0xFF14B8A6),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () => _selectTime(context, true),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF334155)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.access_time, color: Color(0xFF14B8A6), size: 20),
-                          const SizedBox(width: 12),
-                          Text(
-                            _pickupTime != null
-                                ? _pickupTime!.format(context)
-                                : 'Optionnel',
-                            style: TextStyle(
-                              color: _pickupTime != null ? Colors.white : Colors.white54,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-
-        // Contact
-        const Text(
-          'Contact au départ',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        _buildTextField(
-          controller: _pickupContactNameController,
-          label: 'Nom du contact',
-          hint: 'Nom complet',
-          icon: Icons.person,
-        ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _pickupContactPhoneController,
-          label: 'Téléphone',
-          hint: '06 XX XX XX XX',
-          icon: Icons.phone,
-          keyboardType: TextInputType.phone,
-        ),
+        _typeChip('VL', 'Voiture', Icons.directions_car_rounded),
+        const SizedBox(width: 8),
+        _typeChip('VU', 'Utilitaire', Icons.local_shipping_rounded),
+        const SizedBox(width: 8),
+        _typeChip('PL', 'Poids lourd', Icons.fire_truck_rounded),
       ],
     );
   }
 
-  Widget _buildDeliveryStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '🎯 Lieu d\'arrivée',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Nom du client *
-        _buildTextField(
-          controller: _deliveryClientNameController,
-          label: 'Nom du client *',
-          hint: 'Ex: Jean Dupont',
-          icon: Icons.person,
-          required: true,
-        ),
-        const SizedBox(height: 16),
-
-        // Adresse *
-        _buildTextField(
-          controller: _deliveryAddressController,
-          label: 'Adresse d\'arrivée *',
-          hint: 'Ex: 456 Avenue des Champs',
-          icon: Icons.location_on,
-          required: true,
-          maxLines: 2,
-        ),
-        const SizedBox(height: 16),
-
-        // Code postal et Ville sur la même ligne
-        Row(
-          children: [
-            Expanded(
-              flex: 2,
-              child: _buildTextField(
-                controller: _deliveryPostcodeController,
-                label: 'Code postal *',
-                hint: 'Ex: 75008',
-                icon: Icons.mail,
-                required: true,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 3,
-              child: _buildTextField(
-                controller: _deliveryCityController,
-                label: 'Ville *',
-                hint: 'Ex: Paris',
-                icon: Icons.location_city,
-                required: true,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-
-        // Date et heure
-        Row(
-          children: [
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Date *',
-                    style: TextStyle(
-                      color: Color(0xFF14B8A6),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () => _selectDate(context, false),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF334155)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.calendar_today, color: Color(0xFF14B8A6), size: 20),
-                          const SizedBox(width: 12),
-                          Text(
-                            _deliveryDate != null
-                                ? DateFormat('dd/MM/yyyy').format(_deliveryDate!)
-                                : 'Sélectionner',
-                            style: TextStyle(
-                              color: _deliveryDate != null ? Colors.white : Colors.white54,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Text(
-                    'Heure',
-                    style: TextStyle(
-                      color: Color(0xFF14B8A6),
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  InkWell(
-                    onTap: () => _selectTime(context, false),
-                    child: Container(
-                      padding: const EdgeInsets.all(16),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF1E293B),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF334155)),
-                      ),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.access_time, color: Color(0xFF14B8A6), size: 20),
-                          const SizedBox(width: 12),
-                          Text(
-                            _deliveryTime != null
-                                ? _deliveryTime!.format(context)
-                                : 'Optionnel',
-                            style: TextStyle(
-                              color: _deliveryTime != null ? Colors.white : Colors.white54,
-                              fontSize: 15,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 24),
-
-        // Contact
-        const Text(
-          'Contact à l\'arrivée',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        _buildTextField(
-          controller: _deliveryContactNameController,
-          label: 'Nom du contact',
-          hint: 'Nom complet',
-          icon: Icons.person,
-        ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _deliveryContactPhoneController,
-          label: 'Téléphone',
-          hint: '06 XX XX XX XX',
-          icon: Icons.phone,
-          keyboardType: TextInputType.phone,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildDetailsStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text(
-          '📋 Détails supplémentaires',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 24,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Ces informations sont optionnelles',
-          style: TextStyle(
-            color: Colors.white54,
-            fontSize: 14,
-          ),
-        ),
-        const SizedBox(height: 24),
-
-        // Informations client
-        const Text(
-          'Informations client',
-          style: TextStyle(
-            color: Colors.white,
-            fontSize: 16,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-        const SizedBox(height: 12),
-        _buildTextField(
-          controller: _clientNameController,
-          label: 'Nom du client',
-          hint: 'Nom complet',
-          icon: Icons.person_outline,
-        ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _clientPhoneController,
-          label: 'Téléphone',
-          hint: '06 XX XX XX XX',
-          icon: Icons.phone_outlined,
-          keyboardType: TextInputType.phone,
-        ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _clientEmailController,
-          label: 'Email',
-          hint: 'email@exemple.com',
-          icon: Icons.email_outlined,
-          keyboardType: TextInputType.emailAddress,
-        ),
-        const SizedBox(height: 16),
-        _buildTextField(
-          controller: _agentNameController,
-          label: 'Nom du mandataire',
-          hint: 'Nom de l\'agent représentant',
-          icon: Icons.badge_outlined,
-        ),
-        const SizedBox(height: 24),
-
-        // Prix
-        _buildTextField(
-          controller: _priceController,
-          label: 'Prix de la mission',
-          hint: 'Ex: 250',
-          icon: Icons.euro,
-          keyboardType: TextInputType.number,
-          suffix: '€',
-        ),
-        const SizedBox(height: 24),
-
-        // Notes
-        _buildTextField(
-          controller: _notesController,
-          label: 'Notes internes',
-          hint: 'Notes personnelles (non visibles par le client)',
-          icon: Icons.note_outlined,
-          maxLines: 3,
-        ),
-        const SizedBox(height: 16),
-
-        // Instructions spéciales
-        _buildTextField(
-          controller: _specialInstructionsController,
-          label: 'Instructions spéciales',
-          hint: 'Consignes particulières pour cette mission',
-          icon: Icons.info_outline,
-          maxLines: 3,
-        ),
-      ],
-    );
-  }
-
-  Widget _buildVehicleTypeChip(String value, String label) {
-    final isSelected = _vehicleType == value;
+  Widget _typeChip(String value, String label, IconData icon) {
+    final sel = _vehicleType == value;
     return Expanded(
-      child: InkWell(
+      child: GestureDetector(
         onTap: () => setState(() => _vehicleType = value),
-        child: Container(
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 12),
           decoration: BoxDecoration(
-            color: isSelected ? const Color(0xFF14B8A6) : const Color(0xFF1E293B),
+            color: sel
+                ? PremiumTheme.primaryBlue.withValues(alpha: 0.08)
+                : const Color(0xFFF8FAFC),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(
-              color: isSelected ? const Color(0xFF14B8A6) : const Color(0xFF334155),
-              width: 2,
+              color: sel
+                  ? PremiumTheme.primaryBlue
+                  : const Color(0xFFE5E7EB),
+              width: sel ? 2 : 1,
             ),
           ),
-          child: Text(
-            label,
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: isSelected ? Colors.white : Colors.white70,
-              fontSize: 13,
-              fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
-            ),
+          child: Column(
+            children: [
+              Icon(icon,
+                  color: sel
+                      ? PremiumTheme.primaryBlue
+                      : PremiumTheme.textTertiary,
+                  size: 22),
+              const SizedBox(height: 4),
+              Text(
+                label,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  color: sel
+                      ? PremiumTheme.primaryBlue
+                      : PremiumTheme.textSecondary,
+                  fontSize: 12,
+                  fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                ),
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String label,
-    required String hint,
-    required IconData icon,
-    bool required = false,
-    TextInputType keyboardType = TextInputType.text,
-    TextCapitalization textCapitalization = TextCapitalization.none,
-    int maxLines = 1,
-    String? suffix,
-  }) {
+  Widget _dateTimeRow(bool isPickup) {
+    final date = isPickup ? _pickupDate : _deliveryDate;
+    final time = isPickup ? _pickupTime : _deliveryTime;
+    return Row(
+      children: [
+        Expanded(
+          child: _dateTile(
+            'Date *',
+            date != null
+                ? DateFormat('dd/MM/yyyy').format(date)
+                : 'Selectionner',
+            Icons.calendar_today_rounded,
+            () => _selectDate(isPickup),
+            PremiumTheme.primaryBlue,
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _dateTile(
+            'Heure',
+            time?.format(context) ?? 'Optionnel',
+            Icons.access_time_rounded,
+            () => _selectTime(isPickup),
+            PremiumTheme.primaryIndigo,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _dateTile(String label, String value, IconData icon,
+      VoidCallback onTap, Color color) {
+    final hasValue =
+        !value.contains('Selectionner') && !value.contains('Optionnel');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          required ? '$label *' : label,
-          style: const TextStyle(
-            color: Color(0xFF14B8A6),
-            fontSize: 14,
+          label,
+          style: PremiumTheme.caption.copyWith(
+            color: PremiumTheme.primaryBlue,
             fontWeight: FontWeight.w600,
+            fontSize: 13,
           ),
         ),
-        const SizedBox(height: 8),
-        TextField(
-          controller: controller,
-          style: const TextStyle(color: Colors.white, fontSize: 15),
-          keyboardType: keyboardType,
-          textCapitalization: textCapitalization,
-          maxLines: maxLines,
-          decoration: _inputDecoration(
-            hint: hint,
-            icon: icon,
-          ).copyWith(
-            suffixText: suffix,
-            suffixStyle: const TextStyle(
-              color: Colors.white70,
-              fontSize: 15,
-              fontWeight: FontWeight.w600,
+        const SizedBox(height: 6),
+        InkWell(
+          onTap: onTap,
+          borderRadius: BorderRadius.circular(12),
+          child: Container(
+            padding: const EdgeInsets.all(14),
+            decoration: BoxDecoration(
+              color: hasValue
+                  ? color.withValues(alpha: 0.05)
+                  : const Color(0xFFF8FAFC),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: hasValue
+                    ? color.withValues(alpha: 0.3)
+                    : const Color(0xFFE5E7EB),
+              ),
+            ),
+            child: Row(
+              children: [
+                Icon(icon,
+                    color: hasValue ? color : PremiumTheme.textTertiary,
+                    size: 18),
+                const SizedBox(width: 10),
+                Text(
+                  value,
+                  style: PremiumTheme.bodySmall.copyWith(
+                    color: hasValue
+                        ? PremiumTheme.textPrimary
+                        : PremiumTheme.textTertiary,
+                    fontWeight:
+                        hasValue ? FontWeight.w600 : FontWeight.normal,
+                    fontSize: 14,
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -1311,45 +960,55 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
     );
   }
 
-  InputDecoration _inputDecoration({
-    required String hint,
-    required IconData icon,
-  }) {
-    return InputDecoration(
-      hintText: hint,
-      hintStyle: const TextStyle(color: Colors.white38, fontSize: 14),
-      prefixIcon: Icon(icon, color: const Color(0xFF14B8A6), size: 22),
-      filled: true,
-      fillColor: const Color(0xFF1E293B),
-      border: OutlineInputBorder(
+  Widget _suggestionsList(
+      List<AddressSuggestion> suggestions, bool isPickup) {
+    return Container(
+      margin: const EdgeInsets.only(top: 4),
+      constraints: const BoxConstraints(maxHeight: 200),
+      decoration: BoxDecoration(
+        color: Colors.white,
         borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF334155)),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      enabledBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF334155)),
+      child: ListView.separated(
+        shrinkWrap: true,
+        itemCount: suggestions.length,
+        separatorBuilder: (_, __) =>
+            Divider(height: 1, color: Colors.grey.shade100),
+        itemBuilder: (_, i) => ListTile(
+          dense: true,
+          leading: Icon(Icons.location_on_rounded,
+              color: PremiumTheme.primaryBlue, size: 18),
+          title: Text(
+            suggestions[i].label,
+            style: PremiumTheme.bodySmall.copyWith(fontSize: 13),
+          ),
+          onTap: () => _selectSuggestion(suggestions[i], isPickup),
+        ),
       ),
-      focusedBorder: OutlineInputBorder(
-        borderRadius: BorderRadius.circular(12),
-        borderSide: const BorderSide(color: Color(0xFF14B8A6), width: 2),
-      ),
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
     );
   }
 
-  Widget _buildNavigationButtons() {
-    final canProceed = _canProceed();
-
+  Widget _buildNavButtons() {
+    final ok = _canProceed();
+    final isLast = _currentStep == 2;
     return SafeArea(
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: const Color(0xFF1E293B),
+          color: Colors.white,
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withValues(alpha: 0.2),
-              blurRadius: 10,
-              offset: const Offset(0, -5),
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 12,
+              offset: const Offset(0, -4),
             ),
           ],
         ),
@@ -1357,49 +1016,51 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
           children: [
             if (_currentStep > 0)
               Expanded(
-                child: OutlinedButton(
+                child: OutlinedButton.icon(
                   onPressed: () => setState(() => _currentStep--),
+                  icon: const Icon(Icons.arrow_back_rounded, size: 18),
+                  label: const Text('Precedent'),
                   style: OutlinedButton.styleFrom(
-                    foregroundColor: Colors.white,
-                    side: const BorderSide(color: Color(0xFF334155)),
+                    foregroundColor: PremiumTheme.textSecondary,
+                    side:
+                        const BorderSide(color: Color(0xFFE5E7EB)),
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                  ),
-                  child: const Text(
-                    'Précédent',
-                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                        borderRadius: BorderRadius.circular(12)),
                   ),
                 ),
               ),
             if (_currentStep > 0) const SizedBox(width: 12),
             Expanded(
-              flex: _currentStep == 0 ? 1 : 1,
-              child: ElevatedButton(
-                onPressed: canProceed
+              flex: _currentStep > 0 ? 1 : 2,
+              child: ElevatedButton.icon(
+                onPressed: ok
                     ? () {
-                        if (_currentStep < 3) {
+                        if (!isLast) {
                           setState(() => _currentStep++);
                         } else {
                           _submit();
                         }
                       }
                     : null,
+                icon: Icon(
+                  isLast
+                      ? Icons.check_circle_rounded
+                      : Icons.arrow_forward_rounded,
+                  size: 18,
+                ),
+                label: Text(isLast ? 'Creer la mission' : 'Continuer'),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF14B8A6),
+                  backgroundColor: isLast
+                      ? PremiumTheme.accentGreen
+                      : PremiumTheme.primaryBlue,
                   foregroundColor: Colors.white,
-                  disabledBackgroundColor: const Color(0xFF334155),
-                  disabledForegroundColor: Colors.white38,
+                  disabledBackgroundColor: const Color(0xFFE5E7EB),
+                  disabledForegroundColor: PremiumTheme.textTertiary,
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   elevation: 0,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                ),
-                child: Text(
-                  _currentStep < 3 ? 'Continuer' : 'Créer la mission',
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600),
+                      borderRadius: BorderRadius.circular(12)),
                 ),
               ),
             ),

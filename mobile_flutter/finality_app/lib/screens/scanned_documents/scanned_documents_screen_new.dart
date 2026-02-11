@@ -77,6 +77,7 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
           .eq('user_id', userId)
           .order('created_at', ascending: false);
 
+      if (!mounted) return;
       setState(() {
         _documents = List<Map<String, dynamic>>.from(response);
         _applyFilters();
@@ -84,6 +85,7 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> w
       });
     } catch (e) {
       debugPrint('Error loading documents: $e');
+      if (!mounted) return;
       setState(() => _isLoading = false);
     }
   }

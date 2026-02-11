@@ -8,13 +8,13 @@ export default defineConfig({
   build: {
     outDir: 'dist',
     assetsDir: 'assets',
-    sourcemap: true, // Garder les sourcemaps pour debug mobile
+    sourcemap: false,
     minify: 'terser',
     terserOptions: {
       compress: {
-        drop_console: false, // Garder console.error pour debug mobile
+        drop_console: true,
         drop_debugger: true,
-        pure_funcs: ['console.debug', 'console.trace']
+        pure_funcs: ['console.debug', 'console.trace', 'console.log', 'console.info']
       },
       format: {
         comments: false
