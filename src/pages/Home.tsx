@@ -211,12 +211,12 @@ const Hero: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Dashboard preview card */}
+        {/* Dashboard preview — real screenshot */}
         <motion.div
           initial="hidden"
           animate="visible"
           variants={scaleIn}
-          className="mt-16 max-w-4xl mx-auto"
+          className="mt-16 max-w-5xl mx-auto"
         >
           <div className="relative rounded-2xl bg-white border border-slate-200/80 shadow-2xl shadow-slate-900/8 overflow-hidden">
             {/* Browser bar */}
@@ -234,48 +234,11 @@ const Hero: React.FC = () => {
               </div>
             </div>
 
-            {/* Mock dashboard content */}
-            <div className="p-6 grid grid-cols-3 gap-4">
-              {[
-                { label: 'Missions actives', value: '24', icon: Route, color: 'text-teal-500', bg: 'bg-teal-50' },
-                { label: 'Inspections', value: '156', icon: ClipboardCheck, color: 'text-blue-500', bg: 'bg-blue-50' },
-                { label: 'Véhicules suivis', value: '89', icon: Car, color: 'text-purple-500', bg: 'bg-purple-50' },
-              ].map((s, i) => (
-                <div key={i} className="p-4 rounded-xl bg-slate-50/80 border border-slate-100">
-                  <div className={`w-10 h-10 rounded-xl ${s.bg} flex items-center justify-center mb-3`}>
-                    <s.icon className={`w-5 h-5 ${s.color}`} />
-                  </div>
-                  <div className="text-2xl font-bold text-slate-900">{s.value}</div>
-                  <div className="text-sm text-slate-500">{s.label}</div>
-                </div>
-              ))}
-            </div>
-
-            {/* Mock list */}
-            <div className="px-6 pb-6">
-              <div className="rounded-xl border border-slate-100 divide-y divide-slate-50">
-                {[
-                  { car: 'BMW Série 3', plate: 'AB-123-CD', status: 'En cours', statusColor: 'bg-teal-100 text-teal-700' },
-                  { car: 'Audi A4', plate: 'EF-456-GH', status: 'Livré', statusColor: 'bg-green-100 text-green-700' },
-                  { car: 'Mercedes GLC', plate: 'IJ-789-KL', status: 'Planifié', statusColor: 'bg-amber-100 text-amber-700' },
-                ].map((m, i) => (
-                  <div key={i} className="flex items-center justify-between p-3.5 hover:bg-slate-50/50">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-lg bg-slate-100 flex items-center justify-center">
-                        <Car className="w-4 h-4 text-slate-500" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-medium text-slate-900">{m.car}</div>
-                        <div className="text-xs text-slate-400">{m.plate}</div>
-                      </div>
-                    </div>
-                    <span className={`text-xs font-medium px-2.5 py-1 rounded-full ${m.statusColor}`}>
-                      {m.status}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            <img
+              src="/dashboard-preview.png"
+              alt="ChecksFleet Dashboard"
+              className="w-full h-auto"
+            />
           </div>
         </motion.div>
       </div>
