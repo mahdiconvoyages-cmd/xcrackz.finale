@@ -59,24 +59,24 @@ export default function SubscriptionRequired({ feature = 'cette fonctionnalité'
             <div className="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-2xl p-6 mb-8 border border-teal-200">
               <h3 className="font-bold text-teal-900 mb-3 flex items-center justify-center gap-2">
                 <ShoppingCart className="w-5 h-5" />
-                Fonctionnalités incluses avec un abonnement:
+                Tout abonnement donne accès à l'intégralité de la plateforme :
               </h3>
               <ul className="text-left space-y-2 max-w-md mx-auto">
                 <li className="flex items-center gap-2 text-slate-700">
                   <div className="w-1.5 h-1.5 rounded-full bg-teal-500"></div>
-                  <span>Création et gestion de factures</span>
+                  <span>Missions, inspections, GPS, facturation</span>
                 </li>
                 <li className="flex items-center gap-2 text-slate-700">
                   <div className="w-1.5 h-1.5 rounded-full bg-teal-500"></div>
-                  <span>Scanner de documents professionnel</span>
+                  <span>CRM, contacts, gestion clients</span>
                 </li>
                 <li className="flex items-center gap-2 text-slate-700">
                   <div className="w-1.5 h-1.5 rounded-full bg-teal-500"></div>
-                  <span>Génération de rapports PDF</span>
+                  <span>Scanner de documents & rapports PDF</span>
                 </li>
                 <li className="flex items-center gap-2 text-slate-700">
                   <div className="w-1.5 h-1.5 rounded-full bg-teal-500"></div>
-                  <span>Support prioritaire</span>
+                  <span>Aucune restriction — seuls les crédits IA varient selon le plan</span>
                 </li>
               </ul>
             </div>

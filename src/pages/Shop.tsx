@@ -24,13 +24,13 @@ const PLANS = [
     colorLight: 'bg-blue-50 border-blue-200 text-blue-700',
     popular: false,
     features: [
-      'Accès total à la plateforme',
-      'Gestion des missions',
-      'Inspections véhicules',
-      'Rapports d\'inspection',
-      'Suivi GPS en temps réel',
-      'Facturation intégrée',
+      'Accès complet à toute la plateforme',
+      'Missions, inspections, GPS, facturation',
+      'Rapports d\'inspection PDF',
+      'CRM & gestion clients',
+      'Scanner de documents',
       'Support par email',
+      'Idéal pour démarrer',
     ],
   },
   {
@@ -45,12 +45,12 @@ const PLANS = [
     colorLight: 'bg-purple-50 border-purple-200 text-purple-700',
     popular: true,
     features: [
-      'Tout l\'offre Essentiel',
-      '20 crédits / mois inclus',
-      'Outils IA & assistants',
-      'Scanner professionnel',
-      'CRM & gestion clients',
-      'Rapports avancés PDF',
+      'Accès complet à toute la plateforme',
+      '20 crédits IA / mois inclus',
+      'Assistant IA & génération auto',
+      'Scanner intelligent avancé',
+      'Optimisation de trajets IA',
+      'Rapports PDF enrichis IA',
       'Support prioritaire',
     ],
   },
@@ -66,11 +66,11 @@ const PLANS = [
     colorLight: 'bg-amber-50 border-amber-200 text-amber-700',
     popular: false,
     features: [
-      'Tout l\'offre Pro',
-      '100 crédits / mois inclus',
+      'Accès complet à toute la plateforme',
+      '100 crédits IA / mois inclus',
       'Frais de mise en place OFFERTS',
-      'Gestion multi-équipes',
-      'Tableau de bord analytique',
+      'Volume idéal flottes & équipes',
+      'Toutes les fonctionnalités IA',
       'Export comptable avancé',
       'Support dédié téléphone',
     ],
@@ -233,18 +233,13 @@ export default function ShopNew() {
             </button>
             <button
               onClick={() => setBillingPeriod('annual')}
-              className={`px-6 py-3 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
+              className={`px-6 py-3 rounded-xl text-sm font-bold transition-all ${
                 billingPeriod === 'annual'
                   ? 'bg-indigo-600 text-white shadow-md'
                   : 'text-slate-500 hover:text-slate-700'
               }`}
             >
               Annuel
-              <span className={`text-xs px-2 py-0.5 rounded-full ${
-                billingPeriod === 'annual' ? 'bg-white/20' : 'bg-green-100 text-green-700'
-              }`}>
-                -17%
-              </span>
             </button>
           </div>
         </div>
@@ -393,21 +388,23 @@ export default function ShopNew() {
 
         {/* WHAT CREDITS ARE FOR */}
         <div className="bg-white rounded-2xl shadow-lg p-8 sm:p-10 mb-16">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6">À quoi servent les crédits ?</h2>
+          <h2 className="text-2xl font-bold text-slate-900 mb-6">Tous les abonnements incluent l'accès complet</h2>
+          <p className="text-slate-500 text-sm mb-6">Quel que soit votre plan, vous bénéficiez de toutes les fonctionnalités de la plateforme sans aucune restriction. La seule différence entre les plans est le nombre de crédits IA inclus chaque mois.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
                 <CheckCircle className="w-5 h-5 text-green-500" />
-                Accès inclus sans crédits
+                Inclus dans tous les plans
               </h4>
               <ul className="space-y-2 text-sm text-slate-600">
                 {[
-                  'Création et gestion de missions',
-                  'Inspections départ / arrivée',
+                  'Création et gestion de missions illimitées',
+                  'Inspections départ / arrivée complètes',
                   'Suivi GPS en temps réel',
                   'Rapports d\'inspection PDF',
                   'Facturation et devis',
-                  'Gestion des contacts / clients',
+                  'CRM & gestion des contacts / clients',
+                  'Scanner de documents',
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
@@ -419,16 +416,16 @@ export default function ShopNew() {
             <div>
               <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
                 <Zap className="w-5 h-5 text-purple-500" />
-                Fonctionnalités consommant des crédits
+                Les crédits servent aux fonctions IA
               </h4>
               <ul className="space-y-2 text-sm text-slate-600">
                 {[
-                  'Assistant IA — Création automatique de missions',
-                  'Scanner intelligent de documents',
-                  'Génération automatique de rapports PDF avancés',
+                  'Assistant IA — Génération automatique de missions',
+                  'Scanner IA intelligent (OCR avancé)',
+                  'Rapports PDF enrichis par l\'IA',
                   'Recherche SIRET / API entreprise',
-                  'Envoi de notifications avancées',
-                  'Outils d\'optimisation de trajets',
+                  'Optimisation de trajets IA',
+                  'Notifications & suggestions intelligentes',
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
@@ -466,7 +463,7 @@ export default function ShopNew() {
               { q: 'Qu\'est-ce que les frais de mise en place ?', a: 'Les frais de mise en place couvrent la configuration initiale de votre espace, la formation à la plateforme et l\'accompagnement personnalisé. Offerts pour le plan Business.' },
               { q: 'Les crédits sont-ils reportés d\'un mois à l\'autre ?', a: 'Non, les crédits sont réinitialisés chaque mois selon votre plan. Les crédits non utilisés ne sont pas reportés au mois suivant.' },
               { q: 'Puis-je changer de plan en cours d\'abonnement ?', a: 'Oui, contactez notre équipe pour un changement de plan. La différence sera calculée au prorata.' },
-              { q: 'Que se passe-t-il à l\'expiration de mon abonnement ?', a: 'Vous conservez l\'accès en lecture à vos données, mais les fonctionnalités premium (création de missions, IA, etc.) seront désactivées jusqu\'au renouvellement.' },
+              { q: 'Que se passe-t-il à l\'expiration de mon abonnement ?', a: 'Vous conservez l\'accès en lecture à vos données, mais l\'accès à la plateforme sera désactivé jusqu\'au renouvellement. Contactez notre équipe pour renouveler.' },
             ].map((faq, i) => (
               <details key={i} className="group border border-slate-200 rounded-xl">
                 <summary className="flex items-center justify-between p-4 cursor-pointer font-semibold text-slate-800 hover:bg-slate-50 rounded-xl">
