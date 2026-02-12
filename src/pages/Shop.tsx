@@ -46,11 +46,11 @@ const PLANS = [
     popular: true,
     features: [
       'Accès complet à toute la plateforme',
-      '20 crédits IA / mois inclus',
-      'Assistant IA & génération auto',
+      '20 crédits / mois inclus',
+      'Assistant & génération auto',
       'Scanner intelligent avancé',
-      'Optimisation de trajets IA',
-      'Rapports PDF enrichis IA',
+      'Optimisation de trajets',
+      'Rapports PDF enrichis',
       'Support prioritaire',
     ],
   },
@@ -67,10 +67,10 @@ const PLANS = [
     popular: false,
     features: [
       'Accès complet à toute la plateforme',
-      '100 crédits IA / mois inclus',
+      '100 crédits / mois inclus',
       'Frais de mise en place OFFERTS',
       'Volume idéal flottes & équipes',
-      'Toutes les fonctionnalités IA',
+      'Toutes les fonctionnalités avancées',
       'Export comptable avancé',
       'Support dédié téléphone',
     ],
@@ -389,7 +389,7 @@ export default function ShopNew() {
         {/* WHAT CREDITS ARE FOR */}
         <div className="bg-white rounded-2xl shadow-lg p-8 sm:p-10 mb-16">
           <h2 className="text-2xl font-bold text-slate-900 mb-6">Tous les abonnements incluent l'accès complet</h2>
-          <p className="text-slate-500 text-sm mb-6">Quel que soit votre plan, vous bénéficiez de toutes les fonctionnalités de la plateforme sans aucune restriction. La seule différence entre les plans est le nombre de crédits IA inclus chaque mois.</p>
+          <p className="text-slate-500 text-sm mb-6">Quel que soit votre plan, vous bénéficiez de toutes les fonctionnalités de la plateforme sans aucune restriction. La seule différence entre les plans est le nombre de crédits inclus chaque mois.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
@@ -416,15 +416,15 @@ export default function ShopNew() {
             <div>
               <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
                 <Zap className="w-5 h-5 text-purple-500" />
-                Les crédits servent aux fonctions IA
+                Ce que les crédits permettent
               </h4>
               <ul className="space-y-2 text-sm text-slate-600">
                 {[
-                  'Assistant IA — Génération automatique de missions',
-                  'Scanner IA intelligent (OCR avancé)',
-                  'Rapports PDF enrichis par l\'IA',
+                  'Assistant — Génération automatique de missions',
+                  'Scanner intelligent de documents (OCR)',
+                  'Génération de rapports PDF avancés',
                   'Recherche SIRET / API entreprise',
-                  'Optimisation de trajets IA',
+                  'Optimisation de trajets',
                   'Notifications & suggestions intelligentes',
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-2">

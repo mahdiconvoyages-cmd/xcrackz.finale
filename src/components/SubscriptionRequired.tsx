@@ -76,7 +76,7 @@ export default function SubscriptionRequired({ feature = 'cette fonctionnalité'
                 </li>
                 <li className="flex items-center gap-2 text-slate-700">
                   <div className="w-1.5 h-1.5 rounded-full bg-teal-500"></div>
-                  <span>Aucune restriction — seuls les crédits IA varient selon le plan</span>
+                  <span>Aucune restriction — seuls les crédits varient selon le plan</span>
                 </li>
               </ul>
             </div>
