@@ -248,7 +248,7 @@ export default function Admin() {
         // Fallback: plans par défaut si la table shop_items est vide
         setShopPlans([
           { name: 'starter', credits_amount: 10, price: 0 },
-          { name: 'essentiel', credits_amount: 0, price: 10 },
+          { name: 'essentiel', credits_amount: 10, price: 10 },
           { name: 'pro', credits_amount: 20, price: 20 },
           { name: 'business', credits_amount: 100, price: 50 },
           { name: 'enterprise', credits_amount: 0, price: 0 },
@@ -259,7 +259,7 @@ export default function Admin() {
       // Fallback en cas d'erreur
       setShopPlans([
         { name: 'starter', credits_amount: 10, price: 0 },
-        { name: 'essentiel', credits_amount: 0, price: 10 },
+        { name: 'essentiel', credits_amount: 10, price: 10 },
         { name: 'pro', credits_amount: 20, price: 20 },
         { name: 'business', credits_amount: 100, price: 50 },
         { name: 'enterprise', credits_amount: 0, price: 0 },
@@ -618,11 +618,11 @@ export default function Admin() {
       endDate.setDate(endDate.getDate() + days);
 
       // Calculer les crédits selon le plan
-      // Plans: Starter (offert) = 10, Essentiel (10€/mois) = 0, Pro (20€/mois) = 20, Business (50€/mois) = 100
+      // Plans: Starter (offert) = 10, Essentiel (10€/mois) = 10, Pro (20€/mois) = 20, Business (50€/mois) = 100
       const planCredits: { [key: string]: number } = {
         'free': 0,
         'starter': 10,       // Cadeau bienvenue
-        'essentiel': 0,      // 10€/mois - accès plateforme uniquement
+        'essentiel': 10,     // 10€/mois
         'basic': 25,         // Legacy
         'pro': 20,           // 20€/mois
         'business': 100,     // 50€/mois
