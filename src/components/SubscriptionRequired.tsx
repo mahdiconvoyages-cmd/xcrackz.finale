@@ -88,7 +88,7 @@ export default function SubscriptionRequired({ feature = 'cette fonctionnalité'
               >
                 <div className="flex items-center justify-center gap-3">
                   <ShoppingCart className="w-5 h-5" />
-                  <span>Voir les packs d'abonnement</span>
+                  <span>Demander un abonnement</span>
                 </div>
               </Link>
 

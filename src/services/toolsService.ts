@@ -400,7 +400,7 @@ export async function createMission(
     if (creditsError || !credits || credits.balance < 1) {
       return {
         success: false,
-        message: "❌ Crédits insuffisants. Tu as besoin d'au moins 1 crédit pour créer une mission. Veux-tu en acheter ?",
+        message: "❌ Crédits insuffisants. Tu as besoin d'au moins 1 crédit pour créer une mission. Demande un abonnement pour obtenir des crédits.",
         redirect: '/shop'
       };
     }
@@ -827,7 +827,7 @@ export async function checkCredits(
     message += `   • Total dépensé: ${credits.lifetime_spent}\n`;
 
     if (credits.balance < 5) {
-      message += `\n⚠️ Ton solde est faible. Veux-tu en acheter ?`;
+      message += `\n⚠️ Ton solde est faible. Demande un renouvellement d'abonnement pour obtenir plus de crédits.`;
       return {
         success: true,
         message,
@@ -871,7 +871,7 @@ export async function navigateToPage(
       '/contacts': 'Contacts',
       '/covoiturage': 'Covoiturage',
       '/rapports-inspection': 'Rapports d\'inspection',
-      '/shop': 'Boutique (crédits)',
+      '/shop': 'Abonnements',
       '/profile': 'Profil'
     };
 

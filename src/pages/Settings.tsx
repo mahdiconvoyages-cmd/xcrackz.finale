@@ -221,7 +221,7 @@ export default function Settings() {
               onClick={() => navigate('/shop')}
               className="w-full bg-gradient-to-r from-yellow-500 to-amber-500 text-white px-6 py-3 rounded-lg font-semibold hover:shadow-lg hover:shadow-yellow-500/50 transition-all"
             >
-              Gérer mon abonnement
+              Voir les abonnements
             </button>
           </div>
         </div>

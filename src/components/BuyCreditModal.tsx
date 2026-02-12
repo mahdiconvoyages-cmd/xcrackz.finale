@@ -21,7 +21,7 @@ export default function BuyCreditModal({
   const missingCredits = Math.max(0, requiredCredits - currentCredits);
 
   const handleBuyCredits = () => {
-    window.location.href = '/boutique';
+    window.location.href = '/shop';
   };
 
   return (

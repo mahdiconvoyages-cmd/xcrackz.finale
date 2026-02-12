@@ -242,9 +242,28 @@ export default function Admin() {
         .order('display_order');
 
       if (error) throw error;
-      if (data) setShopPlans(data);
+      if (data && data.length > 0) {
+        setShopPlans(data);
+      } else {
+        // Fallback: plans par défaut si la table shop_items est vide
+        setShopPlans([
+          { name: 'starter', credits_amount: 10, price: 0 },
+          { name: 'essentiel', credits_amount: 0, price: 10 },
+          { name: 'pro', credits_amount: 20, price: 20 },
+          { name: 'business', credits_amount: 100, price: 50 },
+          { name: 'enterprise', credits_amount: 0, price: 0 },
+        ]);
+      }
     } catch (error) {
       console.error('Error loading shop plans:', error);
+      // Fallback en cas d'erreur
+      setShopPlans([
+        { name: 'starter', credits_amount: 10, price: 0 },
+        { name: 'essentiel', credits_amount: 0, price: 10 },
+        { name: 'pro', credits_amount: 20, price: 20 },
+        { name: 'business', credits_amount: 100, price: 50 },
+        { name: 'enterprise', credits_amount: 0, price: 0 },
+      ]);
     }
   };
 
@@ -599,14 +618,15 @@ export default function Admin() {
       endDate.setDate(endDate.getDate() + days);
 
       // Calculer les crédits selon le plan
-      // Plans réels: Basic (19.99€) = 25, Pro (49.99€) = 100, Business/Enterprise (79.99€) = 500
+      // Plans: Starter (offert) = 10, Essentiel (10€/mois) = 0, Pro (20€/mois) = 20, Business (50€/mois) = 100
       const planCredits: { [key: string]: number } = {
         'free': 0,
-        'starter': 10,
-        'basic': 25,        // 19.99€/mois
-        'pro': 100,         // 49.99€/mois
-        'business': 500,    // 79.99€/mois
-        'enterprise': 500   // 79.99€/mois
+        'starter': 10,       // Cadeau bienvenue
+        'essentiel': 0,      // 10€/mois - accès plateforme uniquement
+        'basic': 25,         // Legacy
+        'pro': 20,           // 20€/mois
+        'business': 100,     // 50€/mois
+        'enterprise': 0      // Sur devis
       };
       
       const creditsToAdd = planCredits[grantPlan] || 0;
@@ -1077,7 +1097,7 @@ export default function Admin() {
             { id: 'credits', label: 'Crédits & Abonnements', icon: CreditCard },
             { id: 'tracking', label: `Missions GPS (${trackingMissions.length})`, icon: MapPin },
             { id: 'analytics', label: 'Analytics', icon: PieChart },
-            { id: 'shop-requests', label: 'Demandes Boutique', icon: ShoppingCart },
+            { id: 'shop-requests', label: 'Demandes Abonnement', icon: ShoppingCart },
             { id: 'apk-manager', label: `Versions APK (${apkVersions.length})`, icon: Download },
           ].map(tab => (
             <button

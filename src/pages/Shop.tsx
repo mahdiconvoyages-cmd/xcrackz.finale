@@ -1,990 +1,750 @@
-// @ts-nocheck - Supabase generated types are outdated, all operations work correctly at runtime
-import { useEffect, useState } from 'react';
+// @ts-nocheck - Page Abonnements CHECKSFLEET - Prise de rendez-vous
+import { useState } from 'react';
 import { 
-  ShoppingCart, Zap, Star, Crown, Coins, Sparkles, 
-  Users, Package, TrendingUp, Shield, Info, Award, Calendar, 
-  Building2, X, Send, CheckCircle, FileText
+  Crown, Shield, Zap, Building2, CheckCircle, X, Send, 
+  Calendar, Phone, Mail, User, Briefcase, Star, Rocket,
+  ArrowRight, CreditCard, Gift
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { toast } from '../utils/toast';
 import ChatAssistant from '../components/ChatAssistant';
 
-// ===== INTERFACES =====
-interface CreditPackage {
-  id: string;
-  name: string;
-  description: string;
-  credits: number;
-  price: number;
-  is_popular: boolean;
-  is_active: boolean;
-  billing_period: 'monthly' | 'annual';
-  discount_percent: number;
-  free_tracking: boolean;
-}
+// ===== PLANS =====
+const PLANS = [
+  {
+    id: 'essentiel',
+    name: 'Essentiel',
+    icon: Shield,
+    monthlyPrice: 10,
+    annualPrice: 120,
+    setupFee: 50,
+    creditsPerMonth: 0,
+    color: 'from-blue-500 to-cyan-500',
+    colorLight: 'bg-blue-50 border-blue-200 text-blue-700',
+    popular: false,
+    features: [
+      'Accès total à la plateforme',
+      'Gestion des missions',
+      'Inspections véhicules',
+      'Rapports d\'inspection',
+      'Suivi GPS en temps réel',
+      'Facturation intégrée',
+      'Support par email',
+    ],
+  },
+  {
+    id: 'pro',
+    name: 'Pro',
+    icon: Zap,
+    monthlyPrice: 20,
+    annualPrice: 240,
+    setupFee: 50,
+    creditsPerMonth: 20,
+    color: 'from-purple-500 to-indigo-600',
+    colorLight: 'bg-purple-50 border-purple-200 text-purple-700',
+    popular: true,
+    features: [
+      'Tout l\'offre Essentiel',
+      '20 crédits / mois inclus',
+      'Outils IA & assistants',
+      'Scanner professionnel',
+      'CRM & gestion clients',
+      'Rapports avancés PDF',
+      'Support prioritaire',
+    ],
+  },
+  {
+    id: 'business',
+    name: 'Business',
+    icon: Crown,
+    monthlyPrice: 50,
+    annualPrice: 600,
+    setupFee: 0,
+    creditsPerMonth: 100,
+    color: 'from-amber-500 to-orange-600',
+    colorLight: 'bg-amber-50 border-amber-200 text-amber-700',
+    popular: false,
+    features: [
+      'Tout l\'offre Pro',
+      '100 crédits / mois inclus',
+      'Frais de mise en place OFFERTS',
+      'Gestion multi-équipes',
+      'Tableau de bord analytique',
+      'Export comptable avancé',
+      'Support dédié téléphone',
+    ],
+  },
+];
 
-interface UserCredits {
-  balance: number;
-}
-
-interface QuoteForm {
-  company_name: string;
+interface RdvForm {
+  full_name: string;
   email: string;
   phone: string;
-  expected_volume: string;
+  company_name: string;
+  selected_plan: string;
+  billing_period: 'monthly' | 'annual';
   message: string;
 }
 
 export default function ShopNew() {
   const { user } = useAuth();
+  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual');
+  const [showModal, setShowModal] = useState(false);
+  const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
+  const [selectedPlan, setSelectedPlan] = useState<typeof PLANS[0] | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   
-  // States
-  const [packages, setPackages] = useState<CreditPackage[]>([]);
-  const [userCredits, setUserCredits] = useState<UserCredits | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('monthly');
-  
-  // Modal Devis
-  const [showQuoteModal, setShowQuoteModal] = useState(false);
-  const [submittingQuote, setSubmittingQuote] = useState(false);
-  const [quoteSuccess, setQuoteSuccess] = useState(false);
-  const [quoteForm, setQuoteForm] = useState<QuoteForm>({
-    company_name: '',
+  const [form, setForm] = useState<RdvForm>({
+    full_name: '',
     email: user?.email || '',
     phone: '',
-    expected_volume: '',
-    message: ''
+    company_name: '',
+    selected_plan: '',
+    billing_period: 'annual',
+    message: '',
   });
 
-  // Modal Abonnement
-  const [showSubscriptionModal, setShowSubscriptionModal] = useState(false);
-  const [selectedPackage, setSelectedPackage] = useState<CreditPackage | null>(null);
-  const [submittingSubscription, setSubmittingSubscription] = useState(false);
-  const [subscriptionSuccess, setSubscriptionSuccess] = useState(false);
-  const [subscriptionForm, setSubscriptionForm] = useState<QuoteForm>({
-    company_name: '',
+  const [enterpriseForm, setEnterpriseForm] = useState({
+    full_name: '',
     email: user?.email || '',
     phone: '',
+    company_name: '',
     expected_volume: '',
-    message: ''
+    message: '',
   });
 
-  useEffect(() => {
-    loadData();
-  }, [user, billingPeriod]);
-
-  useEffect(() => {
-    if (user?.email) {
-      setQuoteForm(prev => ({ ...prev, email: user.email || '' }));
-      setSubscriptionForm(prev => ({ ...prev, email: user.email || '' }));
-    }
-  }, [user]);
-
-  const loadData = async () => {
-    setLoading(true);
-    await Promise.all([
-      loadPackages(),
-      loadUserCredits(),
-    ]);
-    setLoading(false);
+  const handleSelectPlan = (plan: typeof PLANS[0]) => {
+    setSelectedPlan(plan);
+    setForm(prev => ({
+      ...prev,
+      selected_plan: plan.id,
+      billing_period: billingPeriod,
+      email: user?.email || prev.email,
+    }));
+    setSubmitted(false);
+    setShowModal(true);
   };
 
-  const loadPackages = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('credits_packages')
-        .select('*')
-        .eq('is_active', true)
-        .eq('billing_period', billingPeriod)
-        .gte('price', 19.99) // ← Exclure le Starter (< 19.99€)
-        .order('price', { ascending: true });
-
-      if (error) throw error;
-      setPackages(data || []);
-    } catch (error) {
-      console.error('Error loading packages:', error);
-    }
-  };
-
-  const loadUserCredits = async () => {
-    if (!user) return;
-
-    try {
-      const { data, error } = await supabase
-        .from('user_credits')
-        .select('balance')
-        .eq('user_id', user.id)
-        .maybeSingle();
-
-      if (error) throw error;
-
-      if (!data) {
-        const { data: newCredits, error: insertError } = await supabase
-          .from('user_credits')
-          .insert([{ user_id: user.id, balance: 0 }])
-          .select()
-          .single();
-
-        if (insertError) throw insertError;
-        setUserCredits(newCredits);
-      } else {
-        setUserCredits(data);
-      }
-    } catch (error) {
-      console.error('Error loading user credits:', error);
-    }
-  };
-
-  const handlePurchase = async (pkg: CreditPackage) => {
-    if (!user) {
-      alert('Vous devez être connecté pour demander un abonnement.');
+  const handleSubmitRdv = async () => {
+    if (!form.full_name || !form.email || !form.phone) {
+      toast.error('Veuillez remplir tous les champs obligatoires');
       return;
     }
 
-    // Ouvrir le modal avec le package sélectionné
-    setSelectedPackage(pkg);
-    setSubscriptionForm(prev => ({
-      ...prev,
-      expected_volume: `${pkg.name} - ${pkg.credits} crédits`,
-      message: `Demande d'abonnement : ${pkg.name}\nCrédits : ${pkg.credits}\nPrix : ${pkg.price}€\nPériode : ${pkg.billing_period === 'monthly' ? 'Mensuel' : 'Annuel'}`
-    }));
-    setShowSubscriptionModal(true);
-  };
-
-  const handleSubscriptionSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!user || !selectedPackage) return;
-
-    setSubmittingSubscription(true);
-
+    setSubmitting(true);
     try {
       const { error } = await supabase
         .from('shop_quote_requests')
-        .insert([{
-          user_id: user.id,
-          company_name: subscriptionForm.company_name,
-          email: subscriptionForm.email,
-          phone: subscriptionForm.phone,
-          expected_volume: subscriptionForm.expected_volume,
-          message: subscriptionForm.message,
+        .insert({
+          user_id: user?.id || null,
+          company_name: form.company_name || form.full_name,
+          email: form.email,
+          phone: form.phone,
+          expected_volume: `Plan: ${selectedPlan?.name} | ${form.billing_period === 'annual' ? 'Annuel' : 'Mensuel'} | ${selectedPlan?.creditsPerMonth || 0} crédits/mois`,
+          message: `Demande d'abonnement ${selectedPlan?.name?.toUpperCase()}\n` +
+            `Facturation: ${form.billing_period === 'annual' ? 'Annuelle' : 'Mensuelle'}\n` +
+            `Prix: ${form.billing_period === 'annual' ? selectedPlan?.annualPrice + '€/an' : selectedPlan?.monthlyPrice + '€/mois'}\n` +
+            `Frais de mise en place: ${selectedPlan?.setupFee === 0 ? 'OFFERTS' : selectedPlan?.setupFee + '€'}\n` +
+            `Crédits: ${selectedPlan?.creditsPerMonth || 'Accès plateforme uniquement'}/mois\n` +
+            (form.message ? `\nMessage: ${form.message}` : ''),
           status: 'pending',
-          package_id: selectedPackage.id
-        }]);
+        });
 
       if (error) throw error;
-
-      setSubscriptionSuccess(true);
-      setTimeout(() => {
-        setShowSubscriptionModal(false);
-        setSubscriptionSuccess(false);
-        setSubscriptionForm({
-          company_name: '',
-          email: user.email || '',
-          phone: '',
-          expected_volume: '',
-          message: ''
-        });
-        setSelectedPackage(null);
-      }, 2000);
-    } catch (error) {
-      console.error('Error submitting subscription request:', error);
-      alert('Une erreur est survenue. Veuillez réessayer.');
+      setSubmitted(true);
+      toast.success('Demande envoyée avec succès ! Nous vous contacterons dans les 24h.');
+    } catch (err) {
+      console.error('Erreur:', err);
+      toast.error('Erreur lors de l\'envoi. Veuillez réessayer.');
     } finally {
-      setSubmittingSubscription(false);
+      setSubmitting(false);
     }
   };
 
-  const handleQuoteSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!user) {
-      alert('Vous devez être connecté pour demander un devis.');
+  const handleSubmitEnterprise = async () => {
+    if (!enterpriseForm.full_name || !enterpriseForm.email || !enterpriseForm.phone) {
+      toast.error('Veuillez remplir tous les champs obligatoires');
       return;
     }
 
-    setSubmittingQuote(true);
-
+    setSubmitting(true);
     try {
-      console.log('📤 Envoi demande devis...', {
-        user_id: user.id,
-        company_name: quoteForm.company_name,
-        email: quoteForm.email,
-        phone: quoteForm.phone,
-        expected_volume: quoteForm.expected_volume,
-        message: quoteForm.message,
-      });
-
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('shop_quote_requests')
-        .insert([{
-          user_id: user.id,
-          company_name: quoteForm.company_name,
-          email: quoteForm.email,
-          phone: quoteForm.phone,
-          expected_volume: quoteForm.expected_volume,
-          message: quoteForm.message,
-          status: 'pending'
-        }])
-        .select();
-
-      if (error) {
-        console.error('❌ Erreur Supabase:', error);
-        throw error;
-      }
-
-      console.log('✅ Demande créée:', data);
-
-      setQuoteSuccess(true);
-      setTimeout(() => {
-        setShowQuoteModal(false);
-        setQuoteSuccess(false);
-        setQuoteForm({
-          company_name: '',
-          email: user.email || '',
-          phone: '',
-          expected_volume: '',
-          message: ''
+        .insert({
+          user_id: user?.id || null,
+          company_name: enterpriseForm.company_name || enterpriseForm.full_name,
+          email: enterpriseForm.email,
+          phone: enterpriseForm.phone,
+          expected_volume: enterpriseForm.expected_volume,
+          message: `DEMANDE SUR-MESURE ENTREPRISE\n` +
+            `Volume estimé: ${enterpriseForm.expected_volume}\n` +
+            (enterpriseForm.message ? `Message: ${enterpriseForm.message}` : ''),
+          status: 'pending',
         });
-      }, 2000);
-    } catch (error) {
-      console.error('Error submitting quote request:', error);
-      alert('Une erreur est survenue. Veuillez réessayer.');
+
+      if (error) throw error;
+      setSubmitted(true);
+      toast.success('Demande sur-mesure envoyée ! Notre équipe vous contactera sous 24h.');
+    } catch (err) {
+      console.error('Erreur:', err);
+      toast.error('Erreur lors de l\'envoi. Veuillez réessayer.');
     } finally {
-      setSubmittingQuote(false);
+      setSubmitting(false);
     }
   };
-
-  const getPackageIcon = (name: string) => {
-    if (name.includes('Starter')) return Package;
-    if (name.includes('Basic')) return Zap;
-    if (name.includes('Pro')) return Star;
-    if (name.includes('Business')) return Award;
-    if (name.includes('Enterprise')) return Crown;
-    return Coins;
-  };
-
-  const getPackageColor = (name: string, isPopular: boolean) => {
-    if (isPopular) {
-      return {
-        gradient: 'from-teal-500 to-cyan-500',
-        iconBg: 'bg-gradient-to-br from-teal-500 to-cyan-500',
-        border: 'border-teal-400 ring-4 ring-teal-100',
-        shadow: 'shadow-xl shadow-teal-300/50'
-      };
-    }
-    if (name.includes('Starter')) {
-      return {
-        gradient: 'from-slate-500 to-slate-600',
-        iconBg: 'bg-gradient-to-br from-slate-500 to-slate-600',
-        border: 'border-slate-300',
-        shadow: 'shadow-lg shadow-slate-200/50'
-      };
-    }
-    if (name.includes('Basic')) {
-      return {
-        gradient: 'from-blue-500 to-blue-600',
-        iconBg: 'bg-gradient-to-br from-blue-500 to-blue-600',
-        border: 'border-blue-300',
-        shadow: 'shadow-lg shadow-blue-200/50'
-      };
-    }
-    if (name.includes('Pro')) {
-      return {
-        gradient: 'from-orange-500 to-orange-600',
-        iconBg: 'bg-gradient-to-br from-orange-500 to-orange-600',
-        border: 'border-orange-300',
-        shadow: 'shadow-lg shadow-orange-200/50'
-      };
-    }
-    if (name.includes('Business')) {
-      return {
-        gradient: 'from-purple-500 to-purple-600',
-        iconBg: 'bg-gradient-to-br from-purple-500 to-purple-600',
-        border: 'border-purple-300',
-        shadow: 'shadow-lg shadow-purple-200/50'
-      };
-    }
-    return {
-      gradient: 'from-emerald-500 to-emerald-600',
-      iconBg: 'bg-gradient-to-br from-emerald-500 to-emerald-600',
-      border: 'border-emerald-300',
-      shadow: 'shadow-lg shadow-emerald-200/50'
-    };
-  };
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-teal-50 flex items-center justify-center">
-        <div className="text-center">
-          <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-teal-600 mb-4"></div>
-          <p className="text-slate-600 font-medium">Chargement de la boutique...</p>
-        </div>
-      </div>
-    );
-  }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-teal-50 pb-20">
-      {/* Header avec Clara AI */}
-      <div className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 text-white py-16 relative overflow-hidden">
-        <div className="absolute inset-0 bg-grid-white/[0.05] bg-[size:20px_20px]"></div>
-        <div className="absolute top-0 right-0 w-64 sm:w-80 md:w-96 h-64 sm:h-80 md:h-96 bg-white/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-0 left-0 w-64 sm:w-80 md:w-96 h-64 sm:h-80 md:h-96 bg-teal-400/20 rounded-full blur-3xl"></div>
-        
-        <div className="container mx-auto px-3 sm:px-4 md:px-6 lg:px-8 relative z-10">
-          <div className="max-w-4xl mx-auto text-center">
-            <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-xl px-4 sm:px-6 py-2 rounded-full mb-4 sm:mb-6 border border-white/30">
-              <Sparkles className="w-4 h-4 sm:w-5 sm:h-5 text-yellow-300" />
-              <span className="font-semibold text-xs sm:text-sm">Assistant Clara disponible pour vous aider</span>
-            </div>
-            
-            <h1 className="text-3xl sm:text-4xl md:text-5xl font-black mb-3 sm:mb-4 drop-shadow-lg px-4">
-              Abonnements CHECKSFLEET
-            </h1>
-            <p className="text-base sm:text-lg md:text-xl text-blue-100 mb-6 sm:mb-8 max-w-xs sm:max-w-lg md:max-w-2xl mx-auto px-4">
-              Choisissez votre plan et accédez à toutes les fonctionnalités de la plateforme
-            </p>
-            
-            {/* Info Badge */}
-            <div className="inline-flex flex-col sm:flex-row items-center gap-2 bg-teal-500/20 backdrop-blur-xl px-4 sm:px-6 py-3 rounded-2xl border border-teal-300/30 max-w-xs sm:max-w-2xl md:max-w-3xl mx-auto mb-4">
-              <Shield className="w-5 h-5 text-teal-200 flex-shrink-0" />
-              <span className="text-xs sm:text-sm text-white font-medium text-center sm:text-left">
-                <strong className="font-black">Tous les abonnements</strong> donnent accès à toutes les fonctionnalités • 
-                Seul le covoiturage consomme des crédits
-              </span>
-            </div>
-
-            {/* User Credits Display */}
-            {userCredits && (
-              <div className="inline-flex items-center gap-3 bg-white/20 backdrop-blur-xl px-6 sm:px-8 py-3 sm:py-4 rounded-2xl border border-white/30 shadow-lg">
-                <Coins className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-300" />
-                <div className="text-left">
-                  <p className="text-xs sm:text-sm text-blue-100 font-medium">Votre solde</p>
-                  <p className="text-xl sm:text-2xl font-black">{userCredits.balance.toLocaleString()} crédits</p>
-                </div>
-              </div>
-            )}
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/20 to-indigo-50/30">
+      
+      {/* HEADER */}
+      <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-blue-700 text-white">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 text-center">
+          <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-sm rounded-full px-4 py-2 mb-6">
+            <Gift className="w-4 h-4" />
+            <span className="text-sm font-medium">Offre de bienvenue : 10 crédits offerts à l'inscription</span>
           </div>
+          <h1 className="text-3xl sm:text-5xl font-black mb-4">
+            Choisissez votre abonnement
+          </h1>
+          <p className="text-lg sm:text-xl text-white/80 max-w-2xl mx-auto">
+            Des solutions adaptées à chaque professionnel du convoyage. 
+            Sélectionnez votre plan et demandez votre mise en place.
+          </p>
         </div>
       </div>
 
-      <div className="container mx-auto px-3 sm:px-4 md:px-6 lg:px-8 -mt-8 relative z-20">
-        {/* Toggle Monthly/Annual */}
-        <div className="flex justify-center mb-8 sm:mb-12">
-          <div className="inline-flex items-center gap-1.5 sm:gap-2 bg-white backdrop-blur-xl p-1.5 sm:p-2 rounded-2xl shadow-xl border border-slate-200">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-16">
+
+        {/* BILLING TOGGLE */}
+        <div className="flex justify-center mb-10">
+          <div className="bg-white rounded-2xl shadow-lg p-1.5 inline-flex items-center gap-1">
             <button
               onClick={() => setBillingPeriod('monthly')}
-              className={`px-4 sm:px-6 md:px-8 py-2 sm:py-3 rounded-xl font-bold text-xs sm:text-sm md:text-base transition-all duration-300 ${
+              className={`px-6 py-3 rounded-xl text-sm font-bold transition-all ${
                 billingPeriod === 'monthly'
-                  ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-300/50'
-                  : 'text-slate-600 hover:bg-slate-50'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              <Calendar className="w-5 h-5 inline-block mr-2" />
               Mensuel
             </button>
             <button
               onClick={() => setBillingPeriod('annual')}
-              className={`px-8 py-3 rounded-xl font-bold transition-all duration-300 ${
+              className={`px-6 py-3 rounded-xl text-sm font-bold transition-all flex items-center gap-2 ${
                 billingPeriod === 'annual'
-                  ? 'bg-gradient-to-r from-teal-500 to-cyan-500 text-white shadow-lg shadow-teal-300/50'
-                  : 'text-slate-600 hover:bg-slate-50'
+                  ? 'bg-indigo-600 text-white shadow-md'
+                  : 'text-slate-500 hover:text-slate-700'
               }`}
             >
-              <TrendingUp className="w-5 h-5 inline-block mr-2" />
               Annuel
+              <span className={`text-xs px-2 py-0.5 rounded-full ${
+                billingPeriod === 'annual' ? 'bg-white/20' : 'bg-green-100 text-green-700'
+              }`}>
+                -17%
+              </span>
             </button>
           </div>
         </div>
 
-        {/* Packages Grid - Responsive */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-8 sm:mb-12">
-          {packages.map((pkg) => {
-            const Icon = getPackageIcon(pkg.name);
-            const colors = getPackageColor(pkg.name, pkg.is_popular);
-
+        {/* PLANS GRID */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 mb-16">
+          {PLANS.map((plan) => {
+            const price = billingPeriod === 'annual' ? plan.annualPrice : plan.monthlyPrice;
+            const PlanIcon = plan.icon;
+            
             return (
-              <div
-                key={pkg.id}
-                className={`relative backdrop-blur-xl bg-white/90 rounded-2xl sm:rounded-3xl p-4 sm:p-6 md:p-8 border-2 ${colors.border} ${colors.shadow} hover:scale-105 transition-all duration-300`}
+              <div 
+                key={plan.id}
+                className={`relative bg-white rounded-2xl shadow-lg overflow-hidden transition-all hover:shadow-2xl hover:-translate-y-1 ${
+                  plan.popular ? 'ring-2 ring-purple-500 ring-offset-4' : ''
+                }`}
               >
-                {/* Popular Badge */}
-                {pkg.is_popular && (
-                  <div className="absolute -top-4 left-1/2 -translate-x-1/2">
-                    <div className="bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-6 py-2 rounded-full font-black text-sm shadow-lg flex items-center gap-2 border-2 border-white">
-                      <Star className="w-4 h-4 fill-current" />
-                      POPULAIRE
-                    </div>
+                {plan.popular && (
+                  <div className="absolute top-0 left-0 right-0 bg-gradient-to-r from-purple-500 to-indigo-600 text-white text-center text-xs font-bold py-1.5 uppercase tracking-wider">
+                    <Star className="w-3 h-3 inline mr-1" /> Le plus populaire
                   </div>
                 )}
 
-                {/* Icon */}
-                <div className={`inline-flex items-center justify-center w-16 h-16 ${colors.iconBg} rounded-2xl mb-6 shadow-lg`}>
-                  <Icon className="w-8 h-8 text-white" />
-                </div>
-
-                {/* Package Info */}
-                <h3 className="text-2xl font-black text-slate-900 mb-6">{pkg.name}</h3>
-
-                {/* Price */}
-                <div className="mb-6">
-                  <div className="flex items-baseline gap-2 mb-1">
-                    <span className="text-5xl font-black bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
-                      {pkg.price}€
-                    </span>
-                    <span className="text-slate-500 font-semibold">
-                      /{billingPeriod === 'monthly' ? 'mois' : 'an'}
-                    </span>
-                  </div>
-                  <p className="text-sm font-bold text-teal-600">
-                    {pkg.credits.toLocaleString()} crédits inclus
-                  </p>
-                </div>
-
-                {/* Features - NOUVEAU */}
-                <div className="space-y-3 mb-8">
-                  <div className="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-xl p-4 mb-4 border border-teal-200">
-                    <p className="text-xs font-black text-teal-700 uppercase tracking-wide mb-2">
-                      ✨ Fonctionnalités incluses
-                    </p>
-                    <p className="text-sm text-slate-700 font-bold">
-                      Accès complet à la plateforme
-                    </p>
-                  </div>
-                  
-                  <div className="flex items-start gap-2 text-sm">
-                    <CheckCircle className="w-5 h-5 text-teal-500 flex-shrink-0 mt-0.5" />
-                    <span className="text-slate-700 font-medium">
-                      <strong className="text-slate-900">Missions illimitées</strong> - 1 crédit/création
-                    </span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm">
-                    <CheckCircle className="w-5 h-5 text-teal-500 flex-shrink-0 mt-0.5" />
-                    <span className="text-slate-700 font-medium">
-                      <strong className="text-slate-900">Inspections complètes</strong> - Incluses avec chaque mission
-                    </span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm">
-                    <CheckCircle className="w-5 h-5 text-teal-500 flex-shrink-0 mt-0.5" />
-                    <span className="text-slate-700 font-medium">
-                      <strong className="text-slate-900">Tracking GPS</strong> - Suivi en temps réel
-                    </span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm">
-                    <CheckCircle className="w-5 h-5 text-teal-500 flex-shrink-0 mt-0.5" />
-                    <span className="text-slate-700 font-medium">
-                      <strong className="text-slate-900">Scanner QR</strong> - Scans illimités
-                    </span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm">
-                    <CheckCircle className="w-5 h-5 text-teal-500 flex-shrink-0 mt-0.5" />
-                    <span className="text-slate-700 font-medium">
-                      <strong className="text-slate-900">Factures & Devis</strong> - Création illimitée
-                    </span>
-                  </div>
-                  <div className="flex items-start gap-2 text-sm">
-                    <CheckCircle className="w-5 h-5 text-teal-500 flex-shrink-0 mt-0.5" />
-                    <span className="text-slate-700 font-medium">
-                      <strong className="text-slate-900">CRM complet</strong> - Gestion clients & contacts
-                    </span>
-                  </div>
-                  
-                  <div className="border-t border-slate-200 pt-3 mt-3">
-                    <div className="flex items-start gap-2 text-sm">
-                      <Zap className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
-                      <span className="text-slate-700 font-medium">
-                        <strong className="text-amber-700">Covoiturage</strong> - 2 crédits pour publier, 2 crédits pour réserver
-                      </span>
+                <div className={`p-6 sm:p-8 ${plan.popular ? 'pt-10' : ''}`}>
+                  {/* Plan header */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${plan.color} flex items-center justify-center`}>
+                      <PlanIcon className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-bold text-slate-900">{plan.name}</h3>
+                      {plan.creditsPerMonth > 0 && (
+                        <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${plan.colorLight}`}>
+                          {plan.creditsPerMonth} crédits/mois
+                        </span>
+                      )}
                     </div>
                   </div>
-                </div>
 
-                {/* Contact Admin Button */}
-                <button
-                  onClick={() => handlePurchase(pkg)}
-                  className={`w-full bg-gradient-to-r ${colors.gradient} text-white py-4 rounded-xl font-black text-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 flex items-center justify-center gap-2`}
-                >
-                  <Send className="w-5 h-5" />
-                  Demander cet abonnement
-                </button>
-                
-                <p className="text-xs text-center text-slate-500 mt-2">
-                  💬 Remplissez le formulaire, nous vous rappelons
-                </p>
+                  {/* Price */}
+                  <div className="mb-6">
+                    <div className="flex items-end gap-1">
+                      <span className="text-4xl font-black text-slate-900">
+                        {billingPeriod === 'annual' ? plan.monthlyPrice : price}€
+                      </span>
+                      <span className="text-slate-500 text-sm mb-1">/mois</span>
+                    </div>
+                    {billingPeriod === 'annual' && (
+                      <p className="text-sm text-slate-500 mt-1">
+                        Soit <strong>{plan.annualPrice}€/an</strong> facturé annuellement
+                      </p>
+                    )}
+                    <div className={`mt-2 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full ${
+                      plan.setupFee === 0 
+                        ? 'bg-green-100 text-green-700' 
+                        : 'bg-slate-100 text-slate-600'
+                    }`}>
+                      <CreditCard className="w-3 h-3" />
+                      {plan.setupFee === 0 
+                        ? 'Frais de mise en place OFFERTS' 
+                        : `${plan.setupFee}€ de mise en place (1ère fois)`}
+                    </div>
+                  </div>
+
+                  {/* Features */}
+                  <ul className="space-y-3 mb-8">
+                    {plan.features.map((feature, i) => (
+                      <li key={i} className="flex items-start gap-2.5 text-sm">
+                        <CheckCircle className={`w-4 h-4 mt-0.5 flex-shrink-0 ${
+                          plan.popular ? 'text-purple-500' : 'text-green-500'
+                        }`} />
+                        <span className="text-slate-700">{feature}</span>
+                      </li>
+                    ))}
+                  </ul>
+
+                  {/* CTA */}
+                  <button
+                    onClick={() => handleSelectPlan(plan)}
+                    className={`w-full py-3.5 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                      plan.popular
+                        ? 'bg-gradient-to-r from-purple-500 to-indigo-600 text-white shadow-lg shadow-purple-500/25 hover:shadow-xl hover:shadow-purple-500/30'
+                        : 'bg-slate-900 text-white hover:bg-slate-800'
+                    }`}
+                  >
+                    Demander cet abonnement
+                    <ArrowRight className="w-4 h-4" />
+                  </button>
+                </div>
               </div>
             );
           })}
         </div>
 
-        {/* Offre Sur Devis Section */}
-        <div className="mb-12">
-          <div className="backdrop-blur-xl bg-gradient-to-r from-purple-600 via-purple-700 to-indigo-700 text-white rounded-3xl p-12 shadow-2xl border border-purple-400/30 relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-            <div className="absolute bottom-0 left-0 w-64 h-64 bg-purple-400/20 rounded-full blur-3xl"></div>
-            
-            <div className="relative z-10 max-w-4xl mx-auto text-center">
-              <div className="inline-flex items-center gap-2 bg-white/20 backdrop-blur-xl px-6 py-2 rounded-full mb-6 border border-white/30">
-                <Building2 className="w-5 h-5" />
-                <span className="font-bold text-sm">Pour les grandes entreprises</span>
+        {/* ENTERPRISE SECTION */}
+        <div className="bg-white rounded-2xl shadow-lg overflow-hidden mb-16">
+          <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-8 sm:p-10 text-white">
+            <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center">
+                    <Building2 className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-2xl font-bold">Offre Sur-Mesure</h3>
+                </div>
+                <p className="text-white/70 text-sm leading-relaxed max-w-xl">
+                  Pour les entreprises avec un volume important de missions mensuelles. 
+                  Tarification sur devis, crédits illimités, accompagnement personnalisé, 
+                  formation équipes et intégration API.
+                </p>
               </div>
-
-              <h2 className="text-4xl font-black mb-4">Offre Sur Devis</h2>
-              <p className="text-xl text-purple-100 mb-8 max-w-2xl mx-auto">
-                Besoin d'un volume important de crédits ou de fonctionnalités personnalisées ? 
-                Contactez-nous pour obtenir une offre adaptée à vos besoins.
-              </p>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20">
-                  <Users className="w-12 h-12 mx-auto mb-4 text-purple-200" />
-                  <h3 className="font-black text-lg mb-2">Volumes importants</h3>
-                  <p className="text-purple-100 text-sm">Tarifs dégressifs adaptés</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20">
-                  <Shield className="w-12 h-12 mx-auto mb-4 text-purple-200" />
-                  <h3 className="font-black text-lg mb-2">Support dédié</h3>
-                  <p className="text-purple-100 text-sm">Account manager personnel</p>
-                </div>
-                <div className="bg-white/10 backdrop-blur-xl rounded-2xl p-6 border border-white/20">
-                  <Sparkles className="w-12 h-12 mx-auto mb-4 text-purple-200" />
-                  <h3 className="font-black text-lg mb-2">Fonctionnalités sur mesure</h3>
-                  <p className="text-purple-100 text-sm">Solutions personnalisées</p>
-                </div>
-              </div>
-
               <button
-                onClick={() => setShowQuoteModal(true)}
-                className="inline-flex items-center gap-3 bg-white text-purple-700 px-8 py-4 rounded-xl font-black text-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+                onClick={() => { setSubmitted(false); setShowEnterpriseModal(true); }}
+                className="px-8 py-4 bg-white text-slate-900 rounded-xl font-bold hover:bg-slate-100 transition flex items-center gap-2 whitespace-nowrap"
               >
-                <FileText className="w-6 h-6" />
-                Demander un devis gratuit
+                <Send className="w-5 h-5" />
+                Demander un devis
               </button>
             </div>
           </div>
         </div>
 
-        {/* Feature Costs Table - NOUVELLE VERSION */}
-        <div className="backdrop-blur-xl bg-white/90 rounded-3xl p-8 shadow-xl border border-slate-200">
-          <div className="flex items-center gap-3 mb-6">
-            <div className="w-12 h-12 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl flex items-center justify-center">
-              <Info className="w-6 h-6 text-white" />
+        {/* HOW IT WORKS */}
+        <div className="bg-white rounded-2xl shadow-lg p-8 sm:p-10 mb-16">
+          <h2 className="text-2xl font-bold text-slate-900 text-center mb-8">
+            Comment ça fonctionne ?
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            {[
+              { icon: Rocket, title: 'Choisissez', desc: 'Sélectionnez le plan adapté à vos besoins', color: 'text-blue-500 bg-blue-50' },
+              { icon: Calendar, title: 'Demandez', desc: 'Remplissez le formulaire avec vos coordonnées', color: 'text-purple-500 bg-purple-50' },
+              { icon: Phone, title: 'On vous rappelle', desc: 'Notre équipe vous contacte sous 24h', color: 'text-amber-500 bg-amber-50' },
+              { icon: CheckCircle, title: 'C\'est parti !', desc: 'Votre abonnement est activé par notre équipe', color: 'text-green-500 bg-green-50' },
+            ].map((step, i) => (
+              <div key={i} className="text-center">
+                <div className={`w-14 h-14 rounded-2xl ${step.color} flex items-center justify-center mx-auto mb-3`}>
+                  <step.icon className="w-7 h-7" />
+                </div>
+                <div className="text-xs font-bold text-slate-400 mb-1">ÉTAPE {i + 1}</div>
+                <h4 className="font-bold text-slate-900 mb-1">{step.title}</h4>
+                <p className="text-sm text-slate-500">{step.desc}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* WHAT CREDITS ARE FOR */}
+        <div className="bg-white rounded-2xl shadow-lg p-8 sm:p-10 mb-16">
+          <h2 className="text-2xl font-bold text-slate-900 mb-6">À quoi servent les crédits ?</h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <CheckCircle className="w-5 h-5 text-green-500" />
+                Accès inclus sans crédits
+              </h4>
+              <ul className="space-y-2 text-sm text-slate-600">
+                {[
+                  'Création et gestion de missions',
+                  'Inspections départ / arrivée',
+                  'Suivi GPS en temps réel',
+                  'Rapports d\'inspection PDF',
+                  'Facturation et devis',
+                  'Gestion des contacts / clients',
+                ].map((item, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
             <div>
-              <h2 className="text-2xl font-black text-slate-900">Utilisation des Crédits</h2>
-              <p className="text-slate-600">Détail de la consommation par fonctionnalité</p>
+              <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <Zap className="w-5 h-5 text-purple-500" />
+                Fonctionnalités consommant des crédits
+              </h4>
+              <ul className="space-y-2 text-sm text-slate-600">
+                {[
+                  'Assistant IA — Création automatique de missions',
+                  'Scanner intelligent de documents',
+                  'Génération automatique de rapports PDF avancés',
+                  'Recherche SIRET / API entreprise',
+                  'Envoi de notifications avancées',
+                  'Outils d\'optimisation de trajets',
+                ].map((item, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
+        </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
-            {/* Fonctionnalités GRATUITES */}
-            <div className="bg-gradient-to-br from-teal-50 to-cyan-50 rounded-2xl p-6 border-2 border-teal-200">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl flex items-center justify-center">
-                  <CheckCircle className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-black text-slate-900">Fonctionnalités Incluses</h3>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-teal-200/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-black text-slate-900">📦 Création de Mission</span>
-                    <span className="inline-flex items-center gap-1 bg-teal-500 text-white px-3 py-1 rounded-lg font-bold text-sm">
-                      <Coins className="w-4 h-4" />
-                      1 crédit
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600">
-                    Créez autant de missions que vous le souhaitez
-                  </p>
-                </div>
-
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-teal-200/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-black text-slate-900">✅ Inspection Véhicule</span>
-                    <span className="inline-flex items-center gap-1 bg-green-500 text-white px-3 py-1 rounded-lg font-bold text-sm">
-                      GRATUIT
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600">
-                    Incluse avec chaque mission créée par vous ou un tiers
-                  </p>
-                </div>
-
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-teal-200/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-black text-slate-900">📍 Tracking GPS</span>
-                    <span className="inline-flex items-center gap-1 bg-green-500 text-white px-3 py-1 rounded-lg font-bold text-sm">
-                      GRATUIT
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600">
-                    Suivi en temps réel pour tous les utilisateurs
-                  </p>
-                </div>
-
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-teal-200/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-black text-slate-900">📱 Scanner QR</span>
-                    <span className="inline-flex items-center gap-1 bg-green-500 text-white px-3 py-1 rounded-lg font-bold text-sm">
-                      GRATUIT
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600">
-                    Scans illimités sans consommation de crédits
-                  </p>
-                </div>
-
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-teal-200/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-black text-slate-900">📄 Factures & Devis</span>
-                    <span className="inline-flex items-center gap-1 bg-green-500 text-white px-3 py-1 rounded-lg font-bold text-sm">
-                      GRATUIT
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600">
-                    Création et génération PDF illimitées
-                  </p>
-                </div>
-              </div>
+        {/* WELCOME GIFT */}
+        <div className="bg-gradient-to-r from-emerald-500 to-teal-600 rounded-2xl shadow-lg p-8 sm:p-10 text-white mb-16">
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="w-20 h-20 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+              <Gift className="w-10 h-10" />
             </div>
-
-            {/* Fonctionnalités PAYANTES */}
-            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-2xl p-6 border-2 border-amber-200">
-              <div className="flex items-center gap-2 mb-4">
-                <div className="w-10 h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-xl flex items-center justify-center">
-                  <Zap className="w-6 h-6 text-white" />
-                </div>
-                <h3 className="text-xl font-black text-slate-900">Avec Consommation</h3>
-              </div>
-              
-              <div className="space-y-3">
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-amber-200/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-black text-slate-900">🚗 Publication Covoiturage</span>
-                    <span className="inline-flex items-center gap-1 bg-amber-500 text-white px-3 py-1 rounded-lg font-bold text-sm">
-                      <Coins className="w-4 h-4" />
-                      2 crédits
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600">
-                    Pour publier un trajet de covoiturage
-                  </p>
-                </div>
-
-                <div className="bg-white/80 backdrop-blur-sm rounded-xl p-4 border border-amber-200/50">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-black text-slate-900">🎫 Réservation Covoiturage</span>
-                    <span className="inline-flex items-center gap-1 bg-amber-500 text-white px-3 py-1 rounded-lg font-bold text-sm">
-                      <Coins className="w-4 h-4" />
-                      2 crédits
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-600">
-                    Pour réserver une place dans un trajet
-                  </p>
-                </div>
-
-                <div className="bg-gradient-to-r from-amber-100 to-orange-100 rounded-xl p-4 border-2 border-amber-300 mt-4">
-                  <div className="flex items-center gap-2 mb-2">
-                    <Sparkles className="w-5 h-5 text-amber-600" />
-                    <span className="font-black text-amber-900 text-sm">À NOTER</span>
-                  </div>
-                  <p className="text-xs text-amber-800 leading-relaxed">
-                    <strong>Toutes les autres fonctionnalités</strong> de la plateforme sont 
-                    <strong> entièrement gratuites</strong> du moment que vous avez un abonnement actif 
-                    (Basique, Pro, Business ou Entreprise).
-                  </p>
-                </div>
-              </div>
+            <div className="text-center md:text-left">
+              <h3 className="text-2xl font-bold mb-2">Cadeau de bienvenue</h3>
+              <p className="text-white/80 text-sm leading-relaxed max-w-xl">
+                Pour tout nouvel inscrit avec un numéro de téléphone vérifié, bénéficiez d'un 
+                <strong className="text-white"> abonnement Starter gratuit avec 10 crédits</strong> pour découvrir la plateforme. 
+                Offre non renouvelable, valable 30 jours.
+              </p>
             </div>
           </div>
+        </div>
 
-          {/* Info Générale */}
-          <div className="mt-6 bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-6 border border-blue-200">
-            <div className="flex items-start gap-3">
-              <Shield className="w-6 h-6 text-blue-600 flex-shrink-0 mt-1" />
-              <div>
-                <h4 className="font-black text-slate-900 mb-2">Principe Simple</h4>
-                <p className="text-sm text-slate-700 leading-relaxed">
-                  Avec <strong>n'importe quel abonnement</strong> (Basique, Pro, Business, Entreprise), 
-                  vous avez accès à <strong>toutes les fonctionnalités</strong> de CHECKSFLEET. 
-                  Les crédits ne sont utilisés que pour la <strong>création de missions (1 crédit)</strong> et 
-                  le <strong>covoiturage (2 crédits par action)</strong>. Tout le reste est inclus sans limite !
-                </p>
-              </div>
-            </div>
+        {/* FAQ */}
+        <div className="bg-white rounded-2xl shadow-lg p-8 sm:p-10">
+          <h2 className="text-2xl font-bold text-slate-900 mb-6">Questions fréquentes</h2>
+          <div className="space-y-4">
+            {[
+              { q: 'Comment souscrire à un abonnement ?', a: 'Choisissez votre plan, remplissez le formulaire de demande avec vos coordonnées, et notre équipe vous contactera sous 24h pour finaliser la mise en place.' },
+              { q: 'Qu\'est-ce que les frais de mise en place ?', a: 'Les frais de mise en place couvrent la configuration initiale de votre espace, la formation à la plateforme et l\'accompagnement personnalisé. Offerts pour le plan Business.' },
+              { q: 'Les crédits sont-ils reportés d\'un mois à l\'autre ?', a: 'Non, les crédits sont réinitialisés chaque mois selon votre plan. Les crédits non utilisés ne sont pas reportés au mois suivant.' },
+              { q: 'Puis-je changer de plan en cours d\'abonnement ?', a: 'Oui, contactez notre équipe pour un changement de plan. La différence sera calculée au prorata.' },
+              { q: 'Que se passe-t-il à l\'expiration de mon abonnement ?', a: 'Vous conservez l\'accès en lecture à vos données, mais les fonctionnalités premium (création de missions, IA, etc.) seront désactivées jusqu\'au renouvellement.' },
+            ].map((faq, i) => (
+              <details key={i} className="group border border-slate-200 rounded-xl">
+                <summary className="flex items-center justify-between p-4 cursor-pointer font-semibold text-slate-800 hover:bg-slate-50 rounded-xl">
+                  {faq.q}
+                  <ArrowRight className="w-4 h-4 text-slate-400 transition-transform group-open:rotate-90" />
+                </summary>
+                <p className="px-4 pb-4 text-sm text-slate-600 leading-relaxed">{faq.a}</p>
+              </details>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Quote Modal */}
-      {showQuoteModal && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            {quoteSuccess ? (
-              <div className="p-12 text-center">
-                <div className="w-20 h-20 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-6">
-                  <CheckCircle className="w-12 h-12 text-white" />
+      {/* MODAL DEMANDE D'ABONNEMENT */}
+      {showModal && selectedPlan && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className={`bg-gradient-to-r ${selectedPlan.color} p-6 text-white rounded-t-2xl`}>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold">Demande d'abonnement {selectedPlan.name}</h3>
+                  <p className="text-white/80 text-sm mt-1">
+                    {billingPeriod === 'annual' 
+                      ? `${selectedPlan.annualPrice}€/an (${selectedPlan.monthlyPrice}€/mois)` 
+                      : `${selectedPlan.monthlyPrice}€/mois`}
+                    {selectedPlan.creditsPerMonth > 0 && ` • ${selectedPlan.creditsPerMonth} crédits/mois`}
+                  </p>
                 </div>
-                <h3 className="text-3xl font-black text-slate-900 mb-4">Demande envoyée !</h3>
-                <p className="text-slate-600 text-lg">
-                  Nous avons bien reçu votre demande de devis. Notre équipe vous contactera dans les plus brefs délais.
-                </p>
+                <button onClick={() => setShowModal(false)} className="p-2 hover:bg-white/20 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-            ) : (
-              <>
-                <div className="bg-gradient-to-r from-purple-600 to-indigo-600 text-white p-8 rounded-t-3xl relative">
-                  <button
-                    onClick={() => setShowQuoteModal(false)}
-                    className="absolute top-6 right-6 w-10 h-10 bg-white/20 hover:bg-white/30 rounded-full flex items-center justify-center transition-colors"
-                  >
-                    <X className="w-6 h-6" />
+            </div>
+
+            <div className="p-6">
+              {submitted ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle className="w-8 h-8 text-green-600" />
+                  </div>
+                  <h4 className="text-xl font-bold text-slate-900 mb-2">Demande envoyée !</h4>
+                  <p className="text-slate-600 text-sm">
+                    Notre équipe vous contactera sous 24h pour finaliser l'activation de votre abonnement <strong>{selectedPlan.name}</strong>.
+                  </p>
+                  <button onClick={() => setShowModal(false)} className="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-xl font-semibold">
+                    Fermer
                   </button>
-                  
-                  <div className="flex items-center gap-4 mb-4">
-                    <div className="w-16 h-16 bg-white/20 backdrop-blur-xl rounded-2xl flex items-center justify-center">
-                      <FileText className="w-8 h-8" />
-                    </div>
-                    <div>
-                      <h3 className="text-3xl font-black">Demande de Devis</h3>
-                      <p className="text-purple-100">Obtenez une offre personnalisée</p>
-                    </div>
-                  </div>
                 </div>
+              ) : (
+                <div className="space-y-4">
+                  <p className="text-sm text-slate-500 mb-4">
+                    Remplissez vos coordonnées et notre équipe vous rappellera pour activer votre abonnement.
+                  </p>
 
-                <form onSubmit={handleQuoteSubmit} className="p-8 space-y-6">
                   <div>
-                    <label className="block text-sm font-bold text-slate-900 mb-2">
-                      Nom de l'entreprise *
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                      <User className="w-3.5 h-3.5 inline mr-1" /> Nom complet *
                     </label>
                     <input
                       type="text"
-                      required
-                      value={quoteForm.company_name}
-                      onChange={(e) => setQuoteForm({ ...quoteForm, company_name: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all font-medium"
-                      placeholder="Votre entreprise"
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-bold text-slate-900 mb-2">
-                        Email *
-                      </label>
-                      <input
-                        type="email"
-                        required
-                        value={quoteForm.email}
-                        onChange={(e) => setQuoteForm({ ...quoteForm, email: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all font-medium"
-                        placeholder="contact@entreprise.com"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-bold text-slate-900 mb-2">
-                        Téléphone *
-                      </label>
-                      <input
-                        type="tel"
-                        required
-                        value={quoteForm.phone}
-                        onChange={(e) => setQuoteForm({ ...quoteForm, phone: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all font-medium"
-                        placeholder="+33 6 12 34 56 78"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-bold text-slate-900 mb-2">
-                      Volume mensuel estimé
-                    </label>
-                    <input
-                      type="text"
-                      value={quoteForm.expected_volume}
-                      onChange={(e) => setQuoteForm({ ...quoteForm, expected_volume: e.target.value })}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all font-medium"
-                      placeholder="Ex: 10 000 crédits/mois, 500 missions/mois"
+                      value={form.full_name}
+                      onChange={e => setForm(prev => ({ ...prev, full_name: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Votre nom complet"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-sm font-bold text-slate-900 mb-2">
-                      Message / Besoins spécifiques *
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                      <Mail className="w-3.5 h-3.5 inline mr-1" /> Email *
                     </label>
+                    <input
+                      type="email"
+                      value={form.email}
+                      onChange={e => setForm(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="votre@email.com"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                      <Phone className="w-3.5 h-3.5 inline mr-1" /> Téléphone *
+                    </label>
+                    <input
+                      type="tel"
+                      value={form.phone}
+                      onChange={e => setForm(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="06 12 34 56 78"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                      <Briefcase className="w-3.5 h-3.5 inline mr-1" /> Société
+                    </label>
+                    <input
+                      type="text"
+                      value={form.company_name}
+                      onChange={e => setForm(prev => ({ ...prev, company_name: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                      placeholder="Nom de votre société (optionnel)"
+                    />
+                  </div>
+
+                  {/* Billing period selection */}
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
+                      <Calendar className="w-3.5 h-3.5 inline mr-1" /> Facturation
+                    </label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button
+                        type="button"
+                        onClick={() => setForm(prev => ({ ...prev, billing_period: 'monthly' }))}
+                        className={`p-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                          form.billing_period === 'monthly'
+                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                            : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                        }`}
+                      >
+                        Mensuel — {selectedPlan.monthlyPrice}€/mois
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setForm(prev => ({ ...prev, billing_period: 'annual' }))}
+                        className={`p-3 rounded-xl border-2 text-sm font-semibold transition-all ${
+                          form.billing_period === 'annual'
+                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
+                            : 'border-slate-200 text-slate-500 hover:border-slate-300'
+                        }`}
+                      >
+                        Annuel — {selectedPlan.annualPrice}€/an
+                      </button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Message (optionnel)</label>
                     <textarea
-                      required
-                      value={quoteForm.message}
-                      onChange={(e) => setQuoteForm({ ...quoteForm, message: e.target.value })}
-                      rows={4}
-                      className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-purple-500 focus:ring-4 focus:ring-purple-100 outline-none transition-all font-medium resize-none"
-                      placeholder="Décrivez vos besoins, le nombre d'utilisateurs, les fonctionnalités souhaitées..."
+                      value={form.message}
+                      onChange={e => setForm(prev => ({ ...prev, message: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-20 resize-none"
+                      placeholder="Besoin particulier, question..."
                     />
                   </div>
 
                   <button
-                    type="submit"
-                    disabled={submittingQuote}
-                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 text-white py-4 rounded-xl font-black text-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                    onClick={handleSubmitRdv}
+                    disabled={submitting}
+                    className="w-full py-3.5 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:shadow-lg transition disabled:opacity-50"
                   >
-                    {submittingQuote ? (
-                      <>
-                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                        Envoi en cours...
-                      </>
+                    {submitting ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     ) : (
                       <>
-                        <Send className="w-5 h-5" />
-                        Envoyer la demande
+                        <Send className="w-4 h-4" />
+                        Envoyer ma demande
                       </>
                     )}
                   </button>
-
-                  <p className="text-sm text-slate-500 text-center">
-                    Nous vous répondrons dans les 24h ouvrées
-                  </p>
-                </form>
-              </>
-            )}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Modal Formulaire Abonnement */}
-      {showSubscriptionModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-gradient-to-r from-teal-600 to-cyan-600 text-white p-6 rounded-t-3xl flex items-center justify-between z-10">
-              <div>
-                <h3 className="text-2xl font-black flex items-center gap-2">
-                  <ShoppingCart className="w-7 h-7" />
-                  Demande d'abonnement
-                </h3>
-                <p className="text-teal-100 mt-1">
-                  {selectedPackage?.name} - {selectedPackage?.credits} crédits
-                </p>
+      {/* MODAL ENTREPRISE */}
+      {showEnterpriseModal && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setShowEnterpriseModal(false)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-6 text-white rounded-t-2xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h3 className="text-xl font-bold">Demande Sur-Mesure</h3>
+                  <p className="text-white/70 text-sm mt-1">Offre personnalisée pour votre entreprise</p>
+                </div>
+                <button onClick={() => setShowEnterpriseModal(false)} className="p-2 hover:bg-white/20 rounded-lg">
+                  <X className="w-5 h-5" />
+                </button>
               </div>
-              <button
-                onClick={() => setShowSubscriptionModal(false)}
-                className="p-2 hover:bg-white/20 rounded-full transition-colors"
-              >
-                <X className="w-6 h-6" />
-              </button>
             </div>
 
-            {subscriptionSuccess ? (
-              <div className="p-8 text-center">
-                <div className="w-20 h-20 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle className="w-12 h-12 text-white" />
-                </div>
-                <h4 className="text-2xl font-black text-slate-900 mb-2">
-                  Demande envoyée !
-                </h4>
-                <p className="text-slate-600">
-                  Nous vous contacterons sous 24h
-                </p>
-              </div>
-            ) : (
-              <>
-                <div className="p-8">
-                  <div className="bg-teal-50 border-2 border-teal-200 rounded-xl p-4 mb-6">
-                    <p className="text-sm text-teal-800 font-medium">
-                      💬 <strong>Remplissez ce formulaire</strong> et nous vous rappellerons pour finaliser votre abonnement.
-                    </p>
+            <div className="p-6">
+              {submitted ? (
+                <div className="text-center py-8">
+                  <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <CheckCircle className="w-8 h-8 text-green-600" />
                   </div>
-
-                  <form onSubmit={handleSubscriptionSubmit} className="space-y-6">
-                    <div>
-                      <label className="block text-sm font-bold text-slate-900 mb-2">
-                        Nom de l'entreprise / Nom complet *
-                      </label>
-                      <input
-                        type="text"
-                        required
-                        value={subscriptionForm.company_name}
-                        onChange={(e) => setSubscriptionForm({ ...subscriptionForm, company_name: e.target.value })}
-                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 outline-none transition-all font-medium"
-                        placeholder="Votre entreprise"
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-bold text-slate-900 mb-2">
-                          Email *
-                        </label>
-                        <input
-                          type="email"
-                          required
-                          value={subscriptionForm.email}
-                          onChange={(e) => setSubscriptionForm({ ...subscriptionForm, email: e.target.value })}
-                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 outline-none transition-all font-medium"
-                          placeholder="contact@entreprise.com"
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-sm font-bold text-slate-900 mb-2">
-                          Téléphone *
-                        </label>
-                        <input
-                          type="tel"
-                          required
-                          value={subscriptionForm.phone}
-                          onChange={(e) => setSubscriptionForm({ ...subscriptionForm, phone: e.target.value })}
-                          className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 outline-none transition-all font-medium"
-                          placeholder="+33 6 12 34 56 78"
-                        />
-                      </div>
-                    </div>
-
-                    <div>
-                      <label className="block text-sm font-bold text-slate-900 mb-2">
-                        Message / Besoins spécifiques
-                      </label>
-                      <textarea
-                        value={subscriptionForm.message}
-                        onChange={(e) => setSubscriptionForm({ ...subscriptionForm, message: e.target.value })}
-                        rows={4}
-                        className="w-full px-4 py-3 rounded-xl border-2 border-slate-200 focus:border-teal-500 focus:ring-4 focus:ring-teal-100 outline-none transition-all font-medium resize-none"
-                        placeholder="Informations complémentaires, questions..."
-                      />
-                    </div>
-
-                    <button
-                      type="submit"
-                      disabled={submittingSubscription}
-                      className="w-full bg-gradient-to-r from-teal-600 to-cyan-600 text-white py-4 rounded-xl font-black text-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-                    >
-                      {submittingSubscription ? (
-                        <>
-                          <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                          Envoi en cours...
-                        </>
-                      ) : (
-                        <>
-                          <Send className="w-5 h-5" />
-                          Envoyer la demande
-                        </>
-                      )}
-                    </button>
-
-                    <p className="text-sm text-slate-500 text-center">
-                      Nous vous rappellerons dans les 24h ouvrées
-                    </p>
-                  </form>
+                  <h4 className="text-xl font-bold text-slate-900 mb-2">Demande envoyée !</h4>
+                  <p className="text-slate-600 text-sm">Notre équipe commerciale vous contactera sous 24h.</p>
+                  <button onClick={() => setShowEnterpriseModal(false)} className="mt-6 px-6 py-2.5 bg-slate-900 text-white rounded-xl font-semibold">
+                    Fermer
+                  </button>
                 </div>
-              </>
-            )}
+              ) : (
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Nom complet *</label>
+                    <input
+                      type="text"
+                      value={enterpriseForm.full_name}
+                      onChange={e => setEnterpriseForm(prev => ({ ...prev, full_name: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Email *</label>
+                    <input
+                      type="email"
+                      value={enterpriseForm.email}
+                      onChange={e => setEnterpriseForm(prev => ({ ...prev, email: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Téléphone *</label>
+                    <input
+                      type="tel"
+                      value={enterpriseForm.phone}
+                      onChange={e => setEnterpriseForm(prev => ({ ...prev, phone: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Société *</label>
+                    <input
+                      type="text"
+                      value={enterpriseForm.company_name}
+                      onChange={e => setEnterpriseForm(prev => ({ ...prev, company_name: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Volume estimé de missions / mois</label>
+                    <select
+                      value={enterpriseForm.expected_volume}
+                      onChange={e => setEnterpriseForm(prev => ({ ...prev, expected_volume: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    >
+                      <option value="">Sélectionner</option>
+                      <option value="50-100">50 à 100 missions/mois</option>
+                      <option value="100-300">100 à 300 missions/mois</option>
+                      <option value="300-500">300 à 500 missions/mois</option>
+                      <option value="500+">Plus de 500 missions/mois</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">Message</label>
+                    <textarea
+                      value={enterpriseForm.message}
+                      onChange={e => setEnterpriseForm(prev => ({ ...prev, message: e.target.value }))}
+                      className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 h-24 resize-none"
+                      placeholder="Décrivez vos besoins..."
+                    />
+                  </div>
+                  <button
+                    onClick={handleSubmitEnterprise}
+                    disabled={submitting}
+                    className="w-full py-3.5 bg-slate-900 text-white rounded-xl font-bold flex items-center justify-center gap-2 hover:bg-slate-800 transition disabled:opacity-50"
+                  >
+                    {submitting ? (
+                      <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Envoyer ma demande
+                      </>
+                    )}
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
 
-      {/* Clara AI Assistant */}
       <ChatAssistant />
     </div>
   );

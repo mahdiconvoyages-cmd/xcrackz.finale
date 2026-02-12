@@ -495,7 +495,7 @@ export default function DashboardPremium() {
                     ? 'bg-red-600 hover:bg-red-700' 
                     : 'bg-amber-600 hover:bg-amber-700'
                 }`}>
-                  Renouveler
+                  Demander un renouvellement
                 </button>
               </Link>
             </div>
@@ -563,7 +563,7 @@ export default function DashboardPremium() {
                     </div>
                     <Link to="/shop">
                       <button className="px-3 py-1.5 bg-white text-teal-600 rounded-lg text-sm font-semibold whitespace-nowrap">
-                        {creditInfo.isExpired ? 'Renouveler' : 'Gérer'}
+                        {creditInfo.isExpired ? 'Demander un renouvellement' : 'Abonnements'}
                       </button>
                     </Link>
                   </div>
@@ -572,7 +572,7 @@ export default function DashboardPremium() {
                     <p className="text-white/80 text-sm">Passez à Pro</p>
                     <Link to="/shop">
                       <button className="px-3 py-1.5 bg-white text-teal-600 rounded-lg text-sm font-semibold">
-                        Upgrade
+                        Voir les abonnements
                       </button>
                     </Link>
                   </div>

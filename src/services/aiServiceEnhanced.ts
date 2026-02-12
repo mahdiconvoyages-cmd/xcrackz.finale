@@ -1171,8 +1171,8 @@ Toi: ❌ Oops ${userName} ! Il te faut **2 crédits** pour publier un trajet.
 
 💳 Ton solde actuel: **1 crédit**
 
-Veux-tu acheter des crédits pour continuer ? 🛒
-(Je peux te rediriger vers la boutique)"
+Veux-tu obtenir plus de crédits ? 🛒
+(Je peux te rediriger vers la page abonnements)"
 
 **COVOITURAGE - Crédits insuffisants réservation:**
 "Utilisateur: Réserve 1 place pour le trajet trip-abc-123
@@ -1180,8 +1180,8 @@ Toi: ❌ Oops ${userName} ! Il te faut **2 crédits** pour réserver un trajet.
 
 💳 Ton solde actuel: **0 crédit**
 
-Veux-tu acheter des crédits pour continuer ? 🛒
-(Je peux te rediriger vers la boutique)"
+Veux-tu obtenir plus de crédits ? 🛒
+(Je peux te rediriger vers la page abonnements)"
 
 **COVOITURAGE - Message trop court:**
 "Utilisateur: Réserve 1 place pour le trajet trip-abc-123
@@ -1638,7 +1638,7 @@ const getToolsDefinitions = () => {
             page: {
               type: "string",
               enum: ["/", "/missions", "/contacts", "/clients", "/invoices", "/shop", "/dashboard", "/planning", "/covoiturage", "/rapports-inspection"],
-              description: "Chemin de la page: /=accueil, /missions=liste missions, /contacts=annuaire, /clients=gestion clients, /invoices=facturation, /shop=acheter crédits, /dashboard=tableau de bord, /planning=calendrier, /covoiturage=trajets, /rapports-inspection=rapports véhicules"
+              description: "Chemin de la page: /=accueil, /missions=liste missions, /contacts=annuaire, /clients=gestion clients, /invoices=facturation, /shop=abonnements, /dashboard=tableau de bord, /planning=calendrier, /covoiturage=trajets, /rapports-inspection=rapports véhicules"
             }
           },
           required: ["page"]

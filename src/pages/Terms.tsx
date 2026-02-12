@@ -168,10 +168,10 @@ export default function Terms() {
               <h3 className="text-lg font-bold text-slate-900 mb-2">4.2 Système de crédits</h3>
               <ul className="list-disc pl-6 space-y-2 text-slate-700">
                 <li>1 mission = 1 crédit</li>
-                <li>Les crédits sont achetés via la page Boutique</li>
-                <li>Les crédits n'expirent jamais</li>
-                <li>Les crédits ne sont ni remboursables ni transférables</li>
-                <li>Prix indicatif : 5€ pour 10 crédits, 20€ pour 50 crédits</li>
+                <li>Les crédits sont inclus dans votre abonnement mensuel</li>
+                <li>Les crédits sont réinitialisés chaque mois selon votre plan</li>
+                <li>Les crédits non utilisés ne sont pas reportés au mois suivant</li>
+                <li>Plans : Essentiel (10€/mois), Pro (20€/mois, 20 crédits), Business (50€/mois, 100 crédits)</li>
               </ul>
             </div>
           </section>

@@ -152,7 +152,7 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/tracking', icon: MapPin, label: 'Tracking', color: 'text-green-400', hoverColor: 'group-hover:text-green-300' },
     { path: '/scanner', icon: Camera, label: 'Scanner Documents', color: 'text-orange-400', hoverColor: 'group-hover:text-orange-300' },
     { path: '/crm', icon: Building2, label: 'CRM & Commercial', color: 'text-indigo-400', hoverColor: 'group-hover:text-indigo-300' },
-    { path: '/shop', icon: ShoppingBag, label: 'Boutique', color: 'text-emerald-400', hoverColor: 'group-hover:text-emerald-300' },
+    { path: '/shop', icon: ShoppingBag, label: 'Abonnements', color: 'text-emerald-400', hoverColor: 'group-hover:text-emerald-300' },
   ];
 
   const shouldShowSidebar = !forceHide && (sidebarPinned || sidebarHovered || sidebarOpen);

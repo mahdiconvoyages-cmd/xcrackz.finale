@@ -475,8 +475,50 @@ export default function SignupWizardScreen() {
         success: true
       });
 
-      // 5. Rediriger vers login
-      alert('Inscription réussie ! Un email de confirmation a été envoyé.');
+      // 5. Cadeau de bienvenue: Starter 10 crédits si téléphone renseigné
+      if (authData?.user?.id && formData.phone && formData.phone.length >= 10) {
+        try {
+          const starterEndDate = new Date();
+          starterEndDate.setDate(starterEndDate.getDate() + 30);
+
+          // Créer l'abonnement Starter
+          await supabase.from('subscriptions').insert({
+            user_id: authData.user.id,
+            plan: 'starter',
+            status: 'active',
+            start_date: new Date().toISOString(),
+            end_date: starterEndDate.toISOString(),
+            credits_remaining: 10,
+            auto_renew: false,
+          });
+
+          // Créer les crédits utilisateur
+          await supabase.from('user_credits').upsert({
+            user_id: authData.user.id,
+            balance: 10,
+            lifetime_earned: 10,
+            lifetime_spent: 0,
+          }, { onConflict: 'user_id' });
+
+          // Enregistrer la transaction
+          await supabase.from('credit_transactions').insert({
+            user_id: authData.user.id,
+            amount: 10,
+            type: 'subscription',
+            description: 'Cadeau de bienvenue - Abonnement Starter (10 crédits, 30 jours)',
+          });
+
+          console.log('🎁 Cadeau de bienvenue Starter accordé:', authData.user.email);
+        } catch (giftErr) {
+          console.error('Erreur cadeau bienvenue (non bloquant):', giftErr);
+        }
+      }
+
+      // 6. Rediriger vers login
+      alert('Inscription réussie ! Un email de confirmation a été envoyé.' + 
+        (formData.phone && formData.phone.length >= 10 
+          ? '\n\n🎁 Cadeau de bienvenue : 10 crédits offerts pendant 30 jours !' 
+          : ''));
       navigate('/login');
     } catch (err: any) {
       console.error('Signup error:', err);
