@@ -162,6 +162,23 @@ export default function DashboardPremium() {
         const endDate = subscription.current_period_end ? new Date(subscription.current_period_end) : null;
         const daysRemaining = endDate ? Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
         
+        // Calcul temps restant précis
+        let timeRemainingText = '';
+        if (endDate) {
+          const diffMs = endDate.getTime() - now.getTime();
+          if (diffMs > 0) {
+            const totalMin = Math.floor(diffMs / (1000 * 60));
+            const d = Math.floor(totalMin / (60 * 24));
+            const h = Math.floor((totalMin % (60 * 24)) / 60);
+            const m = totalMin % 60;
+            const parts: string[] = [];
+            if (d > 0) parts.push(`${d}j`);
+            if (h > 0) parts.push(`${h}h`);
+            if (m > 0 || parts.length === 0) parts.push(`${m}min`);
+            timeRemainingText = parts.join(' ');
+          }
+        }
+
         creditData = {
           credits: profile?.credits || 0,
           plan: (subscription.plan || 'free').toUpperCase(),
@@ -170,6 +187,7 @@ export default function DashboardPremium() {
           hasActiveSubscription: true,
           isExpiringSoon: daysRemaining > 0 && daysRemaining < 7,
           isExpired: daysRemaining <= 0,
+          timeRemainingText,
         };
       }
       setCreditInfo(creditData);
@@ -417,11 +435,11 @@ export default function DashboardPremium() {
                       )}
                       <div className="min-w-0">
                         <p className="text-white text-sm font-medium truncate">
-                          {creditInfo.isExpired ? 'Expiré' : `${creditInfo.daysRemaining}j restants`}
+                          {creditInfo.isExpired ? 'Expiré' : (creditInfo as any).timeRemainingText ? `${(creditInfo as any).timeRemainingText} restants` : `${creditInfo.daysRemaining}j restants`}
                         </p>
                         {creditInfo.endDate && (
                           <p className="text-white/70 text-xs truncate">
-                            {creditInfo.endDate.toLocaleDateString('fr-FR')}
+                            {creditInfo.endDate.toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short', timeZone: 'Europe/Paris' })}
                           </p>
                         )}
                       </div>

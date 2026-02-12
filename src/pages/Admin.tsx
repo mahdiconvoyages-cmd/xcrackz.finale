@@ -800,7 +800,7 @@ export default function Admin() {
     const confirmCancel = confirm(
       `⚠️ Annuler l'abonnement de ${user.email} ?\n\n` +
       `Plan actuel: ${user.subscription.plan?.toUpperCase()}\n` +
-      `Expire le: ${new Date(user.subscription.current_period_end).toLocaleDateString('fr-FR')}\n\n` +
+      `Expire le: ${new Date(user.subscription.current_period_end).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Paris' })}\n\n` +
       `L'abonnement sera marqué comme "cancelled".\n` +
       `Les crédits ne seront PAS retirés.`
     );
@@ -1559,7 +1559,7 @@ export default function Admin() {
                                 {user.subscription.plan?.toUpperCase()}
                               </span>
                               <span className="text-xs text-slate-500">
-                                jusqu'au {new Date(user.subscription.current_period_end).toLocaleDateString('fr-FR')}
+                                jusqu'au {new Date(user.subscription.current_period_end).toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Paris' })}
                               </span>
                             </div>
                           ) : (

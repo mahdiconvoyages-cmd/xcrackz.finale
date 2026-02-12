@@ -249,10 +249,32 @@ export default function PublicInspectionReportShared() {
   const arrival = reportData.inspection_arrival;
 
   // Calculer les métriques
-  const kmParcouru = departure?.mileage_km && arrival?.mileage_km ? arrival.mileage_km - departure.mileage_km : 0;
-  const tempsLivraison = departure?.created_at && arrival?.created_at 
-    ? Math.round((new Date(arrival.created_at).getTime() - new Date(departure.created_at).getTime()) / (1000 * 60 * 60))
-    : 0;
+  const kmParcouru = departure?.mileage_km && arrival?.mileage_km 
+    ? Math.max(0, arrival.mileage_km - departure.mileage_km) 
+    : null;
+
+  // Temps de livraison en heures ET minutes
+  let tempsLivraisonText = 'N/A';
+  if (departure?.created_at && arrival?.created_at) {
+    const diffMs = new Date(arrival.created_at).getTime() - new Date(departure.created_at).getTime();
+    if (diffMs > 0) {
+      const totalMinutes = Math.floor(diffMs / (1000 * 60));
+      const hours = Math.floor(totalMinutes / 60);
+      const minutes = totalMinutes % 60;
+      if (hours > 0 && minutes > 0) {
+        tempsLivraisonText = `${hours}h ${minutes}min`;
+      } else if (hours > 0) {
+        tempsLivraisonText = `${hours}h`;
+      } else {
+        tempsLivraisonText = `${minutes}min`;
+      }
+    }
+  }
+
+  // Noms des convoyeurs (départ vs arrivée)
+  const departureDriverName = departure?.driver_name || departure?.driverName || null;
+  const arrivalDriverName = arrival?.driver_name || arrival?.driverName || null;
+  const hasMultipleDrivers = departureDriverName && arrivalDriverName && departureDriverName !== arrivalDriverName;
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 print:py-0">
@@ -355,11 +377,18 @@ export default function PublicInspectionReportShared() {
             </div>
 
             {/* Métriques de transport */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm">
-              <MetricBox icon={User} label="Convoyeur" value={mission?.driver_name || 'N/A'} color="blue" />
+            <div className={`grid grid-cols-2 ${hasMultipleDrivers ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4 mb-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm`}>
+              {hasMultipleDrivers ? (
+                <>
+                  <MetricBox icon={User} label="Convoyeur Départ" value={departureDriverName} color="blue" />
+                  <MetricBox icon={User} label="Convoyeur Arrivée" value={arrivalDriverName} color="indigo" />
+                </>
+              ) : (
+                <MetricBox icon={User} label="Convoyeur" value={departureDriverName || arrivalDriverName || mission?.driver_name || 'N/A'} color="blue" />
+              )}
               <MetricBox icon={Phone} label="Téléphone" value={mission?.driver_phone || 'N/A'} color="indigo" />
-              <MetricBox icon={Gauge} label="KM Parcourus" value={kmParcouru > 0 ? `${kmParcouru} km` : 'N/A'} color="green" />
-              <MetricBox icon={Clock} label="Temps Livraison" value={tempsLivraison > 0 ? `${tempsLivraison}h` : 'N/A'} color="amber" />
+              <MetricBox icon={Gauge} label="KM Parcourus" value={kmParcouru !== null ? `${kmParcouru.toLocaleString()} km` : 'N/A'} color="green" />
+              <MetricBox icon={Clock} label="Temps Livraison" value={tempsLivraisonText} color="amber" />
             </div>
 
             {/* Informations Mission */}
@@ -389,6 +418,75 @@ export default function PublicInspectionReportShared() {
             )}
           </div>
         </div>
+
+        {/* COMPARAISON DÉPART / ARRIVÉE */}
+        {departure && arrival && (
+          <div className="bg-white rounded-xl shadow-lg mb-6 overflow-hidden print:shadow-none print:border print:border-gray-300">
+            <div className="bg-gradient-to-r from-emerald-500 to-blue-500 p-6 text-white">
+              <h2 className="text-2xl font-bold">📊 Résumé Comparatif</h2>
+              <p className="text-white/80 text-sm mt-1">Différences constatées entre le départ et l'arrivée</p>
+            </div>
+            <div className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                {/* KM */}
+                <ComparisonItem 
+                  label="Kilométrage"
+                  departValue={departure.mileage_km ? `${departure.mileage_km.toLocaleString()} km` : 'N/A'}
+                  arriveValue={arrival.mileage_km ? `${arrival.mileage_km.toLocaleString()} km` : 'N/A'}
+                  delta={kmParcouru !== null ? `+${kmParcouru.toLocaleString()} km` : null}
+                />
+                {/* Carburant */}
+                <ComparisonItem 
+                  label="Carburant"
+                  departValue={formatFuelPercent(departure.fuel_level)}
+                  arriveValue={formatFuelPercent(arrival.fuel_level)}
+                  delta={departure.fuel_level != null && arrival.fuel_level != null 
+                    ? `${arrival.fuel_level - departure.fuel_level > 0 ? '+' : ''}${arrival.fuel_level - departure.fuel_level}%` 
+                    : null}
+                />
+                {/* Propreté Int */}
+                <ComparisonItem 
+                  label="Propreté Int."
+                  departValue={formatCleanliness(departure, 'internal')}
+                  arriveValue={formatCleanliness(arrival, 'internal')}
+                />
+                {/* Propreté Ext */}
+                <ComparisonItem 
+                  label="Propreté Ext."
+                  departValue={formatCleanliness(departure, 'external')}
+                  arriveValue={formatCleanliness(arrival, 'external')}
+                />
+              </div>
+
+              {/* Timeline des convoyeurs */}
+              <div className="mt-6 pt-6 border-t border-gray-200">
+                <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-blue-500" /> Chronologie du convoyage
+                </h4>
+                <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
+                  {/* Départ */}
+                  <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-4">
+                    <div className="text-xs font-bold text-green-600 uppercase mb-1">🟢 Départ</div>
+                    <div className="text-sm font-semibold text-gray-900">{departureDriverName || 'N/A'}</div>
+                    <div className="text-xs text-gray-500 mt-1">{departure.created_at ? formatDatetimeFR(departure.created_at) : 'N/A'}</div>
+                  </div>
+                  {/* Flèche */}
+                  <div className="hidden md:flex flex-col items-center text-gray-400">
+                    <div className="text-xs font-medium">{tempsLivraisonText}</div>
+                    <div className="text-lg">→</div>
+                    <div className="text-xs font-medium">{kmParcouru !== null ? `${kmParcouru.toLocaleString()} km` : ''}</div>
+                  </div>
+                  {/* Arrivée */}
+                  <div className="flex-1 bg-blue-50 border border-blue-200 rounded-lg p-4">
+                    <div className="text-xs font-bold text-blue-600 uppercase mb-1">🔵 Arrivée</div>
+                    <div className="text-sm font-semibold text-gray-900">{arrivalDriverName || 'N/A'}</div>
+                    <div className="text-xs text-gray-500 mt-1">{arrival.created_at ? formatDatetimeFR(arrival.created_at) : 'N/A'}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* INSPECTION DÉPART */}
         {departure && (
@@ -823,6 +921,26 @@ function SignatureBox({ title, signature, name }: any) {
       </div>
       {name && (
         <div className="mt-2 text-xs text-gray-500">Signé par: <span className="font-medium text-gray-700">{name}</span></div>
+      )}
+    </div>
+  );
+}
+
+function ComparisonItem({ label, departValue, arriveValue, delta }: { label: string; departValue: string; arriveValue: string; delta?: string | null }) {
+  return (
+    <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+      <div className="text-xs font-semibold text-gray-500 uppercase mb-3">{label}</div>
+      <div className="flex items-center justify-between text-sm mb-1">
+        <span className="text-green-600 font-medium">🟢 {departValue}</span>
+        <span className="text-gray-400">→</span>
+        <span className="text-blue-600 font-medium">🔵 {arriveValue}</span>
+      </div>
+      {delta && (
+        <div className="text-center mt-2">
+          <span className="text-xs font-bold bg-white px-2 py-1 rounded-full border border-gray-200 text-gray-700">
+            Δ {delta}
+          </span>
+        </div>
       )}
     </div>
   );

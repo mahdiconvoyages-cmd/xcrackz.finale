@@ -30,10 +30,13 @@ export default function SubscriptionRequired({ feature = 'cette fonctionnalité'
                   <span>Votre abonnement a expiré</span>
                 </div>
                 <p className="text-red-600 text-sm">
-                  Date d'expiration: {new Date(expiresAt).toLocaleDateString('fr-FR', {
+                  Date d'expiration: {new Date(expiresAt).toLocaleString('fr-FR', {
                     day: 'numeric',
                     month: 'long',
-                    year: 'numeric'
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit',
+                    timeZone: 'Europe/Paris'
                   })}
                 </p>
               </div>

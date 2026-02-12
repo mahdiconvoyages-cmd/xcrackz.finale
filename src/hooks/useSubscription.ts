@@ -8,6 +8,8 @@ interface SubscriptionStatus {
   creditsBalance: number;
   expiresAt: string | null;
   daysRemaining: number | null;
+  timeRemainingText: string | null;
+  autoRenew: boolean;
   loading: boolean;
 }
 
@@ -18,6 +20,8 @@ export function useSubscription(): SubscriptionStatus {
     creditsBalance: 0,
     expiresAt: null,
     daysRemaining: null,
+    timeRemainingText: null,
+    autoRenew: false,
     loading: true,
   });
 
@@ -28,6 +32,8 @@ export function useSubscription(): SubscriptionStatus {
         creditsBalance: 0,
         expiresAt: null,
         daysRemaining: null,
+        timeRemainingText: null,
+        autoRenew: false,
         loading: false,
       });
       return;
@@ -47,7 +53,7 @@ export function useSubscription(): SubscriptionStatus {
           .single(),
         supabase
           .from('subscriptions')
-          .select('status, plan, current_period_end')
+          .select('status, plan, current_period_end, auto_renew')
           .eq('user_id', user!.id)
           .maybeSingle()
       ]);
@@ -67,10 +73,22 @@ export function useSubscription(): SubscriptionStatus {
       const expiresAt = subscription?.current_period_end ? new Date(subscription.current_period_end) : null;
       const hasActiveSubscription = subscription?.status === 'active' && expiresAt ? expiresAt > now : false;
 
-      let daysRemaining = null;
+      let daysRemaining: number | null = null;
+      let timeRemainingText: string | null = null;
       if (expiresAt && hasActiveSubscription) {
-        const diffTime = expiresAt.getTime() - now.getTime();
-        daysRemaining = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        const diffMs = expiresAt.getTime() - now.getTime();
+        const totalMinutes = Math.floor(diffMs / (1000 * 60));
+        const days = Math.floor(totalMinutes / (60 * 24));
+        const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+        const minutes = totalMinutes % 60;
+        daysRemaining = Math.ceil(diffMs / (1000 * 60 * 60 * 24));
+
+        // Texte précis: "15j 3h 20min" ou "3h 20min" ou "20min"
+        const parts: string[] = [];
+        if (days > 0) parts.push(`${days}j`);
+        if (hours > 0) parts.push(`${hours}h`);
+        if (minutes > 0 || parts.length === 0) parts.push(`${minutes}min`);
+        timeRemainingText = parts.join(' ');
       }
 
       setStatus({
@@ -79,6 +97,8 @@ export function useSubscription(): SubscriptionStatus {
         creditsBalance,
         expiresAt: subscription?.current_period_end || null,
         daysRemaining,
+        timeRemainingText,
+        autoRenew: subscription?.auto_renew || false,
         loading: false,
       });
     } catch (error) {
@@ -88,6 +108,8 @@ export function useSubscription(): SubscriptionStatus {
         creditsBalance: 0,
         expiresAt: null,
         daysRemaining: null,
+        timeRemainingText: null,
+        autoRenew: false,
         loading: false,
       });
     }
