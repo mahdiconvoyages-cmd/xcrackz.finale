@@ -5,36 +5,18 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { DrawerActions, useNavigation } from '@react-navigation/native';
 import { useTheme } from '../contexts/ThemeContext';
 import { useAuth } from '../contexts/AuthContext';
+import { SyncIndicator } from '../components/SyncIndicator';
 
 export default function ProfileScreen() {
+  const navigation = useNavigation();
   const { colors, mode, toggleTheme, isDark } = useTheme();
-  const { user, signOut } = useAuth();
-
-  const handleLogout = () => {
-    Alert.alert(
-      'Déconnexion',
-      'Êtes-vous sûr de vouloir vous déconnecter ?',
-      [
-        { text: 'Annuler', style: 'cancel' },
-        {
-          text: 'Déconnexion',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await signOut();
-            } catch (error: any) {
-              Alert.alert('Erreur', error.message);
-            }
-          },
-        },
-      ]
-    );
-  };
+  const { user } = useAuth();
 
   const getThemeLabel = () => {
     switch (mode) {
@@ -46,22 +28,33 @@ export default function ProfileScreen() {
   };
 
   return (
-    <ScrollView style={[styles.container, { backgroundColor: colors.background }]}>
-      <View style={[styles.header, { backgroundColor: colors.surface }]}>
-        <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
-          <Text style={styles.avatarText}>
-            {user?.user_metadata?.full_name?.charAt(0)?.toUpperCase() || 'U'}
-          </Text>
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
+      <View style={[styles.topBar, { backgroundColor: colors.surface, borderBottomColor: colors.textSecondary + '22' }]}> 
+        <TouchableOpacity style={styles.menuButton} onPress={() => navigation.dispatch(DrawerActions.openDrawer())}>
+          <Ionicons name="menu" size={24} color={colors.text} />
+        </TouchableOpacity>
+        <Text style={[styles.topBarTitle, { color: colors.text }]}>Profil</Text>
+        <View style={styles.topBarRight}>
+          <SyncIndicator />
         </View>
-        <Text style={[styles.name, { color: colors.text }]}>
-          {user?.user_metadata?.full_name || 'Utilisateur'}
-        </Text>
-        <Text style={[styles.email, { color: colors.textSecondary }]}>
-          {user?.email}
-        </Text>
       </View>
 
-      <View style={styles.content}>
+      <ScrollView style={[styles.container, { backgroundColor: colors.background }]} contentContainerStyle={styles.scrollContent}>
+        <View style={[styles.header, { backgroundColor: colors.surface }]}>
+          <View style={[styles.avatar, { backgroundColor: colors.primary }]}>
+            <Text style={styles.avatarText}>
+              {user?.user_metadata?.full_name?.charAt(0)?.toUpperCase() || 'U'}
+            </Text>
+          </View>
+          <Text style={[styles.name, { color: colors.text }]}>
+            {user?.user_metadata?.full_name || 'Utilisateur'}
+          </Text>
+          <Text style={[styles.email, { color: colors.textSecondary }]}>
+            {user?.email}
+          </Text>
+        </View>
+
+        <View style={styles.content}>
         <Text style={[styles.sectionTitle, { color: colors.text }]}>Paramètres</Text>
 
         <TouchableOpacity
@@ -148,23 +141,41 @@ export default function ProfileScreen() {
           <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
         </TouchableOpacity>
 
-        <TouchableOpacity
-          style={[styles.logoutButton, { backgroundColor: colors.error }]}
-          onPress={handleLogout}
-        >
-          <Ionicons name="log-out" size={20} color="#ffffff" />
-          <Text style={styles.logoutText}>Déconnexion</Text>
-        </TouchableOpacity>
-
         <Text style={[styles.version, { color: colors.textSecondary }]}>
           Version 1.0.0
         </Text>
-      </View>
-    </ScrollView>
+        </View>
+      </ScrollView>
+    </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
+  safeArea: { flex: 1 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  topBarTitle: {
+    fontSize: 20,
+    fontWeight: '800',
+  },
+  topBarRight: {
+    minWidth: 40,
+    justifyContent: 'center',
+    alignItems: 'flex-end',
+  },
   container: { flex: 1 },
   header: {
     alignItems: 'center',
@@ -194,6 +205,9 @@ const styles = StyleSheet.create({
   },
   content: {
     padding: 20,
+  },
+  scrollContent: {
+    paddingBottom: 32,
   },
   sectionTitle: {
     fontSize: 18,

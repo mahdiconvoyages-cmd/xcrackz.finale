@@ -1,4 +1,4 @@
-ï»¿import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -69,11 +69,11 @@ interface StepDescriptor {
 }
 
 const steps: StepDescriptor[] = [
-  { key: 'vehicle', title: 'VÃ©hicule', description: 'Identification et visuel', icon: 'car-sport' },
-  { key: 'pickup', title: 'DÃ©part', description: 'Adresse et contact dÃ©part', icon: 'navigate' },
-  { key: 'delivery', title: 'ArrivÃ©e', description: 'Destination & contact', icon: 'flag' },
-  { key: 'details', title: 'Notes', description: 'Informations complÃ©mentaires', icon: 'create' },
-  { key: 'summary', title: 'RÃ©capitulatif', description: 'ContrÃ´le avant crÃ©ation', icon: 'document-text' },
+  { key: 'vehicle', title: 'Véhicule', description: 'Identification et visuel', icon: 'car-sport' },
+  { key: 'pickup', title: 'Départ', description: 'Adresse et contact départ', icon: 'navigate' },
+  { key: 'delivery', title: 'Arrivée', description: 'Destination & contact', icon: 'flag' },
+  { key: 'details', title: 'Notes', description: 'Informations complémentaires', icon: 'create' },
+  { key: 'summary', title: 'Récapitulatif', description: 'Contrôle avant création', icon: 'document-text' },
 ];
 
 const PAID_PLANS = ['basic', 'pro', 'business', 'enterprise'];
@@ -285,7 +285,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
     }
     if (!canProceed) {
       setAttemptedNext(true);
-      Alert.alert('Champs requis', 'Veuillez complÃ©ter les informations obligatoires avant de continuer.');
+      Alert.alert('Champs requis', 'Veuillez compléter les informations obligatoires avant de continuer.');
       return;
     }
     setAttemptedNext(false);
@@ -307,13 +307,13 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
     }
 
     if (!user) {
-      Alert.alert('Connexion requise', 'Veuillez vous connecter pour crÃ©er une mission.');
+      Alert.alert('Connexion requise', 'Veuillez vous connecter pour créer une mission.');
       return;
     }
 
     setAttemptedNext(true);
     if (!canProceed) {
-      Alert.alert('Champs requis', 'Merci de vÃ©rifier les informations avant de crÃ©er la mission.');
+      Alert.alert('Champs requis', 'Merci de vérifier les informations avant de créer la mission.');
       return;
     }
 
@@ -353,16 +353,16 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
         if (!hasEnoughCredits(1)) {
           setShowBuyCreditModal(true);
           Alert.alert(
-            'CrÃ©dits insuffisants',
-            `Vous avez besoin d'un abonnement actif ou d'au moins 1 crÃ©dit pour crÃ©er une mission.\n\nCrÃ©dits actuels: ${credits}`
+            'Crédits insuffisants',
+            `Vous avez besoin d'un abonnement actif ou d'au moins 1 crédit pour créer une mission.\n\nCrédits actuels: ${credits}`
           );
           return;
         }
 
-        const deduction = await deductCredits(1, `CrÃ©ation de mission ${formData.reference}`);
+        const deduction = await deductCredits(1, `Création de mission ${formData.reference}`);
         if (!deduction.success) {
           setShowBuyCreditModal(true);
-          Alert.alert('CrÃ©dits', deduction.error || 'Impossible de dÃ©duire les crÃ©dits.');
+          Alert.alert('Crédits', deduction.error || 'Impossible de déduire les crédits.');
           return;
         }
 
@@ -370,7 +370,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
           try {
             await refreshCredits();
           } catch (refreshError) {
-            console.log('refreshCredits (crÃ©ation mission):', refreshError);
+            console.log('refreshCredits (création mission):', refreshError);
           }
         }
       }
@@ -404,10 +404,10 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
         await offlineSyncService.addToQueue('create', 'missions', insertPayload);
         setCreatedMission(null);
         Alert.alert(
-          'Mission enregistrÃ©e hors ligne',
+          'Mission enregistrée hors ligne',
           hasActiveSubscription
-            ? `La mission ${formData.reference} sera synchronisÃ©e dÃ¨s le retour de la connexion.`
-            : `La mission ${formData.reference} sera synchronisÃ©e et 1 crÃ©dit sera dÃ©duit Ã  la reconnexion.`,
+            ? `La mission ${formData.reference} sera synchronisée dès le retour de la connexion.`
+            : `La mission ${formData.reference} sera synchronisée et 1 crédit sera déduit à la reconnexion.`,
           [{ text: 'OK', onPress: () => navigation.goBack() }]
         );
         return;
@@ -423,10 +423,10 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
       setCreatedMission(created);
 
       Alert.alert(
-        'Mission crÃ©Ã©e',
+        'Mission créée',
         hasActiveSubscription
-          ? `Mission ${formData.reference} crÃ©Ã©e avec succÃ¨s.`
-          : `Mission ${formData.reference} crÃ©Ã©e.\n\nDÃ©bit: -1 crÃ©dit (solde: ${Math.max(credits - 1, 0)})`,
+          ? `Mission ${formData.reference} créée avec succès.`
+          : `Mission ${formData.reference} créée.\n\nDébit: -1 crédit (solde: ${Math.max(credits - 1, 0)})`,
         [
           {
             text: 'Partager',
@@ -441,21 +441,21 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
         ]
       );
     } catch (error: any) {
-      console.error('Erreur crÃ©ation mission:', error);
+      console.error('Erreur création mission:', error);
       const message = error?.message?.toLowerCase?.() || '';
 
       if (insertPayload && (message.includes('fetch') || message.includes('network') || message.includes('timeout'))) {
         await offlineSyncService.addToQueue('create', 'missions', insertPayload);
         setCreatedMission(null);
         Alert.alert(
-          'Mission sauvegardÃ©e',
-          'Connexion instable dÃ©tectÃ©e. La mission sera synchronisÃ©e automatiquement dÃ¨s que possible.',
+          'Mission sauvegardée',
+          'Connexion instable détectée. La mission sera synchronisée automatiquement dès que possible.',
           [{ text: 'OK', onPress: () => navigation.goBack() }]
         );
         return;
       }
 
-      Alert.alert('Erreur', error?.message || 'Impossible de crÃ©er la mission.');
+      Alert.alert('Erreur', error?.message || 'Impossible de créer la mission.');
     } finally {
       setLoading(false);
     }
@@ -522,7 +522,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
   const renderVehicleStep = () => (
     <CardGradient>
       <View style={styles.fieldBlock}>
-        <Text style={[styles.label, { color: colors.text }]}>RÃ©fÃ©rence</Text>
+        <Text style={[styles.label, { color: colors.text }]}>Référence</Text>
         <TextInput
           style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
           value={formData.reference}
@@ -533,7 +533,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
       </View>
 
       <View style={styles.fieldBlock}>
-        <Text style={[styles.label, { color: colors.text }]}>Marque du vÃ©hicule *</Text>
+        <Text style={[styles.label, { color: colors.text }]}>Marque du véhicule *</Text>
         <TextInput
           style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
           value={formData.vehicle_brand}
@@ -547,12 +547,12 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
       </View>
 
       <View style={styles.fieldBlock}>
-        <Text style={[styles.label, { color: colors.text }]}>ModÃ¨le du vÃ©hicule *</Text>
+        <Text style={[styles.label, { color: colors.text }]}>Modèle du véhicule *</Text>
         <TextInput
           style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
           value={formData.vehicle_model}
           onChangeText={(text) => updateField('vehicle_model', text)}
-          placeholder="SÃ©rie 3, Classe A, etc."
+          placeholder="Série 3, Classe A, etc."
           placeholderTextColor={colors.textSecondary}
         />
         {attemptedNext && currentStep.key === 'vehicle' && !formData.vehicle_model.trim() && (
@@ -612,7 +612,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
             style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
             value={formData.vehicle_vin}
             onChangeText={(text) => updateField('vehicle_vin', text)}
-            placeholder="NumÃ©ro de sÃ©rie"
+            placeholder="Numéro de série"
             placeholderTextColor={colors.textSecondary}
             autoCapitalize="characters"
           />
@@ -620,7 +620,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
       </View>
 
       <VehicleImageUpload
-        label="Photo du vÃ©hicule"
+        label="Photo du véhicule"
         value={formData.vehicle_image_url || null}
         onImageUploaded={(url) => updateField('vehicle_image_url', url)}
       />
@@ -637,7 +637,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
             updateField('pickup_lat', Number.isFinite(lat) ? lat : null);
             updateField('pickup_lng', Number.isFinite(lng) ? lng : null);
           }}
-          label="Adresse de dÃ©part *"
+          label="Adresse de départ *"
           placeholder="Rechercher une adresse..."
         />
         {attemptedNext && currentStep.key === 'pickup' && !formData.pickup_address.trim() && (
@@ -646,7 +646,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
       </View>
 
       <DateTimeField
-        label="Date et heure de dÃ©part"
+        label="Date et heure de départ"
         value={formData.pickup_date}
         onChange={(next) => updateField('pickup_date', next)}
         minimumDate={new Date()}
@@ -654,7 +654,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
 
       <View style={styles.duoRow}>
         <View style={[styles.fieldBlock, styles.duoItem]}>
-          <Text style={[styles.label, { color: colors.text }]}>Contact dÃ©part</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Contact départ</Text>
           <TextInput
             style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
             value={formData.pickup_contact_name}
@@ -664,7 +664,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
           />
         </View>
         <View style={[styles.fieldBlock, styles.duoItem]}>
-          <Text style={[styles.label, { color: colors.text }]}>TÃ©lÃ©phone dÃ©part</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Téléphone départ</Text>
           <TextInput
             style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
             value={formData.pickup_contact_phone}
@@ -688,7 +688,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
             updateField('delivery_lat', Number.isFinite(lat) ? lat : null);
             updateField('delivery_lng', Number.isFinite(lng) ? lng : null);
           }}
-          label="Adresse d'arrivÃ©e *"
+          label="Adresse d'arrivée *"
           placeholder="Rechercher une adresse..."
         />
         {attemptedNext && currentStep.key === 'delivery' && !formData.delivery_address.trim() && (
@@ -697,7 +697,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
       </View>
 
       <DateTimeField
-        label="Date et heure d'arrivÃ©e"
+        label="Date et heure d'arrivée"
         value={formData.delivery_date}
         onChange={(next) => updateField('delivery_date', next)}
         minimumDate={formData.pickup_date ?? new Date()}
@@ -705,7 +705,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
 
       <View style={styles.duoRow}>
         <View style={[styles.fieldBlock, styles.duoItem]}>
-          <Text style={[styles.label, { color: colors.text }]}>Contact arrivÃ©e</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Contact arrivée</Text>
           <TextInput
             style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
             value={formData.delivery_contact_name}
@@ -715,7 +715,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
           />
         </View>
         <View style={[styles.fieldBlock, styles.duoItem]}>
-          <Text style={[styles.label, { color: colors.text }]}>TÃ©lÃ©phone arrivÃ©e</Text>
+          <Text style={[styles.label, { color: colors.text }]}>Téléphone arrivée</Text>
           <TextInput
             style={[styles.input, { backgroundColor: colors.surface, borderColor: colors.border, color: colors.text }]}
             value={formData.delivery_contact_phone}
@@ -740,7 +740,7 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
           ]}
           value={formData.notes}
           onChangeText={(text) => updateField('notes', text)}
-          placeholder="Informations complÃ©mentaires..."
+          placeholder="Informations complémentaires..."
           placeholderTextColor={colors.textSecondary}
           multiline
           numberOfLines={6}
@@ -752,16 +752,16 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
   const renderSummaryRow = (label: string, value?: string | null) => (
     <View style={styles.summaryRow}>
       <Text style={[styles.summaryLabel, { color: colors.textSecondary }]}>{label}</Text>
-      <Text style={[styles.summaryValue, { color: colors.text }]}>{value && value.trim() ? value : 'â€”'}</Text>
+      <Text style={[styles.summaryValue, { color: colors.text }]}>{value && value.trim() ? value : '—'}</Text>
     </View>
   );
 
   const renderSummaryStep = () => (
     <View style={{ gap: 16 }}>
       <CardGradient>
-        <Text style={[styles.summaryTitle, { color: colors.text }]}>VÃ©hicule</Text>
-        {renderSummaryRow('RÃ©fÃ©rence', formData.reference)}
-        {renderSummaryRow('VÃ©hicule', `${formData.vehicle_brand} ${formData.vehicle_model}`)}
+        <Text style={[styles.summaryTitle, { color: colors.text }]}>Véhicule</Text>
+        {renderSummaryRow('Référence', formData.reference)}
+        {renderSummaryRow('Véhicule', `${formData.vehicle_brand} ${formData.vehicle_model}`)}
         {renderSummaryRow('Type', formData.vehicle_type)}
         {renderSummaryRow('Immatriculation', formData.vehicle_plate)}
         {renderSummaryRow('VIN', formData.vehicle_vin)}
@@ -773,19 +773,19 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
       </CardGradient>
 
       <CardGradient>
-        <Text style={[styles.summaryTitle, { color: colors.text }]}>DÃ©part</Text>
+        <Text style={[styles.summaryTitle, { color: colors.text }]}>Départ</Text>
         {renderSummaryRow('Adresse', formData.pickup_address)}
         {renderSummaryRow('Date', formatDateTimeHuman(formData.pickup_date))}
         {renderSummaryRow('Contact', formData.pickup_contact_name)}
-        {renderSummaryRow('TÃ©lÃ©phone', formData.pickup_contact_phone)}
+        {renderSummaryRow('Téléphone', formData.pickup_contact_phone)}
       </CardGradient>
 
       <CardGradient>
-        <Text style={[styles.summaryTitle, { color: colors.text }]}>ArrivÃ©e</Text>
+        <Text style={[styles.summaryTitle, { color: colors.text }]}>Arrivée</Text>
         {renderSummaryRow('Adresse', formData.delivery_address)}
         {renderSummaryRow('Date', formatDateTimeHuman(formData.delivery_date))}
         {renderSummaryRow('Contact', formData.delivery_contact_name)}
-        {renderSummaryRow('TÃ©lÃ©phone', formData.delivery_contact_phone)}
+        {renderSummaryRow('Téléphone', formData.delivery_contact_phone)}
       </CardGradient>
 
       <CardGradient>
@@ -802,8 +802,8 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
               <Ionicons name="checkmark" size={20} color="#0f172a" />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.successTitle}>Mission crÃ©Ã©e</Text>
-              <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>RÃ©fÃ©rence {createdMission.reference}</Text>
+              <Text style={styles.successTitle}>Mission créée</Text>
+              <Text style={[styles.successSubtitle, { color: colors.textSecondary }]}>Référence {createdMission.reference}</Text>
             </View>
           </View>
 
@@ -849,12 +849,15 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
     }
   };
 
-  const primaryButtonLabel = currentStep.key === 'summary' ? 'CrÃ©er la mission' : 'Suivant';
+  const primaryButtonLabel = currentStep.key === 'summary' ? 'Créer la mission' : 'Suivant';
 
   return (
-    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]}> 
-      <HeaderGradient title="CrÃ©er une mission" onBack={navigation.goBack} />
-      <ScrollView contentContainerStyle={[styles.scrollContainer, { backgroundColor: colors.background }]}> 
+    <SafeAreaView style={[styles.safeArea, { backgroundColor: colors.background }]} edges={['top']}> 
+      <HeaderGradient title="Créer une mission" onBack={navigation.goBack} />
+      <ScrollView 
+        contentContainerStyle={[styles.scrollContainer, { backgroundColor: colors.background }]}
+        showsVerticalScrollIndicator={false}
+      > 
         <View style={styles.content}>
           {renderStepIndicator()}
           <View style={styles.stepDescriptionWrapper}>
@@ -867,10 +870,10 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
         </View>
       </ScrollView>
 
-      <View style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]}> 
+      <SafeAreaView style={[styles.footer, { borderTopColor: colors.border, backgroundColor: colors.background }]} edges={['bottom']}> 
         <TouchableOpacity style={styles.footerButton} onPress={goPrevious}>
           <Ionicons name="arrow-back" size={18} color={colors.text} />
-          <Text style={[styles.footerButtonText, { color: colors.text }]}>PrÃ©cÃ©dent</Text>
+          <Text style={[styles.footerButtonText, { color: colors.text }]}>Précédent</Text>
         </TouchableOpacity>
         <TouchableOpacity
           style={[styles.primaryButton, { backgroundColor: colors.primary }]}
@@ -880,14 +883,14 @@ export default function MissionCreateScreen({ navigation }: MissionCreateScreenP
         >
           {loading ? <ActivityIndicator color="#0b1222" /> : <Text style={styles.primaryButtonText}>{primaryButtonLabel}</Text>}
         </TouchableOpacity>
-      </View>
+      </SafeAreaView>
 
       <BuyCreditModal
         visible={showBuyCreditModal}
         onClose={() => setShowBuyCreditModal(false)}
         currentCredits={credits}
         requiredCredits={1}
-        action="crÃ©er une mission"
+        action="créer une mission"
       />
     </SafeAreaView>
   );
@@ -898,7 +901,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContainer: {
-    paddingBottom: 120,
+    paddingBottom: 20,
   },
   content: {
     padding: 16,
@@ -1146,17 +1149,20 @@ const styles = StyleSheet.create({
     color: '#0b1222',
   },
   footer: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    bottom: 0,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    paddingVertical: 14,
+    paddingTop: 14,
+    paddingBottom: 6,
     borderTopWidth: 1,
     gap: 12,
+    ...Platform.select({
+      android: {
+        elevation: 8,
+        shadowColor: '#000',
+      },
+    }),
   },
   footerButton: {
     flexDirection: 'row',

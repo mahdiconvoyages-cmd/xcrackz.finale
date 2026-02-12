@@ -161,7 +161,7 @@ class NotificationService {
 
     switch (data.type) {
       case 'mission_assigned':
-        navigation.navigate('Missions', {
+          navigation.navigate('MesMissions', {
           screen: 'MissionDetails',
           params: { missionId: data.missionId },
         });
@@ -169,27 +169,27 @@ class NotificationService {
 
       case 'booking_confirmed':
       case 'booking_rejected':
-        navigation.navigate('Covoiturage', {
+          navigation.navigate('Covoiturage', {
           screen: 'MyBookings',
         });
         break;
 
       case 'trip_booking_request':
-        navigation.navigate('Covoiturage', {
+          navigation.navigate('Covoiturage', {
           screen: 'TripDetails',
           params: { tripId: data.tripId },
         });
         break;
 
       case 'message_received':
-        navigation.navigate('Covoiturage', {
+          navigation.navigate('Covoiturage', {
           screen: 'CarpoolingChat',
           params: { tripId: data.tripId, otherUserId: data.senderId },
         });
         break;
 
       case 'mission_status_changed':
-        navigation.navigate('Missions', {
+          navigation.navigate('MesMissions', {
           screen: 'MissionDetails',
           params: { missionId: data.missionId },
         });

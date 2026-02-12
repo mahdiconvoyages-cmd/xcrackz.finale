@@ -20,6 +20,7 @@ import MyBookingsScreen from '../screens/MyBookingsScreen';
 import CarpoolingChatScreen from '../screens/CarpoolingChatScreen';
 import RatingScreen from '../screens/RatingScreen';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { Routes } from './Routes';
 
 const Stack = createNativeStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -38,7 +39,7 @@ function CarpoolingTabs() {
       }}
     >
       <Tab.Screen
-        name="CarpoolingSearch"
+        name={Routes.CarpoolingSearch}
         component={CarpoolingSearchScreen}
         options={{
           title: 'Rechercher',
@@ -48,7 +49,7 @@ function CarpoolingTabs() {
         }}
       />
       <Tab.Screen
-        name="PublishRide"
+        name={Routes.PublishRide}
         component={PublishRideScreen}
         options={{
           title: 'Publier',
@@ -58,7 +59,7 @@ function CarpoolingTabs() {
         }}
       />
       <Tab.Screen
-        name="MyTrips"
+        name={Routes.MyTrips}
         component={MyTripsScreen}
         options={{
           title: 'Mes trajets',
@@ -68,7 +69,7 @@ function CarpoolingTabs() {
         }}
       />
       <Tab.Screen
-        name="CreditsWallet"
+        name={Routes.CreditsWallet}
         component={CreditsWalletScreen}
         options={{
           title: 'Crédits',
@@ -94,7 +95,7 @@ export default function CarpoolingNavigator() {
       }}
     >
       <Stack.Screen 
-        name="CarpoolingTabs" 
+        name={Routes.CarpoolingTabs} 
         component={CarpoolingTabs}
         options={{
           title: 'Covoiturage',
@@ -102,25 +103,25 @@ export default function CarpoolingNavigator() {
         }}
       />
       <Stack.Screen 
-        name="CarpoolingResults" 
+        name={Routes.CarpoolingResults} 
         component={CarpoolingResultsScreen}
         options={{ title: 'Résultats' }}
       />
       <Stack.Screen 
-        name="RideDetails" 
+        name={Routes.RideDetails} 
         component={RideDetailsScreen}
         options={{ title: 'Détails du trajet' }}
       />
       <Stack.Screen 
-        name="BookRide" 
+        name={Routes.BookRide} 
         component={BookRideScreen}
         options={{ title: 'Réserver' }}
       />
       {/* Anciens écrans (compatibilité) */}
-      <Stack.Screen name="TripCreate" component={TripCreateScreen} />
-      <Stack.Screen name="TripDetails" component={TripDetailsScreen} />
-      <Stack.Screen name="CarpoolingChat" component={CarpoolingChatScreen} />
-      <Stack.Screen name="Rating" component={RatingScreen} />
+      <Stack.Screen name={Routes.TripCreate} component={TripCreateScreen} />
+      <Stack.Screen name={Routes.TripDetails} component={TripDetailsScreen} />
+      <Stack.Screen name={Routes.CarpoolingChat} component={CarpoolingChatScreen} />
+      <Stack.Screen name={Routes.Rating} component={RatingScreen} />
     </Stack.Navigator>
   );
 }

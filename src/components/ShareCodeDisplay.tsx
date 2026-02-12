@@ -99,7 +99,7 @@ export default function ShareCodeDisplay({
                 📱 Comment l'utilisateur rejoint la mission:
               </Text>
               <View style={styles.stepsList}>
-                <Text style={styles.step}>1. Ouvre l'app xCrackz</Text>
+                <Text style={styles.step}>1. Ouvre l'app CHECKSFLEET</Text>
                 <Text style={styles.step}>2. Va dans "Missions"</Text>
                 <Text style={styles.step}>3. Clique "Rejoindre une mission"</Text>
                 <Text style={styles.step}>

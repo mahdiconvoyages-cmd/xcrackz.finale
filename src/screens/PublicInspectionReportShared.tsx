@@ -46,7 +46,23 @@ export default function PublicInspectionReportShared({ route }: PublicInspection
       if (rpcError) throw rpcError;
       if (data?.error) throw new Error(data.error);
 
-      setReportData(data);
+      // Transformer les donnees: le RPC peut retourner { mission, vehicle, timeline }
+      // ou { mission_data, vehicle_data, inspection_departure, inspection_arrival }
+      let transformed = data;
+      if (data.mission && !data.mission_data) {
+        const timeline = data.timeline || [];
+        const departureEvent = timeline.find((e: any) => e.event_type === 'departure_inspection');
+        const arrivalEvent = timeline.find((e: any) => e.event_type === 'arrival_inspection');
+        transformed = {
+          mission_data: data.mission,
+          vehicle_data: data.vehicle,
+          inspection_departure: departureEvent?.data || null,
+          inspection_arrival: arrivalEvent?.data || null,
+          report_type: data.report_type || 'complete',
+        };
+      }
+
+      setReportData(transformed);
     } catch (err: any) {
       console.error('Erreur chargement rapport:', err);
       setError(err.message || 'Impossible de charger le rapport');

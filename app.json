@@ -2,9 +2,10 @@
   "expo": {
     "name": "xCrackz",
     "slug": "xcrackz-mobile",
-    "version": "4.7.0",
+    "version": "6.0.2",
     "scheme": "finality",
     "orientation": "portrait",
+    "jsEngine": "hermes",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "splash": {
@@ -14,7 +15,11 @@
     },
     "owner": "xcrackz123-2",
     "assetBundlePatterns": [
-      "**/*"
+      "assets/images/**/*",
+      "assets/vehicles/**/*",
+      "assets/icon.png",
+      "assets/adaptive-icon.png",
+      "assets/splash.png"
     ],
     "ios": {
       "supportsTablet": true,
@@ -41,6 +46,8 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#0b1220"
       },
+      "enableProguardInReleaseBuilds": true,
+      "enableShrinkResourcesInReleaseBuilds": true,
       "permissions": [
         "ACCESS_FINE_LOCATION",
         "ACCESS_COARSE_LOCATION",

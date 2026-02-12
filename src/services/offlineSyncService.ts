@@ -2,11 +2,15 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { supabase } from '../lib/supabase';
 
+type QueueActionType = 'create' | 'update' | 'delete' | 'rpc';
+
 interface QueuedAction {
   id: string;
-  type: 'create' | 'update' | 'delete';
-  table: string;
-  data: any;
+  type: QueueActionType;
+  table?: string;
+  data?: any;
+  functionName?: string;
+  args?: Record<string, any>;
   timestamp: number;
   retries: number;
 }
@@ -107,6 +111,33 @@ class OfflineSyncService {
     return action.id;
   }
 
+  async queueRpc(functionName: string, args: Record<string, any>): Promise<string> {
+    const action: QueuedAction = {
+      id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      type: 'rpc',
+      functionName,
+      args,
+      timestamp: Date.now(),
+      retries: 0,
+    };
+
+    this.queue.push(action);
+    await this.saveQueue();
+
+    console.log(`🧮 RPC ${functionName} ajouté à la queue offline`);
+
+    this.notifyListeners({
+      status: this.isOnline ? 'syncing' : 'queued',
+      queueLength: this.queue.length,
+    });
+
+    if (this.isOnline) {
+      this.processQueue();
+    }
+
+    return action.id;
+  }
+
   /**
    * Traiter la queue d'actions
    */
@@ -192,6 +223,13 @@ class OfflineSyncService {
           .delete()
           .eq('id', data.id);
         if (deleteError) throw deleteError;
+        break;
+      case 'rpc':
+        if (!action.functionName) {
+          throw new Error('RPC action missing function name');
+        }
+        const { error: rpcError } = await supabase.rpc(action.functionName, action.args ?? {});
+        if (rpcError) throw rpcError;
         break;
     }
   }

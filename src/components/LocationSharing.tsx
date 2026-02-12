@@ -10,6 +10,8 @@ import {
 import * as Location from 'expo-location';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { Linking } from 'react-native';
+import { startBackgroundTracking, stopBackgroundTracking, isTrackingActive } from '../services/gpsTrackingService';
 
 interface LocationSharingProps {
   missionId: string;
@@ -21,10 +23,17 @@ export default function LocationSharing({ missionId }: LocationSharingProps) {
   const [currentSpeed, setCurrentSpeed] = useState(0);
   const [permissionStatus, setPermissionStatus] = useState<string>('');
   const locationSubscription = useRef<Location.LocationSubscription | null>(null);
+  const [isBgTracking, setIsBgTracking] = useState<boolean>(false);
+  const [bgMessage, setBgMessage] = useState<string>('');
 
   // Vérifier les permissions au montage
   useEffect(() => {
     checkPermissions();
+    // Vérifier état du suivi en arrière-plan au montage
+    (async () => {
+      const active = await isTrackingActive();
+      setIsBgTracking(active);
+    })();
     
     return () => {
       // Nettoyer l'abonnement si le composant est démonté
@@ -135,6 +144,49 @@ export default function LocationSharing({ missionId }: LocationSharingProps) {
     }
   };
 
+  // --- Contrôle du suivi en arrière-plan (Task Manager) ---
+  const handleToggleBackground = async () => {
+    try {
+      if (isBgTracking) {
+        const res = await stopBackgroundTracking();
+        setIsBgTracking(false);
+        setBgMessage(res.message || 'Suivi arrêté');
+        Alert.alert('Suivi arrière-plan', res.message || 'Suivi arrêté');
+      } else {
+        // S\u00e9quence Android: d\u2019abord foreground, puis background
+        const { status: fg } = await Location.requestForegroundPermissionsAsync();
+        if (fg !== 'granted') {
+          Alert.alert('Permission requise', 'Autorisez la localisation pour activer le suivi.');
+          return;
+        }
+        if (Platform.OS === 'android') {
+          const { status: bg } = await Location.requestBackgroundPermissionsAsync();
+          if (bg !== 'granted') {
+            Alert.alert(
+              'Permission background',
+              'Autorisez "Toujours" la localisation dans les r\u00e9glages pour activer le suivi en arri\u00e8re-plan.',
+              [
+                { text: 'Annuler', style: 'cancel' },
+                { text: 'Ouvrir les r\u00e9glages', onPress: () => Linking.openSettings() },
+              ]
+            );
+            return;
+          }
+        }
+        const res = await startBackgroundTracking(missionId);
+        setIsBgTracking(res.success);
+        setBgMessage(res.message);
+        if (res.success) {
+          Alert.alert('Suivi arrière-plan', 'Suivi activ\u00e9 et notification affich\u00e9e.');
+        } else if (res.message) {
+          Alert.alert('Suivi arrière-plan', res.message);
+        }
+      }
+    } catch (e: any) {
+      Alert.alert('Erreur', e?.message || 'Action impossible');
+    }
+  };
+
   return (
     <View style={styles.container}>
       <View style={styles.card}>
@@ -167,6 +219,29 @@ export default function LocationSharing({ missionId }: LocationSharingProps) {
           </Text>
         </TouchableOpacity>
 
+        {/* Contrôle suivi en arrière-plan */}
+        <View style={{ height: 12 }} />
+        <View style={styles.bgRow}>
+          <View style={[styles.statusDot, isBgTracking ? styles.statusActive : styles.statusInactive]} />
+          <Text style={styles.bgLabel}>
+            Suivi en arrière-plan {isBgTracking ? '(actif)' : '(inactif)'}
+          </Text>
+        </View>
+        <TouchableOpacity
+          style={[styles.button, isBgTracking ? styles.buttonStop : styles.buttonStart]}
+          onPress={handleToggleBackground}
+        >
+          <Text style={styles.buttonText}>
+            {isBgTracking ? '🛑 Désactiver suivi arrière-plan' : '📡 Activer suivi arrière-plan'}
+          </Text>
+        </TouchableOpacity>
+
+        {!!bgMessage && (
+          <Text style={styles.infoText}>
+            {bgMessage}
+          </Text>
+        )}
+
         {/* Info */}
         {isTracking && (
           <Text style={styles.infoText}>
@@ -191,6 +266,17 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+  },
+  bgRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  bgLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
   },
   statusRow: {
     flexDirection: 'row',

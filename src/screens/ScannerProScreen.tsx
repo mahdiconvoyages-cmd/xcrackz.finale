@@ -17,6 +17,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import { DrawerActions } from '@react-navigation/native';
 import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
@@ -24,6 +25,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import CamScannerLikeScanner from '../components/CamScannerLikeScanner';
 import * as ImageManipulator from 'expo-image-manipulator';
 import { imageFilters } from '../utils/imageFilters';
+import { supabase } from '../lib/supabase';
+import { decode } from 'base64-arraybuffer';
+import { useAuth } from '../contexts/AuthContext';
+import { SyncIndicator } from '../components/SyncIndicator';
 
 const { width } = Dimensions.get('window');
 const CARD_WIDTH = (width - 60) / 2;
@@ -33,10 +38,12 @@ interface ScannedPage {
   uri: string;
   timestamp: number;
   filterApplied?: string; // Nom du filtre appliqué
+  remoteUrl?: string; // URL distante après upload immédiat
 }
 
 export default function ScannerProScreen({ navigation }: any) {
   const { colors } = useTheme();
+  const { user } = useAuth();
   const [scannedPages, setScannedPages] = useState<ScannedPage[]>([]);
   const [isGeneratingPDF, setIsGeneratingPDF] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
@@ -44,6 +51,16 @@ export default function ScannerProScreen({ navigation }: any) {
   const [selectedPageForFilter, setSelectedPageForFilter] = useState<ScannedPage | null>(null);
   const [applyingFilter, setApplyingFilter] = useState(false);
   const [proScannerVisible, setProScannerVisible] = useState(false);
+  const canGoBack = navigation?.canGoBack?.() ?? false;
+
+  const handleHeaderBack = () => {
+    if (canGoBack) {
+      navigation.goBack();
+    } else {
+      navigation.dispatch(DrawerActions.openDrawer());
+    }
+  };
+
 
   // Animations
   const fadeAnim = useRef(new Animated.Value(0)).current;
@@ -99,7 +116,59 @@ export default function ScannerProScreen({ navigation }: any) {
     // Fermer le scanner APRÈS l'ajout
     setProScannerVisible(false);
     
-    Alert.alert('✅ Document scanné', `Page ${scannedPages.length + 1} ajoutée avec succès`);
+    // Upload immédiat pour sauvegarde côté serveur
+    try {
+      const ext = imageUri.split('.').pop() || 'jpg';
+      const contentType = `image/${ext === 'jpg' ? 'jpeg' : ext}`;
+      const fileName = `scanner-${Date.now()}.${ext}`;
+      const filePath = `raw/${user?.id || 'anonymous'}/standalone/${fileName}`;
+
+      const response = await fetch(imageUri);
+      const arrayBuffer = await response.arrayBuffer();
+      const bytes = new Uint8Array(arrayBuffer);
+      let binary = '';
+      for (let i = 0; i < bytes.byteLength; i++) {
+        binary += String.fromCharCode(bytes[i]);
+      }
+      const base64 = btoa(binary);
+
+      const { error: uploadError } = await supabase.storage
+        .from('inspection-documents')
+        .upload(filePath, decode(base64), {
+          contentType,
+          upsert: false,
+        });
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from('inspection-documents')
+        .getPublicUrl(filePath);
+
+      // Enregistrer dans la table inspection_documents pour synchronisation web
+      const { error: dbError } = await supabase
+        .from('inspection_documents')
+        .insert({
+          inspection_id: null, // Document standalone (non lié à une inspection)
+          document_type: 'generic',
+          document_title: `Scan ${new Date().toLocaleDateString('fr-FR')}`,
+          document_url: urlData.publicUrl,
+          pages_count: 1,
+          user_id: user?.id, // IMPORTANT: pour RLS et affichage dans /mes-documents
+        });
+
+      if (dbError) {
+        console.error('❌ Erreur enregistrement DB:', dbError);
+      } else {
+        console.log('✅ Document enregistré dans inspection_documents');
+      }
+
+      // Mettre à jour la page avec l'URL distante
+      setScannedPages((prev) => prev.map(p => p.id === newPage.id ? { ...p, remoteUrl: urlData.publicUrl } : p));
+      Alert.alert('✅ Document scanné', `Page ${scannedPages.length + 1} stockée en sécurité`);
+    } catch (e) {
+      console.error('Erreur upload scan (standalone):', e);
+      Alert.alert('Page ajoutée', 'Stockage distant indisponible pour le moment.');
+    }
   };
 
   const handleRemovePage = (id: string) => {
@@ -429,8 +498,8 @@ export default function ScannerProScreen({ navigation }: any) {
         style={styles.header}
       >
         <View style={styles.headerContent}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
+          <TouchableOpacity onPress={handleHeaderBack} style={styles.backBtn}>
+            <Ionicons name={canGoBack ? 'arrow-back' : 'menu'} size={24} color="#fff" />
           </TouchableOpacity>
           <View style={styles.headerCenter}>
             <View style={styles.headerIconContainer}>
@@ -445,11 +514,14 @@ export default function ScannerProScreen({ navigation }: any) {
               </Text>
             </View>
           </View>
-          {scannedPages.length > 0 && (
-            <TouchableOpacity style={styles.resetButton} onPress={handleResetAll}>
-              <Ionicons name="refresh" size={24} color="#fff" />
-            </TouchableOpacity>
-          )}
+          <View style={styles.headerRight}>
+            <SyncIndicator />
+            {scannedPages.length > 0 && (
+              <TouchableOpacity style={styles.resetButton} onPress={handleResetAll}>
+                <Ionicons name="refresh" size={24} color="#fff" />
+              </TouchableOpacity>
+            )}
+          </View>
         </View>
       </LinearGradient>
 
@@ -621,6 +693,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 14,
+  },
+  headerRight: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
   },
   headerIconContainer: {
     width: 52,

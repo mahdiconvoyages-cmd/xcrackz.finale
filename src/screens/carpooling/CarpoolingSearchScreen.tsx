@@ -13,6 +13,7 @@ import DateTimePicker from '@react-native-community/datetimepicker';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { CovoiturageStackParamList } from '../../types/navigation';
+import { Routes } from '../../navigation/Routes';
 
 type NavigationProp = NativeStackNavigationProp<CovoiturageStackParamList>;
 
@@ -35,12 +36,12 @@ export default function CarpoolingSearchScreen() {
   const [passengers, setPassengers] = useState(1);
 
   const handleSearch = () => {
-    navigation.navigate('CarpoolingResults', {
+    navigation.navigate(Routes.CarpoolingResults as never, {
       departureCity,
       arrivalCity,
       date: date.toISOString(),
       passengers,
-    });
+    } as never);
   };
 
   return (

@@ -14,6 +14,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import type { RouteProp } from '@react-navigation/native';
 import type { CovoiturageStackParamList } from '../../types/navigation';
+import { Routes } from '../../navigation/Routes';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -84,7 +85,7 @@ export default function RideDetailsScreen() {
   };
 
   const handleBooking = () => {
-    navigation.navigate('BookRide', { ride });
+    navigation.navigate(Routes.BookRide as never, { ride } as never);
   };
 
   if (loading) {

@@ -56,7 +56,7 @@ export default function ShareMissionScreen({ route, navigation }: ShareMissionSc
         `À: ${mission.delivery_address}\n\n` +
         `� CODE DE PARTAGE: ${shareCode}\n\n` +
         `Pour rejoindre cette mission:\n` +
-        `1. Ouvrez l'application xCrackz\n` +
+        `1. Ouvrez l'application CHECKSFLEET\n` +
         `2. Allez dans Missions > Rejoindre une mission\n` +
         `3. Entrez le code: ${shareCode}`;
 

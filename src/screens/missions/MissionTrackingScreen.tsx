@@ -153,7 +153,7 @@ export default function MissionTrackingScreen({ route, navigation }: MissionTrac
       return;
     }
 
-    const trackingUrl = `https://xcrackz.com/tracking/${mission.public_tracking_link}`;
+    const trackingUrl = `https://checksfleet.com/tracking/${mission.public_tracking_link}`;
     
     try {
       await Share.share({
@@ -171,7 +171,7 @@ export default function MissionTrackingScreen({ route, navigation }: MissionTrac
       return;
     }
 
-    const trackingUrl = `https://xcrackz.com/tracking/${mission.public_tracking_link}`;
+    const trackingUrl = `https://checksfleet.com/tracking/${mission.public_tracking_link}`;
     Clipboard.setString(trackingUrl);
     Alert.alert('Copié', 'Le lien de suivi a été copié dans le presse-papiers');
   };

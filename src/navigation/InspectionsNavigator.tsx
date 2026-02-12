@@ -4,10 +4,10 @@ import { useTheme } from '../contexts/ThemeContext';
 import MenuButton from '../components/MenuButton';
 
 import InspectionListScreen from '../screens/inspections/InspectionListScreen';
-import InspectionDepartureNew from '../screens/inspections/InspectionDepartureNew';
-import InspectionArrivalNew from '../screens/inspections/InspectionArrivalNew';
-import InspectionReportAdvanced from '../screens/inspections/InspectionReportAdvancedNew';
+import InspectionDepartureScreen from '../screens/inspections/InspectionDeparture';
+import InspectionArrivalScreen from '../screens/inspections/InspectionArrival';
 import InspectionShareScreen from '../screens/inspections/InspectionShareScreen';
+import { Routes } from './Routes';
 
 const Stack = createNativeStackNavigator();
 
@@ -23,7 +23,7 @@ export default function InspectionsNavigator() {
       }}
     >
       <Stack.Screen
-        name="InspectionShare"
+        name={Routes.InspectionShare}
         component={InspectionShareScreen}
         options={{ 
           title: 'Rapports d\'inspection',
@@ -31,25 +31,25 @@ export default function InspectionsNavigator() {
         }}
       />
       <Stack.Screen
-        name="InspectionReportAdvanced"
-        component={InspectionReportAdvanced}
-        options={{ headerShown: false }}
-      />
-      <Stack.Screen
-        name="InspectionList"
+        name={Routes.InspectionList}
         component={InspectionListScreen}
         options={{ 
           title: 'Inspections (ancienne)',
         }}
       />
       <Stack.Screen
-        name="InspectionDeparture"
-        component={InspectionDepartureNew}
+        name={Routes.InspectionDeparture}
+        component={InspectionDepartureScreen}
         options={{ headerShown: false }}
       />
       <Stack.Screen
-        name="InspectionArrival"
-        component={InspectionArrivalNew}
+        name={Routes.InspectionDeparture}
+        component={InspectionDepartureScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name={Routes.InspectionArrival}
+        component={InspectionArrivalScreen}
         options={{ headerShown: false }}
       />
     </Stack.Navigator>

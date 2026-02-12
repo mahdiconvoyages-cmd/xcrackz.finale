@@ -1,17 +1,21 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet } from 'react-native';
 import { supabase } from '../lib/supabase';
-import * as SecureStore from 'expo-secure-store';
 import { Session, User } from '@supabase/supabase-js';
+import { secureStorage } from '../services/secureStorage';
+import { analytics } from '../services/analytics';
+import { crashReporting } from '../services/crashReporting';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   loading: boolean;
   signIn: (email: string, password: string) => Promise<{ error: any }>;
+  signInWithBiometrics: () => Promise<{ error: any }>;
   signUp: (email: string, password: string, userData?: any) => Promise<{ error: any }>;
   signOut: () => Promise<void>;
   updateProfile: (updates: any) => Promise<{ error: any }>;
+  isBiometricAvailable: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -22,6 +26,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
+  const [isBiometricAvailable, setIsBiometricAvailable] = useState(false);
 
   useEffect(() => {
     let mounted = true;
@@ -30,11 +35,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       try {
         console.log('🔍 AuthProvider: useEffect - Starting...');
         
+        // Initialiser les services
+        await crashReporting.init();
+        
+        // Vérifier disponibilité biométrie
+        const biometricAvailable = await secureStorage.isBiometricAvailable();
+        if (mounted) {
+          setIsBiometricAvailable(biometricAvailable);
+        }
+        
         // Récupérer la session initiale
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
         
         if (sessionError) {
           console.error('❌ AuthProvider: getSession error:', sessionError);
+          crashReporting.reportError(sessionError, { context: 'auth_init' });
           throw sessionError;
         }
         
@@ -44,6 +59,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setSession(session);
           setUser(session?.user ?? null);
           setLoading(false);
+          
+          // Configurer analytics et crash reporting avec user
+          if (session?.user) {
+            analytics.setUserId(session.user.id);
+            crashReporting.setUser(session.user.id, {
+              email: session.user.email,
+            });
+          }
         }
         
         // Écouter les changements d'authentification
@@ -56,15 +79,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             setLoading(false);
           }
 
-          // Stocker le token de manière sécurisée
+          // Stocker les tokens de manière sécurisée
           try {
             if (session) {
-              await SecureStore.setItemAsync('supabase_token', session.access_token);
+              await secureStorage.saveAuthToken(session.access_token);
+              await secureStorage.saveRefreshToken(session.refresh_token || '');
+              
+              // Configurer analytics
+              analytics.setUserId(session.user.id);
+              crashReporting.setUser(session.user.id, {
+                email: session.user.email,
+              });
             } else {
-              await SecureStore.deleteItemAsync('supabase_token');
+              await secureStorage.clearTokens();
+              analytics.setUserId(null);
+              crashReporting.setUser(null);
             }
           } catch (storeError) {
             console.error('⚠️ AuthProvider: SecureStore error:', storeError);
+            crashReporting.reportError(storeError as Error, {
+              context: 'auth_token_storage',
+            });
           }
         });
 
@@ -92,11 +127,49 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const signIn = async (email: string, password: string) => {
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-    return { error };
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+      
+      if (!error) {
+        analytics.logLogin('email');
+      } else {
+        crashReporting.reportError(error, { context: 'sign_in' });
+      }
+      
+      return { error };
+    } catch (error) {
+      crashReporting.reportError(error as Error, { context: 'sign_in' });
+      return { error };
+    }
+  };
+
+  const signInWithBiometrics = async () => {
+    try {
+      const token = await secureStorage.getItemWithBiometrics('auth_token');
+      
+      if (!token) {
+        return { error: new Error('No saved token found') };
+      }
+
+      const { data, error } = await supabase.auth.setSession({
+        access_token: token,
+        refresh_token: await secureStorage.getRefreshToken() || '',
+      });
+
+      if (!error) {
+        analytics.logLogin('biometric');
+      } else {
+        crashReporting.reportError(error, { context: 'biometric_login' });
+      }
+
+      return { error };
+    } catch (error) {
+      crashReporting.reportError(error as Error, { context: 'biometric_login' });
+      return { error };
+    }
   };
 
   const signUp = async (email: string, password: string, userData?: any) => {
@@ -111,8 +184,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   };
 
   const signOut = async () => {
-    await supabase.auth.signOut();
-    await SecureStore.deleteItemAsync('supabase_token');
+    try {
+      analytics.logLogout();
+      await supabase.auth.signOut();
+      await secureStorage.clearTokens();
+    } catch (error) {
+      crashReporting.reportError(error as Error, { context: 'sign_out' });
+    }
   };
 
   const updateProfile = async (updates: any) => {
@@ -133,9 +211,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         session,
         loading,
         signIn,
+        signInWithBiometrics,
         signUp,
         signOut,
         updateProfile,
+        isBiometricAvailable,
       }}
     >
       {loading ? (

@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme } from '../../contexts/ThemeContext';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
+import { Routes } from '../../navigation/Routes';
 
 interface Inspection {
   id: string;
@@ -99,9 +100,9 @@ export default function InspectionListScreen({ navigation }: any) {
       style={[styles.card, { backgroundColor: colors.surface }]}
       onPress={() => {
         if (item.inspection_type === 'departure') {
-          navigation.navigate('InspectionDeparture', { missionId: item.mission_id });
+          navigation.navigate(Routes.InspectionDeparture as never, { missionId: item.mission_id } as never);
         } else {
-          navigation.navigate('InspectionArrival', { missionId: item.mission_id });
+          navigation.navigate(Routes.InspectionArrival as never, { missionId: item.mission_id } as never);
         }
       }}
     >

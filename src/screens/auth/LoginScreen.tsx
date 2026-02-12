@@ -11,11 +11,15 @@ import {
   Dimensions,
   Animated,
   Easing,
+  Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../contexts/AuthContext';
 import { LinearGradient } from 'expo-linear-gradient';
 import AppLogo from '../../components/AppLogo';
+import { analytics } from '../../services/analytics';
+import { crashReporting } from '../../services/crashReporting';
+import { createAccessibilityProps } from '../../hooks/useAccessibility';
 
 const { width, height } = Dimensions.get('window');
 
@@ -27,7 +31,7 @@ export default function LoginScreen() {
   const [error, setError] = useState('');
   const [focusedInput, setFocusedInput] = useState<string | null>(null);
 
-  const { signIn } = useAuth();
+  const { signIn, signInWithBiometrics, isBiometricAvailable } = useAuth();
 
   // Animations
   const logoScale = useRef(new Animated.Value(0)).current;
@@ -161,7 +165,7 @@ export default function LoginScreen() {
               colors={['#ffffff', '#e0f2fe']}
               style={styles.brandNameGradient}
             >
-              <Text style={styles.brandName}>xCrackz</Text>
+              <Text style={styles.brandName}>CHECKSFLEET</Text>
             </LinearGradient>
             
             <Text style={styles.subtitle}>Votre solution de gestion professionnelle</Text>
@@ -356,7 +360,7 @@ export default function LoginScreen() {
           <View style={styles.footer}>
             <View style={styles.divider}>
               <View style={styles.dividerLine} />
-              <Text style={styles.dividerText}>xCrackz © 2025</Text>
+              <Text style={styles.dividerText}>CHECKSFLEET © 2025</Text>
               <View style={styles.dividerLine} />
             </View>
             <Text style={styles.footerText}>

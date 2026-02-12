@@ -561,7 +561,7 @@ export default function MissionViewScreen({ route, navigation }: MissionViewScre
                   onPress={async () => {
                     try {
                       await Share.share({
-                        message: `Rejoignez ma mission de convoyage !\n\nCode: ${mission.share_code}\n\nOuvrez l'app FleetCheck et utilisez "Rejoindre mission" pour accepter.`,
+                        message: `Rejoignez ma mission de convoyage !\n\nCode: ${mission.share_code}\n\nOuvrez l'app CHECKSFLEET et utilisez "Rejoindre mission" pour accepter.`,
                         title: 'Partager mission',
                       });
                     } catch (error: any) {

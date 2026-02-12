@@ -122,7 +122,7 @@ export async function startBackgroundTracking(missionId: string): Promise<{ succ
       distanceInterval: 0, // Pas de filtre par distance (on veut toutes les positions)
       foregroundService: {
         notificationTitle: 'Suivi GPS actif',
-        notificationBody: 'xCRACKZ suit votre position pour la mission',
+        notificationBody: 'CHECKSFLEET suit votre position pour la mission',
         notificationColor: '#2563EB',
       },
       pausesUpdatesAutomatically: false, // Ne pas mettre en pause automatiquement
@@ -213,7 +213,7 @@ async function generatePublicTrackingLink(missionId: string): Promise<string> {
     }
 
     // URL publique (à adapter selon votre domaine)
-    return `https://xcrackz.com/tracking/${trackingToken}`;
+    return `https://checksfleet.com/tracking/${trackingToken}`;
   } catch (error) {
     console.error('Error generating tracking link:', error);
     return '';

@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
+import { offlineSyncService } from '../services/offlineSyncService';
 import { useAuth } from '../contexts/AuthContext';
 
 export interface CreditInfo {
@@ -93,6 +94,22 @@ export function useCredits(): CreditInfo & {
 
     console.log(`💳 Déduction de ${amount} crédit(s) pour: ${reason}`);
 
+    const queueDeductionOffline = async () => {
+      console.log('📥 Déduction crédit mise en file offline');
+      await offlineSyncService.queueRpc('deduct_credits', {
+        p_user_id: user.id,
+        p_amount: amount,
+        p_description: reason,
+      });
+      setCredits((prev) => Math.max((prev ?? 0) - amount, 0));
+      return { success: true };
+    };
+
+    const currentStatus = offlineSyncService.getStatus();
+    if (currentStatus.isOnline === false) {
+      return queueDeductionOffline();
+    }
+
     try {
       const { data, error } = await supabase.rpc('deduct_credits', {
         p_user_id: user.id,
@@ -118,6 +135,10 @@ export function useCredits(): CreditInfo & {
       return { success: true };
     } catch (error: any) {
       console.error('❌ Erreur déduction crédits:', error);
+      const message = error?.message?.toLowerCase?.() || '';
+      if (message.includes('fetch') || message.includes('network') || message.includes('timeout')) {
+        return queueDeductionOffline();
+      }
       return { success: false, error: error.message };
     }
   };

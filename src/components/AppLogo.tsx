@@ -1,6 +1,7 @@
 import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import LogoSvg from '../../assets/images/logo.svg';
+import { View, StyleSheet, Image } from 'react-native';
+
+const LogoPng = require('../../assets/images/logo.png');
 
 interface AppLogoProps {
   size?: number; // width/height in px
@@ -10,7 +11,7 @@ interface AppLogoProps {
 export default function AppLogo({ size = 40, rounded = 12 }: AppLogoProps) {
   return (
     <View style={[styles.container, { width: size, height: size, borderRadius: rounded }]}> 
-      <LogoSvg width={size} height={size} />
+      <Image source={LogoPng} style={{ width: size, height: size }} resizeMode="contain" />
     </View>
   );
 }

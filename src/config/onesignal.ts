@@ -1,7 +1,7 @@
 /**
  * OneSignal Configuration
  * 
- * Service de notifications push pour xCrackz
+ * Service de notifications push pour CHECKSFLEET
  * - Notifications missions
  * - Alertes temps réel
  * - Messages système

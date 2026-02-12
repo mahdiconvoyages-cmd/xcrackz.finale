@@ -8,7 +8,7 @@ import type { NavigationProp } from '@react-navigation/native';
  * 
  * Formats supportés:
  * - finality://mission/open/{missionId}
- * - https://www.xcrackz.com/mission/{missionId}
+ * - https://www.checksfleet.com/mission/{missionId}
  */
 export function useDeeplinkMission() {
   const navigation = useNavigation<NavigationProp<any>>();
@@ -70,8 +70,8 @@ export function useDeeplinkMission() {
         }
       }
 
-      // Format: https://www.xcrackz.com/mission/{missionId}
-      if (url.includes('xcrackz.com/mission/')) {
+      // Format: https://www.checksfleet.com/mission/{missionId}
+      if (url.includes('checksfleet.com/mission/')) {
         const match = url.match(/\/mission\/([a-f0-9-]+)/i);
         if (match && match[1]) {
           const missionId = match[1];

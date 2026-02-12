@@ -629,6 +629,22 @@ export default function MissionViewScreenNew({ route, navigation }: any) {
                   </LinearGradient>
                 </TouchableOpacity>
               )}
+
+              {mission.status === 'completed' && (
+                <TouchableOpacity
+                  style={styles.completeButton}
+                  onPress={() => navigation.navigate('InvoiceCreate', { mission })}
+                >
+                  <LinearGradient
+                    colors={['#8b5cf6', '#7c3aed'] as any}
+                    style={styles.completeGradient}
+                  >
+                    <Ionicons name="receipt" size={28} color="#fff" />
+                    <Text style={styles.completeText}>Créer une facture</Text>
+                    <Ionicons name="arrow-forward" size={24} color="#fff" />
+                  </LinearGradient>
+                </TouchableOpacity>
+              )}
             </LinearGradient>
           </Animated.View>
 

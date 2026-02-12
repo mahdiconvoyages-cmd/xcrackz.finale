@@ -1,4 +1,4 @@
-// Missions - écran principal (version moderne premium)
+// Convoyages - écran principal (version moderne premium)
 
 import React, { useEffect, useState } from 'react';
 import {
@@ -10,7 +10,6 @@ import {
   RefreshControl,
   Alert,
   ActivityIndicator,
-  Animated,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -19,6 +18,9 @@ import { useAuth } from '../../contexts/AuthContext';
 import { supabase } from '../../lib/supabase';
 import JoinMissionByCode from '../../components/JoinMissionByCode';
 import { Routes } from '../../navigation/Routes';
+import { analytics } from '../../services/analytics';
+import { crashReporting } from '../../services/crashReporting';
+import { createAccessibilityProps } from '../../hooks/useAccessibility';
 
 interface Mission {
   id: string;
@@ -37,25 +39,32 @@ interface Mission {
   assigned_user_id?: string;
   archived?: boolean;
   share_code?: string;
+  creator?: {
+    id: string;
+    full_name: string;
+    email: string;
+  };
+  assigned?: {
+    id: string;
+    full_name: string;
+    email: string;
+  };
 }
 
-type TabType = 'created' | 'received';
-type StatusFilter = 'all' | 'pending' | 'in_progress' | 'completed';
+type TabType = 'active' | 'completed' | 'received';
 
 export default function MissionsScreenNew({ navigation }: any) {
   const { colors } = useTheme();
   const { user } = useAuth();
   
-  const [activeTab, setActiveTab] = useState<TabType>('created');
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
-  const [createdMissions, setCreatedMissions] = useState<Mission[]>([]);
-  const [receivedMissions, setReceivedMissions] = useState<Mission[]>([]);
+  const [activeTab, setActiveTab] = useState<TabType>('active');
+  const [missions, setMissions] = useState<Mission[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
-  const [tabAnimation] = useState(new Animated.Value(0));
 
   useEffect(() => {
+    analytics.logScreenView('MissionsScreen');
     loadMissions();
   }, []);
 
@@ -66,44 +75,47 @@ export default function MissionsScreenNew({ navigation }: any) {
     }
 
     setLoading(true);
+    const startTime = Date.now();
+    
     try {
-      console.log('📥 Chargement missions pour user:', user.id);
+      console.log('📥 Chargement convoyages pour user:', user.id);
+      crashReporting.addBreadcrumb('Loading missions', 'data', { userId: user.id });
 
-      // MISSIONS CRÉÉES PAR MOI
-      const { data: created, error: createdError } = await supabase
+      // Charger TOUTES les missions (créées + reçues)
+      const { data: allMissions, error } = await supabase
         .from('missions')
-        .select('*')
-        .eq('user_id', user.id)
+        .select(`
+          *,
+          creator:users!missions_user_id_fkey(id, full_name, email),
+          assigned:users!missions_assigned_user_id_fkey(id, full_name, email)
+        `)
+        .or(`user_id.eq.${user.id},assigned_user_id.eq.${user.id}`)
         .or('archived.is.null,archived.eq.false')
         .order('created_at', { ascending: false });
 
-      if (createdError) {
-        console.error('❌ Erreur missions créées:', createdError);
-        throw createdError;
+      if (error) {
+        console.error('❌ Erreur chargement missions:', error);
+        crashReporting.reportError(error, {
+          screen: 'MissionsScreen',
+          action: 'load_missions',
+        });
+        throw error;
       }
 
-      console.log('✅ Missions créées:', created?.length || 0);
-      setCreatedMissions(created || []);
+      console.log('✅ Missions chargées:', allMissions?.length || 0);
+      setMissions(allMissions || []);
 
-      // MISSIONS ASSIGNÉES À MOI
-      const { data: received, error: receivedError } = await supabase
-        .from('missions')
-        .select('*')
-        .eq('assigned_user_id', user.id)
-        .or('archived.is.null,archived.eq.false')
-        .order('created_at', { ascending: false });
-
-      if (receivedError) {
-        console.error('❌ Erreur missions reçues:', receivedError);
-        throw receivedError;
-      }
-
-      console.log('✅ Missions reçues:', received?.length || 0);
-      setReceivedMissions(received || []);
+      // Log performance
+      const duration = Date.now() - startTime;
+      analytics.logPerformance('MissionsScreen', duration);
 
     } catch (error: any) {
       console.error('❌ Erreur chargement:', error);
-      Alert.alert('Erreur', 'Impossible de charger les missions');
+      Alert.alert('Erreur', 'Impossible de charger les convoyages');
+      crashReporting.reportError(error, {
+        screen: 'MissionsScreen',
+        action: 'load_missions',
+      });
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -142,36 +154,26 @@ export default function MissionsScreenNew({ navigation }: any) {
     }
   };
 
-  // Filtrer les missions selon le statut sélectionné
+  // Filtrer les missions selon l'onglet actif
   const getFilteredMissions = () => {
-    const baseMissions = activeTab === 'created' ? createdMissions : receivedMissions;
-    
-    if (statusFilter === 'all') {
-      return baseMissions.filter(m => m.status !== 'completed');
+    if (activeTab === 'active') {
+      // Actifs: missions en attente OU en cours (créées par moi + reçues)
+      return missions.filter(m => 
+        (m.status === 'pending' || m.status === 'in_progress')
+      );
+    } else if (activeTab === 'completed') {
+      // Terminées: missions avec status='completed' (créées par moi + reçues)
+      return missions.filter(m => m.status === 'completed');
+    } else {
+      // Reçues: missions où assigned_user_id = mon id (toutes)
+      return missions.filter(m => m.assigned_user_id === user?.id);
     }
-    
-    return baseMissions.filter(m => m.status === statusFilter);
-  };
-
-  // Compter les missions par statut
-  const getStatusCount = (status: StatusFilter) => {
-    const baseMissions = activeTab === 'created' ? createdMissions : receivedMissions;
-    
-    if (status === 'all') {
-      return baseMissions.filter(m => m.status !== 'completed').length;
-    }
-    
-    return baseMissions.filter(m => m.status === status).length;
-  };
-
-  const getCompletedMissionsCount = () => {
-    const baseMissions = activeTab === 'created' ? createdMissions : receivedMissions;
-    return baseMissions.filter(m => m.status === 'completed').length;
   };
 
   const renderMissionCard = ({ item: mission }: { item: Mission }) => {
     const isCreator = mission.user_id === user?.id;
     const isCompleted = mission.status === 'completed';
+    const isReceived = mission.assigned_user_id === user?.id;
     
     return (
       <TouchableOpacity
@@ -180,8 +182,19 @@ export default function MissionsScreenNew({ navigation }: any) {
           { backgroundColor: colors.surface },
           isCompleted && styles.completedCard
         ]}
-        onPress={() => navigation.navigate(Routes.MissionView as any, { missionId: mission.id })}
+        onPress={() => {
+          analytics.logEvent('mission_card_clicked', {
+            mission_id: mission.id,
+            status: mission.status,
+          });
+          navigation.navigate(Routes.MissionView as any, { missionId: mission.id });
+        }}
         activeOpacity={0.7}
+        {...createAccessibilityProps(
+          `Convoyage ${mission.reference}`,
+          `${mission.vehicle_brand} ${mission.vehicle_model}, statut: ${getStatusLabel(mission.status)}`,
+          'button'
+        )}
       >
         {/* Gradient accent top */}
         <LinearGradient
@@ -196,6 +209,16 @@ export default function MissionsScreenNew({ navigation }: any) {
           <View style={styles.completedOverlay}>
             <Ionicons name="checkmark-circle" size={20} color="#4CAF50" />
             <Text style={styles.completedOverlayText}>Terminée</Text>
+          </View>
+        )}
+
+        {/* Badge "Assigné par" pour onglet Reçues */}
+        {activeTab === 'received' && mission.creator && (
+          <View style={[styles.assignedByBadge, { backgroundColor: colors.primary }]}>
+            <Ionicons name="person" size={12} color="#fff" />
+            <Text style={styles.assignedByText}>
+              Assigné par {mission.creator.full_name}
+            </Text>
           </View>
         )}
 
@@ -258,7 +281,7 @@ export default function MissionsScreenNew({ navigation }: any) {
           </View>
         </View>
 
-        {/* Footer */}
+        {/* Footer avec boutons d'action */}
         <View style={styles.footer}>
           <View style={styles.footerLeft}>
             <LinearGradient
@@ -284,11 +307,66 @@ export default function MissionsScreenNew({ navigation }: any) {
           </View>
         </View>
 
-        {/* Badge mission reçue */}
-        {!isCreator && (
+        {/* Boutons d'action selon le statut */}
+        {mission.status === 'pending' && (
+          <View style={styles.actionButtonContainer}>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: colors.primary }]}
+              onPress={() => navigation.navigate(Routes.InspectionDeparture as any, { missionId: mission.id })}
+            >
+              <Ionicons name="play-circle" size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Démarrer inspection départ</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {mission.status === 'in_progress' && (
+          <View style={styles.actionButtonContainer}>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: '#4CAF50' }]}
+              onPress={() => navigation.navigate(Routes.InspectionArrival as any, { missionId: mission.id })}
+            >
+              <Ionicons name="checkmark-circle" size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Démarrer inspection arrivée</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {mission.status === 'completed' && mission.public_link && (
+          <View style={styles.actionButtonContainer}>
+            <TouchableOpacity
+              style={[styles.actionButton, { backgroundColor: '#2196F3' }]}
+              onPress={() => {
+                // Ouvrir le rapport public
+                if (mission.public_link) {
+                  Alert.alert(
+                    'Rapport Public',
+                    'Ouvrir le rapport public de ce convoyage ?',
+                    [
+                      { text: 'Annuler', style: 'cancel' },
+                      { 
+                        text: 'Ouvrir', 
+                        onPress: () => {
+                          // TODO: Implémenter l'ouverture du lien public
+                          console.log('Ouvrir lien public:', mission.public_link);
+                        }
+                      }
+                    ]
+                  );
+                }
+              }}
+            >
+              <Ionicons name="document-text" size={20} color="#fff" />
+              <Text style={styles.actionButtonText}>Voir le rapport public</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
+        {/* Badge mission reçue avec nom du créateur */}
+        {isReceived && !isCreator && mission.creator && (
           <View style={[styles.assignedBadge, { backgroundColor: colors.primary }]}>
             <Ionicons name="arrow-down" size={12} color="#fff" />
-            <Text style={styles.assignedText}>Reçue</Text>
+            <Text style={styles.assignedText}>Assigné par {mission.creator.full_name}</Text>
           </View>
         )}
       </TouchableOpacity>
@@ -296,51 +374,18 @@ export default function MissionsScreenNew({ navigation }: any) {
   };
 
   const renderEmptyState = () => {
-    const isCreatedTab = activeTab === 'created';
-    
-    // État vide spécial pour les missions terminées
-    if (statusFilter === 'completed') {
+    if (activeTab === 'active') {
       return (
         <View style={styles.emptyState}>
-          <View style={[styles.emptyIconContainer, { backgroundColor: '#4CAF5010' }]}>
-            <Ionicons 
-              name="checkmark-circle" 
-              size={48} 
-              color="#4CAF50" 
-            />
+          <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary + '10' }]}>
+            <Ionicons name="rocket-outline" size={48} color={colors.primary} />
           </View>
           <Text style={[styles.emptyTitle, { color: colors.text }]}>
-            Aucune mission terminée
+            Aucun convoyage actif
           </Text>
           <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-            Les missions que vous terminerez apparaîtront ici
+            Créez votre premier convoyage pour commencer
           </Text>
-        </View>
-      );
-    }
-    
-    return (
-      <View style={styles.emptyState}>
-        <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary + '10' }]}>
-          <Ionicons 
-            name={isCreatedTab ? "rocket-outline" : "mail-open-outline"} 
-            size={48} 
-            color={colors.primary} 
-          />
-        </View>
-        <Text style={[styles.emptyTitle, { color: colors.text }]}>
-          {statusFilter === 'pending' && 'Aucune mission en attente'}
-          {statusFilter === 'in_progress' && 'Aucune mission en cours'}
-          {statusFilter === 'all' && (isCreatedTab ? 'Aucune mission créée' : 'Aucune mission reçue')}
-        </Text>
-        <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
-          {isCreatedTab 
-            ? 'Créez votre première mission pour commencer' 
-            : 'Les missions partagées avec vous apparaîtront ici'
-          }
-        </Text>
-        
-        {isCreatedTab ? (
           <TouchableOpacity
             style={styles.emptyActionButton}
             onPress={() => navigation.navigate(Routes.MissionCreate as any)}
@@ -352,10 +397,38 @@ export default function MissionsScreenNew({ navigation }: any) {
               end={{ x: 1, y: 0 }}
             >
               <Ionicons name="add-circle" size={20} color="#fff" />
-              <Text style={styles.emptyActionText}>Créer une mission</Text>
+              <Text style={styles.emptyActionText}>Créer un convoyage</Text>
             </LinearGradient>
           </TouchableOpacity>
-        ) : (
+        </View>
+      );
+    } else if (activeTab === 'completed') {
+      return (
+        <View style={styles.emptyState}>
+          <View style={[styles.emptyIconContainer, { backgroundColor: '#4CAF5010' }]}>
+            <Ionicons name="checkmark-circle" size={48} color="#4CAF50" />
+          </View>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            Aucun convoyage terminé
+          </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+            Les convoyages que vous terminerez apparaîtront ici
+          </Text>
+        </View>
+      );
+    } else {
+      // Tab 'received'
+      return (
+        <View style={styles.emptyState}>
+          <View style={[styles.emptyIconContainer, { backgroundColor: colors.primary + '10' }]}>
+            <Ionicons name="mail-open-outline" size={48} color={colors.primary} />
+          </View>
+          <Text style={[styles.emptyTitle, { color: colors.text }]}>
+            Aucun convoyage reçu
+          </Text>
+          <Text style={[styles.emptySubtitle, { color: colors.textSecondary }]}>
+            Les convoyages partagés avec vous apparaîtront ici
+          </Text>
           <TouchableOpacity
             style={styles.emptyActionButton}
             onPress={() => setShowJoinModal(true)}
@@ -367,86 +440,15 @@ export default function MissionsScreenNew({ navigation }: any) {
               end={{ x: 1, y: 0 }}
             >
               <Ionicons name="enter" size={20} color="#fff" />
-              <Text style={styles.emptyActionText}>Rejoindre une mission</Text>
+              <Text style={styles.emptyActionText}>Rejoindre un convoyage</Text>
             </LinearGradient>
           </TouchableOpacity>
-        )}
-      </View>
-    );
-  };
-
-  const renderStatusFilters = () => {
-    const filters: { id: StatusFilter; label: string; icon: string }[] = [
-      { id: 'all', label: 'Actives', icon: 'list-outline' },
-      { id: 'pending', label: 'En attente', icon: 'time-outline' },
-      { id: 'in_progress', label: 'En cours', icon: 'play-circle-outline' },
-    ];
-
-    return (
-      <View style={[styles.filtersContainer, { backgroundColor: colors.background }]}>
-        <View style={styles.filtersScroll}>
-          {filters.map((filter) => (
-            <TouchableOpacity
-              key={filter.id}
-              style={[
-                styles.filterChip,
-                statusFilter === filter.id && [styles.filterChipActive, { backgroundColor: colors.primary }],
-                statusFilter !== filter.id && { backgroundColor: colors.surface, borderColor: colors.border }
-              ]}
-              onPress={() => setStatusFilter(filter.id)}
-              activeOpacity={0.7}
-            >
-              <Ionicons
-                name={filter.icon as any}
-                size={16}
-                color={statusFilter === filter.id ? '#fff' : colors.textSecondary}
-              />
-              <Text
-                style={[
-                  styles.filterChipText,
-                  { color: statusFilter === filter.id ? '#fff' : colors.text }
-                ]}
-              >
-                {filter.label}
-              </Text>
-              {getStatusCount(filter.id) > 0 && (
-                <View style={[
-                  styles.filterBadge,
-                  { backgroundColor: statusFilter === filter.id ? '#fff' : colors.primary }
-                ]}>
-                  <Text style={[
-                    styles.filterBadgeText,
-                    { color: statusFilter === filter.id ? colors.primary : '#fff' }
-                  ]}>
-                    {getStatusCount(filter.id)}
-                  </Text>
-                </View>
-              )}
-            </TouchableOpacity>
-          ))}
         </View>
-
-        {/* Bouton missions terminées */}
-        {getCompletedMissionsCount() > 0 && (
-          <TouchableOpacity
-            style={[styles.completedButton, { backgroundColor: colors.surface, borderColor: colors.border }]}
-            onPress={() => {
-              setStatusFilter('completed');
-            }}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="archive-outline" size={18} color="#4CAF50" />
-            <Text style={[styles.completedButtonText, { color: colors.text }]}>
-              Terminées ({getCompletedMissionsCount()})
-            </Text>
-            <Ionicons name="chevron-forward" size={16} color={colors.textSecondary} />
-          </TouchableOpacity>
-        )}
-      </View>
-    );
+      );
+    }
   };
 
-  const missions = getFilteredMissions();
+  const filteredMissions = getFilteredMissions();
 
   return (
     <View style={[styles.container, { backgroundColor: colors.background }]}>
@@ -460,7 +462,7 @@ export default function MissionsScreenNew({ navigation }: any) {
         <View style={styles.headerContent}>
           <View>
             <Text style={styles.headerSubtitle}>Gestion</Text>
-            <Text style={styles.headerTitle}>Mes Missions</Text>
+            <Text style={styles.headerTitle}>Mes Convoyages</Text>
           </View>
           
           <View style={styles.headerActions}>
@@ -475,7 +477,15 @@ export default function MissionsScreenNew({ navigation }: any) {
             
             <TouchableOpacity
               style={styles.headerButton}
-              onPress={() => navigation.navigate(Routes.MissionCreate as any)}
+              onPress={() => {
+                analytics.logEvent('create_mission_button_clicked');
+                navigation.navigate(Routes.MissionCreate as any);
+              }}
+              {...createAccessibilityProps(
+                'Créer un convoyage',
+                'Créer un nouveau convoyage',
+                'button'
+              )}
             >
               <Ionicons name="add" size={22} color="#fff" />
             </TouchableOpacity>
@@ -483,40 +493,76 @@ export default function MissionsScreenNew({ navigation }: any) {
         </View>
       </LinearGradient>
 
-      {/* Tabs modernes */}
+      {/* Tabs modernes - 3 onglets */}
       <View style={[styles.tabsContainer, { backgroundColor: colors.surface }]}>
         <View style={[styles.tabsWrapper, { backgroundColor: colors.background }]}>
           <TouchableOpacity
             style={[
               styles.modernTab,
-              activeTab === 'created' && [styles.modernTabActive, { backgroundColor: colors.primary }]
+              activeTab === 'active' && [styles.modernTabActive, { backgroundColor: colors.primary }]
             ]}
-            onPress={() => setActiveTab('created')}
+            onPress={() => setActiveTab('active')}
             activeOpacity={0.7}
           >
             <Ionicons 
-              name="briefcase" 
+              name="flash" 
               size={18} 
-              color={activeTab === 'created' ? '#fff' : colors.textSecondary} 
+              color={activeTab === 'active' ? '#fff' : colors.textSecondary} 
             />
             <Text
               style={[
                 styles.modernTabText,
-                { color: activeTab === 'created' ? '#fff' : colors.textSecondary }
+                { color: activeTab === 'active' ? '#fff' : colors.textSecondary }
               ]}
             >
-              Créées
+              Actifs
             </Text>
-            {createdMissions.length > 0 && (
+            {missions.filter(m => m.status === 'pending' || m.status === 'in_progress').length > 0 && (
               <View style={[
                 styles.tabBadge,
-                { backgroundColor: activeTab === 'created' ? '#fff' : colors.primary }
+                { backgroundColor: activeTab === 'active' ? '#fff' : colors.primary }
               ]}>
                 <Text style={[
                   styles.tabBadgeText,
-                  { color: activeTab === 'created' ? colors.primary : '#fff' }
+                  { color: activeTab === 'active' ? colors.primary : '#fff' }
                 ]}>
-                  {createdMissions.length}
+                  {missions.filter(m => m.status === 'pending' || m.status === 'in_progress').length}
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.modernTab,
+              activeTab === 'completed' && [styles.modernTabActive, { backgroundColor: colors.primary }]
+            ]}
+            onPress={() => setActiveTab('completed')}
+            activeOpacity={0.7}
+          >
+            <Ionicons 
+              name="checkmark-done" 
+              size={18} 
+              color={activeTab === 'completed' ? '#fff' : colors.textSecondary} 
+            />
+            <Text
+              style={[
+                styles.modernTabText,
+                { color: activeTab === 'completed' ? '#fff' : colors.textSecondary }
+              ]}
+            >
+              Terminées
+            </Text>
+            {missions.filter(m => m.status === 'completed').length > 0 && (
+              <View style={[
+                styles.tabBadge,
+                { backgroundColor: activeTab === 'completed' ? '#fff' : colors.primary }
+              ]}>
+                <Text style={[
+                  styles.tabBadgeText,
+                  { color: activeTab === 'completed' ? colors.primary : '#fff' }
+                ]}>
+                  {missions.filter(m => m.status === 'completed').length}
                 </Text>
               </View>
             )}
@@ -543,7 +589,7 @@ export default function MissionsScreenNew({ navigation }: any) {
             >
               Reçues
             </Text>
-            {receivedMissions.length > 0 && (
+            {missions.filter(m => m.assigned_user_id === user?.id).length > 0 && (
               <View style={[
                 styles.tabBadge,
                 { backgroundColor: activeTab === 'received' ? '#fff' : colors.primary }
@@ -552,7 +598,7 @@ export default function MissionsScreenNew({ navigation }: any) {
                   styles.tabBadgeText,
                   { color: activeTab === 'received' ? colors.primary : '#fff' }
                 ]}>
-                  {receivedMissions.length}
+                  {missions.filter(m => m.assigned_user_id === user?.id).length}
                 </Text>
               </View>
             )}
@@ -560,46 +606,17 @@ export default function MissionsScreenNew({ navigation }: any) {
         </View>
       </View>
 
-      {/* Filtres de statut */}
-      {renderStatusFilters()}
-
-      {/* En-tête section terminées */}
-      {statusFilter === 'completed' && missions.length > 0 && (
-        <View style={[styles.completedHeader, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-          <View style={styles.completedHeaderLeft}>
-            <View style={[styles.completedIconBox, { backgroundColor: '#4CAF5015' }]}>
-              <Ionicons name="checkmark-done-circle" size={24} color="#4CAF50" />
-            </View>
-            <View>
-              <Text style={[styles.completedHeaderTitle, { color: colors.text }]}>
-                Missions Terminées
-              </Text>
-              <Text style={[styles.completedHeaderSubtitle, { color: colors.textSecondary }]}>
-                {missions.length} mission{missions.length > 1 ? 's' : ''} terminée{missions.length > 1 ? 's' : ''}
-              </Text>
-            </View>
-          </View>
-          <TouchableOpacity
-            style={[styles.backToActiveButton, { backgroundColor: colors.primary + '15' }]}
-            onPress={() => setStatusFilter('all')}
-          >
-            <Ionicons name="arrow-back" size={18} color={colors.primary} />
-            <Text style={[styles.backToActiveText, { color: colors.primary }]}>Actives</Text>
-          </TouchableOpacity>
-        </View>
-      )}
-
       {/* Liste */}
       {loading ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
           <Text style={[styles.loadingText, { color: colors.textSecondary }]}>
-            Chargement des missions...
+            Chargement des convoyages...
           </Text>
         </View>
       ) : (
         <FlatList
-          data={missions}
+          data={filteredMissions}
           renderItem={renderMissionCard}
           keyExtractor={item => item.id}
           contentContainerStyle={styles.listContent}
@@ -686,9 +703,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingHorizontal: 12,
     borderRadius: 10,
-    gap: 8,
+    gap: 6,
   },
   modernTabActive: {
     shadowColor: '#000',
@@ -698,13 +715,13 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   modernTabText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   tabBadge: {
-    minWidth: 22,
-    height: 22,
-    borderRadius: 11,
+    minWidth: 20,
+    height: 20,
+    borderRadius: 10,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 6,
@@ -712,106 +729,6 @@ const styles = StyleSheet.create({
   tabBadgeText: {
     fontSize: 11,
     fontWeight: 'bold',
-  },
-  // Filtres de statut
-  filtersContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-    gap: 12,
-  },
-  filtersScroll: {
-    flexDirection: 'row',
-    gap: 8,
-  },
-  filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 20,
-    gap: 6,
-    borderWidth: 1,
-  },
-  filterChipActive: {
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  filterChipText: {
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  filterBadge: {
-    minWidth: 18,
-    height: 18,
-    borderRadius: 9,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 5,
-  },
-  filterBadgeText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  completedButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 12,
-    gap: 10,
-    borderWidth: 1,
-  },
-  completedButtonText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  // En-tête missions terminées
-  completedHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginHorizontal: 16,
-    marginBottom: 12,
-    padding: 16,
-    borderRadius: 12,
-    borderWidth: 1,
-  },
-  completedHeaderLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  completedIconBox: {
-    width: 48,
-    height: 48,
-    borderRadius: 12,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  completedHeaderTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  completedHeaderSubtitle: {
-    fontSize: 12,
-    marginTop: 2,
-  },
-  backToActiveButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-  },
-  backToActiveText: {
-    fontSize: 13,
-    fontWeight: '600',
   },
   // Liste
   listContent: {
@@ -848,6 +765,23 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 12,
     fontWeight: '700',
+  },
+  assignedByBadge: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    zIndex: 10,
+  },
+  assignedByText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '600',
   },
   cardGradient: {
     position: 'absolute',
@@ -1005,22 +939,24 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '500',
   },
-  // Badge mission reçue
-  assignedBadge: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
+  // Boutons d'action
+  actionButtonContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
+  actionButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 4,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    borderRadius: 10,
   },
-  assignedText: {
-    fontSize: 11,
-    fontWeight: '600',
+  actionButtonText: {
     color: '#fff',
+    fontSize: 15,
+    fontWeight: '600',
   },
   // Loading
   loadingContainer: {

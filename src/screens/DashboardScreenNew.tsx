@@ -13,13 +13,14 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { DrawerActions, useFocusEffect, useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { useCredits } from '../hooks/useCredits';
 import { useSubscription } from '../hooks/useSubscription';
+import { SyncIndicator } from '../components/SyncIndicator';
 
 interface DashboardStats {
   totalMissions: number;
@@ -120,6 +121,7 @@ export default function DashboardScreenNew() {
   const [recentMissions, setRecentMissions] = useState<RecentMission[]>([]);
   const [monthlyData, setMonthlyData] = useState<MonthlyData[]>([]);
   const reloadTimer = React.useRef<NodeJS.Timeout | null>(null);
+  const [showWhatsNew, setShowWhatsNew] = useState(true);
 
   // Animation on mount
   useEffect(() => {
@@ -367,7 +369,7 @@ export default function DashboardScreenNew() {
   const maxRevenue = Math.max(...monthlyData.map((d) => d.revenue), 1);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: '#0a0a1a' }]} edges={['bottom']}>
+  <SafeAreaView style={[styles.container, { backgroundColor: '#0a0a1a' }]} edges={['top', 'bottom']}>
       <ScrollView
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
@@ -396,23 +398,34 @@ export default function DashboardScreenNew() {
             style={styles.headerGradient}
           >
             <View style={styles.headerTop}>
-              <View style={styles.headerLeft}>
-                <View style={styles.shimmerIcon}>
-                  <MaterialCommunityIcons name="shimmer" size={28} color="#fff" />
-                </View>
-                <View>
-                  <Text style={styles.welcomeText}>Bonjour ! 👋</Text>
-                  <Text style={styles.userName}>{firstName || 'Utilisateur'}</Text>
+              <View style={styles.headerLeftGroup}>
+                <TouchableOpacity
+                  style={styles.menuButton}
+                  onPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+                >
+                  <Ionicons name="menu" size={26} color="#fff" />
+                </TouchableOpacity>
+                <View style={styles.headerLeft}>
+                  <View style={styles.shimmerIcon}>
+                    <MaterialCommunityIcons name="shimmer" size={28} color="#fff" />
+                  </View>
+                  <View>
+                    <Text style={styles.welcomeText}>Bonjour ! 👋</Text>
+                    <Text style={styles.userName}>{firstName || 'Utilisateur'}</Text>
+                  </View>
                 </View>
               </View>
-              
-              <TouchableOpacity
-                style={styles.notificationButton}
-                onPress={() => console.log('Notifications')}
-              >
-                <Ionicons name="notifications" size={24} color="#fff" />
-                <View style={styles.notificationDot} />
-              </TouchableOpacity>
+
+              <View style={styles.headerActions}>
+                <SyncIndicator />
+                <TouchableOpacity
+                  style={styles.notificationButton}
+                  onPress={() => console.log('Notifications')}
+                >
+                  <Ionicons name="notifications" size={24} color="#fff" />
+                  <View style={styles.notificationDot} />
+                </TouchableOpacity>
+              </View>
             </View>
 
             <Text style={styles.headerSubtitle}>
@@ -452,7 +465,7 @@ export default function DashboardScreenNew() {
           <TouchableOpacity
             style={styles.creditsMainCard}
             onPress={() => {
-              Linking.openURL('https://www.xcrackz.com/shop');
+              Linking.openURL('https://www.checksfleet.com/shop');
             }}
             activeOpacity={0.9}
           >
@@ -535,7 +548,7 @@ export default function DashboardScreenNew() {
             {/* Missions Totales */}
             <TouchableOpacity
               style={[styles.statCard, { backgroundColor: '#1e1e2e' }]}
-              onPress={() => (navigation as any).navigate('Missions')}
+              onPress={() => (navigation as any).navigate('MesMissions')}
             >
               <LinearGradient
                 colors={['#3b82f6', '#2563eb']}
@@ -676,7 +689,7 @@ export default function DashboardScreenNew() {
                 <Ionicons name="list" size={24} color="#14b8a6" />
                 <Text style={styles.sectionTitle}>Missions récentes</Text>
               </View>
-              <TouchableOpacity onPress={() => (navigation as any).navigate('Missions')}>
+              <TouchableOpacity onPress={() => (navigation as any).navigate('MesMissions')}>
                 <Text style={styles.seeAllText}>Tout voir →</Text>
               </TouchableOpacity>
             </View>
@@ -740,6 +753,31 @@ export default function DashboardScreenNew() {
           </View>
         </Animated.View>
 
+        {/* Nouveautés (changelog bref) */}
+        {showWhatsNew && (
+          <View style={{ marginBottom: 16 }}>
+            <LinearGradient colors={["#0ea5e9", "#6366f1"]} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={{ borderRadius: 16, padding: 14 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+                <View style={{ flex: 1, paddingRight: 10 }}>
+                  <Text style={{ color: 'white', fontWeight: '800', fontSize: 14 }}>Nouveautés 4.7.1</Text>
+                  <Text style={{ color: 'white', opacity: 0.95, marginTop: 6, fontSize: 12 }}>
+                    • Scanner: sauvegarde immédiate des numérisations (sécurité)
+                  </Text>
+                  <Text style={{ color: 'white', opacity: 0.95, marginTop: 2, fontSize: 12 }}>
+                    • Mes Numérisations: accès aux officiels et brouillons
+                  </Text>
+                  <Text style={{ color: 'white', opacity: 0.95, marginTop: 2, fontSize: 12 }}>
+                    • Rapports mobile modernisés + filtres
+                  </Text>
+                </View>
+                <TouchableOpacity onPress={() => setShowWhatsNew(false)} style={{ padding: 6, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 8 }}>
+                  <Ionicons name="close" size={18} color="#fff" />
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
+          </View>
+        )}
+
         {/* Actions rapides */}
         <Animated.View style={{ opacity: fadeAnim }}>
           <View style={styles.quickActionsSection}>
@@ -747,7 +785,7 @@ export default function DashboardScreenNew() {
             <View style={styles.quickActionsGrid}>
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => (navigation as any).navigate('Missions', { screen: 'MissionCreate' })}
+                onPress={() => (navigation as any).navigate('MesMissions', { screen: 'MissionCreate' })}
               >
                 <LinearGradient
                   colors={['#3b82f6', '#2563eb']}
@@ -773,7 +811,20 @@ export default function DashboardScreenNew() {
 
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => Linking.openURL('https://www.xcrackz.com/crm')}
+                onPress={() => (navigation as any).navigate('ScansLibrary')}
+              >
+                <LinearGradient
+                  colors={['#14b8a6', '#0d9488']}
+                  style={styles.quickActionGradient}
+                >
+                  <Ionicons name="folder" size={32} color="#fff" />
+                  <Text style={styles.quickActionText}>Numérisations</Text>
+                </LinearGradient>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.quickActionCard}
+                onPress={() => Linking.openURL('https://www.checksfleet.com/crm')}
               >
                 <LinearGradient
                   colors={['#a855f7', '#9333ea']}
@@ -786,7 +837,7 @@ export default function DashboardScreenNew() {
 
               <TouchableOpacity
                 style={styles.quickActionCard}
-                onPress={() => Linking.openURL('https://www.xcrackz.com/shop')}
+                onPress={() => Linking.openURL('https://www.checksfleet.com/shop')}
               >
                 <LinearGradient
                   colors={['#f59e0b', '#fbbf24']}
@@ -830,7 +881,25 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginBottom: 16,
   },
+  headerLeftGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  menuButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   headerLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,

@@ -1,7 +1,7 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, ScrollView, Alert } from 'react-native';
 import { createDrawerNavigator, DrawerContentScrollView, DrawerItemList } from '@react-navigation/drawer';
-import { Ionicons, MaterialIcons, FontAwesome5 } from '@expo/vector-icons';
+import { Ionicons, MaterialIcons } from '@expo/vector-icons';
 import { useTheme } from '../contexts/ThemeContext';
 import { SyncIndicator } from '../components/SyncIndicator';
 import { useAuth } from '../contexts/AuthContext';
@@ -10,50 +10,44 @@ import { useAuth } from '../contexts/AuthContext';
 import DashboardScreen from '../screens/DashboardScreenNew';
 import MissionsNavigator from './MissionsNavigator';
 import InspectionsNavigator from './InspectionsNavigator';
-import NewMissionsScreen from '../screens/NewMissionsScreen';
+// Remplace l'ancien écran par le nouveau navigateur Missions
+// import NewMissionsScreen from '../screens/NewMissionsScreen';
 import CarpoolingNavigator from './CarpoolingNavigator';
 import ProfileScreen from '../screens/ProfileScreen';
 import ScannerProScreen from '../screens/ScannerProScreen';
+import ScansLibraryScreen from '../screens/ScansLibraryScreen';
 import { useDeeplinkJoinMission } from '../hooks/useDeeplinkJoinMission';
+import Constants from 'expo-constants';
 import { useDeeplinkMission } from '../hooks/useDeeplinkMission';
+import { Routes } from './Routes';
 
 // Composant pour les raccourcis rapides
 function CustomDrawerContent(props: any) {
   const { colors } = useTheme();
-  const { user } = useAuth();
+  const { user, signOut } = useAuth();
   const navigation = props.navigation;
+  const handleLogout = () => {
+    Alert.alert(
+      'Déconnexion',
+      'Êtes-vous sûr de vouloir vous déconnecter ?',
+      [
+        { text: 'Annuler', style: 'cancel' },
+        {
+          text: 'Déconnexion',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await signOut();
+            } catch (e: any) {
+              Alert.alert('Erreur', e?.message || 'Impossible de se déconnecter');
+            }
+          },
+        },
+      ],
+    );
+  };
 
-  const quickActions = [
-    {
-      id: 'new-mission',
-      icon: 'add-circle',
-      label: 'Nouvelle mission',
-      color: '#10b981',
-      onPress: () => {
-        navigation.navigate('Missions', {
-          screen: 'MissionCreate',
-        });
-      },
-    },
-    {
-      id: 'carpooling',
-      icon: 'car-sport',
-      label: 'Covoiturage',
-      color: '#8b5cf6',
-      onPress: () => {
-        navigation.navigate('Covoiturage');
-      },
-    },
-    {
-      id: 'scan-document',
-      icon: 'scanner',
-      label: 'Scanner Doc',
-      color: '#3b82f6',
-      onPress: () => {
-        navigation.navigate('ScannerPro');
-      },
-    },
-  ];
+  // Raccourcis supprimés sur demande
 
   return (
     <DrawerContentScrollView {...props}>
@@ -74,40 +68,28 @@ function CustomDrawerContent(props: any) {
         </View>
       </View>
 
-      {/* Raccourcis rapides */}
-      <View style={styles.quickActionsContainer}>
-        <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
-          Raccourcis
-        </Text>
-        <View style={styles.quickActionsGrid}>
-          {quickActions.map((action) => (
-            <TouchableOpacity
-              key={action.id}
-              style={[styles.quickAction, { backgroundColor: action.color + '15' }]}
-              onPress={action.onPress}
-              activeOpacity={0.7}
-            >
-              <MaterialIcons name={action.icon as any} size={24} color={action.color} />
-              <Text style={[styles.quickActionLabel, { color: colors.text }]} numberOfLines={1}>
-                {action.label}
-              </Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-      </View>
+      {/* Section raccourcis retirée */}
 
       {/* Menu principal */}
-      <View style={styles.menuContainer}>
+      <View style={[styles.menuContainer, { borderTopColor: colors.textSecondary + '22' }]}>
         <Text style={[styles.sectionTitle, { color: colors.textSecondary }]}>
           Menu principal
         </Text>
         <DrawerItemList {...props} />
       </View>
 
+      {/* Déconnexion */}
+      <View style={styles.logoutContainer}>
+        <TouchableOpacity style={[styles.logoutBtn, { borderColor: '#ef4444', backgroundColor: '#ef44441A' }]} onPress={handleLogout}>
+          <Ionicons name="log-out" size={18} color="#ef4444" />
+          <Text style={[styles.logoutText, { color: '#ef4444' }]}>Déconnexion</Text>
+        </TouchableOpacity>
+      </View>
+
       {/* Pied de page avec version */}
       <View style={styles.footer}>
         <Text style={[styles.footerText, { color: colors.textSecondary }]}>
-          Version 1.0.0
+          Version {Constants.expoConfig?.version || (Constants as any).manifest?.version || '—'}
         </Text>
       </View>
     </DrawerContentScrollView>
@@ -132,11 +114,11 @@ export default function MainNavigator() {
       id={undefined}
       drawerContent={(props) => <CustomDrawerContent {...props} />}
       screenOptions={{
+        headerShown: false,
         headerStyle: {
           backgroundColor: colors.surface,
         },
         headerTintColor: colors.text,
-        headerRight: () => <SyncIndicator />,
         drawerStyle: {
           backgroundColor: colors.background,
           width: 280,
@@ -147,7 +129,7 @@ export default function MainNavigator() {
     >
       {/* Tableau de bord */}
       <Drawer.Screen
-        name="Dashboard"
+        name={Routes.Dashboard}
         component={DashboardScreen}
         options={{
           title: 'Tableau de bord',
@@ -157,13 +139,13 @@ export default function MainNavigator() {
         }}
       />
       
-      {/* Nouvelles Missions (identique au web) */}
+      {/* Mes Missions (nouveau flux via MissionsNavigator) */}
       <Drawer.Screen
-        name="NewMissions"
-        component={NewMissionsScreen}
+        name={Routes.MesMissions}
+        component={MissionsNavigator}
         options={{
           title: 'Mes Missions',
-          headerShown: true,
+          headerShown: false,
           drawerIcon: ({ color, size }) => (
             <Ionicons name="briefcase" size={size} color={color} />
           ),
@@ -172,7 +154,7 @@ export default function MainNavigator() {
       
       {/* Covoiturage */}
       <Drawer.Screen
-        name="Covoiturage"
+        name={Routes.Covoiturage}
         component={CarpoolingNavigator}
         options={{
           title: 'Covoiturage',
@@ -185,7 +167,7 @@ export default function MainNavigator() {
       
       {/* Profil */}
       <Drawer.Screen
-        name="Profile"
+        name={Routes.Profile}
         component={ProfileScreen}
         options={{
           title: 'Profil',
@@ -197,7 +179,7 @@ export default function MainNavigator() {
 
       {/* Rapports d'Inspection */}
       <Drawer.Screen
-        name="Inspections"
+        name={Routes.Inspections}
         component={InspectionsNavigator}
         options={{
           title: 'Rapports d\'Inspection',
@@ -210,7 +192,7 @@ export default function MainNavigator() {
 
       {/* Scanner de Documents */}
       <Drawer.Screen
-        name="ScannerPro"
+        name={Routes.ScannerPro}
         component={ScannerProScreen}
         options={{
           title: 'Scanner Documents',
@@ -219,16 +201,19 @@ export default function MainNavigator() {
           ),
         }}
       />
-      
-      {/* Missions & Inspections (caché - accessible uniquement par navigation) */}
+      {/* Bibliothèque de numérisations */}
       <Drawer.Screen
-        name="Missions"
-        component={MissionsNavigator}
+        name={Routes.ScansLibrary}
+        component={ScansLibraryScreen}
         options={{
-          headerShown: false,
-          drawerItemStyle: { display: 'none' }, // Masque du drawer
+          title: 'Mes Numérisations',
+          drawerIcon: ({ color, size }) => (
+            <MaterialIcons name="folder" size={size} color={color} />
+          ),
         }}
       />
+      
+      {/* Missions & Inspections - déjà accessible via "Mes Missions" ci-dessus */}
     </Drawer.Navigator>
   );
 }
@@ -266,40 +251,16 @@ const styles = StyleSheet.create({
   userEmail: {
     fontSize: 13,
   },
-  quickActionsContainer: {
-    paddingHorizontal: 16,
-    marginBottom: 15,
-  },
   sectionTitle: {
     fontSize: 12,
     fontWeight: '600',
     textTransform: 'uppercase',
     marginBottom: 10,
   },
-  quickActionsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  quickAction: {
-    width: '47%',
-    paddingVertical: 12,
-    paddingHorizontal: 10,
-    borderRadius: 10,
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 8,
-  },
-  quickActionLabel: {
-    fontSize: 12,
-    fontWeight: '500',
-    flex: 1,
-  },
   menuContainer: {
     paddingHorizontal: 8,
     paddingTop: 10,
     borderTopWidth: 1,
-    borderTopColor: '#e5e7eb',
     marginTop: 5,
   },
   footer: {
@@ -309,5 +270,21 @@ const styles = StyleSheet.create({
   },
   footerText: {
     fontSize: 11,
+  },
+  logoutContainer: {
+    paddingHorizontal: 16,
+    paddingTop: 8,
+  },
+  logoutBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
+    borderWidth: 1,
+  },
+  logoutText: {
+    fontWeight: '700',
   },
 });

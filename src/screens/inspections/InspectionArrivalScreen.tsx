@@ -1,7 +1,14 @@
-﻿import React from 'react';
-import InspectionArrivalNew from './InspectionArrivalNew';
+import React from 'react';
+import InspectionArrival from './InspectionArrival';
 
 export default function InspectionArrivalScreen({ route, navigation }: any) {
-  // Utiliser la vraie page d'inspection arrivée
-  return <InspectionArrivalNew route={route} navigation={navigation} />;
+  const { missionId } = route.params;
+  
+  return (
+    <InspectionArrival 
+      missionId={missionId}
+      onComplete={() => navigation.goBack()}
+      onCancel={() => navigation.goBack()}
+    />
+  );
 }

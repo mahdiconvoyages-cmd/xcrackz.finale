@@ -1,4 +1,4 @@
-Ôªøimport { supabase } from '../lib/supabase';
+import { supabase } from '../lib/supabase';
 import { RealtimeChannel } from '@supabase/supabase-js';
 
 type SubscriptionCallback = () => void;
@@ -16,7 +16,7 @@ class RealtimeSync {
   ): RealtimeChannel {
     const channelName = `${table}_${userId}`;
 
-    // Si d√©j√† abonn√©, retourner la souscription existante
+    // Si dÈj‡ abonnÈ, retourner la souscription existante
     if (this.subscriptions.has(channelName)) {
       return this.subscriptions.get(channelName)!;
     }
@@ -54,7 +54,7 @@ class RealtimeSync {
   }
 
   /**
-   * S'abonner aux inspections de v√©hicules
+   * S'abonner aux inspections de vÈhicules
    */
   subscribeToInspections(userId: string, onUpdate: SubscriptionCallback) {
     return this.subscribe('vehicle_inspections', userId, onUpdate);
@@ -82,7 +82,7 @@ class RealtimeSync {
   }
 
   /**
-   * S'abonner aux messages de covoiturage pour un trip sp√©cifique
+   * S'abonner aux messages de covoiturage pour un trip spÈcifique
    */
   subscribeToCarpoolingMessages(tripId: string, onUpdate: SubscriptionCallback) {
     const channelName = `carpooling_messages_${tripId}`;
@@ -122,7 +122,7 @@ class RealtimeSync {
   }
 
   /**
-   * S'abonner aux r√©servations de covoiturage (comme conducteur ou passager)
+   * S'abonner aux rÈservations de covoiturage (comme conducteur ou passager)
    */
   subscribeToCarpoolingBookings(userId: string, onUpdate: SubscriptionCallback) {
     const channelName = `carpooling_bookings_${userId}`;
@@ -155,7 +155,7 @@ class RealtimeSync {
   }
 
   /**
-   * Se d√©sabonner d'un canal sp√©cifique
+   * Se dÈsabonner d'un canal spÈcifique
    */
   async unsubscribe(channelName: string) {
     const channel = this.subscriptions.get(channelName);
@@ -167,7 +167,7 @@ class RealtimeSync {
   }
 
   /**
-   * Se d√©sabonner de tous les canaux
+   * Se dÈsabonner de tous les canaux
    */
   async unsubscribeAll() {
     console.log('[Realtime] Unsubscribing from all channels');
@@ -178,7 +178,7 @@ class RealtimeSync {
   }
 
   /**
-   * V√©rifier si un canal est actif
+   * VÈrifier si un canal est actif
    */
   isSubscribed(channelName: string): boolean {
     return this.subscriptions.has(channelName);

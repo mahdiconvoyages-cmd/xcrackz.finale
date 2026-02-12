@@ -8,7 +8,7 @@ import * as Clipboard from 'expo-clipboard';
 import { Share, Alert } from 'react-native';
 
 // Configuration des URLs
-const WEB_BASE_URL = 'https://www.xcrackz.com';
+const WEB_BASE_URL = 'https://www.checksfleet.com';
 const DEEPLINK_SCHEME = 'finality';
 
 // Caractères utilisés (sans I, O, 0, 1 pour éviter confusion)
@@ -81,14 +81,14 @@ export async function copyShareCode(code: string): Promise<boolean> {
 export function getShareMessage(code: string, missionTitle?: string): string {
   const title = missionTitle ? `"${missionTitle}"` : 'une mission';
   
-  return `🚗 Mission xCrackz
+  return `🚗 Mission CHECKSFLEET
 
 Vous avez été invité à rejoindre ${title}.
 
 Code de mission: ${code}
 
 Pour accepter:
-1. Ouvrez l'app xCrackz
+1. Ouvrez l'app CHECKSFLEET
 2. Allez dans "Missions"
 3. Cliquez sur "Rejoindre une mission"
 4. Entrez le code: ${code}
@@ -109,7 +109,7 @@ export function getBareShareCode(code: string): string {
  */
 export function getJoinLink(code: string): string {
   const bare = getBareShareCode(code);
-  return `https://www.xcrackz.com/join/${bare}`;
+  return `https://www.checksfleet.com/join/${bare}`;
 }
 
 /**
@@ -129,7 +129,7 @@ export async function shareMission(code: string, missionTitle?: string): Promise
   try {
     const result = await Share.share({
       message,
-      title: 'Mission xCrackz',
+      title: 'Mission CHECKSFLEET',
     });
     
     return result.action === Share.sharedAction;
@@ -186,7 +186,7 @@ export function getMissionDeeplink(missionId: string): string {
 /**
  * Génère un lien web pour ouvrir une mission
  * @param missionId ID de la mission
- * @returns https://www.xcrackz.com/mission/{missionId}
+ * @returns https://www.checksfleet.com/mission/{missionId}
  */
 export function getMissionWebLink(missionId: string): string {
   return `${WEB_BASE_URL}/mission/${missionId}`;
@@ -205,9 +205,9 @@ export async function shareMissionLink(
     const webLink = getMissionWebLink(missionId);
     const deeplink = getMissionDeeplink(missionId);
     
-    const title = missionTitle || 'Mission xCrackz';
+    const title = missionTitle || 'Mission CHECKSFLEET';
     const message = `📦 ${title}\n\n` +
-      `Ouvre cette mission dans l'app xCrackz:\n${deeplink}\n\n` +
+      `Ouvre cette mission dans l'app CHECKSFLEET:\n${deeplink}\n\n` +
       `Ou sur le web: ${webLink}`;
 
     const result = await Share.share({

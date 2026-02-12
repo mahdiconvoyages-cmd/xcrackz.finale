@@ -240,7 +240,7 @@ function generateInvoiceHTML(invoice: Invoice, items: InvoiceItem[], companyInfo
     <!-- En-tête -->
     <div class="header">
       <div class="company-info">
-        <div class="company-name">${companyInfo?.name || 'xCRACKZ'}</div>
+        <div class="company-name">${companyInfo?.name || 'CHECKSFLEET'}</div>
         <div class="company-details">
           ${companyInfo?.address || ''}<br>
           ${companyInfo?.postal_code || ''} ${companyInfo?.city || ''}<br>
@@ -342,7 +342,7 @@ function generateInvoiceHTML(invoice: Invoice, items: InvoiceItem[], companyInfo
     <!-- Pied de page -->
     <div class="footer">
       Document généré le ${new Date().toLocaleDateString('fr-FR')} à ${new Date().toLocaleTimeString('fr-FR')}<br>
-      ${companyInfo?.name || 'xCRACKZ'} - Tous droits réservés
+      ${companyInfo?.name || 'CHECKSFLEET'} - Tous droits réservés
     </div>
   </div>
 </body>

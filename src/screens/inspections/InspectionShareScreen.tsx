@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Alert,
   Linking,
   Share,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '../../lib/supabase';
@@ -16,6 +17,7 @@ import { useAuth } from '../../contexts/AuthContext';
 import { useTheme } from '../../contexts/ThemeContext';
 import * as Clipboard from 'expo-clipboard';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { LinearGradient } from 'expo-linear-gradient';
 
 interface InspectionReport {
   id: string;
@@ -29,6 +31,8 @@ interface InspectionReport {
   delivery_address: string;
   has_departure: boolean;
   has_arrival: boolean;
+  departure_id?: string | null;
+  arrival_id?: string | null;
 }
 
 export default function InspectionShareScreen() {
@@ -38,6 +42,8 @@ export default function InspectionShareScreen() {
   const [loading, setLoading] = useState(true);
   const [generatingLink, setGeneratingLink] = useState<string | null>(null);
   const [sortOrder, setSortOrder] = useState<'desc' | 'asc'>('desc'); // desc = plus récent en premier
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<'all' | 'both' | 'dep' | 'arr'>('all');
 
   // Fonction pour calculer le temps écoulé
   const getTimeAgo = (dateString: string): string => {
@@ -51,12 +57,13 @@ export default function InspectionShareScreen() {
     const diffMonth = Math.floor(diffDay / 30);
     const diffYear = Math.floor(diffDay / 365);
 
-    if (diffSec < 60) return `il y a ${diffSec}s`;
-    if (diffMin < 60) return `il y a ${diffMin}min`;
-    if (diffHour < 24) return `il y a ${diffHour}h`;
-    if (diffDay < 30) return `il y a ${diffDay}j`;
-    if (diffMonth < 12) return `il y a ${diffMonth}mois`;
-    return `il y a ${diffYear}an${diffYear > 1 ? 's' : ''}`;
+    // Ne pas afficher les secondes
+    if (diffMin < 1) return "à l'instant";
+    if (diffMin < 60) return `il y a ${diffMin} min`;
+    if (diffHour < 24) return `il y a ${diffHour} h`;
+    if (diffDay < 30) return `il y a ${diffDay} j`;
+    if (diffMonth < 12) return `il y a ${diffMonth} mois`;
+    return `il y a ${diffYear} an${diffYear > 1 ? 's' : ''}`;
   };
 
   const toggleSortOrder = () => {
@@ -73,6 +80,22 @@ export default function InspectionShareScreen() {
     setReports(sorted);
   };
 
+  const filteredReports = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    let list = [...reports];
+    if (filter === 'both') list = list.filter(r => r.has_departure && r.has_arrival);
+    if (filter === 'dep') list = list.filter(r => r.has_departure && !r.has_arrival);
+    if (filter === 'arr') list = list.filter(r => r.has_arrival && !r.has_departure);
+    if (q) {
+      list = list.filter(r =>
+        r.reference?.toLowerCase().includes(q) ||
+        r.vehicle_plate?.toLowerCase().includes(q) ||
+        `${r.vehicle_brand} ${r.vehicle_model}`.toLowerCase().includes(q)
+      );
+    }
+    return list;
+  }, [reports, query, filter]);
+
   useEffect(() => {
     loadReports();
   }, []);
@@ -81,7 +104,6 @@ export default function InspectionShareScreen() {
     try {
       setLoading(true);
 
-      // Requête optimisée: un seul appel avec jointure sur vehicle_inspections (inner pour ne récupérer que les missions avec inspection)
       const { data, error } = await supabase
         .from('missions')
         .select(`
@@ -93,7 +115,7 @@ export default function InspectionShareScreen() {
           pickup_date,
           pickup_address,
           delivery_address,
-          vehicle_inspections!inner(inspection_type)
+          vehicle_inspections!inner(id, inspection_type)
         `)
         .order('pickup_date', { ascending: false })
         .limit(100);
@@ -103,9 +125,11 @@ export default function InspectionShareScreen() {
       // Agréger par mission pour déterminer présence départ/arrivée
       const map = new Map<string, InspectionReport>();
       (data as any[] | null)?.forEach((row) => {
-        const insp = (row.vehicle_inspections || []) as Array<{ inspection_type: string }>;
-        const hasDeparture = insp.some(i => i.inspection_type === 'departure');
-        const hasArrival = insp.some(i => i.inspection_type === 'arrival');
+        const insp = (row.vehicle_inspections || []) as Array<{ id: string; inspection_type: string }>;
+        const dep = insp.find(i => i.inspection_type === 'departure');
+        const arr = insp.find(i => i.inspection_type === 'arrival');
+        const hasDeparture = !!dep;
+        const hasArrival = !!arr;
 
         const existing = map.get(row.id);
         const merged = {
@@ -120,6 +144,8 @@ export default function InspectionShareScreen() {
           delivery_address: row.delivery_address,
           has_departure: (existing?.has_departure ?? false) || hasDeparture,
           has_arrival: (existing?.has_arrival ?? false) || hasArrival,
+          departure_id: dep?.id ?? existing?.departure_id ?? null,
+          arrival_id: arr?.id ?? existing?.arrival_id ?? null,
         } as InspectionReport;
         map.set(row.id, merged);
       });
@@ -179,7 +205,7 @@ export default function InspectionShareScreen() {
       const token = data[0].share_token;
 
       // Générer le lien vers la page WEB publique
-      const shareLink = `https://www.xcrackz.com/rapport-inspection/${token}`;
+      const shareLink = `https://www.checksfleet.com/rapport-inspection/${token}`;
 
       console.log('✅ Lien généré:', shareLink);
       return shareLink;
@@ -310,8 +336,8 @@ export default function InspectionShareScreen() {
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <>
-              <Ionicons name="eye" size={20} color="#fff" />
-              <Text style={styles.primaryButtonText}>Voir le Rapport</Text>
+              <Ionicons name="globe-outline" size={18} color="#fff" />
+              <Text style={styles.primaryButtonText}>Voir le Rapport (Web)</Text>
             </>
           )}
         </TouchableOpacity>
@@ -371,30 +397,57 @@ export default function InspectionShareScreen() {
   }
 
   return (
-    <View style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Header avec bouton de tri */}
-      <View style={styles.header}>
-        <View style={styles.headerLeft}>
-          <Ionicons name="document-text" size={24} color="#14b8a6" />
-          <Text style={styles.headerTitle}>Rapports d'Inspection</Text>
+    <View style={[styles.container, { backgroundColor: colors.background }]}> 
+      {/* Header moderne */}
+      <LinearGradient colors={["#14b8a6", "#0d9488"]} style={styles.gradientHeader}>
+        <View style={styles.headerTopRow}>
+          <View style={styles.headerTitleWrap}>
+            <Ionicons name="document-text" size={22} color="#ecfeff" />
+            <Text style={styles.headerTitleLarge}>Rapports d'Inspection</Text>
+          </View>
+          <TouchableOpacity style={styles.sortButton} onPress={toggleSortOrder}>
+            <Ionicons name={sortOrder === 'desc' ? 'arrow-down' : 'arrow-up'} size={16} color="#0f766e" />
+            <Text style={styles.sortButtonText}>{sortOrder === 'desc' ? 'Plus récent' : 'Plus ancien'}</Text>
+          </TouchableOpacity>
         </View>
-        <TouchableOpacity 
-          style={styles.sortButton}
-          onPress={toggleSortOrder}
-        >
-          <Ionicons 
-            name={sortOrder === 'desc' ? 'arrow-down' : 'arrow-up'} 
-            size={18} 
-            color="#14b8a6" 
+        {/* Barre de recherche */}
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={16} color="#0891b2" />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder="Rechercher (référence, plaque, modèle)"
+            placeholderTextColor="#67e8f9"
+            style={styles.searchInput}
           />
-          <Text style={styles.sortButtonText}>
-            {sortOrder === 'desc' ? 'Plus récent' : 'Plus ancien'}
-          </Text>
-        </TouchableOpacity>
-      </View>
+          {query.length > 0 && (
+            <TouchableOpacity onPress={() => setQuery('')}>
+              <Ionicons name="close-circle" size={18} color="#0891b2" />
+            </TouchableOpacity>
+          )}
+        </View>
+        {/* Filtres rapides */}
+        <View style={styles.chipsRow}>
+          {[
+            { id: 'all', label: 'Tous' },
+            { id: 'both', label: 'Départ + Arrivée' },
+            { id: 'dep', label: 'Départ seul' },
+            { id: 'arr', label: 'Arrivée seule' },
+          ].map((c) => (
+            <TouchableOpacity
+              key={c.id}
+              style={[styles.chip, filter === c.id ? styles.chipActive : styles.chipIdle]}
+              onPress={() => setFilter(c.id as any)}
+              activeOpacity={0.9}
+            >
+              <Text style={[styles.chipText, filter === c.id ? styles.chipTextActive : styles.chipTextIdle]}>{c.label}</Text>
+            </TouchableOpacity>
+          ))}
+        </View>
+      </LinearGradient>
 
       <FlatList
-        data={reports}
+        data={filteredReports}
         renderItem={renderReportItem}
         keyExtractor={(item) => item.id}
         contentContainerStyle={styles.listContainer}
@@ -431,6 +484,72 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.05,
     shadowRadius: 2,
+  },
+  gradientHeader: {
+    paddingTop: 48,
+    paddingBottom: 14,
+    paddingHorizontal: 16,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
+  },
+  headerTopRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  headerTitleWrap: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerTitleLarge: {
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#ecfeff',
+  },
+  searchBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  searchInput: {
+    flex: 1,
+    color: '#0f172a',
+    fontSize: 14,
+  },
+  chipsRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  chip: {
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  chipActive: {
+    backgroundColor: '#0ea5e9',
+    borderColor: '#0284c7',
+  },
+  chipIdle: {
+    backgroundColor: 'rgba(255,255,255,0.9)',
+    borderColor: 'rgba(255,255,255,0.7)',
+  },
+  chipText: {
+    fontSize: 12,
+    fontWeight: '700',
+  },
+  chipTextActive: {
+    color: '#fff',
+  },
+  chipTextIdle: {
+    color: '#0f172a',
   },
   headerLeft: {
     flexDirection: 'row',
@@ -568,7 +687,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#14b8a6',
+    backgroundColor: '#0ea5e9',
     paddingVertical: 14,
     borderRadius: 12,
     gap: 8,
@@ -578,6 +697,23 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  ghostButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+    paddingVertical: 12,
+    borderRadius: 10,
+    gap: 8,
+    marginBottom: 14,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  ghostButtonText: {
+    color: '#0f172a',
+    fontSize: 14,
+    fontWeight: '700',
   },
   shareTitle: {
     fontSize: 13,

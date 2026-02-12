@@ -30,7 +30,7 @@ export default function BuyCreditModal({
 
   const handleBuyCredits = async () => {
     try {
-      await Linking.openURL('https://www.xcrackz.com/boutique');
+      await Linking.openURL('https://www.checksfleet.com/boutique');
       onClose();
     } catch (error) {
       console.error('Erreur ouverture boutique:', error);

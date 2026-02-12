@@ -1,7 +1,8 @@
-ï»¿import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { View, Text, StyleSheet, FlatList, TouchableOpacity, TextInput, RefreshControl, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { Routes } from '../../navigation/Routes';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { supabase } from '../../lib/supabase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -56,7 +57,7 @@ export default function ClientListScreen({ embedded = false }: Props) {
     useCallback(() => {
       loadClients();
 
-      // S'abonner aux changements en temps rÃ©el
+      // S'abonner aux changements en temps réel
       if (user?.id) {
         realtimeSync.subscribeToClients(user.id, () => {
           console.log('[ClientListScreen] Realtime update detected, reloading clients');
@@ -105,7 +106,7 @@ export default function ClientListScreen({ embedded = false }: Props) {
   const deleteClient = async (clientId: string) => {
     Alert.alert(
       'Confirmer la suppression',
-      'ÃŠtes-vous sÃ»r de vouloir supprimer ce client ?',
+      'Êtes-vous sûr de vouloir supprimer ce client ?',
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -132,7 +133,7 @@ export default function ClientListScreen({ embedded = false }: Props) {
   const renderClient = ({ item }: { item: Client }) => (
     <TouchableOpacity
       style={styles.clientCard}
-      onPress={() => navigation.navigate('ClientDetails' as never, { clientId: item.id } as never)}
+      onPress={() => navigation.navigate(Routes.ClientDetails as never, { clientId: item.id } as never)}
     >
       <View style={styles.clientHeader}>
         <View style={styles.avatarContainer}>
@@ -208,7 +209,7 @@ export default function ClientListScreen({ embedded = false }: Props) {
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Clients</Text>
           <TouchableOpacity
-            onPress={() => navigation.navigate('ClientDetails' as never, { clientId: 'new' } as never)}
+            onPress={() => navigation.navigate(Routes.ClientDetails as never, { clientId: 'new' } as never)}
           >
             <Ionicons name="add" size={28} color="#2563eb" />
           </TouchableOpacity>
@@ -259,7 +260,7 @@ export default function ClientListScreen({ embedded = false }: Props) {
         ListEmptyComponent={
           <View style={styles.emptyContainer}>
             <Ionicons name="people-outline" size={64} color="#d1d5db" />
-            <Text style={styles.emptyText}>Aucun client trouvÃ©</Text>
+            <Text style={styles.emptyText}>Aucun client trouvé</Text>
             <TouchableOpacity
               style={styles.addButton}
               onPress={() => navigation.navigate('ClientDetails' as never, { clientId: 'new' } as never)}

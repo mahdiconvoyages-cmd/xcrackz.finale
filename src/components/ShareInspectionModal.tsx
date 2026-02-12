@@ -15,14 +15,22 @@ interface ShareInspectionModalProps {
 export default function ShareInspectionModal({ visible, onClose, missionId, reportType = 'complete' }: ShareInspectionModalProps) {
   const [loading, setLoading] = useState(false);
   const [shareLink, setShareLink] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false); // Protection contre double appel
 
   useEffect(() => {
-    if (visible) generateShareLink();
-    else setShareLink('');
+    if (visible && !isGenerating) {
+      generateShareLink();
+    } else if (!visible) {
+      setShareLink('');
+      setIsGenerating(false);
+    }
   }, [visible]);
 
   const generateShareLink = async () => {
+    if (isGenerating) return; // Empêcher double génération
+    
     try {
+      setIsGenerating(true);
       setLoading(true);
       let userId = null;
       const { data: session } = await supabase.auth.getSession();
@@ -46,7 +54,7 @@ export default function ShareInspectionModal({ visible, onClose, missionId, repo
       const token = Array.isArray(data) ? data[0]?.share_token : data?.share_token;
       
       if (token) {
-        const link = `https://www.xcrackz.com/rapport-inspection/${token}`;
+        const link = `https://www.checksfleet.com/rapport-inspection/${token}`;
         console.log('✅ Lien généré:', link);
         setShareLink(link);
       } else {
@@ -57,6 +65,7 @@ export default function ShareInspectionModal({ visible, onClose, missionId, repo
       Alert.alert('Erreur', err.message);
     } finally {
       setLoading(false);
+      setIsGenerating(false); // Réinitialiser après génération
     }
   };
 

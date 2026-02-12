@@ -1,4 +1,4 @@
-ï»¿import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, TextInput, ScrollView, TouchableOpacity, Switch, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -113,14 +113,14 @@ export default function ClientDetailsScreen() {
             user_id: user?.id,
           });
         if (error) throw error;
-        Alert.alert('SuccÃ¨s', 'Client crÃ©Ã© avec succÃ¨s');
+        Alert.alert('Succès', 'Client créé avec succès');
       } else {
         const { error } = await supabase
           .from('clients')
           .update(formData)
           .eq('id', clientId);
         if (error) throw error;
-        Alert.alert('SuccÃ¨s', 'Client modifiÃ© avec succÃ¨s');
+        Alert.alert('Succès', 'Client modifié avec succès');
         setEditing(false);
       }
       navigation.goBack();
@@ -134,7 +134,7 @@ export default function ClientDetailsScreen() {
   const handleDelete = () => {
     Alert.alert(
       'Confirmer la suppression',
-      'ÃŠtes-vous sÃ»r de vouloir supprimer ce client ?',
+      'Êtes-vous sûr de vouloir supprimer ce client ?',
       [
         { text: 'Annuler', style: 'cancel' },
         {
@@ -212,7 +212,7 @@ export default function ClientDetailsScreen() {
         </View>
 
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Informations gÃ©nÃ©rales</Text>
+          <Text style={styles.sectionTitle}>Informations générales</Text>
           <View style={styles.inputGroup}>
             <Text style={styles.label}>Nom *</Text>
             <TextInput
@@ -236,7 +236,7 @@ export default function ClientDetailsScreen() {
             />
           </View>
           <View style={styles.inputGroup}>
-            <Text style={styles.label}>TÃ©lÃ©phone</Text>
+            <Text style={styles.label}>Téléphone</Text>
             <TextInput
               style={[styles.input, !editing && styles.inputDisabled]}
               value={formData.phone}
@@ -296,7 +296,7 @@ export default function ClientDetailsScreen() {
               style={[styles.input, styles.textArea, !editing && styles.inputDisabled]}
               value={formData.address}
               onChangeText={(text) => setFormData({ ...formData, address: text })}
-              placeholder="Rue, numÃ©ro..."
+              placeholder="Rue, numéro..."
               multiline
               numberOfLines={2}
               editable={editing}
@@ -342,7 +342,7 @@ export default function ClientDetailsScreen() {
             style={[styles.input, styles.textArea, !editing && styles.inputDisabled]}
             value={formData.notes}
             onChangeText={(text) => setFormData({ ...formData, notes: text })}
-            placeholder="Informations complÃ©mentaires..."
+            placeholder="Informations complémentaires..."
             multiline
             numberOfLines={4}
             editable={editing}
@@ -359,7 +359,7 @@ export default function ClientDetailsScreen() {
               <ActivityIndicator color="#fff" />
             ) : (
               <Text style={styles.saveButtonText}>
-                {isNew ? 'CrÃ©er le client' : 'Enregistrer les modifications'}
+                {isNew ? 'Créer le client' : 'Enregistrer les modifications'}
               </Text>
             )}
           </TouchableOpacity>

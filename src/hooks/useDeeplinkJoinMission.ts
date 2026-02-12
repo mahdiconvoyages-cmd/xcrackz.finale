@@ -14,7 +14,7 @@ interface DeeplinkJoinResult {
 /**
  * Hook qui écoute les deeplinks du type:
  *   finality://mission/join/XXXXXXXX
- *   https://www.xcrackz.com/join/XXXXXXXX
+ *   https://www.checksfleet.com/join/XXXXXXXX
  * Et tente automatiquement l'assignation.
  */
 export function useDeeplinkJoinMission(onSuccess?: (missionId: string) => void) : DeeplinkJoinResult {

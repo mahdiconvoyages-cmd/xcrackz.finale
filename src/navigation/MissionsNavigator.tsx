@@ -7,8 +7,9 @@ import MissionsScreenNew from '../screens/missions/MissionsScreenNew';
 import MissionCreateScreen from '../screens/missions/MissionCreateScreen';
 import MissionViewScreen from '../screens/missions/MissionViewScreenNew';
 import MissionTrackingScreen from '../screens/missions/MissionTrackingScreen';
-import InspectionDepartureNew from '../screens/inspections/InspectionDepartureNew';
-import InspectionArrivalNew from '../screens/inspections/InspectionArrivalNew';
+import InvoiceCreateScreen from '../screens/missions/InvoiceCreateScreen';
+import InspectionDepartureScreen from '../screens/inspections/InspectionDepartureScreen';
+import InspectionArrivalScreen from '../screens/inspections/InspectionArrivalScreen';
 import ShareMissionScreen from '../screens/missions/ShareMissionScreen';
 import { Routes, MissionsStackParamList } from './Routes';
 
@@ -53,14 +54,19 @@ export default function MissionsNavigator() {
         options={{ title: 'Tracking GPS' }}
       />
       <Stack.Screen
+        name={Routes.InvoiceCreate}
+        component={InvoiceCreateScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
         name={Routes.InspectionDeparture}
-        component={InspectionDepartureNew}
-        options={{ title: 'Inspection Départ' }}
+        component={InspectionDepartureScreen}
+        options={{ headerShown: false }}
       />
       <Stack.Screen
         name={Routes.InspectionArrival}
-        component={InspectionArrivalNew}
-        options={{ title: 'Inspection Arrivée' }}
+        component={InspectionArrivalScreen}
+        options={{ headerShown: false }}
       />
     </Stack.Navigator>
   );
