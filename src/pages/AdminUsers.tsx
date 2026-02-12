@@ -22,7 +22,6 @@ interface UserWithCredits {
 }
 
 const PLANS_FALLBACK = [
-  { name: 'starter', credits_amount: 10, price: 0 },
   { name: 'essentiel', credits_amount: 10, price: 10 },
   { name: 'pro', credits_amount: 20, price: 20 },
   { name: 'business', credits_amount: 100, price: 50 },
@@ -30,7 +29,7 @@ const PLANS_FALLBACK = [
 ];
 
 const PLAN_CREDITS: Record<string, number> = {
-  free: 0, starter: 10, essentiel: 10, basic: 25, pro: 20, business: 100, enterprise: 0,
+  free: 0, essentiel: 10, pro: 20, business: 100, enterprise: 0,
 };
 
 const PAGE_SIZES = [25, 50, 100];
@@ -51,7 +50,7 @@ export default function AdminUsers() {
   const [selectedUser, setSelectedUser] = useState<UserWithCredits | null>(null);
   const [grantType, setGrantType] = useState<'credits' | 'subscription'>('credits');
   const [grantAmount, setGrantAmount] = useState('');
-  const [grantPlan, setGrantPlan] = useState('pro');
+  const [grantPlan, setGrantPlan] = useState('essentiel');
   const [grantDuration, setGrantDuration] = useState('30');
   const [grantAutoRenew, setGrantAutoRenew] = useState(true);
   const [grantCustomCredits, setGrantCustomCredits] = useState('');
@@ -168,7 +167,9 @@ export default function AdminUsers() {
     const days = parseInt(grantDuration);
     if (isNaN(days) || days <= 0) return alert('Durée invalide');
     const endDate = new Date(); endDate.setDate(endDate.getDate() + days);
-    const creditsToAdd = grantPlan === 'enterprise' ? (parseInt(grantCustomCredits) || 0) : (PLAN_CREDITS[grantPlan] || 0);
+    // Use shopPlans (from DB or fallback) as single source of truth for credits
+    const planInfo = shopPlans.find(p => p.name === grantPlan);
+    const creditsToAdd = grantPlan === 'enterprise' ? (parseInt(grantCustomCredits) || 0) : (planInfo?.credits_amount || PLAN_CREDITS[grantPlan] || 0);
     const { data: existingSub } = await supabase.from('subscriptions').select('*').eq('user_id', selectedUser.id).maybeSingle();
     const isNew = !existingSub;
     if (existingSub) {
@@ -180,7 +181,7 @@ export default function AdminUsers() {
     }
     let addedCredits = false;
     if (creditsToAdd > 0) {
-      const shouldAdd = isNew || confirm(`Utilisateur existant — ajouter ${creditsToAdd} crédits en plus ?`);
+      const shouldAdd = isNew || confirm(`Ajouter ${creditsToAdd} crédits en plus du changement de plan ?`);
       if (shouldAdd) {
         const { data: profile } = await supabase.from('profiles').select('credits').eq('id', selectedUser.id).single();
         const { error: credErr } = await supabase.from('profiles').update({ credits: ((profile as any)?.credits || 0) + creditsToAdd }).eq('id', selectedUser.id);
@@ -189,7 +190,7 @@ export default function AdminUsers() {
       }
     }
     await loadAllUsers();
-    alert(`✅ ${grantPlan.toUpperCase()} pour ${days}j${addedCredits ? ` + ${creditsToAdd} crédits` : ''}${grantAutoRenew ? ' (auto-renew)' : ''}`);
+    alert(`✅ ${grantPlan.toUpperCase()} attribué pour ${days} jours${addedCredits ? ` + ${creditsToAdd} crédits` : ''}${grantAutoRenew ? ' (renouvellement auto)' : ''}`);
     closeGrantModal();
   };
 
@@ -221,7 +222,7 @@ export default function AdminUsers() {
   };
 
   const closeGrantModal = () => {
-    setShowGrantModal(false); setSelectedUser(null); setGrantAmount(''); setGrantPlan('pro'); setGrantDuration('30'); setGrantAutoRenew(true); setGrantCustomCredits('');
+    setShowGrantModal(false); setSelectedUser(null); setGrantAmount(''); setGrantPlan('essentiel'); setGrantDuration('30'); setGrantAutoRenew(true); setGrantCustomCredits('');
   };
 
   const exportCSV = () => {
