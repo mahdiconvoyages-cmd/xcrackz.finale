@@ -219,17 +219,52 @@ export default function TeamMissions() {
     return inspections.find(i => i.mission_id === missionId && i.inspection_type === type)?.id;
   };
 
-  const handleViewDepartureReport = (missionId: string) => {
-    const inspectionId = getInspectionId(missionId, 'departure');
-    if (inspectionId) {
-      window.open(`/inspection/report/${inspectionId}`, '_blank');
+  const handleViewDepartureReport = async (missionId: string) => {
+    // Look up existing share token for this mission
+    const { data } = await supabase
+      .from('inspection_report_shares')
+      .select('share_token')
+      .eq('mission_id', missionId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data?.share_token) {
+      window.open(`/rapport-inspection/${data.share_token}`, '_blank');
+    } else {
+      // No share token yet — create one
+      const token = Date.now().toString(36) + (user?.id || '').substring(0, 8);
+      await supabase.from('inspection_report_shares').insert({
+        mission_id: missionId,
+        share_token: token,
+        user_id: user?.id,
+        report_type: 'complete',
+        is_active: true,
+      });
+      window.open(`/rapport-inspection/${token}`, '_blank');
     }
   };
 
-  const handleViewArrivalReport = (missionId: string) => {
-    const inspectionId = getInspectionId(missionId, 'arrival');
-    if (inspectionId) {
-      window.open(`/inspection/report/${inspectionId}`, '_blank');
+  const handleViewArrivalReport = async (missionId: string) => {
+    // Same mission = same report (shows both departure + arrival)
+    const { data } = await supabase
+      .from('inspection_report_shares')
+      .select('share_token')
+      .eq('mission_id', missionId)
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (data?.share_token) {
+      window.open(`/rapport-inspection/${data.share_token}`, '_blank');
+    } else {
+      const token = Date.now().toString(36) + (user?.id || '').substring(0, 8);
+      await supabase.from('inspection_report_shares').insert({
+        mission_id: missionId,
+        share_token: token,
+        user_id: user?.id,
+        report_type: 'complete',
+        is_active: true,
+      });
+      window.open(`/rapport-inspection/${token}`, '_blank');
     }
   };
 
