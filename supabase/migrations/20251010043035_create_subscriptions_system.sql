@@ -25,11 +25,12 @@
 CREATE TABLE IF NOT EXISTS subscriptions (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id uuid REFERENCES profiles(id) ON DELETE CASCADE NOT NULL,
-  plan text NOT NULL CHECK (plan IN ('free', 'starter', 'basic', 'pro', 'business', 'enterprise')),
+  plan text NOT NULL CHECK (plan IN ('free', 'starter', 'essentiel', 'basic', 'pro', 'business', 'enterprise')),
   status text NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'canceled', 'expired', 'trial')),
   current_period_start timestamptz DEFAULT now(),
   current_period_end timestamptz,
   cancel_at_period_end boolean DEFAULT false,
+  auto_renew boolean DEFAULT true,
   payment_method text,
   assigned_by uuid REFERENCES profiles(id),
   notes text,

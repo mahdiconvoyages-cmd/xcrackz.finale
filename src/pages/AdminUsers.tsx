@@ -172,17 +172,20 @@ export default function AdminUsers() {
     const { data: existingSub } = await supabase.from('subscriptions').select('*').eq('user_id', selectedUser.id).maybeSingle();
     const isNew = !existingSub;
     if (existingSub) {
-      await supabase.from('subscriptions').update({ plan: grantPlan, status: 'active', current_period_end: endDate.toISOString(), payment_method: 'manual', auto_renew: grantAutoRenew, updated_at: new Date().toISOString() }).eq('user_id', selectedUser.id);
+      const { error: updateErr } = await supabase.from('subscriptions').update({ plan: grantPlan, status: 'active', current_period_end: endDate.toISOString(), payment_method: 'manual', auto_renew: grantAutoRenew, updated_at: new Date().toISOString() }).eq('user_id', selectedUser.id);
+      if (updateErr) { console.error('Erreur update subscription:', updateErr); return alert(`❌ Erreur mise à jour abonnement: ${updateErr.message}`); }
     } else {
-      await supabase.from('subscriptions').insert({ user_id: selectedUser.id, plan: grantPlan, status: 'active', current_period_start: new Date().toISOString(), current_period_end: endDate.toISOString(), payment_method: 'manual', auto_renew: grantAutoRenew });
+      const { error: insertErr } = await supabase.from('subscriptions').insert({ user_id: selectedUser.id, plan: grantPlan, status: 'active', current_period_start: new Date().toISOString(), current_period_end: endDate.toISOString(), payment_method: 'manual', auto_renew: grantAutoRenew });
+      if (insertErr) { console.error('Erreur insert subscription:', insertErr); return alert(`❌ Erreur création abonnement: ${insertErr.message}`); }
     }
     let addedCredits = false;
     if (creditsToAdd > 0) {
       const shouldAdd = isNew || confirm(`Utilisateur existant — ajouter ${creditsToAdd} crédits en plus ?`);
       if (shouldAdd) {
         const { data: profile } = await supabase.from('profiles').select('credits').eq('id', selectedUser.id).single();
-        await supabase.from('profiles').update({ credits: ((profile as any)?.credits || 0) + creditsToAdd }).eq('id', selectedUser.id);
-        addedCredits = true;
+        const { error: credErr } = await supabase.from('profiles').update({ credits: ((profile as any)?.credits || 0) + creditsToAdd }).eq('id', selectedUser.id);
+        if (credErr) { console.error('Erreur ajout crédits:', credErr); alert(`⚠️ Abonnement attribué mais erreur crédits: ${credErr.message}`); }
+        else addedCredits = true;
       }
     }
     await loadAllUsers();
