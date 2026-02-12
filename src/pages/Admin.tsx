@@ -80,6 +80,7 @@ export default function Admin() {
   const [grantPlan, setGrantPlan] = useState('pro');
   const [grantDuration, setGrantDuration] = useState('30');
   const [grantAutoRenew, setGrantAutoRenew] = useState(true);
+  const [grantCustomCredits, setGrantCustomCredits] = useState('');
   const [shopPlans, setShopPlans] = useState<Array<{name: string, credits_amount: number, price: number}>>([]);
 
   // APK Management States
@@ -629,7 +630,9 @@ export default function Admin() {
         'enterprise': 0      // Sur devis
       };
       
-      const creditsToAdd = planCredits[grantPlan] || 0;
+      const creditsToAdd = grantPlan === 'enterprise' 
+        ? (parseInt(grantCustomCredits) || 0)
+        : (planCredits[grantPlan] || 0);
       
       console.log('🎯 Attribution abonnement:', {
         plan: grantPlan,
@@ -750,6 +753,7 @@ export default function Admin() {
       setGrantPlan('pro');
       setGrantDuration('30');
       setGrantAutoRenew(true);
+      setGrantCustomCredits('');
     } catch (err) {
       console.error('Erreur attribution abonnement:', err);
       alert(`Erreur: ${err instanceof Error ? err.message : 'Erreur inconnue'}`);
@@ -1972,6 +1976,23 @@ export default function Admin() {
                     ))}
                   </select>
                 </div>
+
+                {grantPlan === 'enterprise' && (
+                  <div>
+                    <label className="block text-sm font-black text-slate-700 mb-2">
+                      Nombre de crédits (sur mesure)
+                    </label>
+                    <input
+                      type="number"
+                      value={grantCustomCredits}
+                      onChange={(e) => setGrantCustomCredits(e.target.value)}
+                      min="0"
+                      placeholder="Ex: 200, 500, 1000..."
+                      className="w-full px-4 py-3 border-2 border-slate-300 rounded-xl focus:ring-4 focus:ring-teal-200 focus:border-teal-500 font-bold text-lg"
+                    />
+                    <p className="text-xs text-slate-500 mt-1">Crédits personnalisés pour ce client entreprise</p>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-sm font-black text-slate-700 mb-2">
