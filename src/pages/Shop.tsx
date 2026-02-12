@@ -8,7 +8,6 @@ import {
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { toast } from '../utils/toast';
-import ChatAssistant from '../components/ChatAssistant';
 
 // ===== PLANS =====
 const PLANS = [
@@ -742,8 +741,6 @@ export default function ShopNew() {
           </div>
         </div>
       )}
-
-      <ChatAssistant />
     </div>
   );
 }

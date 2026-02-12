@@ -1,9 +1,8 @@
 // @ts-nocheck - Supabase generated types are outdated, all operations work correctly at runtime
 import { useEffect, useState } from 'react';
-import { Users, Truck, DollarSign, CreditCard, TrendingUp, Package, ShoppingCart, UserCheck, Search, Plus, Shield, Trash2, CheckCircle, XCircle, Gift, AlertTriangle, MapPin, Navigation, MessageCircle, Activity, BarChart3, PieChart, Clock, Zap, Download } from 'lucide-react';
+import { Users, Truck, DollarSign, CreditCard, TrendingUp, Package, UserCheck, Search, Plus, Shield, Trash2, CheckCircle, XCircle, Gift, AlertTriangle, MapPin, Navigation, MessageCircle, Activity, BarChart3, PieChart, Clock, Zap, Download } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import AdminShopRequests from '../components/AdminShopRequests';
 
 interface Statistics {
   total_users: number;
@@ -67,7 +66,7 @@ export default function Admin() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [subscriptionFilter, setSubscriptionFilter] = useState<'all' | 'starter' | 'basic' | 'pro' | 'business' | 'enterprise' | 'none'>('all');
-  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'credits' | 'tracking' | 'analytics' | 'shop-requests' | 'apk-manager'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'users' | 'credits' | 'tracking' | 'analytics' | 'apk-manager'>('overview');
   const [trackingMissions, setTrackingMissions] = useState<any[]>([]);
   const [supportCount, setSupportCount] = useState(0);
   const [userTypeFilter, setUserTypeFilter] = useState<'all' | 'client' | 'driver'>('all');
@@ -338,7 +337,7 @@ export default function Admin() {
       supabase.from('profiles').select('id, credits'),
       supabase.from('contacts').select('*', { count: 'exact', head: true }),
       supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo.toISOString()),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('last_sign_in_at', new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()),
       supabase.from('transactions').select('amount').eq('payment_status', 'paid').gte('created_at', monthStart.toISOString()),
       supabase.from('missions').select('*', { count: 'exact', head: true }).gte('created_at', monthStart.toISOString()),
     ]);
@@ -484,6 +483,13 @@ export default function Admin() {
   };
 
   const handleBanUser = async (userId: string, userEmail: string, currentlyBanned: boolean) => {
+    // Protection: empêcher l'admin de se bannir lui-même
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser?.id === userId) {
+      alert('⛔ Vous ne pouvez pas vous bannir vous-même.');
+      return;
+    }
+
     const action = currentlyBanned ? 'débannir' : 'bannir';
     const reason = currentlyBanned ? null : prompt(`Raison du bannissement de ${userEmail}:`);
 
@@ -506,6 +512,13 @@ export default function Admin() {
   };
 
   const handleDeleteUser = async (userId: string, userEmail: string) => {
+    // Protection: empêcher l'admin de se supprimer lui-même
+    const { data: { user: currentUser } } = await supabase.auth.getUser();
+    if (currentUser?.id === userId) {
+      alert('⛔ Vous ne pouvez pas supprimer votre propre compte admin.');
+      return;
+    }
+
     if (!confirm(`⚠️ ATTENTION: Êtes-vous sûr de vouloir SUPPRIMER ${userEmail} ?`)) {
       return;
     }
@@ -1101,7 +1114,6 @@ export default function Admin() {
             { id: 'credits', label: 'Crédits & Abonnements', icon: CreditCard },
             { id: 'tracking', label: `Missions GPS (${trackingMissions.length})`, icon: MapPin },
             { id: 'analytics', label: 'Analytics', icon: PieChart },
-            { id: 'shop-requests', label: 'Demandes Abonnement', icon: ShoppingCart },
             { id: 'apk-manager', label: `Versions APK (${apkVersions.length})`, icon: Download },
           ].map(tab => (
             <button
@@ -1689,59 +1701,6 @@ export default function Admin() {
               </div>
             </div>
 
-            {/* Historique des transactions récentes */}
-            <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-xl">
-              <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-slate-900">
-                <Activity className="w-7 h-7 text-green-500" />
-                Transactions Récentes
-                <span className="text-sm font-normal text-slate-500 ml-auto">
-                  {recentTransactions.length} dernières transactions
-                </span>
-              </h2>
-              <div className="space-y-3">
-                {recentTransactions.map((transaction, i) => (
-                  <div
-                    key={transaction.id}
-                    style={{ animationDelay: `${i * 30}ms` }}
-                    className="flex items-center justify-between p-4 bg-gradient-to-r from-slate-50 to-white rounded-xl hover:shadow-lg transition-all hover:-translate-y-1 border border-slate-200 animate-in slide-in-from-right"
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center text-white font-black text-lg shadow-lg">
-                        {(Array.isArray(transaction.profiles) ? transaction.profiles[0]?.email : transaction.profiles?.email)?.charAt(0).toUpperCase()}
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-900">
-                          {Array.isArray(transaction.profiles) ? transaction.profiles[0]?.email : transaction.profiles?.email}
-                        </p>
-                        <p className="text-sm text-slate-600 font-semibold">
-                          {transaction.credits} crédits • {new Date(transaction.created_at).toLocaleDateString('fr-FR', { 
-                            day: 'numeric', 
-                            month: 'short', 
-                            year: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <p className="text-2xl font-black text-green-600">{Number(transaction.amount).toFixed(2)}€</p>
-                      <span
-                        className={`inline-block px-3 py-1 text-xs font-black rounded-full ${
-                          transaction.payment_status === 'paid'
-                            ? 'bg-green-100 text-green-700'
-                            : transaction.payment_status === 'pending'
-                            ? 'bg-amber-100 text-amber-700'
-                            : 'bg-red-100 text-red-700'
-                        }`}
-                      >
-                        {transaction.payment_status.toUpperCase()}
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
           </div>
         )}
 
@@ -1768,20 +1727,20 @@ export default function Admin() {
                     >
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
-                          <h3 className="text-xl font-black text-slate-900 mb-3">{mission.title}</h3>
+                          <h3 className="text-xl font-black text-slate-900 mb-3">{mission.reference || 'Mission sans référence'}</h3>
                           <div className="space-y-2">
                             <div className="flex items-start gap-2">
                               <MapPin className="w-5 h-5 text-green-600 mt-0.5 flex-shrink-0" />
                               <div>
                                 <p className="font-bold text-slate-700">Départ</p>
-                                <p className="text-slate-600">{mission.departure_address}</p>
+                                <p className="text-slate-600">{mission.pickup_address || 'Non renseignée'}</p>
                               </div>
                             </div>
                             <div className="flex items-start gap-2">
                               <MapPin className="w-5 h-5 text-red-600 mt-0.5 flex-shrink-0" />
                               <div>
                                 <p className="font-bold text-slate-700">Arrivée</p>
-                                <p className="text-slate-600">{mission.arrival_address}</p>
+                                <p className="text-slate-600">{mission.delivery_address || 'Non renseignée'}</p>
                               </div>
                             </div>
                           </div>
@@ -1899,7 +1858,7 @@ export default function Admin() {
             <div className="bg-white border-2 border-slate-200 rounded-2xl p-6 shadow-xl">
               <h2 className="text-2xl font-black mb-6 flex items-center gap-3 text-slate-900">
                 <Clock className="w-7 h-7 text-orange-500" />
-                Activité récente
+                Dernières inscriptions
               </h2>
               <div className="space-y-3">
                 {allUsers.slice(0, 10).map((user, i) => (
@@ -1913,13 +1872,13 @@ export default function Admin() {
                         {user.email?.charAt(0).toUpperCase() || '?'}
                       </div>
                       <div>
-                        <p className="font-bold text-slate-900">{user.email}</p>
-                        <p className="text-sm text-slate-600">Inscrit {new Date(user.created_at).toLocaleDateString('fr-FR')}</p>
+                        <p className="font-bold text-slate-900">{user.full_name || user.email}</p>
+                        <p className="text-sm text-slate-600">Inscrit le {new Date(user.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' })}</p>
                       </div>
                     </div>
                     {user.last_sign_in_at && (
                       <span className="text-sm text-slate-500 font-semibold">
-                        Dernière connexion: {new Date(user.last_sign_in_at).toLocaleDateString('fr-FR')}
+                        Dernière connexion: {new Date(user.last_sign_in_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}
                       </span>
                     )}
                   </div>
@@ -2045,10 +2004,6 @@ export default function Admin() {
             </div>
           </div>
         </div>
-      )}
-
-      {activeTab === 'shop-requests' && (
-        <AdminShopRequests />
       )}
 
       {/* APK Manager Tab */}

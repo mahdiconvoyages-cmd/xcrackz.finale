@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import FloatingParticles from './FloatingParticles';
-import ChatAssistant from './ChatAssistant';
+import SupportChat from './SupportChat';
 import { LayoutDashboard, Users, Settings, LogOut, Menu, X, CircleUser as UserCircle, MapPin, ShoppingBag, Shield, Building2, MessageCircle, Smartphone, Camera } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdmin } from '../hooks/useAdmin';
@@ -390,8 +390,8 @@ export default function Layout({ children }: LayoutProps) {
         </main>
       </div>
 
-      {/* Clara - Assistant IA flottant */}
-      <ChatAssistant />
+      {/* Support Chat - Contactez l'équipe */}
+      <SupportChat />
     </div>
   );
 }
