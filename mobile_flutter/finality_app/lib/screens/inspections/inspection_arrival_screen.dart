@@ -6,6 +6,7 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
 import '../../widgets/signature_pad_widget.dart';
+import '../../widgets/inspection_report_link_dialog.dart';
 import '../document_scanner/document_scanner_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
@@ -630,7 +631,17 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           ),
         );
 
-        Navigator.of(context).popUntil((route) => route.isFirst);
+        // Proposer de partager le rapport avec le signataire
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => InspectionReportLinkDialog(
+            inspectionId: inspectionId,
+            reportType: 'arrival',
+          ),
+        );
+
+        if (mounted) Navigator.of(context).popUntil((route) => route.isFirst);
       }
     } catch (e) {
       if (mounted) setState(() => _isLoading = false);

@@ -197,14 +197,19 @@ export default function TrackingCommand() {
         return;
       }
 
-      // Générer un nouveau token
-      const token = Array.from(crypto.getRandomValues(new Uint8Array(16)))
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('');
-      
-      const publicLink = `${window.location.origin}/tracking/${token}`;
+      // Générer un nouveau token via la fonction SQL (crée l'entrée dans public_tracking_links)
+      const { data: tokenData, error: rpcError } = await supabase
+        .rpc('generate_public_tracking_link', { p_mission_id: selectedMission.id });
 
-      // Sauvegarder dans la base avec le service role key pour bypass RLS
+      if (rpcError) {
+        console.error('RPC error:', rpcError);
+        throw new Error(`Erreur: ${rpcError.message}`);
+      }
+
+      const generatedToken = tokenData as string;
+      const publicLink = `${window.location.origin}/tracking/${generatedToken}`;
+
+      // Sauvegarder le lien dans la mission
       const { data, error } = await supabase
         .from('missions')
         .update({ public_tracking_link: publicLink })

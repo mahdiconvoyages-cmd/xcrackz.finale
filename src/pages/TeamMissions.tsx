@@ -850,7 +850,7 @@ export default function TeamMissions() {
                     </>
                   )}
                   {mission.status === 'in_progress' && (
-                    <button onClick={() => navigate(`/tracking/${mission.id}`)}
+                    <button onClick={() => navigate(`/missions/${mission.id}/tracking`)}
                       className="inline-flex items-center gap-1 text-teal-600 hover:bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition">
                       <Navigation className="w-3.5 h-3.5" /> GPS Tracking
                     </button>
@@ -1200,7 +1200,7 @@ export default function TeamMissions() {
                       <p className="text-slate-600 text-sm truncate">{selectedMission.public_tracking_link}</p>
                     </div>
                   )}
-                  <button onClick={() => { setShowDetailsModal(false); navigate(`/tracking/${selectedMission.id}`); }}
+                  <button onClick={() => { setShowDetailsModal(false); navigate(`/missions/${selectedMission.id}/tracking`); }}
                     className="w-full py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-bold hover:shadow-lg transition flex items-center justify-center gap-2">
                     <MapPinned className="w-5 h-5" />
                     Voir sur la carte
