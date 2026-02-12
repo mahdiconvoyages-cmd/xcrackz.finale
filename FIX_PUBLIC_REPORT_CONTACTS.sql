@@ -1,56 +1,10 @@
--- ================================================
--- SYNC BACKEND PARTAGE RAPPORT D'INSPECTION (Supabase)
--- Sûr à exécuter plusieurs fois (idempotent)
--- ================================================
+-- ============================================================
+-- FIX: Add missing contact phone/name fields to public report RPC
+-- Problem: pickup_contact_name, pickup_contact_phone, 
+--          delivery_contact_name, delivery_contact_phone, driver_phone
+--          were NOT returned by get_inspection_report_by_token
+-- ============================================================
 
--- 1) Assurer l'URL de partage canonique (www.xcrackz.com)
---    Si une version existante retourne un autre type, il faut la supprimer d'abord
-DROP FUNCTION IF EXISTS create_or_get_inspection_share(UUID, UUID, TEXT);
-CREATE OR REPLACE FUNCTION create_or_get_inspection_share(
-  p_mission_id UUID,
-  p_user_id UUID,
-  p_report_type TEXT
-)
-RETURNS TABLE (
-  share_url TEXT,
-  share_token TEXT,
-  created_at TIMESTAMPTZ
-) AS $$
-DECLARE
-  v_token TEXT;
-  v_existing_record RECORD;
-BEGIN
-  SELECT * INTO v_existing_record
-  FROM public.inspection_report_shares
-  WHERE mission_id = p_mission_id
-    AND report_type = p_report_type
-    AND is_active = TRUE
-  LIMIT 1;
-
-  IF FOUND THEN
-    RETURN QUERY SELECT 
-      'https://www.xcrackz.com/rapport-inspection/' || v_existing_record.share_token AS share_url,
-      v_existing_record.share_token,
-      v_existing_record.created_at;
-    RETURN;
-  END IF;
-
-  v_token := encode(gen_random_bytes(16), 'base64');
-  v_token := replace(replace(replace(v_token, '/', ''), '+', ''), '=', '');
-
-  INSERT INTO public.inspection_report_shares (mission_id, user_id, share_token, report_type)
-  VALUES (p_mission_id, p_user_id, v_token, p_report_type);
-
-  RETURN QUERY SELECT 
-    'https://www.xcrackz.com/rapport-inspection/' || v_token AS share_url,
-    v_token,
-    NOW();
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-GRANT EXECUTE ON FUNCTION create_or_get_inspection_share(UUID, UUID, TEXT) TO authenticated;
-
--- 2) Fonction publique: JSONB + inspection_photos_v2 + mileage_km
 DROP FUNCTION IF EXISTS get_inspection_report_by_token(TEXT);
 CREATE OR REPLACE FUNCTION get_inspection_report_by_token(
   p_token TEXT
@@ -92,7 +46,6 @@ BEGIN
       'delivery_contact_phone', m.delivery_contact_phone,
       'driver_phone', m.driver_phone,
       'vehicle_type', m.vehicle_type,
-      -- Le nom du convoyeur est stocké sur les inspections, on le remonte ici si disponible
       'driver_name', COALESCE(
         (
           SELECT vi.driver_name
@@ -128,6 +81,7 @@ BEGIN
         'cleanliness_interior', vi.internal_cleanliness,
         'cleanliness_exterior', vi.external_cleanliness,
         'notes', vi.notes,
+        'driver_name', vi.driver_name,
         'driver_signature', vi.driver_signature,
         'client_signature', vi.client_signature,
         'latitude', vi.latitude,
@@ -159,6 +113,7 @@ BEGIN
         'cleanliness_interior', vi.internal_cleanliness,
         'cleanliness_exterior', vi.external_cleanliness,
         'notes', vi.notes,
+        'driver_name', vi.driver_name,
         'driver_signature', vi.driver_signature,
         'client_signature', vi.client_signature,
         'latitude', vi.latitude,
@@ -190,6 +145,3 @@ END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
 GRANT EXECUTE ON FUNCTION get_inspection_report_by_token(TEXT) TO anon, authenticated;
-
--- 3) Optionnel (diagnostic rapide):
--- SELECT get_inspection_report_by_token('<collez_un_token>');

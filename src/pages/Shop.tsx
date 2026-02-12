@@ -404,31 +404,9 @@ export default function ShopNew() {
                   'Rapports d\'inspection PDF',
                   'Facturation et devis',
                   'CRM & gestion des contacts / clients',
-                  'Scanner de documents',
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-                    {item}
-                  </li>
-                ))}
-              </ul>
-            </div>
-            <div>
-              <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
-                <Zap className="w-5 h-5 text-purple-500" />
-                Ce que les crédits permettent
-              </h4>
-              <ul className="space-y-2 text-sm text-slate-600">
-                {[
-                  'Assistant — Génération automatique de missions',
-                  'Scanner intelligent de documents (OCR)',
-                  'Génération de rapports PDF avancés',
-                  'Recherche SIRET / API entreprise',
-                  'Optimisation de trajets',
-                  'Notifications & suggestions intelligentes',
-                ].map((item, i) => (
-                  <li key={i} className="flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 rounded-full bg-purple-500" />
                     {item}
                   </li>
                 ))}
