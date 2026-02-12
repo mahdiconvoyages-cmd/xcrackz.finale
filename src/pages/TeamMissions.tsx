@@ -264,7 +264,7 @@ export default function TeamMissions() {
   };
 
   const handleCreateInvoice = (mission: Mission) => {
-    navigate('/invoices', { state: { fromMission: mission } });
+    navigate('/billing', { state: { fromMission: mission } });
   };
 
   const handleDeleteMission = async (missionId: string) => {
