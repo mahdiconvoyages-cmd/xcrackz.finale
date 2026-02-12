@@ -117,8 +117,8 @@ export default function AdminSupport() {
     open: 0,
     pending: 0,
     resolved: 0,
-    avgResponseTime: '2h 30min',
-    satisfaction: 4.5,
+    avgResponseTime: '-',
+    satisfaction: 0,
   });
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -202,8 +202,8 @@ export default function AdminSupport() {
         open,
         pending,
         resolved,
-        avgResponseTime: '2h 30min',
-        satisfaction: 4.5,
+        avgResponseTime: '-',
+        satisfaction: 0,
       });
     }
   };
@@ -708,18 +708,9 @@ export default function AdminSupport() {
                     </div>
 
                     <div className="flex gap-2">
-                      <button className="p-2 hover:bg-white rounded-lg transition">
-                        <Phone className="w-5 h-5 text-slate-600" />
-                      </button>
-                      <button className="p-2 hover:bg-white rounded-lg transition">
-                        <Video className="w-5 h-5 text-slate-600" />
-                      </button>
-                      <button className="p-2 hover:bg-white rounded-lg transition">
+                      <a href={`mailto:${currentConversation.profiles.email}`} className="p-2 hover:bg-white rounded-lg transition" title="Envoyer un email">
                         <Mail className="w-5 h-5 text-slate-600" />
-                      </button>
-                      <button className="p-2 hover:bg-white rounded-lg transition">
-                        <MoreVertical className="w-5 h-5 text-slate-600" />
-                      </button>
+                      </a>
                     </div>
                   </div>
 
@@ -841,19 +832,12 @@ export default function AdminSupport() {
                 {/* Input */}
                 <div className="border-t border-slate-200 p-4 bg-white">
                   <div className="flex gap-3">
-                    <button className="p-3 hover:bg-slate-100 rounded-xl transition">
-                      <Paperclip className="w-5 h-5 text-slate-600" />
-                    </button>
-                    <button className="p-3 hover:bg-slate-100 rounded-xl transition">
-                      <Smile className="w-5 h-5 text-slate-600" />
-                    </button>
-                    
                     <input
                       type="text"
                       placeholder="Tapez votre réponse..."
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                      onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
                       disabled={loading}
                       className="flex-1 px-4 py-3 border-2 border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-medium"
                     />

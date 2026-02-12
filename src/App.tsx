@@ -42,9 +42,13 @@ const Profile = lazy(() => import('./pages/Profile'));
 const MissionTracking = lazy(() => import('./pages/MissionTracking'));
 const Shop = lazy(() => import('./pages/Shop'));
 const Support = lazy(() => import('./pages/Support'));
-const Admin = lazy(() => import('./pages/Admin'));
+const Admin = lazy(() => import('./pages/AdminDashboard'));
+const AdminUsers = lazy(() => import('./pages/AdminUsers'));
+const AdminTracking = lazy(() => import('./pages/AdminTracking'));
+const AdminApk = lazy(() => import('./pages/AdminApk'));
 const AdminSupport = lazy(() => import('./pages/AdminSupport'));
 const AccountSecurity = lazy(() => import('./pages/AccountSecurity'));
+const AdminLayout = lazy(() => import('./components/AdminLayout'));
 const PublicTrackingNew = lazy(() => import('./pages/PublicTrackingNew'));
 const TrackingCommand = lazy(() => import('./pages/TrackingCommand'));
 const TeamMissions = lazy(() => import('./pages/TeamMissions'));
@@ -337,9 +341,42 @@ function AppContent() {
             path="/admin"
             element={
               <AdminRoute>
-                <Layout>
+                <AdminLayout>
                   <Admin />
-                </Layout>
+                </AdminLayout>
+              </AdminRoute>
+            }
+          />
+
+          <Route
+            path="/admin/users"
+            element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminUsers />
+                </AdminLayout>
+              </AdminRoute>
+            }
+          />
+
+          <Route
+            path="/admin/subscriptions"
+            element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminUsers />
+                </AdminLayout>
+              </AdminRoute>
+            }
+          />
+
+          <Route
+            path="/admin/tracking"
+            element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminTracking />
+                </AdminLayout>
               </AdminRoute>
             }
           />
@@ -348,9 +385,9 @@ function AppContent() {
             path="/admin/security"
             element={
               <AdminRoute>
-                <Layout>
+                <AdminLayout>
                   <AccountSecurity />
-                </Layout>
+                </AdminLayout>
               </AdminRoute>
             }
           />
@@ -359,9 +396,20 @@ function AppContent() {
             path="/admin/support"
             element={
               <AdminRoute>
-                <Layout>
+                <AdminLayout>
                   <AdminSupport />
-                </Layout>
+                </AdminLayout>
+              </AdminRoute>
+            }
+          />
+
+          <Route
+            path="/admin/apk"
+            element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminApk />
+                </AdminLayout>
               </AdminRoute>
             }
           />
