@@ -26,22 +26,25 @@ ALTER TABLE public.support_messages REPLICA IDENTITY DEFAULT;
 
 DO $$
 DECLARE
+  -- 17 tables currently in realtime publication but NOT watched by any channel
   tables_to_remove TEXT[] := ARRAY[
-    'inspection_photos_v2',
-    'mission_locations', 
-    'gps_location_points',
-    'inspection_documents',
-    'inspection_damages',
-    'inspection_expenses',
-    'mission_tracking_history',
-    'ai_messages',
-    'ai_insights',
-    'ai_requests_usage',
-    'credit_transactions',
-    'navigation_sessions',
-    'calendar_events',
+    'account_creation_attempts',
     'calendar_permissions',
-    'availability_calendar'
+    'carpooling_bookings',
+    'carpooling_trips',
+    'gps_location_points',
+    'gps_tracking_sessions',
+    'inspection_documents',
+    'inspection_expenses',
+    'inspection_pdfs',
+    'inspection_photos_v2',
+    'inspection_report_shares',
+    'inspections',
+    'invoice_items',
+    'mission_locations',
+    'mission_tracking_history',
+    'user_push_tokens',
+    'vehicle_inspections'
   ];
   t TEXT;
 BEGIN
@@ -55,16 +58,16 @@ BEGIN
   END LOOP;
 END $$;
 
--- 3. Keep realtime ONLY on essential tables:
--- ✅ missions (status updates, assignments)
--- ✅ profiles (user info changes)
--- ✅ support_conversations (chat)
--- ✅ support_messages (chat messages)
--- ✅ notifications (push notifications)
--- ✅ mission_tracking_live (live GPS position)
--- ✅ user_credits (credit balance changes)
--- ✅ subscriptions (plan changes)
--- ✅ mission_assignments (mission joins)
+-- 3. Keep realtime ONLY on 9 tables actually watched by channels:
+-- ✅ missions          — Dashboard, DashboardPremium, AdminDashboard, AdminTracking
+-- ✅ invoices           — Dashboard, DashboardPremium (filtered by user_id)
+-- ✅ contacts           — Dashboard (filtered by user_id)
+-- ✅ profiles           — DashboardPremium, AdminDashboard, AdminUsers
+-- ✅ support_conversations — SupportChat, AdminLayout, AdminSupport
+-- ✅ support_messages   — SupportChat, AdminSupport
+-- ✅ mission_tracking_live — TrackingCommand, PublicTracking (live GPS)
+-- ✅ mission_assignments — useRealtimeSync (mission joins)
+-- ✅ user_credits       — Dashboard (filtered by user_id)
 -- ============================================================
 
 -- Verify current realtime tables:
