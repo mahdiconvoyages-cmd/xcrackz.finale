@@ -79,13 +79,19 @@ export default function AdminUsers() {
 
   const loadAllUsers = async () => {
     try {
-      const { data: profiles } = await supabase.from('profiles').select('id, email, full_name, created_at, is_admin, is_verified, user_type, company_name, phone, banned, ban_reason, banned_at, last_sign_in_at, credits').order('created_at', { ascending: false });
+      const { data: profiles, error: profErr } = await supabase.from('profiles').select('id, email, full_name, created_at, is_admin, is_verified, user_type, company_name, phone, banned, ban_reason, banned_at, last_sign_in_at, credits').order('created_at', { ascending: false });
+      if (profErr) {
+        console.error('❌ Erreur chargement profiles:', profErr);
+        throw profErr;
+      }
+      console.log(`✅ ${profiles?.length || 0} profils chargés`);
       const { data: subs } = await supabase.from('subscriptions').select('user_id, status, plan, current_period_end, auto_renew');
       const subsMap = new Map();
       subs?.forEach(s => subsMap.set(s.user_id, s));
       const users = (profiles || []).map(p => ({ ...p, credits: { balance: p.credits || 0 }, subscription: subsMap.get(p.id) || null }));
       setAllUsers(users);
-    } catch {
+    } catch (err) {
+      console.error('❌ Erreur loadAllUsers, fallback:', err);
       const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
       setAllUsers((data || []).map(u => ({ ...u, credits: { balance: u.credits || 0 }, subscription: null })));
     }
@@ -304,6 +310,15 @@ export default function AdminUsers() {
               </tr>
             </thead>
             <tbody>
+              {paginatedUsers.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="py-16 text-center">
+                    <Users className="w-12 h-12 text-slate-200 mx-auto mb-3" />
+                    <p className="text-slate-400 font-semibold">Aucun utilisateur trouvé</p>
+                    <p className="text-xs text-slate-300 mt-1">Modifiez vos filtres ou vérifiez la connexion</p>
+                  </td>
+                </tr>
+              )}
               {paginatedUsers.map(user => (
                 <tr key={user.id} className="border-t border-slate-100 hover:bg-slate-50/50 transition">
                   <td className="py-3 px-4">

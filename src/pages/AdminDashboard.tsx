@@ -1,6 +1,7 @@
 // @ts-nocheck
 import { useEffect, useState } from 'react';
-import { Users, Truck, DollarSign, CreditCard, TrendingUp, Package, ShoppingCart, UserCheck, Activity, Zap, Clock } from 'lucide-react';
+import { Users, Truck, DollarSign, CreditCard, TrendingUp, Package, ShoppingCart, UserCheck, Activity, Zap, Clock, ArrowRight } from 'lucide-react';
+import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
 interface Statistics {
@@ -30,6 +31,7 @@ interface Transaction {
 export default function AdminDashboard() {
   const [statistics, setStatistics] = useState<Statistics | null>(null);
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
+  const [recentUsers, setRecentUsers] = useState<any[]>([]);
   const [planDistribution, setPlanDistribution] = useState<{ plan: string; count: number }[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -46,7 +48,7 @@ export default function AdminDashboard() {
 
   const loadDashboard = async () => {
     try {
-      await Promise.all([loadStats(), loadTransactions(), loadPlanDistribution()]);
+      await Promise.all([loadStats(), loadTransactions(), loadPlanDistribution(), loadRecentUsers()]);
     } finally {
       setLoading(false);
     }
@@ -123,6 +125,15 @@ export default function AdminDashboard() {
     const counts: Record<string, number> = {};
     (data || []).forEach(s => { counts[s.plan] = (counts[s.plan] || 0) + 1; });
     setPlanDistribution(Object.entries(counts).map(([plan, count]) => ({ plan, count })).sort((a, b) => b.count - a.count));
+  };
+
+  const loadRecentUsers = async () => {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, email, full_name, user_type, is_verified, is_admin, credits, created_at, last_sign_in_at')
+      .order('created_at', { ascending: false })
+      .limit(10);
+    setRecentUsers(data || []);
   };
 
   if (loading) {
@@ -253,6 +264,44 @@ export default function AdminDashboard() {
                 </div>
               );
             })}
+          </div>
+        )}
+      </div>
+
+      {/* Recent users */}
+      <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
+        <div className="flex items-center justify-between mb-5">
+          <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+            <Users className="w-5 h-5 text-blue-500" />
+            Derniers utilisateurs
+          </h2>
+          <Link to="/admin/users" className="flex items-center gap-1 text-sm font-bold text-teal-600 hover:text-teal-700 transition">
+            Voir tout <ArrowRight className="w-4 h-4" />
+          </Link>
+        </div>
+        {recentUsers.length === 0 ? (
+          <p className="text-slate-400 text-center py-8">Aucun utilisateur</p>
+        ) : (
+          <div className="space-y-2">
+            {recentUsers.map(u => (
+              <div key={u.id} className="flex items-center justify-between p-3 rounded-xl bg-slate-50 hover:bg-slate-100 transition">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-full flex items-center justify-center text-white font-bold text-sm">
+                    {(u.email || '?').charAt(0).toUpperCase()}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{u.full_name || u.email}</p>
+                    <p className="text-xs text-slate-500">{u.email} · {u.user_type || 'client'}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black text-amber-600">{u.credits || 0} cr</span>
+                  {u.is_verified && <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-green-100 text-green-700">VÉRIFIÉ</span>}
+                  {u.is_admin && <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-red-100 text-red-700">ADMIN</span>}
+                  <span className="text-[10px] text-slate-400">{new Date(u.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
