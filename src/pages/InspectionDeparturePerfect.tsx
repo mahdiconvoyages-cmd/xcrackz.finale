@@ -7,6 +7,7 @@ import SignatureCanvas from '../components/inspection/SignatureCanvas';
 import UnifiedDocumentScanner from '../components/inspection/UnifiedDocumentScanner';
 import { uploadInspectionDocument } from '../services/inspectionDocumentsService';
 import { showToast } from '../components/Toast';
+import { compressImage } from '../utils/imageCompression';
 
 interface Mission {
   id: string;
@@ -433,14 +434,16 @@ export default function InspectionDeparturePerfect() {
 
   const uploadPhoto = async (inspectionId: string, photo: PhotoData) => {
     try {
-      const fileExt = photo.file!.name.split('.').pop();
+      // Compress image before upload (70-90% size reduction)
+      const compressedFile = await compressImage(photo.file!, { maxDimension: 1600, quality: 0.8 });
+      const fileExt = compressedFile.name.split('.').pop();
       const fileName = `${inspectionId}-${photo.type}-${Date.now()}.${fileExt}`;
       const filePath = `inspections/${fileName}`;
 
       // Upload vers Storage
       const { error: uploadError } = await supabase.storage
         .from('inspection-photos')
-        .upload(filePath, photo.file!);
+        .upload(filePath, compressedFile);
 
       if (uploadError) throw uploadError;
 

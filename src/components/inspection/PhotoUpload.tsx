@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Upload, X, Image as ImageIcon } from 'lucide-react';
 import { supabase } from '../../lib/supabase';
+import { compressImage } from '../../utils/imageCompression';
 
 interface PhotoUploadProps {
   category: string;
@@ -32,13 +33,15 @@ export default function PhotoUpload({
 
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const fileExt = file.name.split('.').pop();
+        // Compress image before upload
+        const compressed = await compressImage(file, { maxDimension: 1600, quality: 0.8 });
+        const fileExt = compressed.name.split('.').pop();
         const fileName = `${category}_${Date.now()}_${i}.${fileExt}`;
         const filePath = `inspections/${fileName}`;
 
         const { error: uploadError } = await supabase.storage
           .from('inspection-photos')
-          .upload(filePath, file);
+          .upload(filePath, compressed);
 
         if (uploadError) {
           throw uploadError;

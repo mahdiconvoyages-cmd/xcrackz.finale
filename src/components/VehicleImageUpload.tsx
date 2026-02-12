@@ -2,6 +2,7 @@ import { useState, useRef } from 'react';
 import { Upload, X } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { compressImage } from '../utils/imageCompression';
 
 interface VehicleImageUploadProps {
   value: string;
@@ -32,12 +33,14 @@ export default function VehicleImageUpload({ value, onChange }: VehicleImageUplo
     setUploading(true);
 
     try {
-      const fileExt = file.name.split('.').pop();
+      // Compress image before upload
+      const compressed = await compressImage(file, { maxDimension: 1200, quality: 0.8 });
+      const fileExt = compressed.name.split('.').pop();
       const fileName = `${user.id}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('vehicle-images')
-        .upload(fileName, file, {
+        .upload(fileName, compressed, {
           cacheControl: '3600',
           upsert: false,
         });

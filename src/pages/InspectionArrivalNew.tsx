@@ -8,6 +8,7 @@ import PhotoCard from '../components/inspection/PhotoCard';
 import StepNavigation from '../components/inspection/StepNavigation';
 import OptionalPhotos from '../components/inspection/OptionalPhotos';
 import { showToast } from '../components/Toast';
+import { compressImage } from '../utils/imageCompression';
 
 interface Mission {
   id: string;
@@ -254,12 +255,14 @@ export default function InspectionArrivalNew() {
         if (!photo.file || !photo.captured) continue;
 
         try {
-          const fileExt = photo.file.name.split('.').pop();
+          // Compress image before upload (70-90% size reduction)
+          const compressedFile = await compressImage(photo.file, { maxDimension: 1600, quality: 0.8 });
+          const fileExt = compressedFile.name.split('.').pop();
           const fileName = `${arrivalInspection.id}-${photo.type}-${Date.now()}.${fileExt}`;
           const filePath = `inspections/${fileName}`;
 
           // Upload vers Storage
-          await uploadWithRetry('inspection-photos', filePath, photo.file);
+          await uploadWithRetry('inspection-photos', filePath, compressedFile);
 
           // Récupérer URL publique
           const { data: urlData } = supabase.storage

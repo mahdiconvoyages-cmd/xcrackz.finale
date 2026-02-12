@@ -6,6 +6,7 @@
  */
 
 import { supabase } from '../lib/supabase';
+import { compressImage } from '../utils/imageCompression';
 
 export interface InspectionDocument {
   id: string;
@@ -39,11 +40,14 @@ export async function uploadInspectionDocument(
       title = `Document ${Date.now()}`
     } = options;
 
-    // 1. Upload du fichier dans Storage bucket scanned-documents
-    const fileName = `${userId}/${Date.now()}_${file.name}`;
+    // 1. Compress if image, then upload to Storage
+    const fileToUpload = file.type.startsWith('image/') 
+      ? await compressImage(file, { maxDimension: 1600, quality: 0.8 })
+      : file;
+    const fileName = `${userId}/${Date.now()}_${fileToUpload.name}`;
     const { error: uploadError } = await supabase.storage
       .from('scanned-documents')
-      .upload(fileName, file, {
+      .upload(fileName, fileToUpload, {
         cacheControl: '3600',
         upsert: false
       });
@@ -65,7 +69,7 @@ export async function uploadInspectionDocument(
       document_title: title,
       document_url: urlData.publicUrl,
       pages_count: 1,
-      file_size_kb: Math.round(file.size / 1024),
+      file_size_kb: Math.round(fileToUpload.size / 1024),
       user_id: userId
     };
 

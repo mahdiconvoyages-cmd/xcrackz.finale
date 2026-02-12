@@ -3,6 +3,7 @@ import { UserCircle, Mail, Save, Camera, Star, Award, MapPin, Phone, Building, C
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useSubscription } from '../hooks/useSubscription';
+import { compressImage } from '../utils/imageCompression';
 
 interface ProfileData {
   first_name: string;
@@ -190,13 +191,16 @@ export default function Profile() {
         await supabase.storage.from('avatars').remove([oldPath]);
       }
 
+      // Compress avatar before upload
+      const compressed = await compressImage(file, { maxDimension: 400, quality: 0.85 });
+
       // Upload le nouveau fichier avec upsert pour éviter les conflits
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, {
+        .upload(filePath, compressed, {
           cacheControl: '3600',
           upsert: true, // Changé à true pour écraser si existe
-          contentType: file.type
+          contentType: compressed.type
         });
 
       if (uploadError) {

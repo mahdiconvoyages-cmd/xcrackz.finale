@@ -1,5 +1,6 @@
 // Service pour gérer les pièces jointes
 import { supabase } from '../lib/supabase';
+import { compressImage } from '../utils/imageCompression';
 
 export interface Attachment {
   id: string;
@@ -36,17 +37,22 @@ export async function uploadAttachment(
       throw new Error('Le fichier ne doit pas dépasser 10MB');
     }
 
+    // Compress image files before upload
+    const fileToUpload = file.type.startsWith('image/')
+      ? await compressImage(file, { maxDimension: 1600, quality: 0.8 })
+      : file;
+
     // Générer un nom de fichier unique
     const timestamp = Date.now();
     const randomString = Math.random().toString(36).substring(7);
-    const fileExt = file.name.split('.').pop();
+    const fileExt = fileToUpload.name.split('.').pop();
     const fileName = `${timestamp}_${randomString}.${fileExt}`;
     const storagePath = `${userId}/${fileName}`;
 
     // Upload vers Supabase Storage
     const { error: uploadError } = await supabase.storage
       .from('attachments')
-      .upload(storagePath, file, {
+      .upload(storagePath, fileToUpload, {
         cacheControl: '3600',
         upsert: false
       });
