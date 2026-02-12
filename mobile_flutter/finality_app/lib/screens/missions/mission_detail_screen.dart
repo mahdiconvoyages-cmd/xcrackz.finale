@@ -8,6 +8,8 @@ import '../../models/mission.dart';
 import '../../services/mission_service.dart';
 import '../../services/background_tracking_service.dart';
 import '../invoices/invoice_form_screen.dart';
+import '../inspections/inspection_departure_screen.dart';
+import '../inspections/inspection_arrival_screen.dart';
 import '../../theme/premium_theme.dart';
 import 'package:intl/intl.dart';
 
@@ -980,7 +982,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
-                  onPressed: () => _updateStatus('in_progress'),
+                  onPressed: () => _startDepartureInspection(),
                   icon: const Icon(Icons.play_arrow),
                   label: const Text('Demarrer la mission', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                   style: ElevatedButton.styleFrom(
@@ -992,6 +994,43 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
                 ),
               ),
             if (_mission!.status == 'in_progress') ...[
+              // Boutons d'inspection si manquantes
+              if (!_hasDepartureInspection)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _startDepartureInspection(),
+                      icon: const Icon(Icons.login),
+                      label: const Text('Faire l\'inspection de depart', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: PremiumTheme.primaryBlue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ),
+              if (_hasDepartureInspection && !_hasArrivalInspection)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: SizedBox(
+                    width: double.infinity,
+                    child: ElevatedButton.icon(
+                      onPressed: () => _startArrivalInspection(),
+                      icon: const Icon(Icons.logout),
+                      label: const Text('Faire l\'inspection d\'arrivee', style: TextStyle(fontSize: 15, fontWeight: FontWeight.w600)),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: PremiumTheme.primaryPurple,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ),
               // Afficher avertissement si inspections manquantes
               if (!_hasDepartureInspection || !_hasArrivalInspection)
                 Padding(
@@ -1191,6 +1230,84 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         ),
       ],
     );
+  }
+
+  /// Ouvre l'inspection de depart et passe la mission en in_progress
+  Future<void> _startDepartureInspection() async {
+    try {
+      // Verifier si deja faite
+      final existing = await Supabase.instance.client
+          .from('vehicle_inspections')
+          .select('id')
+          .eq('mission_id', _mission!.id)
+          .eq('inspection_type', 'departure')
+          .maybeSingle();
+      if (existing != null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Inspection de depart deja validee'), backgroundColor: PremiumTheme.accentAmber),
+        );
+        return;
+      }
+
+      // Passer en in_progress si pending
+      if (_mission!.status == 'pending') {
+        await _missionService.updateMissionStatus(_mission!.id, 'in_progress');
+        final started = await _trackingService.startTracking(_mission!.id, autoStart: true);
+        if (started && mounted) {
+          setState(() => _isTrackingActive = true);
+        }
+      }
+
+      if (!mounted) return;
+      // Ouvrir l'ecran d'inspection de depart
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => InspectionDepartureScreen(missionId: _mission!.id),
+        ),
+      );
+      // Recharger la mission au retour
+      await _loadMission();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: PremiumTheme.accentRed, behavior: SnackBarBehavior.floating),
+      );
+    }
+  }
+
+  /// Ouvre l'inspection d'arrivee
+  Future<void> _startArrivalInspection() async {
+    try {
+      final existing = await Supabase.instance.client
+          .from('vehicle_inspections')
+          .select('id')
+          .eq('mission_id', _mission!.id)
+          .eq('inspection_type', 'arrival')
+          .maybeSingle();
+      if (existing != null) {
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Inspection d\'arrivee deja validee'), backgroundColor: PremiumTheme.accentAmber),
+        );
+        return;
+      }
+
+      if (!mounted) return;
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => InspectionArrivalScreen(missionId: _mission!.id),
+        ),
+      );
+      await _loadMission();
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: PremiumTheme.accentRed, behavior: SnackBarBehavior.floating),
+      );
+    }
   }
 
   Future<void> _updateStatus(String newStatus) async {

@@ -391,6 +391,7 @@ class _MissionsScreenState extends State<MissionsScreen>
   // =========== ACTIONS ===========
   Future<void> _handleAction(Mission mission) async {
     if (mission.status == 'pending') {
+      // Mission en attente → Ouvrir inspection de depart + passer en in_progress
       try {
         final existing = await supabase
             .from('vehicle_inspections')
@@ -407,6 +408,8 @@ class _MissionsScreenState extends State<MissionsScreen>
           );
           return;
         }
+        // Passer la mission en in_progress
+        await _missionService.updateMissionStatus(mission.id, 'in_progress');
         if (!mounted) return;
         Navigator.push(
           context,
@@ -423,14 +426,35 @@ class _MissionsScreenState extends State<MissionsScreen>
         );
       }
     } else if (mission.status == 'in_progress') {
+      // Mission en cours → Vérifier si inspection depart faite d'abord
       try {
-        final existing = await supabase
+        final depExists = await supabase
+            .from('vehicle_inspections')
+            .select('id')
+            .eq('mission_id', mission.id)
+            .eq('inspection_type', 'departure')
+            .maybeSingle();
+
+        if (depExists == null) {
+          // Inspection de depart pas encore faite → l'ouvrir
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) =>
+                    InspectionDepartureScreen(missionId: mission.id)),
+          ).then((_) => _loadMissions());
+          return;
+        }
+
+        // Inspection depart faite → ouvrir inspection arrivee
+        final arrExists = await supabase
             .from('vehicle_inspections')
             .select('id')
             .eq('mission_id', mission.id)
             .eq('inspection_type', 'arrival')
             .maybeSingle();
-        if (existing != null) {
+        if (arrExists != null) {
           if (!mounted) return;
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
