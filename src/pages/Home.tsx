@@ -61,7 +61,7 @@ const Navbar: React.FC = () => {
     >
       <div className="max-w-6xl mx-auto px-5 flex items-center justify-between h-16 lg:h-[72px]">
         <Link to="/" className="flex items-center gap-2.5">
-          <img src="/logo.png" alt="ChecksFleet" className="w-9 h-9 rounded-xl" />
+          <img src="/logo.png?v=5" alt="ChecksFleet" className="w-9 h-9 rounded-xl" />
           <span className="text-lg font-bold text-slate-900 tracking-tight">
             Checks<span className="text-teal-500">Fleet</span>
           </span>
@@ -641,7 +641,7 @@ const Footer: React.FC = () => (
       <div className="grid md:grid-cols-4 gap-10 pb-10 border-b border-slate-800">
         <div className="md:col-span-2">
           <div className="flex items-center gap-2.5 mb-4">
-            <img src="/logo.png" alt="ChecksFleet" className="w-9 h-9 rounded-xl" />
+            <img src="/logo.png?v=5" alt="ChecksFleet" className="w-9 h-9 rounded-xl" />
             <span className="text-lg font-bold text-white tracking-tight">
               Checks<span className="text-teal-400">Fleet</span>
             </span>

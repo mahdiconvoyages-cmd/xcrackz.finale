@@ -1,5 +1,6 @@
 // @ts-nocheck - Supabase generated types are outdated, all operations work correctly at runtime
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { 
   Plus, Download, Eye, Send, FileText, X, Building2, FileCheck, 
   Search, Calendar, Euro, TrendingUp, Clock, 
@@ -83,6 +84,8 @@ interface Client {
 export default function Billing() {
   const { user } = useAuth();
   const subscription = useSubscription();
+  const location = useLocation();
+  const missionPreFilled = useRef(false);
   
   // États principaux
   const [activeTab, setActiveTab] = useState<'invoices' | 'quotes'>('invoices');
@@ -138,6 +141,49 @@ export default function Billing() {
       loadClients();
     }
   }, [user, activeTab]);
+
+  // Pré-remplir depuis une mission (quand on vient du bouton "Créer facture" sur une mission)
+  useEffect(() => {
+    const fromMission = location.state?.fromMission;
+    if (fromMission && !missionPreFilled.current) {
+      missionPreFilled.current = true;
+      
+      // Construire la description automatique
+      const vehicleName = [fromMission.vehicle_brand, fromMission.vehicle_model].filter(Boolean).join(' ') || 'Véhicule';
+      const plate = fromMission.vehicle_plate || '';
+      const pickupAddr = fromMission.pickup_address || '';
+      const deliveryAddr = fromMission.delivery_address || '';
+      
+      const formatDate = (dateStr: string) => {
+        if (!dateStr) return '';
+        try {
+          return new Date(dateStr).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric' });
+        } catch { return dateStr; }
+      };
+      
+      const pickupDate = formatDate(fromMission.pickup_date);
+      const deliveryDate = formatDate(fromMission.delivery_date);
+      const distance = fromMission.distance || fromMission.estimated_distance || '';
+      
+      const descParts: string[] = [];
+      descParts.push(`Convoyage: ${vehicleName}${plate ? ` - ${plate}` : ''}`);
+      if (pickupAddr) descParts.push(`Enlèvement: ${pickupAddr}${pickupDate ? ` le ${pickupDate}` : ''}`);
+      if (deliveryAddr) descParts.push(`Livraison: ${deliveryAddr}${deliveryDate ? ` le ${deliveryDate}` : ''}`);
+      if (distance) descParts.push(`Distance: ${distance} km`);
+      
+      const description = descParts.join('\n');
+      
+      // Pré-remplir le formulaire (sans mandataire, sans client, sans prix)
+      setActiveTab('invoices');
+      setItems([{ description, quantity: 1, unit_price: 0, tax_rate: 20, amount: 0 }]);
+      
+      // Ouvrir le modal automatiquement
+      setTimeout(() => {
+        setShowModal(true);
+        setShowClientSelector(true);
+      }, 300);
+    }
+  }, [location.state]);
 
   const loadUserProfile = async () => {
     if (!user) return;
