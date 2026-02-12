@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import '../../utils/error_helper.dart';
 import '../../models/invoice.dart';
 import '../../models/client.dart';
+import '../../models/mission.dart';
 import '../../services/invoice_service.dart';
 import '../../services/insee_service.dart';
 import '../../widgets/siret_autocomplete_field.dart';
@@ -14,7 +15,8 @@ import '../../theme/premium_theme.dart';
 
 class InvoiceFormScreen extends StatefulWidget {
   final Invoice? invoice;
-  const InvoiceFormScreen({super.key, this.invoice});
+  final Mission? mission;
+  const InvoiceFormScreen({super.key, this.invoice, this.mission});
 
   @override
   State<InvoiceFormScreen> createState() => _InvoiceFormScreenState();
@@ -59,9 +61,32 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
     } else {
       _dueDate = DateTime.now().add(const Duration(days: 30));
       _paymentTerms.text = 'Paiement a 30 jours';
-      _items.add(_ItemForm());
+      if (widget.mission != null) {
+        _prefillFromMission(widget.mission!);
+      } else {
+        _items.add(_ItemForm());
+      }
     }
     _clientSiret.addListener(_onSiretChanged);
+  }
+
+  void _prefillFromMission(Mission m) {
+    final dateFormat = DateFormat('dd/MM/yyyy');
+    final vehicleName = [m.vehicleBrand, m.vehicleModel]
+        .where((s) => s != null && s.isNotEmpty)
+        .join(' ');
+    final plate = m.vehiclePlate ?? '';
+
+    final parts = <String>[];
+    parts.add('Convoyage: ${vehicleName.isEmpty ? "Vehicule" : vehicleName}${plate.isNotEmpty ? " - $plate" : ""}');
+    if (m.pickupAddress != null && m.pickupAddress!.isNotEmpty) {
+      parts.add('Enlevement: ${m.pickupAddress}${m.pickupDate != null ? " le ${dateFormat.format(m.pickupDate!)}" : ""}');
+    }
+    if (m.deliveryAddress != null && m.deliveryAddress!.isNotEmpty) {
+      parts.add('Livraison: ${m.deliveryAddress}${m.deliveryDate != null ? " le ${dateFormat.format(m.deliveryDate!)}" : ""}');
+    }
+    _items.add(_ItemForm(desc: parts.join('\n'), qty: 1, price: 0));
+    _useExisting = true;
   }
 
   void _loadExisting() {
@@ -169,7 +194,7 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
         id: widget.invoice?.id,
         invoiceNumber: widget.invoice?.invoiceNumber ?? await _invoiceService.generateInvoiceNumber(),
         userId: uid,
-        missionId: widget.invoice?.missionId,
+        missionId: widget.invoice?.missionId ?? widget.mission?.id,
         invoiceDate: _invoiceDate,
         dueDate: _dueDate,
         items: _items.map((i) => InvoiceItem(

@@ -1403,7 +1403,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
   void _createInvoice() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const InvoiceFormScreen()),
+      MaterialPageRoute(builder: (_) => InvoiceFormScreen(mission: _mission)),
     );
   }
 
