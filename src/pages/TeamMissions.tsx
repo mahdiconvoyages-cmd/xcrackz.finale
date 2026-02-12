@@ -63,6 +63,7 @@ interface Mission {
 }
 
 interface InspectionInfo {
+  id: string;
   mission_id: string;
   inspection_type: string;
 }
@@ -123,7 +124,7 @@ export default function TeamMissions() {
     if (missionIds.length > 0) {
       const { data: inspectionData } = await supabase
         .from('vehicle_inspections')
-        .select('mission_id, inspection_type')
+        .select('id, mission_id, inspection_type')
         .in('mission_id', missionIds);
       
       loadedInspections = inspectionData || [];
@@ -212,6 +213,24 @@ export default function TeamMissions() {
 
   const hasArrivalInspection = (missionId: string) => {
     return inspections.some(i => i.mission_id === missionId && i.inspection_type === 'arrival');
+  };
+
+  const getInspectionId = (missionId: string, type: string) => {
+    return inspections.find(i => i.mission_id === missionId && i.inspection_type === type)?.id;
+  };
+
+  const handleViewDepartureReport = (missionId: string) => {
+    const inspectionId = getInspectionId(missionId, 'departure');
+    if (inspectionId) {
+      window.open(`/inspection/report/${inspectionId}`, '_blank');
+    }
+  };
+
+  const handleViewArrivalReport = (missionId: string) => {
+    const inspectionId = getInspectionId(missionId, 'arrival');
+    if (inspectionId) {
+      window.open(`/inspection/report/${inspectionId}`, '_blank');
+    }
   };
 
   // ===== ACTIONS =====
@@ -768,6 +787,15 @@ export default function TeamMissions() {
                         <TrendingUp className="w-4 h-4" />
                         Continuer Inspection
                       </button>
+                      {hasDepartureInspection(mission.id) && (
+                        <button
+                          onClick={() => handleViewDepartureReport(mission.id)}
+                          className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                        >
+                          <FileText className="w-4 h-4" />
+                          Rapport départ
+                        </button>
+                      )}
                       <button
                         onClick={() => handleCompleteMission(mission)}
                         className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-300 hover:-translate-y-0.5 text-sm ${
@@ -971,6 +999,14 @@ export default function TeamMissions() {
                     <span className={`text-sm font-semibold ${hasDepartureInspection(selectedMission.id) ? 'text-green-600' : 'text-amber-600'}`}>
                       {hasDepartureInspection(selectedMission.id) ? 'Fait' : 'À faire'}
                     </span>
+                    {hasDepartureInspection(selectedMission.id) && (
+                      <button
+                        onClick={() => handleViewDepartureReport(selectedMission.id)}
+                        className="ml-auto text-xs bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-1 rounded-lg font-semibold hover:bg-teal-100 transition"
+                      >
+                        Voir rapport
+                      </button>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
@@ -988,6 +1024,14 @@ export default function TeamMissions() {
                     <span className={`text-sm font-semibold ${hasArrivalInspection(selectedMission.id) ? 'text-green-600' : 'text-amber-600'}`}>
                       {hasArrivalInspection(selectedMission.id) ? 'Fait' : 'À faire'}
                     </span>
+                    {hasArrivalInspection(selectedMission.id) && (
+                      <button
+                        onClick={() => handleViewArrivalReport(selectedMission.id)}
+                        className="ml-auto text-xs bg-teal-50 text-teal-700 border border-teal-200 px-2.5 py-1 rounded-lg font-semibold hover:bg-teal-100 transition"
+                      >
+                        Voir rapport
+                      </button>
+                    )}
                   </div>
                   {selectedMission.status === 'in_progress' && (!hasDepartureInspection(selectedMission.id) || !hasArrivalInspection(selectedMission.id)) && (
                     <div className="mt-2 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
