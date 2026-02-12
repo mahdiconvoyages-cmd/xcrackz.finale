@@ -458,32 +458,156 @@ export default function PublicInspectionReportShared() {
                 />
               </div>
 
-              {/* Timeline des convoyeurs */}
+              {/* Timeline des convoyeurs — Historique d'activité complet */}
               <div className="mt-6 pt-6 border-t border-gray-200">
                 <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
-                  <Clock className="w-5 h-5 text-blue-500" /> Chronologie du convoyage
+                  <Clock className="w-5 h-5 text-blue-500" /> Historique d'activité
                 </h4>
-                <div className="flex flex-col md:flex-row items-start md:items-center gap-4">
-                  {/* Départ */}
-                  <div className="flex-1 bg-green-50 border border-green-200 rounded-lg p-4">
-                    <div className="text-xs font-bold text-green-600 uppercase mb-1">🟢 Départ</div>
-                    <div className="text-sm font-semibold text-gray-900">{departureDriverName || 'N/A'}</div>
-                    <div className="text-xs text-gray-500 mt-1">{departure.created_at ? formatDatetimeFR(departure.created_at) : 'N/A'}</div>
-                  </div>
-                  {/* Flèche */}
-                  <div className="hidden md:flex flex-col items-center text-gray-400">
-                    <div className="text-xs font-medium">{tempsLivraisonText}</div>
-                    <div className="text-lg">→</div>
-                    <div className="text-xs font-medium">{kmParcouru !== null ? `${kmParcouru.toLocaleString()} km` : ''}</div>
-                  </div>
-                  {/* Arrivée */}
-                  <div className="flex-1 bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <div className="text-xs font-bold text-blue-600 uppercase mb-1">🔵 Arrivée</div>
-                    <div className="text-sm font-semibold text-gray-900">{arrivalDriverName || 'N/A'}</div>
-                    <div className="text-xs text-gray-500 mt-1">{arrival.created_at ? formatDatetimeFR(arrival.created_at) : 'N/A'}</div>
-                  </div>
+                <div className="relative pl-6 border-l-2 border-gray-200 space-y-4">
+                  {/* Mission créée */}
+                  {mission?.created_at && (
+                    <TimelineEvent 
+                      icon="📋" label="Mission créée" 
+                      detail={`Référence: ${mission.reference || 'N/A'}`}
+                      time={formatDatetimeFR(mission.created_at)} 
+                      color="gray" 
+                    />
+                  )}
+                  {/* Inspection départ commencée */}
+                  {departure?.created_at && (
+                    <TimelineEvent 
+                      icon="🟢" label="Inspection départ réalisée" 
+                      detail={`Par: ${departureDriverName || 'N/A'} — KM: ${departure.mileage_km?.toLocaleString() || 'N/A'}`}
+                      time={formatDatetimeFR(departure.created_at)} 
+                      color="green" 
+                    />
+                  )}
+                  {/* Inspection départ terminée */}
+                  {departure?.completed_at && (
+                    <TimelineEvent 
+                      icon="✅" label="Inspection départ validée" 
+                      detail={departure.client_name ? `Signé par: ${departure.client_name}` : 'Signature client récupérée'}
+                      time={formatDatetimeFR(departure.completed_at)} 
+                      color="green" 
+                    />
+                  )}
+                  {/* Livraison en cours */}
+                  {departure?.created_at && arrival?.created_at && (
+                    <TimelineEvent 
+                      icon="🚗" label="Convoyage en cours" 
+                      detail={`${tempsLivraisonText} de trajet${kmParcouru !== null ? ` — ${kmParcouru.toLocaleString()} km parcourus` : ''}`}
+                      time="" 
+                      color="blue" 
+                    />
+                  )}
+                  {/* Inspection arrivée commencée */}
+                  {arrival?.created_at && (
+                    <TimelineEvent 
+                      icon="🔵" label="Inspection arrivée réalisée" 
+                      detail={`Par: ${arrivalDriverName || 'N/A'} — KM: ${arrival.mileage_km?.toLocaleString() || 'N/A'}`}
+                      time={formatDatetimeFR(arrival.created_at)} 
+                      color="blue" 
+                    />
+                  )}
+                  {/* Inspection arrivée terminée */}
+                  {arrival?.completed_at && (
+                    <TimelineEvent 
+                      icon="✅" label="Inspection arrivée validée" 
+                      detail={arrival.client_name ? `Réceptionné par: ${arrival.client_name}` : 'Signature réceptionnaire récupérée'}
+                      time={formatDatetimeFR(arrival.completed_at)} 
+                      color="blue" 
+                    />
+                  )}
+                  {/* Mission terminée */}
+                  {mission?.status === 'completed' && (
+                    <TimelineEvent 
+                      icon="🏁" label="Mission terminée" 
+                      detail="Véhicule livré avec succès"
+                      time="" 
+                      color="purple" 
+                    />
+                  )}
                 </div>
               </div>
+
+              {/* Comparaison photos côte à côte */}
+              {departure?.photos?.length > 0 && arrival?.photos?.length > 0 && (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                    <ImageIcon className="w-5 h-5 text-purple-500" /> Comparaison Photos Avant / Après
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {departure.photos.slice(0, Math.min(departure.photos.length, arrival.photos.length, 6)).map((depPhoto: any, i: number) => {
+                      const arrPhoto = arrival.photos[i];
+                      if (!arrPhoto) return null;
+                      return (
+                        <div key={i} className="border border-gray-200 rounded-lg overflow-hidden">
+                          <div className="grid grid-cols-2 gap-px bg-gray-200">
+                            <div className="relative bg-white">
+                              <div className="absolute top-2 left-2 bg-green-500 text-white text-xs px-2 py-0.5 rounded-full font-bold z-10">DÉPART</div>
+                              <img 
+                                src={depPhoto.url || depPhoto.photo_url} 
+                                alt={`Départ ${i+1}`} 
+                                className="w-full h-40 object-cover cursor-pointer hover:opacity-90 transition"
+                                onClick={() => openPhoto(departure.photos, i)}
+                              />
+                            </div>
+                            <div className="relative bg-white">
+                              <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full font-bold z-10">ARRIVÉE</div>
+                              <img 
+                                src={arrPhoto.url || arrPhoto.photo_url} 
+                                alt={`Arrivée ${i+1}`} 
+                                className="w-full h-40 object-cover cursor-pointer hover:opacity-90 transition"
+                                onClick={() => openPhoto(arrival.photos, i)}
+                              />
+                            </div>
+                          </div>
+                          <div className="text-center text-xs text-gray-500 py-1 bg-gray-50">Photo {i+1}</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+
+              {/* Carte GPS — Itinéraire Départ → Arrivée */}
+              {departure?.latitude && departure?.longitude && arrival?.latitude && arrival?.longitude && (
+                <div className="mt-6 pt-6 border-t border-gray-200">
+                  <h4 className="font-semibold text-gray-700 mb-4 flex items-center gap-2">
+                    <Navigation className="w-5 h-5 text-green-500" /> Itinéraire GPS
+                  </h4>
+                  <div className="rounded-lg overflow-hidden border border-gray-200">
+                    <iframe
+                      title="Itinéraire GPS"
+                      width="100%"
+                      height="350"
+                      style={{ border: 0 }}
+                      loading="lazy"
+                      src={`https://www.openstreetmap.org/export/embed.html?bbox=${
+                        Math.min(departure.longitude, arrival.longitude) - 0.05
+                      },${
+                        Math.min(departure.latitude, arrival.latitude) - 0.05
+                      },${
+                        Math.max(departure.longitude, arrival.longitude) + 0.05
+                      },${
+                        Math.max(departure.latitude, arrival.latitude) + 0.05
+                      }&layer=mapnik&marker=${departure.latitude},${departure.longitude}`}
+                    />
+                    <div className="flex items-center justify-between p-3 bg-gray-50 text-xs text-gray-600">
+                      <span>🟢 Départ: {departure.latitude.toFixed(5)}, {departure.longitude.toFixed(5)}</span>
+                      <a
+                        href={`https://www.google.com/maps/dir/${departure.latitude},${departure.longitude}/${arrival.latitude},${arrival.longitude}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline font-medium"
+                      >
+                        Voir sur Google Maps →
+                      </a>
+                      <span>🔵 Arrivée: {arrival.latitude.toFixed(5)}, {arrival.longitude.toFixed(5)}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -710,11 +834,17 @@ function InspectionCard({ title, inspection, color, onOpenPhoto }: any) {
               title={title.includes('Départ') ? 'Convoyeur (Départ)' : 'Convoyeur (Arrivée)'}
               signature={inspection.driver_signature}
               name={inspection.driver_name || inspection.driverName}
+              timestamp={inspection.completed_at || inspection.created_at}
+              latitude={inspection.latitude}
+              longitude={inspection.longitude}
             />
             <SignatureBox
               title={title.includes('Départ') ? 'Expéditeur' : 'Réceptionnaire'}
               signature={inspection.client_signature}
               name={inspection.client_name || inspection.clientName}
+              timestamp={inspection.completed_at || inspection.created_at}
+              latitude={inspection.latitude}
+              longitude={inspection.longitude}
             />
           </div>
         </Section>
@@ -908,7 +1038,7 @@ function Badge({ label, checked }: any) {
   );
 }
 
-function SignatureBox({ title, signature, name }: any) {
+function SignatureBox({ title, signature, name, timestamp, latitude, longitude }: any) {
   return (
     <div className="border border-gray-200 rounded-lg p-4">
       <h4 className="text-sm font-semibold text-gray-700 mb-3">{title}</h4>
@@ -921,6 +1051,25 @@ function SignatureBox({ title, signature, name }: any) {
       </div>
       {name && (
         <div className="mt-2 text-xs text-gray-500">Signé par: <span className="font-medium text-gray-700">{name}</span></div>
+      )}
+      {timestamp && (
+        <div className="mt-1 text-xs text-gray-400 flex items-center gap-1">
+          <Clock className="w-3 h-3" />
+          {formatDatetimeFR(timestamp)}
+        </div>
+      )}
+      {latitude && longitude && (
+        <div className="mt-1 text-xs text-gray-400 flex items-center gap-1">
+          <MapPin className="w-3 h-3" />
+          <a 
+            href={`https://www.google.com/maps?q=${latitude},${longitude}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-blue-500 hover:underline"
+          >
+            {Number(latitude).toFixed(5)}, {Number(longitude).toFixed(5)}
+          </a>
+        </div>
       )}
     </div>
   );
@@ -942,6 +1091,30 @@ function ComparisonItem({ label, departValue, arriveValue, delta }: { label: str
           </span>
         </div>
       )}
+    </div>
+  );
+}
+
+function TimelineEvent({ icon, label, detail, time, color }: { icon: string; label: string; detail: string; time: string; color: string }) {
+  const colorClasses: Record<string, string> = {
+    gray: 'bg-gray-100 border-gray-300',
+    green: 'bg-green-100 border-green-300',
+    blue: 'bg-blue-100 border-blue-300',
+    purple: 'bg-purple-100 border-purple-300',
+  };
+
+  return (
+    <div className="relative flex items-start gap-3">
+      {/* Dot on the timeline */}
+      <div className={`absolute -left-[1.6rem] w-3 h-3 rounded-full border-2 ${colorClasses[color] || colorClasses.gray} mt-1.5`} />
+      <div className="flex-1 pb-2">
+        <div className="flex items-center gap-2">
+          <span className="text-sm">{icon}</span>
+          <span className="text-sm font-semibold text-gray-800">{label}</span>
+        </div>
+        <p className="text-xs text-gray-500 mt-0.5">{detail}</p>
+        {time && <p className="text-xs text-gray-400 mt-0.5">{time}</p>}
+      </div>
     </div>
   );
 }

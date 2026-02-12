@@ -6,7 +6,8 @@ import {
   Truck, Users, CheckCircle, TrendingUp, Calendar,
   Wallet, AlertTriangle, Plus, UserPlus, Camera,
   ChevronRight, User, RefreshCw, DollarSign, FileText,
-  Clock, Activity, BarChart3, ArrowUpRight, ArrowDownRight
+  Clock, Activity, BarChart3, ArrowUpRight, ArrowDownRight,
+  AlertCircle, Gauge, Route
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -30,10 +31,19 @@ interface CreditInfo {
   credits: number;
   plan: string;
   daysRemaining: number;
+  hoursRemaining: number;
   endDate: Date | null;
   hasActiveSubscription: boolean;
   isExpiringSoon: boolean;
   isExpired: boolean;
+  timeRemainingText?: string;
+}
+
+interface FleetStats {
+  totalKm: number;
+  avgDeliveryTimeMin: number;
+  missionsPerDriver: { name: string; count: number }[];
+  totalCompletedThisMonth: number;
 }
 
 interface RecentActivity {
@@ -97,10 +107,17 @@ export default function DashboardPremium() {
     credits: 0,
     plan: 'FREE',
     daysRemaining: 0,
+    hoursRemaining: 0,
     endDate: null,
     hasActiveSubscription: false,
     isExpiringSoon: false,
     isExpired: false,
+  });
+  const [fleetStats, setFleetStats] = useState<FleetStats>({
+    totalKm: 0,
+    avgDeliveryTimeMin: 0,
+    missionsPerDriver: [],
+    totalCompletedThisMonth: 0,
   });
   const [recentActivities, setRecentActivities] = useState<RecentActivity[]>([]);
   const [recentMissions, setRecentMissions] = useState<RecentMission[]>([]);
@@ -152,6 +169,7 @@ export default function DashboardPremium() {
         credits: profile?.credits || 0,
         plan: 'FREE',
         daysRemaining: 0,
+        hoursRemaining: 0,
         endDate: null,
         hasActiveSubscription: false,
         isExpiringSoon: false,
@@ -179,10 +197,12 @@ export default function DashboardPremium() {
           }
         }
 
+        const hoursRemaining = endDate ? Math.max(0, Math.floor((endDate.getTime() - now.getTime()) / (1000 * 60 * 60))) : 0;
         creditData = {
           credits: profile?.credits || 0,
           plan: (subscription.plan || 'free').toUpperCase(),
           daysRemaining,
+          hoursRemaining,
           endDate,
           hasActiveSubscription: true,
           isExpiringSoon: daysRemaining > 0 && daysRemaining < 7,
@@ -195,7 +215,7 @@ export default function DashboardPremium() {
       // Load missions stats
       const { data: missions } = await supabase
         .from('missions')
-        .select('status, company_commission, bonus_amount, created_at')
+        .select('status, company_commission, bonus_amount, created_at, driver_name, pickup_date, delivery_date')
         .or(`user_id.eq.${user.id},assigned_user_id.eq.${user.id}`);
 
       const totalMissions = missions?.length || 0;
@@ -224,6 +244,54 @@ export default function DashboardPremium() {
       }) || [];
       const prevMonthRevenue = prevMonthMissions.reduce((sum, m) => sum + (m.company_commission || 0) + (m.bonus_amount || 0), 0);
       const growthRate = prevMonthRevenue > 0 ? ((monthlyRevenue - prevMonthRevenue) / prevMonthRevenue) * 100 : 0;
+
+      // Fleet stats: missions per driver + delivery times
+      const completedMissionsData = missions?.filter(m => m.status === 'completed') || [];
+      const driverMap: Record<string, number> = {};
+      let totalDeliveryMin = 0;
+      let deliveryCount = 0;
+      completedMissionsData.forEach(m => {
+        const dName = m.driver_name || 'Non assigné';
+        driverMap[dName] = (driverMap[dName] || 0) + 1;
+        if (m.pickup_date && m.delivery_date) {
+          const diff = new Date(m.delivery_date).getTime() - new Date(m.pickup_date).getTime();
+          if (diff > 0) {
+            totalDeliveryMin += Math.floor(diff / (1000 * 60));
+            deliveryCount++;
+          }
+        }
+      });
+      const missionsPerDriver = Object.entries(driverMap)
+        .map(([name, count]) => ({ name, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      // Load vehicle inspections for total KM
+      const { data: inspections } = await supabase
+        .from('vehicle_inspections')
+        .select('inspection_type, mileage_km, mission_id')
+        .eq('user_id', user.id);
+
+      let totalKm = 0;
+      if (inspections) {
+        const mileageByMission: Record<string, { dep?: number; arr?: number }> = {};
+        inspections.forEach(ins => {
+          if (!ins.mission_id) return;
+          if (!mileageByMission[ins.mission_id]) mileageByMission[ins.mission_id] = {};
+          if (ins.inspection_type === 'departure' && ins.mileage_km) mileageByMission[ins.mission_id].dep = ins.mileage_km;
+          if (ins.inspection_type === 'arrival' && ins.mileage_km) mileageByMission[ins.mission_id].arr = ins.mileage_km;
+        });
+        Object.values(mileageByMission).forEach(({ dep, arr }) => {
+          if (dep != null && arr != null && arr > dep) totalKm += arr - dep;
+        });
+      }
+
+      setFleetStats({
+        totalKm,
+        avgDeliveryTimeMin: deliveryCount > 0 ? Math.round(totalDeliveryMin / deliveryCount) : 0,
+        missionsPerDriver,
+        totalCompletedThisMonth: monthlyMissions.length,
+      });
 
       // Load contacts
       const { count: contactsCount } = await supabase
@@ -384,6 +452,55 @@ export default function DashboardPremium() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+        
+        {/* ALERTE EXPIRY - 48h/24h */}
+        {creditInfo.hasActiveSubscription && !creditInfo.isExpired && creditInfo.hoursRemaining <= 48 && (
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }} 
+            animate={{ opacity: 1, y: 0 }}
+            className={`rounded-2xl p-4 sm:p-5 border-2 ${
+              creditInfo.hoursRemaining <= 24 
+                ? 'bg-red-50 border-red-300' 
+                : 'bg-amber-50 border-amber-300'
+            }`}
+          >
+            <div className="flex items-start gap-3">
+              <div className={`p-2 rounded-xl ${
+                creditInfo.hoursRemaining <= 24 ? 'bg-red-100' : 'bg-amber-100'
+              }`}>
+                <AlertCircle className={`w-6 h-6 ${
+                  creditInfo.hoursRemaining <= 24 ? 'text-red-600' : 'text-amber-600'
+                }`} />
+              </div>
+              <div className="flex-1">
+                <h3 className={`font-bold text-sm sm:text-base ${
+                  creditInfo.hoursRemaining <= 24 ? 'text-red-800' : 'text-amber-800'
+                }`}>
+                  {creditInfo.hoursRemaining <= 24 
+                    ? '⚠️ Abonnement expire dans moins de 24h !' 
+                    : '⏰ Abonnement expire dans moins de 48h'}
+                </h3>
+                <p className={`text-xs sm:text-sm mt-1 ${
+                  creditInfo.hoursRemaining <= 24 ? 'text-red-600' : 'text-amber-600'
+                }`}>
+                  Temps restant : <strong>{creditInfo.timeRemainingText || `${creditInfo.hoursRemaining}h`}</strong>
+                  {creditInfo.endDate && (
+                    <> — Expire le {creditInfo.endDate.toLocaleString('fr-FR', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Europe/Paris' })}</>
+                  )}
+                </p>
+              </div>
+              <Link to="/shop">
+                <button className={`px-4 py-2 rounded-xl text-white text-sm font-bold whitespace-nowrap ${
+                  creditInfo.hoursRemaining <= 24 
+                    ? 'bg-red-600 hover:bg-red-700' 
+                    : 'bg-amber-600 hover:bg-amber-700'
+                }`}>
+                  Renouveler
+                </button>
+              </Link>
+            </div>
+          </motion.div>
+        )}
         
         {/* Top Section: Credits + Quick Stats (Desktop: side by side) */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -687,6 +804,70 @@ export default function DashboardPremium() {
             )}
           </motion.div>
         </div>
+
+        {/* TABLEAU DE BORD COMPTABLE - Fleet Analytics */}
+        <motion.div variants={fadeIn} custom={6} className="bg-white rounded-2xl p-5 sm:p-6" style={{ boxShadow: '0 4px 12px rgba(0,0,0,0.05)' }}>
+          <h3 className="text-base sm:text-lg font-bold text-slate-800 flex items-center gap-2 mb-5">
+            <Route className="w-5 h-5 text-purple-500" />
+            Statistiques Flotte
+          </h3>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-xl p-4 text-center">
+              <Gauge className="w-6 h-6 text-purple-500 mx-auto mb-2" />
+              <p className="text-2xl font-bold text-purple-700">{fleetStats.totalKm.toLocaleString('fr-FR')}</p>
+              <p className="text-xs text-slate-500 mt-1">KM Totaux</p>
+            </div>
+            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4 text-center">
+              <Clock className="w-6 h-6 text-blue-500 mx-auto mb-2" />
+              <p className="text-2xl font-bold text-blue-700">
+                {fleetStats.avgDeliveryTimeMin > 0 
+                  ? fleetStats.avgDeliveryTimeMin >= 60 
+                    ? `${Math.floor(fleetStats.avgDeliveryTimeMin / 60)}h${fleetStats.avgDeliveryTimeMin % 60 > 0 ? ` ${fleetStats.avgDeliveryTimeMin % 60}m` : ''}`
+                    : `${fleetStats.avgDeliveryTimeMin}min`
+                  : 'N/A'}
+              </p>
+              <p className="text-xs text-slate-500 mt-1">Temps Moyen Livraison</p>
+            </div>
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl p-4 text-center">
+              <CheckCircle className="w-6 h-6 text-emerald-500 mx-auto mb-2" />
+              <p className="text-2xl font-bold text-emerald-700">{fleetStats.totalCompletedThisMonth}</p>
+              <p className="text-xs text-slate-500 mt-1">Terminées ce mois</p>
+            </div>
+            <div className="bg-gradient-to-br from-amber-50 to-orange-50 rounded-xl p-4 text-center">
+              <Users className="w-6 h-6 text-amber-500 mx-auto mb-2" />
+              <p className="text-2xl font-bold text-amber-700">{fleetStats.missionsPerDriver.length}</p>
+              <p className="text-xs text-slate-500 mt-1">Convoyeurs Actifs</p>
+            </div>
+          </div>
+
+          {/* Missions par convoyeur */}
+          {fleetStats.missionsPerDriver.length > 0 && (
+            <div>
+              <h4 className="text-sm font-semibold text-slate-600 mb-3">Top convoyeurs (missions terminées)</h4>
+              <div className="space-y-2">
+                {fleetStats.missionsPerDriver.map((driver, i) => {
+                  const max = fleetStats.missionsPerDriver[0]?.count || 1;
+                  const pct = (driver.count / max) * 100;
+                  return (
+                    <div key={i} className="flex items-center gap-3">
+                      <div className="w-28 sm:w-40 text-sm text-slate-700 font-medium truncate">{driver.name}</div>
+                      <div className="flex-1 h-5 bg-slate-100 rounded-full overflow-hidden">
+                        <motion.div
+                          className="h-full bg-gradient-to-r from-teal-400 to-blue-500 rounded-full"
+                          initial={{ width: 0 }}
+                          animate={{ width: `${pct}%` }}
+                          transition={{ duration: 0.6, delay: i * 0.1 }}
+                        />
+                      </div>
+                      <span className="text-sm font-bold text-slate-800 w-8 text-right">{driver.count}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+        </motion.div>
 
         {/* Mobile Quick Actions FAB */}
         <div className="sm:hidden fixed bottom-6 right-6 z-50">
