@@ -398,7 +398,7 @@ export default function ShopNew() {
               </h4>
               <ul className="space-y-2 text-sm text-slate-600">
                 {[
-                  'Création et gestion de missions illimitées',
+                  'Création et gestion de missions selon vos crédits',
                   'Inspections départ / arrivée complètes',
                   'Suivi GPS en temps réel',
                   'Rapports d\'inspection PDF',
