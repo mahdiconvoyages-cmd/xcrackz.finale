@@ -3,8 +3,10 @@ import { useEffect, useState } from 'react';
 import { 
   Users, MapPin, Plus, X, Search, Truck, Package, 
   TrendingUp, Calendar, Eye, Edit, Trash2, Play, CheckCircle, 
-  FileText, Clock, DollarSign, Sparkles,
-  Filter, Grid, List, Archive, LogIn, UserPlus
+  FileText, Clock, DollarSign, Sparkles, Phone, Copy, Key,
+  Filter, Grid, List, Archive, LogIn, UserPlus, Car, Hash,
+  Navigation, User, Building2, AlertTriangle, MapPinned,
+  Receipt, ChevronRight, CircleDot, CheckCircle2, Share2, ExternalLink
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
@@ -15,7 +17,7 @@ import ShareCodeModal from '../components/ShareCodeModal';
 import { useMissionsSync, useInspectionsSync } from '../hooks/useRealtimeSync';
 import { getVehicleImageUrl } from '../utils/vehicleDefaults';
 
-// ===== INTERFACES =====
+// ===== INTERFACES (aligné sur Flutter Mission model ~40 champs) =====
 interface Mission {
   id: string;
   reference: string;
@@ -27,20 +29,42 @@ interface Mission {
   pickup_contact_phone?: string;
   delivery_contact_name?: string;
   delivery_contact_phone?: string;
+  pickup_city?: string;
+  pickup_postcode?: string;
+  delivery_city?: string;
+  delivery_postcode?: string;
   distance?: number;
   status: string;
   vehicle_brand: string;
   vehicle_model: string;
   vehicle_plate: string;
   vehicle_image_url: string;
+  vehicle_type?: 'VL' | 'VU' | 'PL';
+  vehicle_vin?: string;
+  vehicle_year?: string;
   price: number;
   notes: string;
   created_at: string;
+  updated_at?: string;
   user_id?: string;
   archived?: boolean;
   share_code?: string;
   assigned_user_id?: string;
-  vehicle_type?: 'VL' | 'VU' | 'PL';
+  driver_id?: string;
+  mandataire_name?: string;
+  mandataire_company?: string;
+  client_name?: string;
+  client_phone?: string;
+  client_email?: string;
+  agent_name?: string;
+  special_instructions?: string;
+  public_tracking_link?: string;
+  report_id?: string;
+}
+
+interface InspectionInfo {
+  mission_id: string;
+  inspection_type: string;
 }
 
 type TabType = 'pending' | 'in_progress' | 'completed';
@@ -54,6 +78,7 @@ export default function TeamMissions() {
   const [activeTab, setActiveTab] = useState<TabType>('pending');
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [missions, setMissions] = useState<Mission[]>([]);
+  const [inspections, setInspections] = useState<InspectionInfo[]>([]);
   const [loading, setLoading] = useState(true);
   
   // Modals
@@ -69,11 +94,13 @@ export default function TeamMissions() {
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [showArchived, setShowArchived] = useState(false);
 
+  // Driver names cache
+  const [driverNames, setDriverNames] = useState<Record<string, string>>({});
+
   // ===== DATA LOADING =====
   const loadMissions = async () => {
     if (!user) return;
     
-    // Charger TOUTES les missions (créées + reçues) en une seule requête
     let allMissionsQuery = supabase
       .from('missions')
       .select('*')
@@ -91,7 +118,7 @@ export default function TeamMissions() {
     
     // Charger toutes les inspections pour ces missions
     const missionIds = (allMissionsData || []).map(m => m.id);
-    let inspections = [];
+    let loadedInspections: InspectionInfo[] = [];
     
     if (missionIds.length > 0) {
       const { data: inspectionData } = await supabase
@@ -99,18 +126,17 @@ export default function TeamMissions() {
         .select('mission_id, inspection_type')
         .in('mission_id', missionIds);
       
-      inspections = inspectionData || [];
+      loadedInspections = inspectionData || [];
     }
     
-    // Calculer le statut basé sur les inspections (fallback si status DB manquant)
-    // NE PAS FILTRER les completed - on les affiche dans l'onglet Terminées
+    setInspections(loadedInspections);
+
+    // Calculer le statut basé sur les inspections
     const processedMissions = (allMissionsData || []).map(mission => {
-      // Utiliser le statut de la DB en priorité (mis à jour par mobile)
       let finalStatus = mission.status;
       
-      // Fallback: calculer le statut si absent ou si 'pending' dans DB
       if (!finalStatus || finalStatus === 'pending') {
-        const missionInspections = inspections.filter(i => i.mission_id === mission.id);
+        const missionInspections = loadedInspections.filter(i => i.mission_id === mission.id);
         const hasDepart = missionInspections.some(i => i.inspection_type === 'departure');
         const hasArrival = missionInspections.some(i => i.inspection_type === 'arrival');
         
@@ -123,13 +149,30 @@ export default function TeamMissions() {
         }
       }
       
-      return {
-        ...mission,
-        status: finalStatus
-      };
+      return { ...mission, status: finalStatus };
     });
     
     setMissions(processedMissions || []);
+
+    // Charger les noms des chauffeurs assignés
+    const driverIds = [...new Set(processedMissions
+      .filter(m => m.assigned_user_id)
+      .map(m => m.assigned_user_id))];
+    
+    if (driverIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name, email')
+        .in('id', driverIds);
+      
+      if (profiles) {
+        const names: Record<string, string> = {};
+        profiles.forEach(p => {
+          names[p.id] = p.full_name || p.email || 'Chauffeur';
+        });
+        setDriverNames(names);
+      }
+    }
   };
 
   const loadData = async () => {
@@ -162,9 +205,17 @@ export default function TeamMissions() {
     loadMissions();
   });
 
+  // ===== HELPERS =====
+  const hasDepartureInspection = (missionId: string) => {
+    return inspections.some(i => i.mission_id === missionId && i.inspection_type === 'departure');
+  };
+
+  const hasArrivalInspection = (missionId: string) => {
+    return inspections.some(i => i.mission_id === missionId && i.inspection_type === 'arrival');
+  };
+
   // ===== ACTIONS =====
   const handleStartInspection = async (mission: Mission) => {
-    // Vérifier si l'inspection de départ existe déjà
     const { data: departureInspection, error } = await supabase
       .from('vehicle_inspections')
       .select('id')
@@ -173,16 +224,47 @@ export default function TeamMissions() {
       .single();
     
     if (error && error.code !== 'PGRST116') {
-      console.error('Erreur lors de la vérification de l\'inspection:', error);
+      console.error('Erreur lors de la vérification:', error);
     }
     
-    // Si l'inspection de départ existe, aller vers inspection arrivée
-    // Sinon, aller vers inspection départ
     if (departureInspection) {
       navigate(`/inspection/arrival/${mission.id}`);
     } else {
       navigate(`/inspection/departure/${mission.id}`);
     }
+  };
+
+  const handleCompleteMission = async (mission: Mission) => {
+    const hasDep = hasDepartureInspection(mission.id);
+    const hasArr = hasArrivalInspection(mission.id);
+
+    if (!hasDep || !hasArr) {
+      const missing = !hasDep && !hasArr 
+        ? 'les inspections de départ et d\'arrivée'
+        : !hasDep ? 'l\'inspection de départ' : 'l\'inspection d\'arrivée';
+      alert(`⚠️ Impossible de terminer la mission.\n\nIl manque ${missing}.\nLes deux inspections sont obligatoires pour terminer la mission.`);
+      return;
+    }
+
+    if (!confirm('Êtes-vous sûr de vouloir terminer cette mission ?')) return;
+
+    try {
+      const { error } = await supabase
+        .from('missions')
+        .update({ status: 'completed', updated_at: new Date().toISOString() })
+        .eq('id', mission.id);
+
+      if (error) throw error;
+      await loadMissions();
+      alert('✅ Mission terminée avec succès !');
+    } catch (error) {
+      console.error('Error completing mission:', error);
+      alert('❌ Erreur lors de la mise à jour');
+    }
+  };
+
+  const handleCreateInvoice = (mission: Mission) => {
+    navigate('/invoices', { state: { fromMission: mission } });
   };
 
   const handleDeleteMission = async (missionId: string) => {
@@ -219,15 +301,29 @@ export default function TeamMissions() {
     }
   };
 
+  const handleChangeDriver = async (mission: Mission) => {
+    try {
+      const { error } = await supabase
+        .from('missions')
+        .update({ assigned_user_id: null, driver_id: null })
+        .eq('id', mission.id);
+
+      if (error) throw error;
+      await loadMissions();
+      alert('✅ Chauffeur retiré. Partagez le code de mission pour qu\'un nouveau chauffeur rejoigne.');
+    } catch (error) {
+      console.error('Error changing driver:', error);
+      alert('❌ Erreur');
+    }
+  };
+
   const handleViewReport = async (missionId: string) => {
     try {
-      // Afficher un loader
       const loadingAlert = document.createElement('div');
-      loadingAlert.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-50';
+      loadingAlert.className = 'fixed inset-0 bg-black/50 flex items-center justify-center z-[9999]';
       loadingAlert.innerHTML = '<div class="bg-white rounded-xl p-6"><div class="animate-spin rounded-full h-12 w-12 border-4 border-teal-500 border-t-transparent"></div></div>';
       document.body.appendChild(loadingAlert);
 
-      // Appeler la fonction RPC pour obtenir le token
       const { data, error } = await supabase.rpc('create_or_get_inspection_share', {
         p_mission_id: missionId,
         p_report_type: 'complete',
@@ -240,7 +336,6 @@ export default function TeamMissions() {
 
       if (data && data.length > 0 && data[0].share_token) {
         const token = data[0].share_token;
-        // Ouvrir le rapport public dans un nouvel onglet
         window.open(`/rapport-inspection/${token}`, '_blank');
       } else {
         throw new Error('Token de rapport non trouvé');
@@ -251,7 +346,12 @@ export default function TeamMissions() {
     }
   };
 
-  // ===== HELPERS =====
+  const handleCopyShareCode = (code: string) => {
+    navigator.clipboard.writeText(code);
+    alert('✅ Code copié !');
+  };
+
+  // ===== STYLE HELPERS =====
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'pending': return 'bg-amber-100 border-amber-300 text-amber-800';
@@ -272,60 +372,31 @@ export default function TeamMissions() {
     }
   };
 
-  const getActionButton = (mission: Mission) => {
-    switch (mission.status) {
-      case 'pending':
-        return (
-          <button
-            onClick={() => handleStartInspection(mission)}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
-          >
-            <Play className="w-4 h-4" />
-            Démarrer Inspection
-          </button>
-        );
-      case 'in_progress':
-        return (
-          <button
-            onClick={() => handleStartInspection(mission)}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
-          >
-            <TrendingUp className="w-4 h-4" />
-            Continuer Inspection
-          </button>
-        );
-      case 'completed':
-        return (
-          <button
-            onClick={() => handleViewReport(mission.id)}
-            className="inline-flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-green-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
-          >
-            <FileText className="w-4 h-4" />
-            Voir Rapport
-          </button>
-        );
-      default:
-        return null;
+  const getVehicleTypeLabel = (type?: string) => {
+    switch (type) {
+      case 'VL': return 'Véhicule Léger';
+      case 'VU': return 'Véhicule Utilitaire';
+      case 'PL': return 'Poids Lourd';
+      default: return type || 'VL';
     }
   };
 
-  // Filtered data with proper sorting
+  // Filtered data
   const filteredMissions = missions
     .filter(m => {
-      const matchesSearch = m.reference.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           m.vehicle_brand.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                           m.vehicle_model.toLowerCase().includes(searchTerm.toLowerCase());
+      const matchesSearch = m.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           m.vehicle_brand?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           m.vehicle_model?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           m.mandataire_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                           m.vehicle_plate?.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesStatus = statusFilter === 'all' || m.status === statusFilter;
-      const matchesTab = m.status === activeTab; // Filtrer par onglet actif
+      const matchesTab = m.status === activeTab;
       return matchesSearch && matchesStatus && matchesTab;
     })
     .sort((a, b) => {
-      // Tri du plus récent au plus ancien
-      // Pour les missions terminées, utiliser updated_at ou delivery_date
-      // Pour les autres, utiliser created_at
       const dateA = new Date(a.updated_at || a.delivery_date || a.created_at).getTime();
       const dateB = new Date(b.updated_at || b.delivery_date || b.created_at).getTime();
-      return dateB - dateA; // Plus récent en premier
+      return dateB - dateA;
     });
 
   // Stats
@@ -435,44 +506,33 @@ export default function TeamMissions() {
         </div>
       </div>
 
-      {/* ===== STATS CARDS (uniquement pour onglet En attente) ===== */}
+      {/* ===== STATS CARDS (onglet En attente) ===== */}
       {activeTab === 'pending' && (
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 animate-in slide-in-from-bottom duration-700">
           <div className="backdrop-blur-xl bg-gradient-to-br from-slate-500/10 to-slate-600/10 border border-slate-300 rounded-2xl p-6 hover:shadow-depth-xl transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between mb-3">
-              <div className="p-3 bg-slate-500/10 rounded-xl">
-                <Package className="w-6 h-6 text-slate-700" />
-              </div>
+              <div className="p-3 bg-slate-500/10 rounded-xl"><Package className="w-6 h-6 text-slate-700" /></div>
               <span className="text-3xl font-black text-slate-800">{stats.totalMissions}</span>
             </div>
             <p className="text-sm font-bold text-slate-600">Total Missions</p>
           </div>
-
           <div className="backdrop-blur-xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 border border-amber-300 rounded-2xl p-6 hover:shadow-depth-xl transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between mb-3">
-              <div className="p-3 bg-amber-500/20 rounded-xl">
-                <Clock className="w-6 h-6 text-amber-700" />
-              </div>
+              <div className="p-3 bg-amber-500/20 rounded-xl"><Clock className="w-6 h-6 text-amber-700" /></div>
               <span className="text-3xl font-black text-amber-700">{stats.pending}</span>
             </div>
             <p className="text-sm font-bold text-amber-800">En Attente</p>
           </div>
-
           <div className="backdrop-blur-xl bg-gradient-to-br from-blue-500/20 to-cyan-500/20 border border-blue-300 rounded-2xl p-6 hover:shadow-depth-xl transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between mb-3">
-              <div className="p-3 bg-blue-500/20 rounded-xl">
-                <TrendingUp className="w-6 h-6 text-blue-700" />
-              </div>
+              <div className="p-3 bg-blue-500/20 rounded-xl"><TrendingUp className="w-6 h-6 text-blue-700" /></div>
               <span className="text-3xl font-black text-blue-700">{stats.inProgress}</span>
             </div>
             <p className="text-sm font-bold text-blue-800">En Cours</p>
           </div>
-
           <div className="backdrop-blur-xl bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-300 rounded-2xl p-6 hover:shadow-depth-xl transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center justify-between mb-3">
-              <div className="p-3 bg-green-500/20 rounded-xl">
-                <CheckCircle className="w-6 h-6 text-green-700" />
-              </div>
+              <div className="p-3 bg-green-500/20 rounded-xl"><CheckCircle className="w-6 h-6 text-green-700" /></div>
               <span className="text-3xl font-black text-green-700">{stats.completed}</span>
             </div>
             <p className="text-sm font-bold text-green-800">Terminées</p>
@@ -480,13 +540,11 @@ export default function TeamMissions() {
         </div>
       )}
 
-      {/* ===== JOIN MISSION BANNER (Compact) ===== */}
+      {/* ===== JOIN MISSION BANNER ===== */}
       <div className="backdrop-blur-xl bg-gradient-to-r from-blue-500/10 to-indigo-500/10 border border-blue-300 rounded-2xl p-4 shadow-xl">
         <div className="flex flex-col md:flex-row items-center gap-4">
           <div className="flex items-center gap-3 flex-1">
-            <div className="p-3 bg-blue-500/20 rounded-xl">
-              <LogIn className="w-6 h-6 text-blue-600" />
-            </div>
+            <div className="p-3 bg-blue-500/20 rounded-xl"><LogIn className="w-6 h-6 text-blue-600" /></div>
             <div>
               <h3 className="font-bold text-slate-900">Rejoindre une mission</h3>
               <p className="text-sm text-slate-600">Entrez le code de partage reçu</p>
@@ -502,22 +560,19 @@ export default function TeamMissions() {
         </div>
       </div>
 
-      {/* ===== TOOLBAR (Search & Filters) ===== */}
+      {/* ===== TOOLBAR ===== */}
       <div className="backdrop-blur-xl bg-white/80 border border-slate-200 rounded-2xl p-4 shadow-xl">
         <div className="flex flex-col md:flex-row gap-4 items-center">
-          {/* Search */}
           <div className="flex-1 w-full relative group">
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 group-focus-within:text-teal-500 transition" />
             <input
               type="text"
-              placeholder="Rechercher une mission..."
+              placeholder="Rechercher par référence, véhicule, mandataire, plaque..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="w-full bg-white/50 border border-slate-300 rounded-xl pl-10 pr-4 py-3 text-slate-900 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:bg-white transition"
             />
           </div>
-
-          {/* Filters */}
           <div className="relative group">
             <Filter className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <select
@@ -532,8 +587,6 @@ export default function TeamMissions() {
               <option value="cancelled">Annulées</option>
             </select>
           </div>
-
-          {/* Toggle Archives */}
           <button
             onClick={() => setShowArchived(!showArchived)}
             className={`inline-flex items-center gap-2 px-4 py-3 rounded-xl font-semibold transition-all duration-300 ${
@@ -546,28 +599,19 @@ export default function TeamMissions() {
             <Archive className="w-5 h-5" />
             <span className="hidden sm:inline">Archives</span>
           </button>
-
-          {/* View Toggle */}
           <div className="flex gap-2 bg-slate-100 rounded-xl p-1">
-            <button
-              onClick={() => setViewMode('grid')}
-              className={`p-2 rounded-lg transition ${viewMode === 'grid' ? 'bg-white shadow' : 'hover:bg-white/50'}`}
-            >
+            <button onClick={() => setViewMode('grid')} className={`p-2 rounded-lg transition ${viewMode === 'grid' ? 'bg-white shadow' : 'hover:bg-white/50'}`}>
               <Grid className="w-5 h-5" />
             </button>
-            <button
-              onClick={() => setViewMode('list')}
-              className={`p-2 rounded-lg transition ${viewMode === 'list' ? 'bg-white shadow' : 'hover:bg-white/50'}`}
-            >
+            <button onClick={() => setViewMode('list')} className={`p-2 rounded-lg transition ${viewMode === 'list' ? 'bg-white shadow' : 'hover:bg-white/50'}`}>
               <List className="w-5 h-5" />
             </button>
           </div>
         </div>
       </div>
 
-      {/* ===== TAB CONTENT ===== */}
+      {/* ===== MISSION CARDS ===== */}
       <div className="animate-in fade-in duration-500">
-        {/* MISSIONS GRID (Toutes les missions filtrées par onglet) */}
         <div className={`grid gap-4 ${viewMode === 'grid' ? 'grid-cols-1 lg:grid-cols-2' : 'grid-cols-1'}`}>
           {filteredMissions.length === 0 ? (
             <div className="col-span-full text-center py-16 backdrop-blur-xl bg-white/50 border border-slate-200 rounded-2xl">
@@ -590,7 +634,7 @@ export default function TeamMissions() {
                 style={{ animationDelay: `${index * 50}ms` }}
                 className="group backdrop-blur-xl bg-white/80 border border-slate-200 rounded-2xl p-6 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
               >
-                {/* Header */}
+                {/* Header: Image + Reference + Status */}
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex items-center gap-3 flex-1">
                     <img
@@ -600,9 +644,7 @@ export default function TeamMissions() {
                     />
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
-                        <h3 className="font-bold text-lg text-slate-900">
-                          {mission.reference}
-                        </h3>
+                        <h3 className="font-bold text-lg text-slate-900">{mission.reference}</h3>
                         {mission.assigned_user_id && mission.assigned_user_id !== mission.user_id && (
                           <span className="inline-flex items-center gap-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-lg border border-blue-300">
                             🎯 Reçue
@@ -613,6 +655,13 @@ export default function TeamMissions() {
                         {mission.vehicle_brand} {mission.vehicle_model}
                         {mission.vehicle_plate && <span className="text-slate-400"> • {mission.vehicle_plate}</span>}
                       </p>
+                      {/* Vehicle Type label (Flutter parity) */}
+                      {mission.vehicle_type && (
+                        <span className="inline-flex items-center gap-1 mt-1 px-2 py-0.5 bg-teal-50 text-teal-700 text-xs font-semibold rounded-md border border-teal-200">
+                          <Car className="w-3 h-3" />
+                          {getVehicleTypeLabel(mission.vehicle_type)}
+                        </span>
+                      )}
                     </div>
                   </div>
                   <div className="text-right">
@@ -622,27 +671,61 @@ export default function TeamMissions() {
                   </div>
                 </div>
 
-                {/* Progression visuelle */}
+                {/* Mandataire (Flutter parity) */}
+                {(mission.mandataire_name || mission.mandataire_company) && (
+                  <div className="flex items-center gap-2 mb-3 px-3 py-2 bg-purple-50 border border-purple-200 rounded-xl">
+                    <Building2 className="w-4 h-4 text-purple-600 flex-shrink-0" />
+                    <span className="text-sm font-semibold text-purple-800">
+                      {mission.mandataire_name}
+                      {mission.mandataire_company && <span className="text-purple-600 font-normal"> • {mission.mandataire_company}</span>}
+                    </span>
+                  </div>
+                )}
+
+                {/* Progression */}
                 <div className="mb-3">
                   <div className="flex items-center justify-between text-xs text-slate-600 mb-1">
                     <span>Progression</span>
                     <span className="font-semibold">
-                      {mission.status === 'completed' ? '100%' : 
-                       mission.status === 'in_progress' ? '50%' : '0%'}
+                      {mission.status === 'completed' ? '100%' : mission.status === 'in_progress' ? '50%' : '0%'}
                     </span>
                   </div>
                   <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
-                    <div 
-                      className={`h-full transition-all duration-500 ${
-                        mission.status === 'completed' ? 'bg-gradient-to-r from-green-500 to-emerald-500 w-full' :
-                        mission.status === 'in_progress' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 w-1/2' :
-                        'bg-gradient-to-r from-amber-500 to-orange-500 w-0'
-                      }`}
-                    />
+                    <div className={`h-full transition-all duration-500 ${
+                      mission.status === 'completed' ? 'bg-gradient-to-r from-green-500 to-emerald-500 w-full' :
+                      mission.status === 'in_progress' ? 'bg-gradient-to-r from-blue-500 to-cyan-500 w-1/2' :
+                      'bg-gradient-to-r from-amber-500 to-orange-500 w-0'
+                    }`} />
                   </div>
                 </div>
 
-                {/* Mission Details */}
+                {/* Inspection status badges + Driver badge (Flutter parity) */}
+                <div className="flex flex-wrap items-center gap-2 mb-3">
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                    hasDepartureInspection(mission.id) 
+                      ? 'bg-green-50 text-green-700 border border-green-200' 
+                      : 'bg-slate-50 text-slate-500 border border-slate-200'
+                  }`}>
+                    {hasDepartureInspection(mission.id) ? <CheckCircle2 className="w-3.5 h-3.5" /> : <CircleDot className="w-3.5 h-3.5" />}
+                    Départ
+                  </div>
+                  <div className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold ${
+                    hasArrivalInspection(mission.id) 
+                      ? 'bg-green-50 text-green-700 border border-green-200' 
+                      : 'bg-slate-50 text-slate-500 border border-slate-200'
+                  }`}>
+                    {hasArrivalInspection(mission.id) ? <CheckCircle2 className="w-3.5 h-3.5" /> : <CircleDot className="w-3.5 h-3.5" />}
+                    Arrivée
+                  </div>
+                  {mission.assigned_user_id && driverNames[mission.assigned_user_id] && (
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-blue-700 border border-blue-200">
+                      <User className="w-3.5 h-3.5" />
+                      {driverNames[mission.assigned_user_id]}
+                    </div>
+                  )}
+                </div>
+
+                {/* Route info */}
                 <div className="space-y-2 mb-4">
                   <div className="flex items-start gap-2 text-sm">
                     <MapPin className="w-4 h-4 mt-0.5 text-green-500 flex-shrink-0" />
@@ -665,24 +748,68 @@ export default function TeamMissions() {
                   </div>
                 </div>
 
-                {/* Actions Principales */}
+                {/* Primary Actions (Flutter parity: Démarrer / Continuer+Terminer / Voir Rapport+Créer facture) */}
                 <div className="flex flex-wrap gap-2 mb-3">
-                  {/* Bouton principal selon statut */}
-                  {getActionButton(mission)}
+                  {mission.status === 'pending' && (
+                    <button
+                      onClick={() => handleStartInspection(mission)}
+                      className="inline-flex items-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-teal-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                    >
+                      <Play className="w-4 h-4" />
+                      Démarrer Inspection
+                    </button>
+                  )}
+                  {mission.status === 'in_progress' && (
+                    <>
+                      <button
+                        onClick={() => handleStartInspection(mission)}
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                      >
+                        <TrendingUp className="w-4 h-4" />
+                        Continuer Inspection
+                      </button>
+                      <button
+                        onClick={() => handleCompleteMission(mission)}
+                        className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-semibold transition-all duration-300 hover:-translate-y-0.5 text-sm ${
+                          hasDepartureInspection(mission.id) && hasArrivalInspection(mission.id)
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:shadow-lg hover:shadow-green-500/30'
+                            : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                        }`}
+                      >
+                        <CheckCircle className="w-4 h-4" />
+                        Terminer
+                      </button>
+                    </>
+                  )}
+                  {mission.status === 'completed' && (
+                    <>
+                      <button
+                        onClick={() => handleViewReport(mission.id)}
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-green-500 to-emerald-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-green-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                      >
+                        <FileText className="w-4 h-4" />
+                        Voir Rapport
+                      </button>
+                      <button
+                        onClick={() => handleCreateInvoice(mission)}
+                        className="inline-flex items-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-amber-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
+                      >
+                        <Receipt className="w-4 h-4" />
+                        Créer facture
+                      </button>
+                    </>
+                  )}
                   
-                  {/* Voir Détails */}
+                  {/* Détails */}
                   <button
-                    onClick={() => {
-                      setSelectedMission(mission);
-                      setShowDetailsModal(true);
-                    }}
+                    onClick={() => { setSelectedMission(mission); setShowDetailsModal(true); }}
                     className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-500 to-indigo-500 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg hover:shadow-blue-500/30 transition-all duration-300 hover:-translate-y-0.5 text-sm"
                   >
                     <Eye className="w-4 h-4" />
                     Détails
                   </button>
 
-                  {/* Télécharger PDF */}
+                  {/* PDF */}
                   <button
                     onClick={async () => {
                       try {
@@ -700,42 +827,33 @@ export default function TeamMissions() {
                   </button>
                 </div>
 
-                {/* Actions Secondaires */}
+                {/* Secondary Actions (owner only + GPS) */}
                 <div className="flex flex-wrap gap-2 pt-3 border-t border-slate-200">
                   {mission.user_id === user?.id && (
                     <>
-                      <button
-                        onClick={() => navigate(`/missions/edit/${mission.id}`)}
-                        className="inline-flex items-center gap-1 text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
-                      >
-                        <Edit className="w-3.5 h-3.5" />
-                        Modifier
+                      <button onClick={() => navigate(`/missions/edit/${mission.id}`)}
+                        className="inline-flex items-center gap-1 text-blue-600 hover:bg-blue-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                        <Edit className="w-3.5 h-3.5" /> Modifier
                       </button>
-                      <button
-                        onClick={() => {
-                          setSelectedMission(mission);
-                          setShowShareCodeModal(true);
-                        }}
-                        className="inline-flex items-center gap-1 text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
-                      >
-                        <Users className="w-3.5 h-3.5" />
-                        Partager
+                      <button onClick={() => { setSelectedMission(mission); setShowShareCodeModal(true); }}
+                        className="inline-flex items-center gap-1 text-purple-600 hover:bg-purple-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                        <Users className="w-3.5 h-3.5" /> Partager
                       </button>
-                      <button
-                        onClick={() => handleArchiveMission(mission.id, !mission.archived)}
-                        className="inline-flex items-center gap-1 text-amber-600 hover:bg-amber-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
-                      >
-                        <Archive className="w-3.5 h-3.5" />
-                        {mission.archived ? 'Restaurer' : 'Archiver'}
+                      <button onClick={() => handleArchiveMission(mission.id, !mission.archived)}
+                        className="inline-flex items-center gap-1 text-amber-600 hover:bg-amber-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                        <Archive className="w-3.5 h-3.5" /> {mission.archived ? 'Restaurer' : 'Archiver'}
                       </button>
-                      <button
-                        onClick={() => handleDeleteMission(mission.id)}
-                        className="inline-flex items-center gap-1 text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Supprimer
+                      <button onClick={() => handleDeleteMission(mission.id)}
+                        className="inline-flex items-center gap-1 text-red-600 hover:bg-red-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                        <Trash2 className="w-3.5 h-3.5" /> Supprimer
                       </button>
                     </>
+                  )}
+                  {mission.status === 'in_progress' && (
+                    <button onClick={() => navigate(`/tracking/${mission.id}`)}
+                      className="inline-flex items-center gap-1 text-teal-600 hover:bg-teal-50 px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                      <Navigation className="w-3.5 h-3.5" /> GPS Tracking
+                    </button>
                   )}
                 </div>
               </div>
@@ -744,73 +862,458 @@ export default function TeamMissions() {
         </div>
       </div>
 
-      {/* ===== MODALS ===== */}
-      
-      {/* Details Modal */}
+      {/* ===== DETAIL MODAL (Flutter-aligned: all 10 sections) ===== */}
       {showDetailsModal && selectedMission && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-auto">
-            <div className="flex items-center justify-between p-6 border-b border-slate-200 sticky top-0 bg-white z-10">
-              <h2 className="text-2xl font-bold text-slate-900">Détails de la mission</h2>
-              <button
-                onClick={() => {
-                  setShowDetailsModal(false);
-                  setSelectedMission(null);
-                }}
-                className="p-2 hover:bg-slate-100 rounded-lg transition"
-              >
-                <X className="w-6 h-6" />
-              </button>
-            </div>
-            <div className="p-6">
-              <div className="grid md:grid-cols-2 gap-6">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => { setShowDetailsModal(false); setSelectedMission(null); }}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
+            {/* Modal Header with gradient (like Flutter SliverAppBar) */}
+            <div className="sticky top-0 bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 text-white p-6 rounded-t-2xl z-10">
+              <div className="flex items-center justify-between">
                 <div>
-                  <h3 className="font-bold text-lg mb-2">Informations Véhicule</h3>
-                  <p><strong>Marque:</strong> {selectedMission.vehicle_brand}</p>
-                  <p><strong>Modèle:</strong> {selectedMission.vehicle_model}</p>
-                  <p><strong>Plaque:</strong> {selectedMission.vehicle_plate}</p>
+                  <div className="flex items-center gap-3 mb-1">
+                    <h2 className="text-2xl font-bold">{selectedMission.reference}</h2>
+                    <span className={`px-3 py-1 rounded-full text-xs font-bold border ${
+                      selectedMission.status === 'pending' ? 'bg-amber-100 border-amber-300 text-amber-800' :
+                      selectedMission.status === 'in_progress' ? 'bg-blue-100 border-blue-300 text-blue-800' :
+                      selectedMission.status === 'completed' ? 'bg-green-100 border-green-300 text-green-800' :
+                      'bg-slate-100 border-slate-300 text-slate-800'
+                    }`}>
+                      {getStatusLabel(selectedMission.status)}
+                    </span>
+                  </div>
+                  <p className="text-white/80 text-sm">
+                    {selectedMission.vehicle_brand} {selectedMission.vehicle_model}
+                    {selectedMission.vehicle_plate && ` • ${selectedMission.vehicle_plate}`}
+                  </p>
                 </div>
-                <div>
-                  <h3 className="font-bold text-lg mb-2">Trajet</h3>
-                  <p><strong>Départ:</strong> {selectedMission.pickup_address}</p>
-                  <p><strong>Arrivée:</strong> {selectedMission.delivery_address}</p>
-                  <p><strong>Date:</strong> {new Date(selectedMission.pickup_date).toLocaleDateString('fr-FR')}</p>
-                </div>
+                <button onClick={() => { setShowDetailsModal(false); setSelectedMission(null); }} className="p-2 hover:bg-white/20 rounded-lg transition">
+                  <X className="w-6 h-6" />
+                </button>
               </div>
-              {selectedMission.notes && (
-                <div className="mt-4">
-                  <h3 className="font-bold text-lg mb-2">Notes</h3>
-                  <p className="text-slate-600">{selectedMission.notes}</p>
+            </div>
+
+            <div className="p-6 space-y-5">
+              {/* 1. Share Code Card (Flutter: _buildShareCodeCard) */}
+              {selectedMission.share_code && selectedMission.user_id === user?.id && (
+                <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-2xl p-5 text-white">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Key className="w-5 h-5" />
+                    <span className="font-bold text-lg">Code de mission</span>
+                  </div>
+                  <p className="text-white/70 text-sm mb-3">
+                    {selectedMission.status === 'in_progress'
+                      ? 'Ce code reste actif. Un autre chauffeur peut prendre le relais.'
+                      : 'Partagez ce code pour permettre à un chauffeur de rejoindre la mission'}
+                  </p>
+                  <div className="flex items-center gap-3">
+                    <div className="flex-1 bg-white/15 border border-white/30 rounded-xl px-4 py-3">
+                      <span className="text-2xl font-bold tracking-widest">{selectedMission.share_code}</span>
+                    </div>
+                    <button onClick={() => handleCopyShareCode(selectedMission.share_code!)}
+                      className="p-3 bg-white/20 hover:bg-white/30 rounded-xl transition">
+                      <Copy className="w-5 h-5" />
+                    </button>
+                  </div>
                 </div>
               )}
+
+              {/* 2. Driver Card (Flutter: _buildDriverCard) */}
+              <div className="bg-white border border-blue-100 rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <User className="w-5 h-5 text-blue-600" />
+                  <span className="font-bold text-blue-600 text-lg">Chauffeur</span>
+                </div>
+                {selectedMission.assigned_user_id && driverNames[selectedMission.assigned_user_id] ? (
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                      <User className="w-5 h-5 text-blue-600" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="font-semibold text-slate-900">{driverNames[selectedMission.assigned_user_id]}</p>
+                      <p className="text-slate-500 text-sm">Chauffeur actuel</p>
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-slate-600">Aucun chauffeur assigné</p>
+                    <p className="text-slate-400 text-sm">Partagez le code de mission pour qu'un chauffeur rejoigne</p>
+                  </div>
+                )}
+                {selectedMission.user_id === user?.id && selectedMission.assigned_user_id && selectedMission.status === 'in_progress' && (
+                  <button onClick={() => handleChangeDriver(selectedMission)}
+                    className="mt-3 w-full py-2.5 border-2 border-amber-400 text-amber-700 rounded-xl font-semibold hover:bg-amber-50 transition flex items-center justify-center gap-2">
+                    <Share2 className="w-4 h-4" />
+                    Changer de chauffeur
+                  </button>
+                )}
+              </div>
+
+              {/* 3. Inspection Status Card (Flutter: _buildInspectionStatusCard) */}
+              <div className="bg-white border border-teal-100 rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <CheckCircle className="w-5 h-5 text-teal-600" />
+                  <span className="font-bold text-teal-600 text-lg">Inspections</span>
+                </div>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      hasDepartureInspection(selectedMission.id) ? 'bg-green-100' : 'bg-slate-100'
+                    }`}>
+                      {hasDepartureInspection(selectedMission.id) 
+                        ? <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        : <CircleDot className="w-5 h-5 text-slate-400" />
+                      }
+                    </div>
+                    <LogIn className="w-4 h-4 text-slate-500" />
+                    <span className={`flex-1 ${hasDepartureInspection(selectedMission.id) ? 'text-slate-900 font-semibold line-through' : 'text-slate-500'}`}>
+                      Inspection départ
+                    </span>
+                    <span className={`text-sm font-semibold ${hasDepartureInspection(selectedMission.id) ? 'text-green-600' : 'text-amber-600'}`}>
+                      {hasDepartureInspection(selectedMission.id) ? 'Fait' : 'À faire'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                      hasArrivalInspection(selectedMission.id) ? 'bg-green-100' : 'bg-slate-100'
+                    }`}>
+                      {hasArrivalInspection(selectedMission.id) 
+                        ? <CheckCircle2 className="w-5 h-5 text-green-600" />
+                        : <CircleDot className="w-5 h-5 text-slate-400" />
+                      }
+                    </div>
+                    <ExternalLink className="w-4 h-4 text-slate-500" />
+                    <span className={`flex-1 ${hasArrivalInspection(selectedMission.id) ? 'text-slate-900 font-semibold line-through' : 'text-slate-500'}`}>
+                      Inspection arrivée
+                    </span>
+                    <span className={`text-sm font-semibold ${hasArrivalInspection(selectedMission.id) ? 'text-green-600' : 'text-amber-600'}`}>
+                      {hasArrivalInspection(selectedMission.id) ? 'Fait' : 'À faire'}
+                    </span>
+                  </div>
+                  {selectedMission.status === 'in_progress' && (!hasDepartureInspection(selectedMission.id) || !hasArrivalInspection(selectedMission.id)) && (
+                    <div className="mt-2 flex items-start gap-2 p-3 bg-amber-50 border border-amber-200 rounded-xl">
+                      <AlertTriangle className="w-4 h-4 text-amber-600 mt-0.5 flex-shrink-0" />
+                      <p className="text-amber-700 text-sm">
+                        Les deux inspections (départ et arrivée) sont obligatoires pour terminer la mission.
+                      </p>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 4. Mandataire Card (Flutter: _buildMandataireCard) */}
+              {(selectedMission.mandataire_name || selectedMission.mandataire_company) && (
+                <div className="bg-white border border-purple-100 rounded-2xl p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Building2 className="w-5 h-5 text-purple-600" />
+                    <span className="font-bold text-purple-600 text-lg">Mandataire</span>
+                  </div>
+                  <p className="text-slate-900 text-lg font-semibold">
+                    {selectedMission.mandataire_name || 'Non renseigné'}
+                  </p>
+                  {selectedMission.mandataire_company && (
+                    <div className="flex items-center gap-2 mt-2">
+                      <Building2 className="w-4 h-4 text-purple-500" />
+                      <span className="text-slate-600">{selectedMission.mandataire_company}</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 5. Vehicle Card (Flutter: _buildVehicleCard — brand, model, type, plate, VIN) */}
+              <div className="bg-white border border-teal-100 rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Car className="w-5 h-5 text-teal-600" />
+                  <span className="font-bold text-teal-600 text-lg">Véhicule</span>
+                </div>
+                <div className="space-y-2">
+                  {(selectedMission.vehicle_brand || selectedMission.vehicle_model) && (
+                    <div className="flex items-center gap-3">
+                      <Car className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm text-slate-500">Marque / Modèle</span>
+                      <span className="ml-auto font-semibold text-slate-900">
+                        {selectedMission.vehicle_brand} {selectedMission.vehicle_model}
+                      </span>
+                    </div>
+                  )}
+                  {selectedMission.vehicle_type && (
+                    <div className="flex items-center gap-3">
+                      <Truck className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm text-slate-500">Type</span>
+                      <span className="ml-auto font-semibold text-slate-900">{getVehicleTypeLabel(selectedMission.vehicle_type)}</span>
+                    </div>
+                  )}
+                  {selectedMission.vehicle_plate && (
+                    <div className="flex items-center gap-3">
+                      <Hash className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm text-slate-500">Immatriculation</span>
+                      <span className="ml-auto font-semibold text-slate-900">{selectedMission.vehicle_plate}</span>
+                    </div>
+                  )}
+                  {selectedMission.vehicle_vin && (
+                    <div className="flex items-center gap-3">
+                      <Hash className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm text-slate-500">N° VIN</span>
+                      <span className="ml-auto font-semibold text-slate-900">{selectedMission.vehicle_vin}</span>
+                    </div>
+                  )}
+                  {selectedMission.vehicle_year && (
+                    <div className="flex items-center gap-3">
+                      <Calendar className="w-4 h-4 text-slate-400" />
+                      <span className="text-sm text-slate-500">Année</span>
+                      <span className="ml-auto font-semibold text-slate-900">{selectedMission.vehicle_year}</span>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 6. Itinerary Card (Flutter: _buildItineraireCard — pickup+delivery with contacts+phone) */}
+              <div className="bg-white border border-green-100 rounded-2xl p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <Navigation className="w-5 h-5 text-green-600" />
+                  <span className="font-bold text-green-600 text-lg">Itinéraire</span>
+                </div>
+
+                {/* Pickup */}
+                <div className="bg-green-50 border border-green-200 rounded-xl p-4 mb-3">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-green-500" />
+                    <span className="text-green-700 text-xs font-bold tracking-wider">ENLÈVEMENT</span>
+                  </div>
+                  <p className="text-slate-900 font-medium mb-1">{selectedMission.pickup_address}</p>
+                  {selectedMission.pickup_date && (
+                    <div className="flex items-center gap-2 text-sm text-slate-500 mb-3">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {new Date(selectedMission.pickup_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  )}
+                  <div className="bg-green-50/50 border border-green-200/50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <User className="w-4 h-4 text-green-600" />
+                      <span className={`text-sm ${selectedMission.pickup_contact_name ? 'text-slate-900 font-semibold' : 'text-slate-400'}`}>
+                        {selectedMission.pickup_contact_name || 'Contact non renseigné'}
+                      </span>
+                    </div>
+                    {selectedMission.pickup_contact_phone ? (
+                      <a href={`tel:${selectedMission.pickup_contact_phone}`}
+                        className="flex items-center justify-center gap-2 bg-green-100 hover:bg-green-200 border border-green-300 rounded-lg py-2.5 transition">
+                        <Phone className="w-4 h-4 text-green-700" />
+                        <span className="font-bold text-slate-900">{selectedMission.pickup_contact_phone}</span>
+                        <span className="px-2 py-0.5 bg-green-600 text-white text-xs font-semibold rounded-full">Appeler</span>
+                      </a>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 bg-slate-50 rounded-lg py-2.5">
+                        <Phone className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-400 text-sm">Aucun numéro de téléphone</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Connector */}
+                <div className="flex items-center gap-3 ml-4 my-1">
+                  <div className="w-0.5 h-6 bg-gradient-to-b from-green-400 to-blue-400" />
+                  <ChevronRight className="w-4 h-4 text-slate-400 rotate-90" />
+                </div>
+
+                {/* Delivery */}
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="w-2.5 h-2.5 rounded-full bg-blue-500" />
+                    <span className="text-blue-700 text-xs font-bold tracking-wider">LIVRAISON</span>
+                  </div>
+                  <p className="text-slate-900 font-medium mb-1">{selectedMission.delivery_address}</p>
+                  {selectedMission.delivery_date && (
+                    <div className="flex items-center gap-2 text-sm text-slate-500 mb-3">
+                      <Calendar className="w-3.5 h-3.5" />
+                      {new Date(selectedMission.delivery_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </div>
+                  )}
+                  <div className="bg-blue-50/50 border border-blue-200/50 rounded-lg p-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <User className="w-4 h-4 text-blue-600" />
+                      <span className={`text-sm ${selectedMission.delivery_contact_name ? 'text-slate-900 font-semibold' : 'text-slate-400'}`}>
+                        {selectedMission.delivery_contact_name || 'Contact non renseigné'}
+                      </span>
+                    </div>
+                    {selectedMission.delivery_contact_phone ? (
+                      <a href={`tel:${selectedMission.delivery_contact_phone}`}
+                        className="flex items-center justify-center gap-2 bg-blue-100 hover:bg-blue-200 border border-blue-300 rounded-lg py-2.5 transition">
+                        <Phone className="w-4 h-4 text-blue-700" />
+                        <span className="font-bold text-slate-900">{selectedMission.delivery_contact_phone}</span>
+                        <span className="px-2 py-0.5 bg-blue-600 text-white text-xs font-semibold rounded-full">Appeler</span>
+                      </a>
+                    ) : (
+                      <div className="flex items-center justify-center gap-2 bg-slate-50 rounded-lg py-2.5">
+                        <Phone className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-400 text-sm">Aucun numéro de téléphone</span>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 7. Price Card (Flutter: _buildPriceCard) */}
+              {selectedMission.price > 0 && (
+                <div className="bg-white border border-amber-100 rounded-2xl p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <DollarSign className="w-5 h-5 text-amber-600" />
+                    <span className="font-bold text-amber-600 text-lg">Prix</span>
+                  </div>
+                  <p className="text-3xl font-black bg-gradient-to-r from-teal-600 to-cyan-600 bg-clip-text text-transparent">
+                    {selectedMission.price.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} EUR
+                  </p>
+                </div>
+              )}
+
+              {/* 8. Notes Card (Flutter: _buildNotesCard) */}
+              {selectedMission.notes && (
+                <div className="bg-white border border-slate-200 rounded-2xl p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <FileText className="w-5 h-5 text-slate-500" />
+                    <span className="font-bold text-slate-600 text-lg">Notes</span>
+                  </div>
+                  <p className="text-slate-600 whitespace-pre-wrap">{selectedMission.notes}</p>
+                </div>
+              )}
+
+              {/* 8b. Special Instructions */}
+              {selectedMission.special_instructions && (
+                <div className="bg-white border border-amber-200 rounded-2xl p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <AlertTriangle className="w-5 h-5 text-amber-600" />
+                    <span className="font-bold text-amber-600 text-lg">Instructions spéciales</span>
+                  </div>
+                  <p className="text-slate-600 whitespace-pre-wrap">{selectedMission.special_instructions}</p>
+                </div>
+              )}
+
+              {/* 9. GPS Tracking Card (Flutter: _buildTrackingCard) */}
+              {selectedMission.status === 'in_progress' && (
+                <div className="bg-white border border-teal-200 rounded-2xl p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Navigation className="w-5 h-5 text-teal-600" />
+                    <span className="font-bold text-teal-600 text-lg">Tracking GPS</span>
+                  </div>
+                  <p className="text-slate-500 text-sm mb-3">Suivez la position du véhicule en temps réel</p>
+                  {selectedMission.public_tracking_link && (
+                    <div className="bg-slate-50 border border-slate-200 rounded-lg p-3 mb-3">
+                      <p className="text-slate-600 text-sm truncate">{selectedMission.public_tracking_link}</p>
+                    </div>
+                  )}
+                  <button onClick={() => { setShowDetailsModal(false); navigate(`/tracking/${selectedMission.id}`); }}
+                    className="w-full py-3 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-bold hover:shadow-lg transition flex items-center justify-center gap-2">
+                    <MapPinned className="w-5 h-5" />
+                    Voir sur la carte
+                  </button>
+                </div>
+              )}
+
+              {/* 10. Client Info */}
+              {(selectedMission.client_name || selectedMission.client_phone || selectedMission.client_email) && (
+                <div className="bg-white border border-slate-200 rounded-2xl p-5">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Users className="w-5 h-5 text-slate-600" />
+                    <span className="font-bold text-slate-600 text-lg">Client</span>
+                  </div>
+                  <div className="space-y-2">
+                    {selectedMission.client_name && (
+                      <div className="flex items-center gap-3">
+                        <User className="w-4 h-4 text-slate-400" />
+                        <span className="text-slate-900 font-medium">{selectedMission.client_name}</span>
+                      </div>
+                    )}
+                    {selectedMission.client_phone && (
+                      <a href={`tel:${selectedMission.client_phone}`} className="flex items-center gap-3 hover:bg-slate-50 rounded-lg p-1 transition">
+                        <Phone className="w-4 h-4 text-slate-400" />
+                        <span className="text-blue-600 font-medium">{selectedMission.client_phone}</span>
+                      </a>
+                    )}
+                    {selectedMission.client_email && (
+                      <a href={`mailto:${selectedMission.client_email}`} className="flex items-center gap-3 hover:bg-slate-50 rounded-lg p-1 transition">
+                        <FileText className="w-4 h-4 text-slate-400" />
+                        <span className="text-blue-600 font-medium">{selectedMission.client_email}</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Bottom Actions (Flutter: _buildBottomActions — pending/in_progress/completed) */}
+              <div className="sticky bottom-0 bg-white border-t border-slate-200 p-4 -mx-6 -mb-6 rounded-b-2xl">
+                {selectedMission.status === 'pending' && (
+                  <button onClick={() => { setShowDetailsModal(false); handleStartInspection(selectedMission); }}
+                    className="w-full py-3.5 bg-gradient-to-r from-teal-500 to-cyan-500 text-white rounded-xl font-bold text-lg hover:shadow-lg transition flex items-center justify-center gap-2">
+                    <Play className="w-5 h-5" />
+                    Démarrer la mission
+                  </button>
+                )}
+                {selectedMission.status === 'in_progress' && (
+                  <div className="space-y-3">
+                    {(!hasDepartureInspection(selectedMission.id) || !hasArrivalInspection(selectedMission.id)) && (
+                      <div className="flex items-center gap-2 text-amber-600 text-sm">
+                        <AlertTriangle className="w-4 h-4" />
+                        <span>
+                          {!hasDepartureInspection(selectedMission.id) && !hasArrivalInspection(selectedMission.id)
+                            ? 'Inspections départ et arrivée requises'
+                            : !hasDepartureInspection(selectedMission.id)
+                            ? 'Inspection départ requise'
+                            : 'Inspection arrivée requise'}
+                        </span>
+                      </div>
+                    )}
+                    <div className="flex gap-3">
+                      <button onClick={() => { setShowDetailsModal(false); handleStartInspection(selectedMission); }}
+                        className="flex-1 py-3.5 bg-gradient-to-r from-blue-500 to-indigo-500 text-white rounded-xl font-bold hover:shadow-lg transition flex items-center justify-center gap-2">
+                        <TrendingUp className="w-5 h-5" />
+                        Continuer Inspection
+                      </button>
+                      <button onClick={() => handleCompleteMission(selectedMission)}
+                        className={`flex-1 py-3.5 rounded-xl font-bold transition flex items-center justify-center gap-2 ${
+                          hasDepartureInspection(selectedMission.id) && hasArrivalInspection(selectedMission.id)
+                            ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white hover:shadow-lg'
+                            : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                        }`}>
+                        <CheckCircle className="w-5 h-5" />
+                        Terminer la mission
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {selectedMission.status === 'completed' && (
+                  <div className="flex gap-3">
+                    <button onClick={() => { setShowDetailsModal(false); handleViewReport(selectedMission.id); }}
+                      className="flex-1 py-3.5 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-bold hover:shadow-lg transition flex items-center justify-center gap-2">
+                      <FileText className="w-5 h-5" />
+                      Voir le rapport
+                    </button>
+                    <button onClick={() => { setShowDetailsModal(false); handleCreateInvoice(selectedMission); }}
+                      className="flex-1 py-3.5 bg-gradient-to-r from-green-500 to-emerald-500 text-white rounded-xl font-bold hover:shadow-lg transition flex items-center justify-center gap-2">
+                      <Receipt className="w-5 h-5" />
+                      Créer facture
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Join Mission Modal */}
+      {/* ===== OTHER MODALS ===== */}
       {showJoinModal && (
         <JoinMissionModal
           isOpen={showJoinModal}
           onClose={() => setShowJoinModal(false)}
-          onSuccess={() => {
-            setShowJoinModal(false);
-            loadData();
-          }}
+          onSuccess={() => { setShowJoinModal(false); loadData(); }}
         />
       )}
 
-      {/* Share Code Modal */}
       {showShareCodeModal && selectedMission && (
         <ShareCodeModal
           mission={selectedMission}
-          onClose={() => {
-            setShowShareCodeModal(false);
-            setSelectedMission(null);
-          }}
+          onClose={() => { setShowShareCodeModal(false); setSelectedMission(null); }}
         />
       )}
     </div>
   );
 }
-
