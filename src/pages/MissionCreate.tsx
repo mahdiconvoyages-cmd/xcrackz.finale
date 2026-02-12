@@ -31,22 +31,20 @@ export default function MissionCreate() {
     vehicle_vin: '',
     vehicle_year: '',
     // Étape 1 - Enlèvement
-    pickup_client_name: '',
+    pickup_contact_name: '',
     pickup_address: '',
     pickup_postcode: '',
     pickup_city: '',
     pickup_date: '',
     pickup_time: '',
-    pickup_contact_name: '',
     pickup_contact_phone: '',
     // Étape 2 - Livraison
-    delivery_client_name: '',
+    delivery_contact_name: '',
     delivery_address: '',
     delivery_postcode: '',
     delivery_city: '',
     delivery_date: '',
     delivery_time: '',
-    delivery_contact_name: '',
     delivery_contact_phone: '',
     // Étape 3 - Détails supplémentaires
     client_name: '',
@@ -68,8 +66,8 @@ export default function MissionCreate() {
   const canProceed = () => {
     switch (currentStep) {
       case 0: return formData.mandataire_name && formData.vehicle_brand && formData.vehicle_model;
-      case 1: return formData.pickup_client_name && formData.pickup_address && formData.pickup_postcode && formData.pickup_city && formData.pickup_date;
-      case 2: return formData.delivery_client_name && formData.delivery_address && formData.delivery_postcode && formData.delivery_city && formData.delivery_date;
+      case 1: return formData.pickup_contact_name && formData.pickup_address && formData.pickup_postcode && formData.pickup_city && formData.pickup_date;
+      case 2: return formData.delivery_contact_name && formData.delivery_address && formData.delivery_postcode && formData.delivery_city && formData.delivery_date;
       case 3: return true; // Optionnel
       default: return false;
     }
@@ -105,19 +103,17 @@ export default function MissionCreate() {
           vehicle_plate: formData.vehicle_plate || null,
           vehicle_vin: formData.vehicle_vin || null,
           vehicle_year: formData.vehicle_year ? parseInt(formData.vehicle_year) : null,
-          pickup_client_name: formData.pickup_client_name,
+          pickup_contact_name: formData.pickup_contact_name,
           pickup_address: `${formData.pickup_address}, ${formData.pickup_postcode} ${formData.pickup_city}`,
           pickup_postcode: formData.pickup_postcode,
           pickup_city: formData.pickup_city,
           pickup_date: pickupDateTime || null,
-          pickup_contact_name: formData.pickup_contact_name || null,
           pickup_contact_phone: formData.pickup_contact_phone || null,
-          delivery_client_name: formData.delivery_client_name,
+          delivery_contact_name: formData.delivery_contact_name,
           delivery_address: `${formData.delivery_address}, ${formData.delivery_postcode} ${formData.delivery_city}`,
           delivery_postcode: formData.delivery_postcode,
           delivery_city: formData.delivery_city,
           delivery_date: deliveryDateTime || null,
-          delivery_contact_name: formData.delivery_contact_name || null,
           delivery_contact_phone: formData.delivery_contact_phone || null,
           client_name: formData.client_name || null,
           client_phone: formData.client_phone || null,
@@ -216,7 +212,7 @@ export default function MissionCreate() {
           <div className="space-y-6">
             <h3 className="text-2xl font-bold flex items-center gap-3"><span className="text-3xl">📍</span>Lieu de départ</h3>
             <div><label className="block text-sm font-semibold mb-2">Nom du client *</label>
-              <input type="text" name="pickup_client_name" value={formData.pickup_client_name} onChange={handleChange} placeholder="Jean Dupont" required
+              <input type="text" name="pickup_contact_name" value={formData.pickup_contact_name} onChange={handleChange} placeholder="Jean Dupont" required
                 className="w-full bg-slate-50 border-2 border-slate-200 rounded-lg px-4 py-3" /></div>
             <div><label className="block text-sm font-semibold mb-2">Adresse de départ *</label>
               <input type="text" name="pickup_address" value={formData.pickup_address} onChange={handleChange} placeholder="123 Rue de la Paix" required
@@ -238,10 +234,8 @@ export default function MissionCreate() {
                   className="w-full bg-slate-50 border-2 border-slate-200 rounded-lg px-4 py-3" /></div>
             </div>
             <div className="bg-slate-100 rounded-xl p-4 border">
-              <h4 className="text-sm font-bold mb-3">Contact au départ</h4>
+              <h4 className="text-sm font-bold mb-3">Téléphone au départ</h4>
               <div className="space-y-3">
-                <input type="text" name="pickup_contact_name" value={formData.pickup_contact_name} onChange={handleChange} placeholder="Nom du contact"
-                  className="w-full bg-white border rounded-lg px-4 py-2.5" />
                 <input type="tel" name="pickup_contact_phone" value={formData.pickup_contact_phone} onChange={handleChange} placeholder="06 XX XX XX XX"
                   className="w-full bg-white border rounded-lg px-4 py-2.5" />
               </div>
@@ -254,7 +248,7 @@ export default function MissionCreate() {
           <div className="space-y-6">
             <h3 className="text-2xl font-bold flex items-center gap-3"><span className="text-3xl">🎯</span>Lieu d'arrivée</h3>
             <div><label className="block text-sm font-semibold mb-2">Nom du client *</label>
-              <input type="text" name="delivery_client_name" value={formData.delivery_client_name} onChange={handleChange} placeholder="Marie Martin" required
+              <input type="text" name="delivery_contact_name" value={formData.delivery_contact_name} onChange={handleChange} placeholder="Marie Martin" required
                 className="w-full bg-slate-50 border-2 border-slate-200 rounded-lg px-4 py-3" /></div>
             <div><label className="block text-sm font-semibold mb-2">Adresse d'arrivée *</label>
               <input type="text" name="delivery_address" value={formData.delivery_address} onChange={handleChange} placeholder="456 Avenue des Champs" required
@@ -276,10 +270,8 @@ export default function MissionCreate() {
                   className="w-full bg-slate-50 border-2 border-slate-200 rounded-lg px-4 py-3" /></div>
             </div>
             <div className="bg-slate-100 rounded-xl p-4 border">
-              <h4 className="text-sm font-bold mb-3">Contact à l'arrivée</h4>
+              <h4 className="text-sm font-bold mb-3">Téléphone à l'arrivée</h4>
               <div className="space-y-3">
-                <input type="text" name="delivery_contact_name" value={formData.delivery_contact_name} onChange={handleChange} placeholder="Nom du contact"
-                  className="w-full bg-white border rounded-lg px-4 py-2.5" />
                 <input type="tel" name="delivery_contact_phone" value={formData.delivery_contact_phone} onChange={handleChange} placeholder="06 XX XX XX XX"
                   className="w-full bg-white border rounded-lg px-4 py-2.5" />
               </div>
