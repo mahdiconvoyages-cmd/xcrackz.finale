@@ -14,7 +14,6 @@ interface AdminLayoutProps {
 const NAV_ITEMS = [
   { path: '/admin', label: 'Dashboard', icon: BarChart3, exact: true },
   { path: '/admin/users', label: 'Utilisateurs', icon: Users },
-  { path: '/admin/subscriptions', label: 'Abonnements', icon: CreditCard },
   { path: '/admin/tracking', label: 'Missions GPS', icon: MapPin },
   { path: '/admin/support', label: 'Support', icon: MessageCircle },
   { path: '/admin/apk', label: 'Versions APK', icon: Smartphone },

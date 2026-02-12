@@ -101,7 +101,7 @@ export default function AdminUsers() {
     let f = allUsers;
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
-      f = f.filter(u => u.email?.toLowerCase().includes(q) || u.full_name?.toLowerCase().includes(q) || u.company_name?.toLowerCase().includes(q));
+      f = f.filter(u => u.email?.toLowerCase().includes(q) || u.full_name?.toLowerCase().includes(q) || u.company_name?.toLowerCase().includes(q) || u.phone?.toLowerCase().includes(q));
     }
     if (subscriptionFilter !== 'all') {
       f = subscriptionFilter === 'none'
@@ -152,7 +152,8 @@ export default function AdminUsers() {
     if (isNaN(amount) || amount <= 0) return alert('Montant invalide');
     const { data: profile } = await supabase.from('profiles').select('credits').eq('id', selectedUser.id).single();
     const cur = (profile as any)?.credits || 0;
-    await supabase.from('profiles').update({ credits: cur + amount }).eq('id', selectedUser.id);
+    const { error: updateErr } = await supabase.from('profiles').update({ credits: cur + amount }).eq('id', selectedUser.id);
+    if (updateErr) { console.error('Erreur ajout crédits:', updateErr); return alert(`❌ Erreur: ${updateErr.message}`); }
     // Legacy sync
     const { data: ex } = await supabase.from('user_credits').select('balance').eq('user_id', selectedUser.id).single();
     if (ex) await supabase.from('user_credits').update({ balance: ex.balance + amount }).eq('user_id', selectedUser.id);
@@ -225,10 +226,15 @@ export default function AdminUsers() {
     setShowGrantModal(false); setSelectedUser(null); setGrantAmount(''); setGrantPlan('essentiel'); setGrantDuration('30'); setGrantAutoRenew(true); setGrantCustomCredits('');
   };
 
+  const csvEscape = (val: any) => {
+    const s = String(val ?? '');
+    return s.includes(',') || s.includes('"') || s.includes('\n') ? `"${s.replace(/"/g, '""')}"` : s;
+  };
+
   const exportCSV = () => {
     const csv = [
-      ['Email', 'Nom', 'Type', 'Crédits', 'Plan', 'Vérifié', 'Admin', 'Inscription'].join(','),
-      ...filteredUsers.map(u => [u.email, u.full_name || '', u.user_type || 'client', u.credits?.balance || 0, u.subscription?.plan || 'none', u.is_verified ? 'Oui' : 'Non', u.is_admin ? 'Oui' : 'Non', new Date(u.created_at).toLocaleDateString('fr-FR')].join(','))
+      ['Email', 'Nom', 'Téléphone', 'Type', 'Crédits', 'Plan', 'Expiration', 'Vérifié', 'Admin', 'Dernière connexion', 'Inscription'].join(','),
+      ...filteredUsers.map(u => [csvEscape(u.email), csvEscape(u.full_name), csvEscape(u.phone), csvEscape(u.user_type || 'client'), u.credits?.balance || 0, u.subscription?.plan || 'aucun', u.subscription?.current_period_end ? new Date(u.subscription.current_period_end).toLocaleDateString('fr-FR') : '-', u.is_verified ? 'Oui' : 'Non', u.is_admin ? 'Oui' : 'Non', u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleDateString('fr-FR') : 'Jamais', new Date(u.created_at).toLocaleDateString('fr-FR')].join(','))
     ].join('\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
@@ -350,12 +356,19 @@ export default function AdminUsers() {
                   <td className="py-3 px-4">
                     {user.subscription?.status === 'active' ? (
                       <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
-                          user.subscription.plan === 'enterprise' ? 'bg-purple-100 text-purple-700' :
-                          user.subscription.plan === 'business' ? 'bg-blue-100 text-blue-700' :
-                          user.subscription.plan === 'pro' ? 'bg-teal-100 text-teal-700' :
-                          'bg-green-100 text-green-700'
-                        }`}>{user.subscription.plan?.toUpperCase()}</span>
+                        <div className="flex flex-col">
+                          <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full w-fit ${
+                            user.subscription.plan === 'enterprise' ? 'bg-purple-100 text-purple-700' :
+                            user.subscription.plan === 'business' ? 'bg-blue-100 text-blue-700' :
+                            user.subscription.plan === 'pro' ? 'bg-teal-100 text-teal-700' :
+                            'bg-green-100 text-green-700'
+                          }`}>{user.subscription.plan?.toUpperCase()}</span>
+                          {user.subscription.current_period_end && (
+                            <span className={`text-[10px] mt-0.5 ${new Date(user.subscription.current_period_end) < new Date() ? 'text-red-500 font-bold' : new Date(user.subscription.current_period_end) < new Date(Date.now() + 7 * 86400000) ? 'text-amber-500' : 'text-slate-400'}`}>
+                              exp. {new Date(user.subscription.current_period_end).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                            </span>
+                          )}
+                        </div>
                         <button onClick={() => handleToggleAutoRenew(user.id, user.email, user.subscription?.auto_renew || false)} className={`p-1 rounded transition ${user.subscription?.auto_renew ? 'bg-yellow-50 text-yellow-600' : 'text-slate-300 hover:text-slate-500'}`} title="Auto-renew">
                           <Zap className={`w-3.5 h-3.5 ${user.subscription?.auto_renew ? 'fill-current' : ''}`} />
                         </button>
@@ -429,9 +442,17 @@ export default function AdminUsers() {
             <h3 className="text-xl font-black text-slate-900 mb-4">
               {grantType === 'credits' ? '💰 Ajouter des crédits' : '🎁 Gérer l\'abonnement'}
             </h3>
-            <div className="mb-4 p-3 bg-slate-50 rounded-xl">
+            <div className="mb-4 p-3 bg-slate-50 rounded-xl space-y-1">
               <p className="text-xs text-slate-500">Utilisateur</p>
               <p className="font-bold text-slate-900 text-sm">{selectedUser.email}</p>
+              <div className="flex items-center gap-3 text-xs text-slate-500 pt-1">
+                <span>💰 {selectedUser.credits?.balance || 0} crédits</span>
+                {selectedUser.subscription?.status === 'active' ? (
+                  <span className="text-teal-600 font-semibold">📦 {selectedUser.subscription.plan?.toUpperCase()} — exp. {new Date(selectedUser.subscription.current_period_end).toLocaleDateString('fr-FR')}</span>
+                ) : (
+                  <span className="text-slate-400">Aucun abonnement</span>
+                )}
+              </div>
             </div>
             {grantType === 'credits' ? (
               <div>

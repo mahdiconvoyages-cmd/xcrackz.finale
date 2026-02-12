@@ -360,17 +360,6 @@ function AppContent() {
           />
 
           <Route
-            path="/admin/subscriptions"
-            element={
-              <AdminRoute>
-                <AdminLayout>
-                  <AdminUsers />
-                </AdminLayout>
-              </AdminRoute>
-            }
-          />
-
-          <Route
             path="/admin/tracking"
             element={
               <AdminRoute>
