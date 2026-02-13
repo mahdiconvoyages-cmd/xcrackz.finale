@@ -314,6 +314,13 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
 
       await supabase.from('missions').insert(data);
 
+      // Deduire 1 credit
+      await _creditsService.spendCredits(
+        userId: userId,
+        amount: 1,
+        description: 'Creation mission $ref',
+      );
+
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(

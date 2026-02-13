@@ -331,7 +331,7 @@ export async function publishTrip(
     const { data: deductResult, error: deductError } = await supabase.rpc('deduct_credits', {
       p_user_id: userId,
       p_amount: PUBLISH_COST,
-      p_reason: `Publication trajet covoiturage ${tripData.departure_city} → ${tripData.arrival_city}`
+      p_description: `Publication trajet covoiturage ${tripData.departure_city} → ${tripData.arrival_city}`
     });
 
     if (deductError || !deductResult?.success) {

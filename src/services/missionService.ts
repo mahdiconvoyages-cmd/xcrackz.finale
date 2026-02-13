@@ -149,18 +149,18 @@ export async function createMission(
     throw new Error('User ID is required');
   }
 
-  const { data: credits, error: creditsError } = await supabase
-    .from('user_credits')
-    .select('balance')
-    .eq('user_id', missionData.user_id)
-    .maybeSingle();
+  const { data: profile, error: creditsError } = await supabase
+    .from('profiles')
+    .select('credits')
+    .eq('id', missionData.user_id)
+    .single();
 
   if (creditsError) {
     console.error('Error checking credits:', creditsError);
     throw new Error('Impossible de vérifier vos crédits');
   }
 
-  const currentBalance = credits?.balance || 0;
+  const currentBalance = profile?.credits || 0;
 
   if (currentBalance < 1) {
     throw new Error('Crédits insuffisants. Vous avez besoin de 1 crédit pour créer une mission.');

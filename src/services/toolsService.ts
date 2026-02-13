@@ -390,14 +390,14 @@ export async function createMission(
   }
 ): Promise<ToolResult> {
   try {
-    // Vérifier crédits
-    const { data: credits, error: creditsError } = await supabase
-      .from('user_credits')
-      .select('balance')
-      .eq('user_id', ctx.userId)
+    // Vérifier crédits via profiles (source unique de vérité)
+    const { data: profile, error: creditsError } = await supabase
+      .from('profiles')
+      .select('credits')
+      .eq('id', ctx.userId)
       .single();
 
-    if (creditsError || !credits || credits.balance < 1) {
+    if (creditsError || !profile || profile.credits < 1) {
       return {
         success: false,
         message: "❌ Crédits insuffisants. Tu as besoin d'au moins 1 crédit pour créer une mission. Demande un abonnement pour obtenir des crédits.",
@@ -441,18 +441,18 @@ export async function createMission(
 
     if (error) throw error;
 
-    // Déduire 1 crédit
-    await supabase
-      .from('user_credits')
-      .update({ balance: credits.balance - 1 })
-      .eq('user_id', ctx.userId);
+    // Déduire 1 crédit via RPC sécurisé (atomique, avec transaction log)
+    const { data: deductResult, error: deductError } = await (supabase.rpc as any)('deduct_credits', {
+      p_user_id: ctx.userId,
+      p_amount: 1,
+      p_description: `Création mission ${reference} via Clara`,
+    });
 
-    // Enregistrer le revenu
-    // TODO: Implémenter table monthly_revenue ou ajouter au dashboard
+    const newBalance = deductResult?.new_balance ?? (profile.credits - 1);
 
     return {
       success: true,
-      message: `✅ Mission ${reference} créée avec succès !\n🚗 ${missionData.vehicle_brand} ${missionData.vehicle_model}\n📍 ${missionData.pickup_address} → ${missionData.delivery_address}\n💰 Revenu: ${missionData.price.toFixed(2)}€ HT\n🎫 Crédits restants: ${credits.balance - 1}`,
+      message: `\u2705 Mission ${reference} cr\u00e9\u00e9e avec succ\u00e8s !\n\ud83d\ude97 ${missionData.vehicle_brand} ${missionData.vehicle_model}\n\ud83d\udccd ${missionData.pickup_address} \u2192 ${missionData.delivery_address}\n\ud83d\udcb0 Revenu: ${missionData.price.toFixed(2)}\u20ac HT\n\ud83c\udfab Cr\u00e9dits restants: ${newBalance}`,
       data: newMission,
       redirect: '/missions'
     };
