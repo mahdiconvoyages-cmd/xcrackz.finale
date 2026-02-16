@@ -217,18 +217,13 @@ export default function SignupWizardScreen() {
           return false;
         }
 
-        // Valider téléphone
-        const phoneValidation = validationService.validatePhone(formData.phone);
-        if (!phoneValidation.isValid) {
-          setError(phoneValidation.error || 'Téléphone invalide');
-          return false;
-        }
-
-        // Vérifier réutilisation téléphone
-        const phoneUsage = await validationService.checkPhoneUsage(formData.phone);
-        if (phoneUsage.warning) {
-          // Warning mais pas bloquant
-          console.warn(phoneUsage.warning);
+        // Téléphone optionnel - valider seulement si renseigné
+        if (formData.phone && formData.phone.trim()) {
+          const phoneValidation = validationService.validatePhone(formData.phone);
+          if (!phoneValidation.isValid) {
+            setError(phoneValidation.error || 'Téléphone invalide');
+            return false;
+          }
         }
 
         // Valider mot de passe
@@ -310,7 +305,7 @@ export default function SignupWizardScreen() {
         try {
           const fraudCheck = await fraudPreventionService.checkSignupFraud(
             formData.email,
-            formData.phone,
+            formData.phone || '',
             formData.userType === 'company' ? formData.siret : undefined
           );
 
@@ -475,8 +470,8 @@ export default function SignupWizardScreen() {
         success: true
       });
 
-      // 5. Cadeau de bienvenue: Starter 10 crédits si téléphone renseigné
-      if (authData?.user?.id && formData.phone && formData.phone.length >= 10) {
+      // 5. Cadeau de bienvenue: Starter 10 crédits
+      if (authData?.user?.id) {
         try {
           const starterEndDate = new Date();
           starterEndDate.setDate(starterEndDate.getDate() + 30);
@@ -515,10 +510,7 @@ export default function SignupWizardScreen() {
       }
 
       // 6. Rediriger vers login
-      alert('Inscription réussie ! Un email de confirmation a été envoyé.' + 
-        (formData.phone && formData.phone.length >= 10 
-          ? '\n\n🎁 Cadeau de bienvenue : 10 crédits offerts pendant 30 jours !' 
-          : ''));
+      alert('Inscription réussie ! Un email de confirmation a été envoyé.\n\n🎁 Cadeau de bienvenue : 10 crédits offerts pendant 30 jours !');
       navigate('/login');
     } catch (err: any) {
       console.error('Signup error:', err);
@@ -873,11 +865,12 @@ export default function SignupWizardScreen() {
 
             <TextField
               fullWidth
-              label="Téléphone *"
+              label="Téléphone (optionnel)"
               type="tel"
               value={formData.phone}
               onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
               placeholder="06 12 34 56 78"
+              helperText="Optionnel — utile pour être contacté rapidement"
               sx={{ mb: 3 }}
             />
 
@@ -1169,8 +1162,12 @@ export default function SignupWizardScreen() {
                 <Typography variant="subtitle2" color="text.secondary">Email</Typography>
                 <Typography variant="body1" gutterBottom>{formData.email}</Typography>
 
-                <Typography variant="subtitle2" color="text.secondary">Téléphone</Typography>
-                <Typography variant="body1" gutterBottom>{validationService.formatPhone(formData.phone)}</Typography>
+                {formData.phone && formData.phone.trim() && (
+                  <>
+                    <Typography variant="subtitle2" color="text.secondary">Téléphone</Typography>
+                    <Typography variant="body1" gutterBottom>{validationService.formatPhone(formData.phone)}</Typography>
+                  </>
+                )}
 
                 <Divider sx={{ my: 2 }} />
 
