@@ -6,7 +6,7 @@ import {
   Route, MapPin, Clock, Users, TrendingUp, Plus, Search, Filter,
   Calendar, Navigation, Zap, Bell, ChevronRight, ChevronDown, X,
   Check, AlertCircle, Truck, Leaf, BarChart3, Share2, Eye, Trash2,
-  RefreshCw, ArrowRight, Star, Target, Map as MapIcon
+  RefreshCw, ArrowRight, Star, Target, Map as MapIcon, MessageCircle, Send, User
 } from 'lucide-react';
 
 // ============================================================================
@@ -67,7 +67,17 @@ interface Match {
   // Joined
   planning_a?: Planning;
   planning_b?: Planning;
-  other_user?: { first_name: string; last_name: string; company_name: string };
+  other_user?: { first_name: string; last_name: string; company_name: string; phone: string; email: string };
+  other_planning?: Planning;
+}
+
+interface ChatMessage {
+  id: string;
+  match_id: string;
+  sender_id: string;
+  content: string;
+  is_read: boolean;
+  created_at: string;
 }
 
 interface PlanningStats {
@@ -183,11 +193,32 @@ export default function PlanningNetwork() {
 
       setMyPlannings(planningsRes.data || []);
       setAllPlannings(allPlanningsRes.data || []);
-      setMatches(matchesRes.data || []);
       setStats(statsRes.data);
 
+      // Enrich matches with other user profile + planning details
+      const rawMatches: Match[] = matchesRes.data || [];
+      const enrichedMatches: Match[] = [];
+      
+      for (const m of rawMatches) {
+        const otherUserId = m.user_a_id === user.id ? m.user_b_id : m.user_a_id;
+        const otherPlanningId = m.user_a_id === user.id ? m.planning_b_id : m.planning_a_id;
+        
+        const [profileRes, planningRes] = await Promise.all([
+          supabase.from('profiles').select('first_name, last_name, company_name, phone, email').eq('id', otherUserId).maybeSingle(),
+          supabase.from('convoy_plannings').select('*').eq('id', otherPlanningId).maybeSingle(),
+        ]);
+        
+        enrichedMatches.push({
+          ...m,
+          other_user: profileRes.data || undefined,
+          other_planning: planningRes.data || undefined,
+        });
+      }
+      
+      setMatches(enrichedMatches);
+
       // Pending matches = notifications
-      const pendingMatches = (matchesRes.data || []).filter((m: Match) => m.status === 'pending');
+      const pendingMatches = enrichedMatches.filter((m: Match) => m.status === 'pending');
       setNotifications(pendingMatches);
     } catch (err) {
       console.error('Error loading planning data:', err);
@@ -509,10 +540,76 @@ function PlanningsTab({ plannings, onRefresh, onRunMatching, onCreateNew }: {
 }
 
 // ============================================================================
-// MATCHES TAB (AI Results)
+// MATCHES TAB (AI Results + Chat)
 // ============================================================================
 
 function MatchesTab({ matches, userId, onRefresh }: { matches: Match[]; userId: string; onRefresh: () => void }) {
+  const [chatMatchId, setChatMatchId] = useState<string | null>(null);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+
+  // Load chat messages for selected match
+  const loadChat = useCallback(async (matchId: string) => {
+    const { data } = await supabase
+      .from('planning_messages')
+      .select('*')
+      .eq('match_id', matchId)
+      .order('created_at', { ascending: true });
+    setChatMessages(data || []);
+    
+    // Mark messages as read
+    if (data?.length) {
+      await supabase
+        .from('planning_messages')
+        .update({ is_read: true })
+        .eq('match_id', matchId)
+        .neq('sender_id', userId);
+    }
+  }, [userId]);
+
+  // Realtime chat subscription
+  useEffect(() => {
+    if (!chatMatchId) return;
+    loadChat(chatMatchId);
+    
+    const channel = supabase
+      .channel(`chat-${chatMatchId}`)
+      .on('postgres_changes', {
+        event: 'INSERT',
+        schema: 'public',
+        table: 'planning_messages',
+        filter: `match_id=eq.${chatMatchId}`,
+      }, (payload) => {
+        setChatMessages(prev => [...prev, payload.new as ChatMessage]);
+        // Auto mark as read if not me
+        if ((payload.new as ChatMessage).sender_id !== userId) {
+          supabase.from('planning_messages').update({ is_read: true }).eq('id', (payload.new as ChatMessage).id);
+        }
+      })
+      .subscribe();
+    
+    return () => { supabase.removeChannel(channel); };
+  }, [chatMatchId, loadChat, userId]);
+
+  // Auto scroll to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [chatMessages]);
+
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !chatMatchId) return;
+    setSendingMessage(true);
+    await supabase.from('planning_messages').insert({
+      match_id: chatMatchId,
+      sender_id: userId,
+      content: newMessage.trim(),
+    });
+    setNewMessage('');
+    setSendingMessage(false);
+  };
+
   const handleRespond = async (matchId: string, response: 'accepted' | 'declined') => {
     await supabase.from('planning_matches').update({ status: response }).eq('id', matchId);
     
@@ -544,82 +641,272 @@ function MatchesTab({ matches, userId, onRefresh }: { matches: Match[]; userId: 
     );
   }
 
+  // Chat panel open
+  const chatMatch = chatMatchId ? matches.find(m => m.id === chatMatchId) : null;
+
   return (
-    <div className="space-y-4">
-      {matches.map(m => {
-        const matchInfo = MATCH_LABELS[m.match_type] || MATCH_LABELS.time_overlap;
-        const MatchIcon = matchInfo.icon;
-        
-        return (
-          <div key={m.id} className={`bg-white rounded-2xl border-2 p-5 transition-all hover:shadow-lg ${
-            m.status === 'pending' ? 'border-amber-300 shadow-amber-100' :
-            m.status === 'accepted' ? 'border-emerald-300' :
-            'border-slate-200'
-          }`}>
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div className="flex-1">
-                {/* Score & Type */}
-                <div className="flex items-center gap-3 mb-3 flex-wrap">
-                  <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-${matchInfo.color}-100 text-${matchInfo.color}-700`}>
-                    <MatchIcon className="w-4 h-4" />
-                    {matchInfo.label}
+    <div className="flex gap-4">
+      {/* Match list */}
+      <div className={`space-y-4 ${chatMatchId ? 'w-1/2 hidden sm:block' : 'w-full'}`}>
+        {matches.map(m => {
+          const matchInfo = MATCH_LABELS[m.match_type] || MATCH_LABELS.time_overlap;
+          const MatchIcon = matchInfo.icon;
+          const otherUser = m.other_user;
+          const otherPlanning = m.other_planning;
+          
+          return (
+            <div key={m.id} className={`bg-white rounded-2xl border-2 p-5 transition-all hover:shadow-lg ${
+              m.status === 'pending' ? 'border-amber-300 shadow-amber-100' :
+              m.status === 'accepted' ? 'border-emerald-300 shadow-emerald-100' :
+              'border-slate-200'
+            } ${chatMatchId === m.id ? 'ring-2 ring-indigo-500' : ''}`}>
+              
+              {/* Other user info */}
+              {otherUser && (
+                <div className="flex items-center gap-3 mb-3 pb-3 border-b border-slate-100">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
+                    {(otherUser.first_name || '?')[0]}{(otherUser.last_name || '?')[0]}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <div className="flex">
-                      {[...Array(5)].map((_, i) => (
-                        <Star key={i} className={`w-4 h-4 ${i < Math.ceil(m.match_score / 20) ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />
-                      ))}
+                  <div className="flex-1 min-w-0">
+                    <div className="font-bold text-slate-800 truncate">
+                      {otherUser.first_name} {otherUser.last_name}
                     </div>
-                    <span className="text-sm font-bold text-slate-700 ml-1">{m.match_score}%</span>
+                    {otherUser.company_name && (
+                      <div className="text-xs text-slate-500 truncate">{otherUser.company_name}</div>
+                    )}
                   </div>
                   {m.status === 'accepted' && (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700">Accepté</span>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 text-emerald-700 flex-shrink-0">
+                      ✅ Accepté
+                    </span>
                   )}
                   {m.status === 'declined' && (
-                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700">Décliné</span>
+                    <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 flex-shrink-0">
+                      Décliné
+                    </span>
                   )}
                 </div>
+              )}
 
-                {/* Match Details */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <Navigation className="w-4 h-4 text-blue-500" />
-                    <span>Distance: <strong>{m.distance_km?.toFixed(1)} km</strong></span>
+              {/* Other planning details */}
+              {otherPlanning && (
+                <div className="bg-slate-50 rounded-xl p-3 mb-3">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-700 mb-1">
+                    <Route className="w-4 h-4 text-indigo-500" />
+                    Son trajet
                   </div>
-                  <div className="flex items-center gap-2 text-slate-600">
-                    <Clock className="w-4 h-4 text-purple-500" />
-                    <span>Overlap: <strong>{m.time_overlap_minutes} min</strong></span>
+                  <div className="flex items-center gap-2 text-sm text-slate-600 flex-wrap">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-500 flex-shrink-0" />
+                    <span className="font-medium">{otherPlanning.origin_city}</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-slate-400 flex-shrink-0" />
+                    <MapPin className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                    <span className="font-medium">{otherPlanning.destination_city}</span>
                   </div>
-                  <div className="flex items-center gap-2 text-emerald-600 font-medium">
-                    <Leaf className="w-4 h-4" />
-                    <span>Économie: <strong>{m.potential_km_saved?.toFixed(0)} km</strong></span>
+                  <div className="flex items-center gap-4 text-xs text-slate-500 mt-1.5">
+                    <span className="flex items-center gap-1">
+                      <Calendar className="w-3 h-3" />
+                      {new Date(otherPlanning.planning_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Clock className="w-3 h-3" />
+                      {otherPlanning.start_time?.slice(0,5)} - {otherPlanning.end_time?.slice(0,5)}
+                    </span>
+                    {otherPlanning.vehicle_category && otherPlanning.vehicle_category !== 'all' && (
+                      <span className="flex items-center gap-1">
+                        <Truck className="w-3 h-3" />
+                        {VEHICLE_LABELS[otherPlanning.vehicle_category] || otherPlanning.vehicle_category}
+                      </span>
+                    )}
                   </div>
+                </div>
+              )}
+
+              {/* Score & Type */}
+              <div className="flex items-center gap-3 mb-3 flex-wrap">
+                <div className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-bold bg-${matchInfo.color}-100 text-${matchInfo.color}-700`}>
+                  <MatchIcon className="w-4 h-4" />
+                  {matchInfo.label}
+                </div>
+                <div className="flex items-center gap-1">
+                  <div className="flex">
+                    {[...Array(5)].map((_, i) => (
+                      <Star key={i} className={`w-4 h-4 ${i < Math.ceil(m.match_score / 20) ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />
+                    ))}
+                  </div>
+                  <span className="text-sm font-bold text-slate-700 ml-1">{m.match_score}%</span>
+                </div>
+              </div>
+
+              {/* Match metrics */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm mb-3">
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Navigation className="w-4 h-4 text-blue-500" />
+                  <span>Distance: <strong>{m.distance_km?.toFixed(1)} km</strong></span>
+                </div>
+                <div className="flex items-center gap-2 text-slate-600">
+                  <Clock className="w-4 h-4 text-purple-500" />
+                  <span>Overlap: <strong>{m.time_overlap_minutes} min</strong></span>
+                </div>
+                <div className="flex items-center gap-2 text-emerald-600 font-medium">
+                  <Leaf className="w-4 h-4" />
+                  <span>Économie: <strong>{m.potential_km_saved?.toFixed(0)} km</strong></span>
                 </div>
               </div>
 
               {/* Actions */}
-              {m.status === 'pending' && (
-                <div className="flex items-center gap-2 flex-shrink-0">
+              <div className="flex items-center gap-2 flex-wrap pt-2 border-t border-slate-100">
+                {m.status === 'pending' && (
+                  <>
+                    <button
+                      onClick={() => handleRespond(m.id, 'accepted')}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg text-sm font-bold hover:shadow-lg transition-all"
+                    >
+                      <Check className="w-4 h-4" />
+                      Accepter
+                    </button>
+                    <button
+                      onClick={() => handleRespond(m.id, 'declined')}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all"
+                    >
+                      <X className="w-4 h-4" />
+                      Décliner
+                    </button>
+                  </>
+                )}
+                {m.status === 'accepted' && (
                   <button
-                    onClick={() => handleRespond(m.id, 'accepted')}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-500 text-white rounded-lg text-sm font-bold hover:shadow-lg transition-all"
+                    onClick={() => setChatMatchId(chatMatchId === m.id ? null : m.id)}
+                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition-all ${
+                      chatMatchId === m.id 
+                        ? 'bg-indigo-600 text-white shadow-lg' 
+                        : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                    }`}
                   >
-                    <Check className="w-4 h-4" />
-                    Accepter
+                    <MessageCircle className="w-4 h-4" />
+                    Discuter
                   </button>
-                  <button
-                    onClick={() => handleRespond(m.id, 'declined')}
-                    className="flex items-center gap-1.5 px-4 py-2 bg-slate-100 text-slate-600 rounded-lg text-sm font-semibold hover:bg-slate-200 transition-all"
-                  >
-                    <X className="w-4 h-4" />
-                    Décliner
-                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Chat Panel */}
+      {chatMatch && (
+        <div className={`${chatMatchId ? 'w-full sm:w-1/2' : 'hidden'} flex flex-col bg-white rounded-2xl border-2 border-indigo-200 shadow-xl overflow-hidden`} style={{ height: '600px' }}>
+          {/* Chat Header */}
+          <div className="bg-gradient-to-r from-indigo-600 to-purple-600 text-white p-4 flex items-center justify-between flex-shrink-0">
+            <div className="flex items-center gap-3 min-w-0">
+              <div className="w-9 h-9 rounded-full bg-white/20 flex items-center justify-center font-bold text-sm flex-shrink-0">
+                {(chatMatch.other_user?.first_name || '?')[0]}{(chatMatch.other_user?.last_name || '?')[0]}
+              </div>
+              <div className="min-w-0">
+                <div className="font-bold truncate">
+                  {chatMatch.other_user?.first_name} {chatMatch.other_user?.last_name}
                 </div>
+                {chatMatch.other_user?.company_name && (
+                  <div className="text-xs text-white/70 truncate">{chatMatch.other_user.company_name}</div>
+                )}
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              {/* Contact info for accepted */}
+              {chatMatch.other_user?.phone && (
+                <a href={`tel:${chatMatch.other_user.phone}`} className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-all" title={chatMatch.other_user.phone}>
+                  📞
+                </a>
               )}
+              {chatMatch.other_user?.email && (
+                <a href={`mailto:${chatMatch.other_user.email}`} className="p-2 bg-white/20 rounded-lg hover:bg-white/30 transition-all" title={chatMatch.other_user.email}>
+                  ✉️
+                </a>
+              )}
+              <button
+                onClick={() => setChatMatchId(null)}
+                className="p-2 hover:bg-white/20 rounded-lg transition-all sm:hidden"
+              >
+                <X className="w-5 h-5" />
+              </button>
+              <button
+                onClick={() => setChatMatchId(null)}
+                className="p-2 hover:bg-white/20 rounded-lg transition-all hidden sm:block"
+              >
+                <X className="w-5 h-5" />
+              </button>
             </div>
           </div>
-        );
-      })}
+
+          {/* Planning context bar */}
+          {chatMatch.other_planning && (
+            <div className="bg-indigo-50 px-4 py-2 text-xs text-indigo-700 flex items-center gap-2 border-b border-indigo-100 flex-shrink-0">
+              <Route className="w-3.5 h-3.5" />
+              <span className="font-medium">{chatMatch.other_planning.origin_city} → {chatMatch.other_planning.destination_city}</span>
+              <span className="text-indigo-400">•</span>
+              <span>{new Date(chatMatch.other_planning.planning_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}</span>
+              <span className="text-indigo-400">•</span>
+              <span>{chatMatch.other_planning.start_time?.slice(0,5)}-{chatMatch.other_planning.end_time?.slice(0,5)}</span>
+            </div>
+          )}
+
+          {/* Messages */}
+          <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
+            {chatMessages.length === 0 && (
+              <div className="text-center py-12">
+                <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <MessageCircle className="w-8 h-8 text-indigo-400" />
+                </div>
+                <p className="text-slate-500 text-sm">
+                  Démarrez la conversation avec {chatMatch.other_user?.first_name || 'ce convoyeur'}
+                </p>
+                <p className="text-slate-400 text-xs mt-1">
+                  Coordonnez votre trajet ensemble
+                </p>
+              </div>
+            )}
+            {chatMessages.map(msg => {
+              const isMe = msg.sender_id === userId;
+              return (
+                <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[75%] px-4 py-2.5 rounded-2xl ${
+                    isMe 
+                      ? 'bg-indigo-600 text-white rounded-br-md' 
+                      : 'bg-white text-slate-800 border border-slate-200 rounded-bl-md'
+                  }`}>
+                    <p className="text-sm whitespace-pre-wrap break-words">{msg.content}</p>
+                    <div className={`text-[10px] mt-1 ${isMe ? 'text-indigo-200' : 'text-slate-400'}`}>
+                      {new Date(msg.created_at).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
+                      {isMe && msg.is_read && ' ✓✓'}
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+            <div ref={chatEndRef} />
+          </div>
+
+          {/* Input */}
+          <div className="p-3 border-t border-slate-200 bg-white flex-shrink-0">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                value={newMessage}
+                onChange={e => setNewMessage(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && !e.shiftKey && sendMessage()}
+                placeholder="Écrire un message..."
+                className="flex-1 px-4 py-2.5 rounded-xl border border-slate-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none text-sm"
+              />
+              <button
+                onClick={sendMessage}
+                disabled={!newMessage.trim() || sendingMessage}
+                className="p-2.5 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+              >
+                <Send className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

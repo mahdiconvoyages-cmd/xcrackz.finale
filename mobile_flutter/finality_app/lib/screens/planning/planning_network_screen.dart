@@ -545,10 +545,10 @@ class _PlanningsTab extends StatelessWidget {
 }
 
 // ============================================================================
-// MATCHES TAB
+// MATCHES TAB - Enhanced with user info + chat
 // ============================================================================
 
-class _MatchesTab extends StatelessWidget {
+class _MatchesTab extends StatefulWidget {
   final List<Map<String, dynamic>> matches;
   final Future<void> Function(String, String) onRespond;
   final Future<void> Function() onRefresh;
@@ -556,8 +556,52 @@ class _MatchesTab extends StatelessWidget {
   const _MatchesTab({required this.matches, required this.onRespond, required this.onRefresh});
 
   @override
+  State<_MatchesTab> createState() => _MatchesTabState();
+}
+
+class _MatchesTabState extends State<_MatchesTab> {
+  final _supabase = Supabase.instance.client;
+  final Map<String, Map<String, dynamic>> _profiles = {};
+  final Map<String, Map<String, dynamic>> _plannings = {};
+  bool _enriched = false;
+
+  String get _userId => _supabase.auth.currentUser?.id ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    _enrichMatches();
+  }
+
+  @override
+  void didUpdateWidget(_MatchesTab old) {
+    super.didUpdateWidget(old);
+    if (old.matches.length != widget.matches.length) _enrichMatches();
+  }
+
+  Future<void> _enrichMatches() async {
+    for (final m in widget.matches) {
+      final otherUserId = m['user_a_id'] == _userId ? m['user_b_id'] : m['user_a_id'];
+      final otherPlanningId = m['user_a_id'] == _userId ? m['planning_b_id'] : m['planning_a_id'];
+
+      if (!_profiles.containsKey(otherUserId)) {
+        final res = await _supabase.from('profiles')
+            .select('first_name, last_name, company_name, phone, email')
+            .eq('id', otherUserId).maybeSingle();
+        if (res != null) _profiles[otherUserId] = res;
+      }
+      if (!_plannings.containsKey(otherPlanningId)) {
+        final res = await _supabase.from('convoy_plannings')
+            .select('*').eq('id', otherPlanningId).maybeSingle();
+        if (res != null) _plannings[otherPlanningId] = res;
+      }
+    }
+    if (mounted) setState(() => _enriched = true);
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (matches.isEmpty) {
+    if (widget.matches.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -577,16 +621,22 @@ class _MatchesTab extends StatelessWidget {
     }
 
     return RefreshIndicator(
-      onRefresh: onRefresh,
+      onRefresh: widget.onRefresh,
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: matches.length,
+        itemCount: widget.matches.length,
         itemBuilder: (context, index) {
-          final m = matches[index];
+          final m = widget.matches[index];
           final score = m['match_score'] ?? 0;
           final type = m['match_type'] ?? 'time_overlap';
           final status = m['status'] ?? 'pending';
           final isPending = status == 'pending';
+          final isAccepted = status == 'accepted';
+
+          final otherUserId = m['user_a_id'] == _userId ? m['user_b_id'] : m['user_a_id'];
+          final otherPlanningId = m['user_a_id'] == _userId ? m['planning_b_id'] : m['planning_a_id'];
+          final profile = _profiles[otherUserId];
+          final planning = _plannings[otherPlanningId];
 
           final typeInfo = _matchTypeInfo(type);
 
@@ -595,8 +645,8 @@ class _MatchesTab extends StatelessWidget {
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(16),
               side: BorderSide(
-                color: isPending ? const Color(0xFFFCD34D) : (status == 'accepted' ? const Color(0xFF6EE7B7) : Colors.grey.shade200),
-                width: isPending ? 2 : 1,
+                color: isPending ? const Color(0xFFFCD34D) : (isAccepted ? const Color(0xFF6EE7B7) : Colors.grey.shade200),
+                width: isPending || isAccepted ? 2 : 1,
               ),
             ),
             elevation: isPending ? 4 : 1,
@@ -605,6 +655,112 @@ class _MatchesTab extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Other user info
+                  if (profile != null) ...[
+                    Row(
+                      children: [
+                        CircleAvatar(
+                          radius: 20,
+                          backgroundColor: const Color(0xFF6366F1),
+                          child: Text(
+                            '${(profile['first_name'] ?? '?')[0]}${(profile['last_name'] ?? '?')[0]}',
+                            style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '${profile['first_name'] ?? ''} ${profile['last_name'] ?? ''}',
+                                style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              if (profile['company_name'] != null && profile['company_name'].toString().isNotEmpty)
+                                Text(profile['company_name'], style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                            ],
+                          ),
+                        ),
+                        if (isAccepted)
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: const Color(0xFFD1FAE5), borderRadius: BorderRadius.circular(10)),
+                            child: const Text('✅ Accepté', style: TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold, fontSize: 11)),
+                          ),
+                        if (status == 'declined')
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(10)),
+                            child: const Text('Décliné', style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 11)),
+                          ),
+                      ],
+                    ),
+                    const Divider(height: 20),
+                  ],
+
+                  // Other planning route
+                  if (planning != null) ...[
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade50,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              const Icon(Icons.route, size: 14, color: Color(0xFF6366F1)),
+                              const SizedBox(width: 6),
+                              const Text('Son trajet', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 12, color: Color(0xFF6366F1))),
+                            ],
+                          ),
+                          const SizedBox(height: 6),
+                          Row(
+                            children: [
+                              const Icon(Icons.place, size: 14, color: Color(0xFF10B981)),
+                              const SizedBox(width: 4),
+                              Flexible(child: Text(planning['origin_city'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.arrow_forward, size: 12, color: Colors.grey),
+                              const SizedBox(width: 4),
+                              const Icon(Icons.place, size: 14, color: Color(0xFFEF4444)),
+                              const SizedBox(width: 4),
+                              Flexible(child: Text(planning['destination_city'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+                            ],
+                          ),
+                          const SizedBox(height: 4),
+                          Wrap(
+                            spacing: 12,
+                            children: [
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                                const Icon(Icons.calendar_today, size: 11, color: Colors.grey),
+                                const SizedBox(width: 3),
+                                Text(
+                                  planning['planning_date'] != null
+                                      ? DateFormat('d MMM yyyy', 'fr_FR').format(DateTime.parse(planning['planning_date']))
+                                      : '',
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                ),
+                              ]),
+                              Row(mainAxisSize: MainAxisSize.min, children: [
+                                const Icon(Icons.access_time, size: 11, color: Colors.grey),
+                                const SizedBox(width: 3),
+                                Text(
+                                  '${(planning['start_time'] ?? '').toString().substring(0, 5)} - ${(planning['end_time'] ?? '').toString().substring(0, 5)}',
+                                  style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                ),
+                              ]),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
+
                   // Type & Score
                   Row(
                     children: [
@@ -621,7 +777,6 @@ class _MatchesTab extends StatelessWidget {
                         ),
                       ),
                       const Spacer(),
-                      // Stars
                       Row(
                         children: List.generate(5, (i) => Icon(
                           Icons.star_rounded,
@@ -644,13 +799,14 @@ class _MatchesTab extends StatelessWidget {
                       _MatchDetail(icon: Icons.eco, label: '${(m['potential_km_saved'] ?? 0).toStringAsFixed(0)} km éco.', color: const Color(0xFF10B981)),
                     ],
                   ),
-                  if (isPending) ...[
-                    const SizedBox(height: 14),
+                  const SizedBox(height: 14),
+                  // Actions
+                  if (isPending)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
                       children: [
                         OutlinedButton.icon(
-                          onPressed: () => onRespond(m['id'], 'declined'),
+                          onPressed: () => widget.onRespond(m['id'], 'declined'),
                           icon: const Icon(Icons.close, size: 16),
                           label: const Text('Décliner'),
                           style: OutlinedButton.styleFrom(
@@ -661,7 +817,7 @@ class _MatchesTab extends StatelessWidget {
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton.icon(
-                          onPressed: () => onRespond(m['id'], 'accepted'),
+                          onPressed: () => widget.onRespond(m['id'], 'accepted'),
                           icon: const Icon(Icons.check, size: 16),
                           label: const Text('Accepter'),
                           style: ElevatedButton.styleFrom(
@@ -672,23 +828,27 @@ class _MatchesTab extends StatelessWidget {
                         ),
                       ],
                     ),
-                  ],
-                  if (status == 'accepted')
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(color: const Color(0xFFD1FAE5), borderRadius: BorderRadius.circular(10)),
-                        child: const Text('✅ Match accepté', style: TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold, fontSize: 12)),
-                      ),
-                    ),
-                  if (status == 'declined')
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                        decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(10)),
-                        child: const Text('Décliné', style: TextStyle(color: Color(0xFFDC2626), fontWeight: FontWeight.bold, fontSize: 12)),
+                  if (isAccepted)
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        Navigator.push(context, MaterialPageRoute(
+                          builder: (_) => _PlanningChatScreen(
+                            matchId: m['id'],
+                            otherUserName: '${profile?['first_name'] ?? ''} ${profile?['last_name'] ?? ''}'.trim(),
+                            otherUserCompany: profile?['company_name'] ?? '',
+                            otherUserPhone: profile?['phone'] ?? '',
+                            otherUserEmail: profile?['email'] ?? '',
+                            otherPlanning: planning,
+                          ),
+                        ));
+                      },
+                      icon: const Icon(Icons.chat_bubble_rounded, size: 16),
+                      label: const Text('Discuter'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        minimumSize: const Size(double.infinity, 42),
                       ),
                     ),
                 ],
@@ -738,6 +898,353 @@ class _MatchDetail extends StatelessWidget {
         Text(label, style: TextStyle(fontSize: 12, color: Colors.grey.shade700)),
       ],
     );
+  }
+}
+
+// ============================================================================
+// CHAT SCREEN - Full-page chat between matched convoyeurs
+// ============================================================================
+
+class _PlanningChatScreen extends StatefulWidget {
+  final String matchId;
+  final String otherUserName;
+  final String otherUserCompany;
+  final String otherUserPhone;
+  final String otherUserEmail;
+  final Map<String, dynamic>? otherPlanning;
+
+  const _PlanningChatScreen({
+    required this.matchId,
+    required this.otherUserName,
+    required this.otherUserCompany,
+    required this.otherUserPhone,
+    required this.otherUserEmail,
+    this.otherPlanning,
+  });
+
+  @override
+  State<_PlanningChatScreen> createState() => _PlanningChatScreenState();
+}
+
+class _PlanningChatScreenState extends State<_PlanningChatScreen> {
+  final _supabase = Supabase.instance.client;
+  final _controller = TextEditingController();
+  final _scrollController = ScrollController();
+  List<Map<String, dynamic>> _messages = [];
+  RealtimeChannel? _channel;
+  bool _loading = true;
+
+  String get _userId => _supabase.auth.currentUser?.id ?? '';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadMessages();
+    _subscribeRealtime();
+  }
+
+  @override
+  void dispose() {
+    _channel?.unsubscribe();
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadMessages() async {
+    final res = await _supabase
+        .from('planning_messages')
+        .select('*')
+        .eq('match_id', widget.matchId)
+        .order('created_at', ascending: true);
+
+    setState(() {
+      _messages = List<Map<String, dynamic>>.from(res as List? ?? []);
+      _loading = false;
+    });
+
+    // Mark as read
+    await _supabase
+        .from('planning_messages')
+        .update({'is_read': true})
+        .eq('match_id', widget.matchId)
+        .neq('sender_id', _userId);
+
+    _scrollToBottom();
+  }
+
+  void _subscribeRealtime() {
+    _channel = _supabase
+        .channel('chat-${widget.matchId}')
+        .onPostgresChanges(
+          event: PostgresChangeEvent.insert,
+          schema: 'public',
+          table: 'planning_messages',
+          filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'match_id', value: widget.matchId),
+          callback: (payload) {
+            final msg = payload.newRecord;
+            setState(() => _messages.add(msg));
+            _scrollToBottom();
+            // Mark as read
+            if (msg['sender_id'] != _userId) {
+              _supabase.from('planning_messages').update({'is_read': true}).eq('id', msg['id']);
+            }
+          },
+        )
+        .subscribe();
+  }
+
+  void _scrollToBottom() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 300),
+          curve: Curves.easeOut,
+        );
+      }
+    });
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty) return;
+    _controller.clear();
+
+    await _supabase.from('planning_messages').insert({
+      'match_id': widget.matchId,
+      'sender_id': _userId,
+      'content': text,
+    });
+  }
+
+  void _showContactInfo() {
+    showModalBottomSheet(
+      context: context,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 28,
+                  backgroundColor: const Color(0xFF6366F1),
+                  child: Text(
+                    widget.otherUserName.isNotEmpty ? widget.otherUserName.split(' ').map((w) => w.isNotEmpty ? w[0] : '').take(2).join() : '?',
+                    style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 18),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(widget.otherUserName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
+                    if (widget.otherUserCompany.isNotEmpty)
+                      Text(widget.otherUserCompany, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                  ],
+                ),
+              ],
+            ),
+            const SizedBox(height: 20),
+            if (widget.otherUserPhone.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.phone, color: Color(0xFF10B981)),
+                title: Text(widget.otherUserPhone),
+                subtitle: const Text('Téléphone'),
+                contentPadding: EdgeInsets.zero,
+                // tapping would require url_launcher, so we just display
+              ),
+            if (widget.otherUserEmail.isNotEmpty)
+              ListTile(
+                leading: const Icon(Icons.email, color: Color(0xFF3B82F6)),
+                title: Text(widget.otherUserEmail),
+                subtitle: const Text('Email'),
+                contentPadding: EdgeInsets.zero,
+              ),
+            const SizedBox(height: 12),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final planning = widget.otherPlanning;
+
+    return Scaffold(
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF6366F1),
+        foregroundColor: Colors.white,
+        title: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(widget.otherUserName.isNotEmpty ? widget.otherUserName : 'Chat', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            if (widget.otherUserCompany.isNotEmpty)
+              Text(widget.otherUserCompany, style: const TextStyle(fontSize: 12, color: Colors.white70)),
+          ],
+        ),
+        actions: [
+          IconButton(
+            onPressed: _showContactInfo,
+            icon: const Icon(Icons.person_outline),
+            tooltip: 'Coordonnées',
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          // Planning context bar
+          if (planning != null)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+              color: const Color(0xFFEEF2FF),
+              child: Row(
+                children: [
+                  const Icon(Icons.route, size: 14, color: Color(0xFF6366F1)),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '${planning['origin_city'] ?? ''} → ${planning['destination_city'] ?? ''} • ${planning['planning_date'] != null ? DateFormat('d MMM', 'fr_FR').format(DateTime.parse(planning['planning_date'])) : ''}',
+                      style: const TextStyle(fontSize: 12, color: Color(0xFF6366F1), fontWeight: FontWeight.w600),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+
+          // Messages
+          Expanded(
+            child: _loading
+                ? const Center(child: CircularProgressIndicator(color: Color(0xFF6366F1)))
+                : _messages.isEmpty
+                    ? Center(
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            const Icon(Icons.chat_bubble_outline, size: 48, color: Colors.grey),
+                            const SizedBox(height: 12),
+                            Text('Démarrez la conversation avec\n${widget.otherUserName}',
+                                textAlign: TextAlign.center, style: const TextStyle(color: Colors.grey)),
+                            const SizedBox(height: 4),
+                            const Text('Coordonnez votre trajet ensemble', style: TextStyle(color: Colors.grey, fontSize: 12)),
+                          ],
+                        ),
+                      )
+                    : ListView.builder(
+                        controller: _scrollController,
+                        padding: const EdgeInsets.all(16),
+                        itemCount: _messages.length,
+                        itemBuilder: (context, index) {
+                          final msg = _messages[index];
+                          final isMe = msg['sender_id'] == _userId;
+
+                          return Padding(
+                            padding: const EdgeInsets.only(bottom: 8),
+                            child: Align(
+                              alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
+                              child: Container(
+                                constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
+                                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                                decoration: BoxDecoration(
+                                  color: isMe ? const Color(0xFF6366F1) : Colors.white,
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: const Radius.circular(16),
+                                    topRight: const Radius.circular(16),
+                                    bottomLeft: isMe ? const Radius.circular(16) : const Radius.circular(4),
+                                    bottomRight: isMe ? const Radius.circular(4) : const Radius.circular(16),
+                                  ),
+                                  border: isMe ? null : Border.all(color: Colors.grey.shade200),
+                                  boxShadow: [
+                                    BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 3, offset: const Offset(0, 1)),
+                                  ],
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text(
+                                      msg['content'] ?? '',
+                                      style: TextStyle(color: isMe ? Colors.white : Colors.black87, fontSize: 14),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      _formatTime(msg['created_at']),
+                                      style: TextStyle(color: isMe ? Colors.white60 : Colors.grey, fontSize: 10),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ),
+                          );
+                        },
+                      ),
+          ),
+
+          // Input
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 8, 8, 8),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              border: Border(top: BorderSide(color: Colors.grey.shade200)),
+            ),
+            child: SafeArea(
+              top: false,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _controller,
+                      decoration: InputDecoration(
+                        hintText: 'Écrire un message...',
+                        hintStyle: const TextStyle(color: Colors.grey),
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: Colors.grey.shade300)),
+                        enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide(color: Colors.grey.shade300)),
+                        focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: const BorderSide(color: Color(0xFF6366F1))),
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                        isDense: true,
+                      ),
+                      textInputAction: TextInputAction.send,
+                      onSubmitted: (_) => _sendMessage(),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Container(
+                    decoration: const BoxDecoration(
+                      color: Color(0xFF6366F1),
+                      shape: BoxShape.circle,
+                    ),
+                    child: IconButton(
+                      onPressed: _sendMessage,
+                      icon: const Icon(Icons.send_rounded, color: Colors.white, size: 20),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatTime(String? timestamp) {
+    if (timestamp == null) return '';
+    try {
+      final dt = DateTime.parse(timestamp).toLocal();
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return '';
+    }
   }
 }
 
