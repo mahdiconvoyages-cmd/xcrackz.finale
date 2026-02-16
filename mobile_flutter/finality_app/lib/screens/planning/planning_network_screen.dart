@@ -702,6 +702,21 @@ class _PlanningsTab extends StatelessWidget {
                       Text(p['destination_city'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                     ],
                   ),
+                  // Return city row
+                  if (p['is_return_trip'] == true && p['return_city'] != null) ...[
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        const SizedBox(width: 20),
+                        const Icon(Icons.subdirectory_arrow_right, size: 14, color: Color(0xFF2563EB)),
+                        const SizedBox(width: 4),
+                        const Icon(Icons.home, size: 14, color: Color(0xFF2563EB)),
+                        const SizedBox(width: 4),
+                        Text('Retour → ${p['return_city']}',
+                            style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 12, color: Color(0xFF2563EB))),
+                      ],
+                    ),
+                  ],
                   const SizedBox(height: 8),
                   // Details
                   Wrap(
@@ -1858,6 +1873,11 @@ class _CreatePlanningScreenState extends State<_CreatePlanningScreen> {
   double? _destLat, _destLng;
   String? _destPostalCode;
   bool _isReturnTrip = false;
+  String _returnCity = '';
+  double? _returnLat, _returnLng;
+  String? _returnPostalCode;
+  List<Map<String, dynamic>> _returnSuggestions = [];
+  bool _showReturnDropdown = false;
   String _vehicleCategory = 'all';
   String _notes = '';
   bool _saving = false;
@@ -1932,6 +1952,10 @@ class _CreatePlanningScreenState extends State<_CreatePlanningScreen> {
         'destination_lat': _destLat,
         'destination_lng': _destLng,
         'is_return_trip': _isReturnTrip,
+        'return_city': _isReturnTrip && _returnCity.isNotEmpty ? _returnCity : null,
+        'return_postal_code': _isReturnTrip ? _returnPostalCode : null,
+        'return_lat': _isReturnTrip ? _returnLat : null,
+        'return_lng': _isReturnTrip ? _returnLng : null,
         'vehicle_category': _vehicleCategory,
         'notes': _notes.isNotEmpty ? _notes : null,
         'status': 'published',
@@ -2105,12 +2129,93 @@ class _CreatePlanningScreenState extends State<_CreatePlanningScreen> {
 
               // Return trip toggle
               SwitchListTile(
-                title: const Text('Trajet retour (je reviens à vide)', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                title: const Text('Je reviens à vide après ce trajet', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                subtitle: _isReturnTrip ? const Text('Précisez votre ville de retour pour trouver un convoyeur', style: TextStyle(fontSize: 12, color: Colors.grey)) : null,
                 value: _isReturnTrip,
                 activeColor: const Color(0xFF6366F1),
-                onChanged: (v) => setState(() => _isReturnTrip = v),
+                onChanged: (v) => setState(() {
+                  _isReturnTrip = v;
+                  if (!v) {
+                    _returnCity = '';
+                    _returnLat = null;
+                    _returnLng = null;
+                  }
+                }),
                 contentPadding: EdgeInsets.zero,
               ),
+
+              // Return city field (shown when return trip is ON)
+              if (_isReturnTrip) ...[                
+                const SizedBox(height: 8),
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEEF2FF),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.3)),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Row(
+                        children: [
+                          Icon(Icons.home, size: 16, color: Color(0xFF6366F1)),
+                          SizedBox(width: 6),
+                          Text('Ville de retour', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF6366F1))),
+                        ],
+                      ),
+                      const SizedBox(height: 4),
+                      const Text('Où rentrez-vous ? L\'IA cherchera des convoyeurs allant dans cette direction.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      const SizedBox(height: 8),
+                      TextFormField(
+                        initialValue: _returnCity,
+                        onChanged: (v) async {
+                          _returnCity = v;
+                          _returnLat = null;
+                          _returnLng = null;
+                          if (v.length >= 2) {
+                            final results = await _geocode(v);
+                            if (mounted) setState(() {
+                              _returnSuggestions = results;
+                              _showReturnDropdown = results.isNotEmpty;
+                            });
+                          } else {
+                            setState(() => _showReturnDropdown = false);
+                          }
+                        },
+                        decoration: _inputDecoration('Ex: Paris, Lyon, Marseille...').copyWith(
+                          prefixIcon: const Icon(Icons.location_searching, size: 18),
+                          suffixIcon: _returnLat != null ? const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 18) : null,
+                        ),
+                        validator: (v) => _isReturnTrip && (v == null || v.isEmpty) ? 'Précisez votre ville de retour' : null,
+                      ),
+                      if (_showReturnDropdown)
+                        Container(
+                          margin: const EdgeInsets.only(top: 4),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8)],
+                          ),
+                          child: Column(
+                            children: _returnSuggestions.map((s) => ListTile(
+                              dense: true,
+                              leading: const Icon(Icons.place, size: 16, color: Color(0xFF6366F1)),
+                              title: Text(s['label'] ?? '', style: const TextStyle(fontSize: 13)),
+                              onTap: () => setState(() {
+                                _returnCity = s['city'];
+                                _returnLat = s['lat'];
+                                _returnLng = s['lng'];
+                                _returnPostalCode = s['postcode'];
+                                _showReturnDropdown = false;
+                              }),
+                            )).toList(),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ],
               const SizedBox(height: 8),
 
               // Notes

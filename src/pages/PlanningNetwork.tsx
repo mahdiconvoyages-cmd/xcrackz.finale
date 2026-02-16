@@ -32,6 +32,10 @@ interface Planning {
   destination_lng: number | null;
   status: string;
   is_return_trip: boolean;
+  return_city?: string | null;
+  return_postal_code?: string | null;
+  return_lat?: number | null;
+  return_lng?: number | null;
   vehicle_category: string;
   notes: string | null;
   created_at: string;
@@ -530,6 +534,14 @@ function PlanningsTab({ plannings, onRefresh, onRunMatching, onCreateNew }: {
                 )}
                 <span className="font-medium">{p.destination_city}</span>
               </div>
+
+              {/* Return city */}
+              {p.is_return_trip && p.return_city && (
+                <div className="flex items-center gap-2 text-sm text-blue-600 mb-2 ml-5">
+                  <Navigation className="w-3.5 h-3.5 rotate-180" />
+                  <span className="font-medium">Retour → {p.return_city}</span>
+                </div>
+              )}
 
               {/* Details */}
               <div className="flex items-center gap-4 text-sm text-slate-500 flex-wrap">
@@ -1292,6 +1304,10 @@ function CreatePlanningModal({ onClose, onCreated, userId }: {
     destination_lat: null as number | null,
     destination_lng: null as number | null,
     is_return_trip: false,
+    return_city: '',
+    return_postal_code: '',
+    return_lat: null as number | null,
+    return_lng: null as number | null,
     vehicle_category: 'all',
     notes: '',
   });
@@ -1302,6 +1318,8 @@ function CreatePlanningModal({ onClose, onCreated, userId }: {
   const [saving, setSaving] = useState(false);
   const [showOriginDropdown, setShowOriginDropdown] = useState(false);
   const [showDestDropdown, setShowDestDropdown] = useState(false);
+  const [returnSuggestions, setReturnSuggestions] = useState<GeoSuggestion[]>([]);
+  const [showReturnDropdown, setShowReturnDropdown] = useState(false);
 
   const searchOrigin = async (q: string) => {
     setForm(f => ({ ...f, origin_city: q, origin_lat: null, origin_lng: null }));
@@ -1367,6 +1385,10 @@ function CreatePlanningModal({ onClose, onCreated, userId }: {
         destination_lat: form.destination_lat,
         destination_lng: form.destination_lng,
         is_return_trip: form.is_return_trip,
+        return_city: form.is_return_trip && form.return_city ? form.return_city : null,
+        return_postal_code: form.is_return_trip ? form.return_postal_code || null : null,
+        return_lat: form.is_return_trip ? form.return_lat : null,
+        return_lng: form.is_return_trip ? form.return_lng : null,
         vehicle_category: form.vehicle_category,
         notes: form.notes || null,
         status: 'published',
@@ -1602,11 +1624,65 @@ function CreatePlanningModal({ onClose, onCreated, userId }: {
 
           {/* Return trip toggle */}
           <label className="flex items-center gap-3 cursor-pointer">
-            <div className={`w-12 h-6 rounded-full transition-all ${form.is_return_trip ? 'bg-indigo-500' : 'bg-slate-300'}`}>
+            <div 
+              onClick={() => setForm(f => ({ ...f, is_return_trip: !f.is_return_trip, ...(!f.is_return_trip ? {} : { return_city: '', return_lat: null, return_lng: null }) }))}
+              className={`w-12 h-6 rounded-full transition-all ${form.is_return_trip ? 'bg-indigo-500' : 'bg-slate-300'}`}
+            >
               <div className={`w-5 h-5 bg-white rounded-full shadow-md transition-transform mt-0.5 ${form.is_return_trip ? 'translate-x-6.5 ml-1' : 'translate-x-0.5'}`} />
             </div>
-            <span className="text-sm font-medium text-slate-700">Trajet retour (je reviens à vide)</span>
+            <span className="text-sm font-medium text-slate-700">Je reviens à vide après ce trajet</span>
           </label>
+
+          {/* Return city field */}
+          {form.is_return_trip && (
+            <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <MapPin className="w-4 h-4 text-indigo-600" />
+                <span className="text-sm font-bold text-indigo-700">Ville de retour</span>
+              </div>
+              <p className="text-xs text-slate-500 mb-3">Où rentrez-vous ? L'IA cherchera des convoyeurs allant dans cette direction.</p>
+              <div className="relative">
+                <input
+                  value={form.return_city}
+                  onChange={async (e) => {
+                    const q = e.target.value;
+                    setForm(f => ({ ...f, return_city: q, return_lat: null, return_lng: null }));
+                    const results = await geocodeCity(q);
+                    setReturnSuggestions(results);
+                    setShowReturnDropdown(results.length > 0);
+                  }}
+                  placeholder="Ex: Paris, Lyon, Marseille..."
+                  className="w-full px-4 py-2.5 rounded-xl border border-indigo-300 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none bg-white"
+                />
+                {form.return_lat && (
+                  <Check className="absolute right-3 top-3 w-4 h-4 text-emerald-500" />
+                )}
+                {showReturnDropdown && (
+                  <div className="absolute z-10 top-full mt-1 left-0 right-0 bg-white rounded-xl shadow-xl border border-slate-200 max-h-40 overflow-y-auto">
+                    {returnSuggestions.map((s, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          setForm(f => ({
+                            ...f,
+                            return_city: s.city,
+                            return_postal_code: s.postcode,
+                            return_lat: s.lat,
+                            return_lng: s.lng,
+                          }));
+                          setShowReturnDropdown(false);
+                        }}
+                        className="flex items-center gap-2 w-full px-3 py-2 hover:bg-indigo-50 text-sm text-left"
+                      >
+                        <MapPin className="w-3.5 h-3.5 text-indigo-500 flex-shrink-0" />
+                        {s.label}
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Notes */}
           <div>
