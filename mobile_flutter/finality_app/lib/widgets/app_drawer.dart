@@ -8,6 +8,7 @@ import '../screens/sharing/public_sharing_screen.dart';
 import '../screens/debug/debug_tools_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/billing_profile_screen.dart';
+import '../screens/planning/planning_network_screen.dart';
 import '../screens/login_screen.dart';
 
 /// Sidebar moderne avec design amélioré et icônes colorées
@@ -166,6 +167,23 @@ class AppDrawer extends StatelessWidget {
                   },
                 ),
             ],
+          ),
+
+          const SizedBox(height: 8),
+
+          // Réseau Planning
+          _buildModernDrawerItem(
+            context,
+            icon: Icons.share_rounded,
+            iconColor: const Color(0xFFEC4899),
+            title: 'Réseau Planning',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const PlanningNetworkScreen()),
+              );
+            },
           ),
 
           const SizedBox(height: 8),
