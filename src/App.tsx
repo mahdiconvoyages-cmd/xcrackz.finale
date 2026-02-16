@@ -21,50 +21,66 @@ const PageLoader = () => (
   </div>
 );
 
-// Lazy-loaded pages
-const Legal = lazy(() => import('./pages/Legal'));
-const About = lazy(() => import('./pages/About'));
-const Privacy = lazy(() => import('./pages/Privacy'));
-const Terms = lazy(() => import('./pages/Terms'));
-const SignupWizard = lazy(() => import('./pages/SignupWizard'));
-const ForgotPassword = lazy(() => import('./pages/ForgotPassword'));
-const ResetPassword = lazy(() => import('./pages/ResetPassword'));
-const DashboardPremium = lazy(() => import('./pages/DashboardPremium'));
-const MissionCreate = lazy(() => import('./pages/MissionCreate'));
-const MissionView = lazy(() => import('./pages/MissionView'));
-const MissionEdit = lazy(() => import('./pages/MissionEdit'));
-const Clients = lazy(() => import('./pages/Clients'));
-const Billing = lazy(() => import('./pages/Billing'));
-const QuoteGenerator = lazy(() => import('./pages/QuoteGenerator'));
-const CRM = lazy(() => import('./pages/CRM'));
-const Settings = lazy(() => import('./pages/Settings'));
-const Profile = lazy(() => import('./pages/Profile'));
-const MissionTracking = lazy(() => import('./pages/MissionTracking'));
-const Shop = lazy(() => import('./pages/Shop'));
-const Support = lazy(() => import('./pages/Support'));
-const Admin = lazy(() => import('./pages/AdminDashboard'));
-const AdminUsers = lazy(() => import('./pages/AdminUsers'));
-const AdminTracking = lazy(() => import('./pages/AdminTracking'));
-const AdminApk = lazy(() => import('./pages/AdminApk'));
-const AdminSupport = lazy(() => import('./pages/AdminSupport'));
-const AccountSecurity = lazy(() => import('./pages/AccountSecurity'));
-const AdminLayout = lazy(() => import('./components/AdminLayout'));
-const PublicTrackingNew = lazy(() => import('./pages/PublicTrackingNew'));
-const TrackingCommand = lazy(() => import('./pages/TrackingCommand'));
-const TeamMissions = lazy(() => import('./pages/TeamMissions'));
-const InspectionDeparturePerfect = lazy(() => import('./pages/InspectionDeparturePerfect'));
-const InspectionArrivalNew = lazy(() => import('./pages/InspectionArrivalNew'));
-const PublicInspectionReport = lazy(() => import('./pages/PublicInspectionReport'));
-const TestSentry = lazy(() => import('./pages/TestSentry'));
-const PublicInspectionReportShared = lazy(() => import('./pages/PublicInspectionReportShared'));
-const PrivacyPolicy = lazy(() => import('./pages/legal/PrivacyPolicy'));
-const TermsOfService = lazy(() => import('./pages/legal/TermsOfService'));
-const CookiePolicy = lazy(() => import('./pages/legal/CookiePolicy'));
-const MobileDownload = lazy(() => import('./pages/MobileDownload'));
-const MissionDetail = lazy(() => import('./pages/MissionDetail'));
-const ScannerHomePage = lazy(() => import('./pages/ScannerHomePage'));
-const ProfessionalScannerPage = lazy(() => import('./pages/ProfessionalScannerPage'));
-const MyDocuments = lazy(() => import('./pages/MyDocuments'));
+// Auto-retry lazy import: reloads the page once if a chunk fails to load (stale cache after deploy)
+function lazyRetry(importFn: () => Promise<any>) {
+  return lazy(() =>
+    importFn().catch(() => {
+      const reloaded = sessionStorage.getItem('chunk_reload');
+      if (!reloaded) {
+        sessionStorage.setItem('chunk_reload', '1');
+        window.location.reload();
+        return new Promise(() => {}); // never resolves, page is reloading
+      }
+      sessionStorage.removeItem('chunk_reload');
+      return importFn(); // second attempt after reload
+    })
+  );
+}
+
+// Lazy-loaded pages (with auto-retry on chunk load failure)
+const Legal = lazyRetry(() => import('./pages/Legal'));
+const About = lazyRetry(() => import('./pages/About'));
+const Privacy = lazyRetry(() => import('./pages/Privacy'));
+const Terms = lazyRetry(() => import('./pages/Terms'));
+const SignupWizard = lazyRetry(() => import('./pages/SignupWizard'));
+const ForgotPassword = lazyRetry(() => import('./pages/ForgotPassword'));
+const ResetPassword = lazyRetry(() => import('./pages/ResetPassword'));
+const DashboardPremium = lazyRetry(() => import('./pages/DashboardPremium'));
+const MissionCreate = lazyRetry(() => import('./pages/MissionCreate'));
+const MissionView = lazyRetry(() => import('./pages/MissionView'));
+const MissionEdit = lazyRetry(() => import('./pages/MissionEdit'));
+const Clients = lazyRetry(() => import('./pages/Clients'));
+const Billing = lazyRetry(() => import('./pages/Billing'));
+const QuoteGenerator = lazyRetry(() => import('./pages/QuoteGenerator'));
+const CRM = lazyRetry(() => import('./pages/CRM'));
+const Settings = lazyRetry(() => import('./pages/Settings'));
+const Profile = lazyRetry(() => import('./pages/Profile'));
+const MissionTracking = lazyRetry(() => import('./pages/MissionTracking'));
+const Shop = lazyRetry(() => import('./pages/Shop'));
+const Support = lazyRetry(() => import('./pages/Support'));
+const Admin = lazyRetry(() => import('./pages/AdminDashboard'));
+const AdminUsers = lazyRetry(() => import('./pages/AdminUsers'));
+const AdminTracking = lazyRetry(() => import('./pages/AdminTracking'));
+const AdminApk = lazyRetry(() => import('./pages/AdminApk'));
+const AdminSupport = lazyRetry(() => import('./pages/AdminSupport'));
+const AccountSecurity = lazyRetry(() => import('./pages/AccountSecurity'));
+const AdminLayout = lazyRetry(() => import('./components/AdminLayout'));
+const PublicTrackingNew = lazyRetry(() => import('./pages/PublicTrackingNew'));
+const TrackingCommand = lazyRetry(() => import('./pages/TrackingCommand'));
+const TeamMissions = lazyRetry(() => import('./pages/TeamMissions'));
+const InspectionDeparturePerfect = lazyRetry(() => import('./pages/InspectionDeparturePerfect'));
+const InspectionArrivalNew = lazyRetry(() => import('./pages/InspectionArrivalNew'));
+const PublicInspectionReport = lazyRetry(() => import('./pages/PublicInspectionReport'));
+const TestSentry = lazyRetry(() => import('./pages/TestSentry'));
+const PublicInspectionReportShared = lazyRetry(() => import('./pages/PublicInspectionReportShared'));
+const PrivacyPolicy = lazyRetry(() => import('./pages/legal/PrivacyPolicy'));
+const TermsOfService = lazyRetry(() => import('./pages/legal/TermsOfService'));
+const CookiePolicy = lazyRetry(() => import('./pages/legal/CookiePolicy'));
+const MobileDownload = lazyRetry(() => import('./pages/MobileDownload'));
+const MissionDetail = lazyRetry(() => import('./pages/MissionDetail'));
+const ScannerHomePage = lazyRetry(() => import('./pages/ScannerHomePage'));
+const ProfessionalScannerPage = lazyRetry(() => import('./pages/ProfessionalScannerPage'));
+const MyDocuments = lazyRetry(() => import('./pages/MyDocuments'));
 
 function AppContent() {
   return (

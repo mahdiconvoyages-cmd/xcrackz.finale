@@ -1,7 +1,7 @@
 // Service Worker pour ChecksFleet PWA
 // Cache les assets statiques et permet le mode hors ligne
 
-const CACHE_VERSION = 'v4-checksfleet-2025'; // CHANGÉ pour forcer mise à jour - 06/12/2025
+const CACHE_VERSION = 'v5-checksfleet-2026'; // CHANGÉ pour forcer mise à jour + fix chunk stale cache
 const CACHE_NAME = `checksfleet-${CACHE_VERSION}`;
 const STATIC_CACHE = `checksfleet-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `checksfleet-dynamic-${CACHE_VERSION}`;
@@ -70,10 +70,28 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Stratégie Cache First pour les assets statiques
+  // JS scripts: Network First (évite les erreurs de chunks périmés après déploiement)
+  if (request.destination === 'script') {
+    event.respondWith(
+      fetch(request, { mode: 'cors', credentials: 'same-origin' })
+        .then((response) => {
+          if (response && response.status === 200 && response.type === 'basic') {
+            caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, response.clone()));
+          }
+          return response;
+        })
+        .catch(() => {
+          return caches.match(request).then((cached) => {
+            return cached || new Response('', { status: 408, statusText: 'Request Timeout' });
+          });
+        })
+    );
+    return;
+  }
+
+  // Stratégie Cache First pour les assets statiques (images, styles, fonts)
   if (request.destination === 'image' || 
       request.destination === 'style' || 
-      request.destination === 'script' ||
       request.destination === 'font') {
     event.respondWith(
       caches.match(request).then((cachedResponse) => {
@@ -92,7 +110,6 @@ self.addEventListener('fetch', (event) => {
             });
           })
           .catch(() => {
-            // Fallback si hors ligne et pas en cache
             if (request.destination === 'image') {
               return caches.match('/logo.svg');
             }
