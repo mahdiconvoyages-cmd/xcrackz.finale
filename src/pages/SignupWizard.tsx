@@ -1,1394 +1,660 @@
-/**
- * Wizard d'inscription intelligent - 7 étapes progressives
- * Version Web React - Identique au mobile Flutter
+﻿/**
+ * Inscription simplifiee - 4 etapes rapides
+ * 1. Type (Entreprise / Convoyeur)
+ * 2. Infos personnelles + photo
+ * 3. Email + mot de passe
+ * 4. Resume + CGU
  * 
- * Étapes :
- * 1. Type d'utilisateur (company/driver/individual)
- * 2. Informations personnelles + avatar
- * 3. Informations entreprise + logo (conditionnel)
- * 4. Email/téléphone
- * 5. IBAN bancaire (optionnel)
- * 6. Vérification fraude (automatique)
- * 7. Résumé + acceptation CGU
+ * Le profil de facturation (SIRET, adresse, IBAN...) est rempli APRES
+ * depuis la page dediee /billing-profile avant d'acceder au CRM.
  */
 
 import React, { useState, useRef } from 'react';
-import {
-  Box,
-  Container,
-  Paper,
-  Stepper,
-  Step,
-  StepLabel,
-  Button,
-  TextField,
-  Typography,
-  Radio,
-  RadioGroup,
-  FormControlLabel,
-  FormControl,
-  FormLabel,
-  Avatar,
-  Chip,
-  Alert,
-  CircularProgress,
-  LinearProgress,
-  IconButton,
-  InputAdornment,
-  Card,
-  CardContent,
-  Divider,
-  Checkbox,
-  Link as MuiLink,
-} from '@mui/material';
-import {
-  ArrowBack,
-  ArrowForward,
-  CloudUpload,
-  Business,
-  Person,
-  LocalShipping,
-  Visibility,
-  VisibilityOff,
-  CheckCircle,
-  Warning,
-  Error as ErrorIcon,
-  Shield,
-} from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { validationService } from '../services/validationService';
-import { fraudPreventionService, FraudCheckResult } from '../services/fraudPreventionService';
+import { fraudPreventionService } from '../services/fraudPreventionService';
+
+/* -- PremiumTheme tokens -- */
+const T = {
+  primaryBlue: '#0066FF',
+  primaryIndigo: '#5B8DEF',
+  primaryPurple: '#8B7EE8',
+  primaryTeal: '#14B8A6',
+  accentGreen: '#10B981',
+  accentAmber: '#F59E0B',
+  accentRed: '#EF4444',
+  lightBg: '#F8F9FA',
+  fieldBg: '#F8FAFC',
+  borderDefault: '#E5E7EB',
+  textPrimary: '#1A1A1A',
+  textSecondary: '#6B7280',
+  textTertiary: '#9CA3AF',
+};
+
+const inputCls = "w-full rounded-xl px-4 py-3.5 text-sm outline-none transition-colors border focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/20";
+const inputStyle: React.CSSProperties = { backgroundColor: T.fieldBg, borderColor: T.borderDefault, color: T.textPrimary };
+
+/* -- Steps config -- */
+const STEPS = [
+  { label: 'Profil', color: T.primaryTeal },
+  { label: 'Identite', color: T.primaryBlue },
+  { label: 'Compte', color: T.primaryPurple },
+  { label: 'Confirmer', color: T.accentGreen },
+];
 
 interface SignupData {
-  // Étape 1
-  userType: 'company' | 'driver' | 'individual' | '';
-  
-  // Étape 2
+  userType: 'company' | 'driver' | '';
   fullName: string;
   avatarFile: File | null;
   avatarUrl: string;
-  
-  // Étape 3
-  company: string;
-  siret: string;
-  logoFile: File | null;
-  logoUrl: string;
-  legalAddress: string;
-  companySize: 'solo' | 'small' | 'medium' | 'large' | '';
-  fleetSize: number;
-  
-  // Étape 4
   email: string;
   phone: string;
   password: string;
   confirmPassword: string;
-  
-  // Étape 5 - Profil de facturation
-  bankIban: string;
-  billingAddress: string;
-  billingPostalCode: string;
-  billingCity: string;
-  billingEmail: string;
-  tvaNumber: string;
-  
-  // Étape 6
-  fraudCheck: FraudCheckResult | null;
-  
-  // Étape 7
   acceptedTerms: boolean;
 }
 
-const steps = [
-  'Type de compte',
-  'Informations personnelles',
-  'Informations entreprise',
-  'Coordonnées',
-  'Informations bancaires',
-  'Vérification',
-  'Confirmation'
-];
-
-export default function SignupWizardScreen() {
+export default function SignupWizard() {
   const navigate = useNavigate();
-  const [activeStep, setActiveStep] = useState(0);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  
-  const avatarInputRef = useRef<HTMLInputElement>(null);
-  const logoInputRef = useRef<HTMLInputElement>(null);
 
-  const [formData, setFormData] = useState<SignupData>({
+  const [form, setForm] = useState<SignupData>({
     userType: '',
     fullName: '',
     avatarFile: null,
     avatarUrl: '',
-    company: '',
-    siret: '',
-    logoFile: null,
-    logoUrl: '',
-    legalAddress: '',
-    companySize: '',
-    fleetSize: 0,
     email: '',
     phone: '',
     password: '',
     confirmPassword: '',
-    bankIban: '',
-    billingAddress: '',
-    billingPostalCode: '',
-    billingCity: '',
-    billingEmail: '',
-    tvaNumber: '',
-    fraudCheck: null,
     acceptedTerms: false,
   });
 
-  // Validation par étape
-  const validateStep = async (step: number): Promise<boolean> => {
+  /* -- Validation per step -- */
+  const validateStep = async (): Promise<boolean> => {
     setError('');
-
     switch (step) {
-      case 0: // Type d'utilisateur
-        if (!formData.userType) {
-          setError('Veuillez sélectionner un type de compte');
+      case 0:
+        if (!form.userType) { setError('Choisissez votre type de compte'); return false; }
+        return true;
+      case 1:
+        if (!form.fullName.trim() || form.fullName.length < 3) {
+          setError('Le nom complet est requis (3 caracteres minimum)');
           return false;
         }
         return true;
-
-      case 1: // Informations personnelles
-        if (!formData.fullName.trim()) {
-          setError('Nom complet requis');
-          return false;
+      case 2: {
+        const emailV = validationService.validateEmail(form.email);
+        if (!emailV.isValid) { setError(emailV.error || 'Email invalide'); return false; }
+        const emailAvail = await validationService.checkEmailAvailability(form.email);
+        if (!emailAvail.isValid) { setError(emailAvail.error || 'Email deja utilise'); return false; }
+        if (form.phone && form.phone.trim()) {
+          const phoneV = validationService.validatePhone(form.phone);
+          if (!phoneV.isValid) { setError(phoneV.error || 'Telephone invalide'); return false; }
         }
-        if (formData.fullName.length < 3) {
-          setError('Le nom doit contenir au moins 3 caractères');
-          return false;
-        }
+        if (form.password.length < 6) { setError('Le mot de passe doit contenir au moins 6 caracteres'); return false; }
+        if (form.password !== form.confirmPassword) { setError('Les mots de passe ne correspondent pas'); return false; }
+        const ps = validationService.evaluatePasswordStrength(form.password);
+        if (ps.level === 'weak') { setError('Mot de passe trop faible. ' + ps.suggestions[0]); return false; }
         return true;
-
-      case 2: // Informations entreprise (conditionnel)
-        if (formData.userType === 'company') {
-          if (!formData.company.trim()) {
-            setError('Nom de l\'entreprise requis');
-            return false;
-          }
-          
-          if (!formData.siret.trim()) {
-            setError('SIRET requis pour les entreprises');
-            return false;
-          }
-
-          // Valider format SIRET
-          const siretValidation = validationService.validateSiretFormat(formData.siret);
-          if (!siretValidation.isValid) {
-            setError(siretValidation.error || 'SIRET invalide');
-            return false;
-          }
-
-          // Vérifier disponibilité SIRET
-          const isSiretAvailable = await fraudPreventionService.checkSiretAvailable(formData.siret);
-          if (!isSiretAvailable) {
-            setError('Ce SIRET est déjà associé à un compte existant');
-            return false;
-          }
-
-          if (!formData.companySize) {
-            setError('Taille de l\'entreprise requise');
-            return false;
-          }
-        }
+      }
+      case 3:
+        if (!form.acceptedTerms) { setError('Acceptez les conditions pour continuer'); return false; }
         return true;
-
-      case 3: // Coordonnées
-        // Valider email
-        const emailValidation = validationService.validateEmail(formData.email);
-        if (!emailValidation.isValid) {
-          setError(emailValidation.error || 'Email invalide');
-          return false;
-        }
-
-        // Vérifier disponibilité email
-        const emailCheck = await validationService.checkEmailAvailability(formData.email);
-        if (!emailCheck.isValid) {
-          setError(emailCheck.error || 'Email déjà utilisé');
-          return false;
-        }
-
-        // Téléphone optionnel - valider seulement si renseigné
-        if (formData.phone && formData.phone.trim()) {
-          const phoneValidation = validationService.validatePhone(formData.phone);
-          if (!phoneValidation.isValid) {
-            setError(phoneValidation.error || 'Téléphone invalide');
-            return false;
-          }
-        }
-
-        // Valider mot de passe
-        if (formData.password.length < 6) {
-          setError('Le mot de passe doit contenir au moins 6 caractères');
-          return false;
-        }
-
-        if (formData.password !== formData.confirmPassword) {
-          setError('Les mots de passe ne correspondent pas');
-          return false;
-        }
-
-        const passwordStrength = validationService.evaluatePasswordStrength(formData.password);
-        if (passwordStrength.level === 'weak') {
-          setError('Mot de passe trop faible. ' + passwordStrength.suggestions[0]);
-          return false;
-        }
-
-        return true;
-
-      case 4: // Profil de facturation
-        // Valider SIRET (obligatoire)
-        if (!formData.siret || formData.siret.trim() === '') {
-          setError('Le numéro SIRET est obligatoire pour la facturation');
-          return false;
-        }
-        const siretClean = formData.siret.replace(/\s/g, '');
-        if (siretClean.length !== 14) {
-          setError('Le SIRET doit contenir 14 chiffres');
-          return false;
-        }
-
-        // Valider adresse (obligatoire)
-        if (!formData.billingAddress || formData.billingAddress.trim() === '') {
-          setError('L\'adresse de facturation est obligatoire');
-          return false;
-        }
-
-        // Valider code postal (obligatoire)
-        if (!formData.billingPostalCode || formData.billingPostalCode.trim() === '') {
-          setError('Le code postal est obligatoire');
-          return false;
-        }
-        if (formData.billingPostalCode.length !== 5) {
-          setError('Le code postal doit contenir 5 chiffres');
-          return false;
-        }
-
-        // Valider ville (obligatoire)
-        if (!formData.billingCity || formData.billingCity.trim() === '') {
-          setError('La ville est obligatoire');
-          return false;
-        }
-
-        // Valider email de facturation (obligatoire)
-        if (!formData.billingEmail || formData.billingEmail.trim() === '') {
-          setError('L\'email de facturation est obligatoire');
-          return false;
-        }
-        const billingEmailValidation = validationService.validateEmail(formData.billingEmail);
-        if (!billingEmailValidation.isValid) {
-          setError('Email de facturation invalide');
-          return false;
-        }
-
-        // IBAN optionnel
-        if (formData.bankIban) {
-          const ibanValidation = validationService.validateIban(formData.bankIban);
-          if (!ibanValidation.isValid) {
-            setError(ibanValidation.error || 'IBAN invalide');
-            return false;
-          }
-        }
-        return true;
-
-      case 5: // Vérification fraude (automatique)
-        setLoading(true);
-        try {
-          const fraudCheck = await fraudPreventionService.checkSignupFraud(
-            formData.email,
-            formData.phone || '',
-            formData.userType === 'company' ? formData.siret : undefined
-          );
-
-          setFormData(prev => ({ ...prev, fraudCheck }));
-
-          if (fraudCheck.recommendation === 'block') {
-            setError('Inscription bloquée pour des raisons de sécurité');
-            return false;
-          }
-
-          return true;
-        } catch (err: any) {
-          setError('Erreur lors de la vérification : ' + err.message);
-          return false;
-        } finally {
-          setLoading(false);
-        }
-
-      case 6: // Confirmation
-        if (!formData.acceptedTerms) {
-          setError('Vous devez accepter les conditions d\'utilisation');
-          return false;
-        }
-        return true;
-
-      default:
-        return true;
+      default: return true;
     }
   };
 
   const handleNext = async () => {
-    const isValid = await validateStep(activeStep);
-    if (!isValid) return;
-
-    // Skip étape 2 (entreprise) si pas une company
-    if (activeStep === 1 && formData.userType !== 'company') {
-      setActiveStep(prev => prev + 2); // Skip étape 2
-    } else {
-      setActiveStep(prev => prev + 1);
-    }
+    setLoading(true);
+    try {
+      const ok = await validateStep();
+      if (ok && step < 3) setStep(s => s + 1);
+      else if (ok && step === 3) await handleSubmit();
+    } finally { setLoading(false); }
   };
 
-  const handleBack = () => {
-    // Skip étape 2 (entreprise) si pas une company
-    if (activeStep === 3 && formData.userType !== 'company') {
-      setActiveStep(prev => prev - 2);
-    } else {
-      setActiveStep(prev => prev - 1);
-    }
-  };
+  const handleBack = () => step > 0 && setStep(s => s - 1);
 
+  /* -- Avatar -- */
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setError('L\'image ne doit pas dépasser 5 MB');
-        return;
-      }
-
-      setFormData(prev => ({
-        ...prev,
-        avatarFile: file,
-        avatarUrl: URL.createObjectURL(file)
-      }));
-    }
-  };
-
-  const handleLogoSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 5 * 1024 * 1024) {
-        setError('L\'image ne doit pas dépasser 5 MB');
-        return;
-      }
-
-      setFormData(prev => ({
-        ...prev,
-        logoFile: file,
-        logoUrl: URL.createObjectURL(file)
-      }));
-    }
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { setError("L'image ne doit pas depasser 5 MB"); return; }
+    setForm(p => ({ ...p, avatarFile: file, avatarUrl: URL.createObjectURL(file) }));
   };
 
   const uploadImage = async (file: File, path: string): Promise<string> => {
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random().toString(36).substring(2)}.${fileExt}`;
-    const filePath = `${path}/${fileName}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from('avatars')
-      .upload(filePath, file);
-
-    if (uploadError) throw uploadError;
-
-    const { data } = supabase.storage
-      .from('avatars')
-      .getPublicUrl(filePath);
-
-    return data.publicUrl;
+    const ext = file.name.split('.').pop();
+    const name = `${Math.random().toString(36).substring(2)}.${ext}`;
+    const { error } = await supabase.storage.from('avatars').upload(`${path}/${name}`, file);
+    if (error) throw error;
+    return supabase.storage.from('avatars').getPublicUrl(`${path}/${name}`).data.publicUrl;
   };
 
+  /* -- Submit -- */
   const handleSubmit = async () => {
     setLoading(true);
     setError('');
-
     try {
-      // 1. Upload avatar si présent
       let avatarUrl = '';
-      if (formData.avatarFile) {
-        avatarUrl = await uploadImage(formData.avatarFile, 'avatars');
-      }
+      if (form.avatarFile) avatarUrl = await uploadImage(form.avatarFile, 'avatars');
 
-      // 2. Upload logo si présent
-      let logoUrl = '';
-      if (formData.logoFile) {
-        logoUrl = await uploadImage(formData.logoFile, 'logos');
-      }
-
-      // 3. Créer le compte Supabase Auth
       const deviceFingerprint = await fraudPreventionService.generateDeviceFingerprint();
       const ipAddress = await fraudPreventionService.getUserIpAddress();
 
       const { data: authData, error: authError } = await supabase.auth.signUp({
-        email: formData.email,
-        password: formData.password,
+        email: form.email,
+        password: form.password,
         options: {
           data: {
-            full_name: formData.fullName,
-            phone: formData.phone,
-            user_type: formData.userType,
-            company: formData.company || null,
-            siret: formData.siret || null,
-            company_size: formData.companySize || null,
-            fleet_size: formData.fleetSize || 0,
-            legal_address: formData.legalAddress || null,
-            bank_iban: formData.bankIban || null,
-            billing_address: formData.billingAddress || null,
-            billing_postal_code: formData.billingPostalCode || null,
-            billing_city: formData.billingCity || null,
-            billing_email: formData.billingEmail || null,
-            tva_number: formData.tvaNumber || null,
+            full_name: form.fullName,
+            phone: form.phone || null,
+            user_type: form.userType,
             avatar_url: avatarUrl || null,
-            logo_url: logoUrl || null,
             device_fingerprint: deviceFingerprint,
             registration_ip: ipAddress,
-            suspicious_flag: formData.fraudCheck?.isSuspicious || false,
-            app_role: 'convoyeur',
+            app_role: form.userType === 'company' ? 'donneur_d_ordre' : 'convoyeur',
           }
         }
       });
-
       if (authError) throw authError;
 
-      // 4. Logger la tentative réussie
+      // Log signup
       await fraudPreventionService.logSignupAttempt({
-        email: formData.email,
-        phone: formData.phone,
-        deviceFingerprint,
-        ipAddress,
-        userAgent: navigator.userAgent,
-        stepReached: 7,
-        success: true
+        email: form.email, phone: form.phone, deviceFingerprint, ipAddress,
+        userAgent: navigator.userAgent, stepReached: 4, success: true,
       });
 
-      // 5. Cadeau de bienvenue: Starter 10 crédits
+      // Welcome gift: 10 credits
       if (authData?.user?.id) {
         try {
-          const starterEndDate = new Date();
-          starterEndDate.setDate(starterEndDate.getDate() + 30);
-
-          // Créer l'abonnement Starter
+          const end = new Date();
+          end.setDate(end.getDate() + 30);
           await supabase.from('subscriptions').insert({
-            user_id: authData.user.id,
-            plan: 'starter',
-            status: 'active',
-            start_date: new Date().toISOString(),
-            end_date: starterEndDate.toISOString(),
-            credits_remaining: 10,
-            auto_renew: false,
+            user_id: authData.user.id, plan: 'starter', status: 'active',
+            start_date: new Date().toISOString(), end_date: end.toISOString(),
+            credits_remaining: 10, auto_renew: false,
           });
-
-          // Créer les crédits utilisateur
-          await supabase.from('user_credits').upsert({
-            user_id: authData.user.id,
-            balance: 10,
-            lifetime_earned: 10,
-            lifetime_spent: 0,
-          }, { onConflict: 'user_id' });
-
-          // Enregistrer la transaction
+          await supabase.from('user_credits').upsert(
+            { user_id: authData.user.id, balance: 10, lifetime_earned: 10, lifetime_spent: 0 },
+            { onConflict: 'user_id' }
+          );
           await supabase.from('credit_transactions').insert({
-            user_id: authData.user.id,
-            amount: 10,
-            transaction_type: 'addition',
-            description: 'Cadeau de bienvenue - Abonnement Starter (10 crédits, 30 jours)',
+            user_id: authData.user.id, amount: 10, transaction_type: 'addition',
+            description: 'Cadeau de bienvenue - 10 credits offerts (30 jours)',
           });
-
-          console.log('🎁 Cadeau de bienvenue Starter accordé:', authData.user.email);
-        } catch (giftErr) {
-          console.error('Erreur cadeau bienvenue (non bloquant):', giftErr);
-        }
+        } catch (e) { console.error('Erreur cadeau bienvenue:', e); }
       }
 
-      // 6. Rediriger vers login
-      alert('Inscription réussie ! Un email de confirmation a été envoyé.\n\n🎁 Cadeau de bienvenue : 10 crédits offerts pendant 30 jours !');
+      alert('Inscription reussie ! Verifiez votre email pour activer votre compte.\n\nCadeau de bienvenue : 10 credits offerts pendant 30 jours !');
       navigate('/login');
     } catch (err: any) {
-      console.error('Signup error:', err);
-      setError(err.message || 'Erreur lors de l\'inscription');
-
-      // Logger la tentative échouée
-      const deviceFingerprint = await fraudPreventionService.generateDeviceFingerprint();
-      const ipAddress = await fraudPreventionService.getUserIpAddress();
-      
+      console.error(err);
+      setError(err.message || "Erreur lors de l'inscription");
+      const fp = await fraudPreventionService.generateDeviceFingerprint();
+      const ip = await fraudPreventionService.getUserIpAddress();
       await fraudPreventionService.logSignupAttempt({
-        email: formData.email,
-        phone: formData.phone,
-        deviceFingerprint,
-        ipAddress,
-        userAgent: navigator.userAgent,
-        stepReached: activeStep + 1,
-        success: false,
-        failureReason: err.message
+        email: form.email, phone: form.phone, deviceFingerprint: fp, ipAddress: ip,
+        userAgent: navigator.userAgent, stepReached: step + 1, success: false, failureReason: err.message,
       });
-    } finally {
-      setLoading(false);
-    }
+    } finally { setLoading(false); }
   };
 
-  const renderStepContent = () => {
-    switch (activeStep) {
-      case 0: // Type d'utilisateur
-        return (
-          <Box sx={{ py: 4 }}>
-            <Typography variant="h5" gutterBottom fontWeight="bold">
-              Quel type de compte souhaitez-vous créer ?
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-              Sélectionnez le type qui correspond le mieux à votre activité
-            </Typography>
+  /* ================================
+     RENDER STEPS
+     ================================ */
 
-            <FormControl component="fieldset" fullWidth>
-              <RadioGroup
-                value={formData.userType}
-                onChange={(e) => setFormData(prev => ({ ...prev, userType: e.target.value as any }))}
-              >
-                <Card 
-                  sx={{ 
-                    mb: 2, 
-                    cursor: 'pointer', 
-                    border: 2,
-                    borderColor: formData.userType === 'company' ? 'primary.main' : 'transparent',
-                    background: formData.userType === 'company' 
-                      ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
-                      : 'white',
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: 6,
-                      borderColor: 'primary.main'
-                    }
-                  }}
-                  onClick={() => setFormData(prev => ({ ...prev, userType: 'company' }))}>
-                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 3 }}>
-                    <Box sx={{ 
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      borderRadius: 2,
-                      p: 1.5,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <Business sx={{ fontSize: 32, color: 'white' }} />
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="h6" fontWeight="bold">Entreprise</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Société de transport ou donneur d'ordre
-                      </Typography>
-                    </Box>
-                    <Radio value="company" checked={formData.userType === 'company'} />
-                  </CardContent>
-                </Card>
+  const renderStep0 = () => (
+    <div className="py-6">
+      <h2 className="text-2xl font-bold text-center mb-2" style={{ color: T.textPrimary }}>
+        Quel est votre profil ?
+      </h2>
+      <p className="text-sm text-center mb-8" style={{ color: T.textSecondary }}>
+        Choisissez pour une experience adaptee
+      </p>
 
-                <Card 
-                  sx={{ 
-                    mb: 2, 
-                    cursor: 'pointer', 
-                    border: 2,
-                    borderColor: formData.userType === 'driver' ? 'primary.main' : 'transparent',
-                    background: formData.userType === 'driver' 
-                      ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
-                      : 'white',
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: 6,
-                      borderColor: 'primary.main'
-                    }
-                  }}
-                  onClick={() => setFormData(prev => ({ ...prev, userType: 'driver' }))}>
-                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 3 }}>
-                    <Box sx={{ 
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      borderRadius: 2,
-                      p: 1.5,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <LocalShipping sx={{ fontSize: 32, color: 'white' }} />
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="h6" fontWeight="bold">Convoyeur</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Chauffeur indépendant ou convoyeur
-                      </Typography>
-                    </Box>
-                    <Radio value="driver" checked={formData.userType === 'driver'} />
-                  </CardContent>
-                </Card>
+      <div className="space-y-4 max-w-md mx-auto">
+        {/* Entreprise */}
+        <button
+          type="button"
+          onClick={() => { setForm(p => ({ ...p, userType: 'company' })); setTimeout(() => setStep(1), 200); }}
+          className={`w-full p-5 rounded-2xl border-2 transition-all text-left flex items-center gap-4 ${
+            form.userType === 'company' ? 'border-[#0066FF] bg-blue-50/50 shadow-lg shadow-blue-500/10' : 'border-slate-200 hover:border-slate-300 hover:shadow-md bg-white'
+          }`}
+        >
+          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center flex-shrink-0">
+            <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="font-bold text-base" style={{ color: T.textPrimary }}>Entreprise</p>
+            <p className="text-sm" style={{ color: T.textSecondary }}>Societe de transport, donneur d'ordre</p>
+          </div>
+          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+            form.userType === 'company' ? 'border-[#0066FF] bg-[#0066FF]' : 'border-slate-300'
+          }`}>
+            {form.userType === 'company' && (
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </div>
+        </button>
 
-                <Card 
-                  sx={{ 
-                    cursor: 'pointer', 
-                    border: 2,
-                    borderColor: formData.userType === 'individual' ? 'primary.main' : 'transparent',
-                    background: formData.userType === 'individual' 
-                      ? 'linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, rgba(118, 75, 162, 0.05) 100%)'
-                      : 'white',
-                    transition: 'all 0.3s ease',
-                    '&:hover': {
-                      transform: 'translateY(-4px)',
-                      boxShadow: 6,
-                      borderColor: 'primary.main'
-                    }
-                  }}
-                  onClick={() => setFormData(prev => ({ ...prev, userType: 'individual' }))}>
-                  <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 3 }}>
-                    <Box sx={{ 
-                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                      borderRadius: 2,
-                      p: 1.5,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <Person sx={{ fontSize: 32, color: 'white' }} />
-                    </Box>
-                    <Box sx={{ flex: 1 }}>
-                      <Typography variant="h6" fontWeight="bold">Particulier</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Solutions de transport ponctuelles
-                      </Typography>
-                    </Box>
-                    <Radio value="individual" checked={formData.userType === 'individual'} />
-                  </CardContent>
-                </Card>
-              </RadioGroup>
-            </FormControl>
-          </Box>
-        );
+        {/* Convoyeur */}
+        <button
+          type="button"
+          onClick={() => { setForm(p => ({ ...p, userType: 'driver' })); setTimeout(() => setStep(1), 200); }}
+          className={`w-full p-5 rounded-2xl border-2 transition-all text-left flex items-center gap-4 ${
+            form.userType === 'driver' ? 'border-[#14B8A6] bg-teal-50/50 shadow-lg shadow-teal-500/10' : 'border-slate-200 hover:border-slate-300 hover:shadow-md bg-white'
+          }`}
+        >
+          <div className="w-14 h-14 rounded-xl bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center flex-shrink-0">
+            <svg className="w-7 h-7 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <p className="font-bold text-base" style={{ color: T.textPrimary }}>Convoyeur</p>
+            <p className="text-sm" style={{ color: T.textSecondary }}>Chauffeur independant, auto-entrepreneur</p>
+          </div>
+          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${
+            form.userType === 'driver' ? 'border-[#14B8A6] bg-[#14B8A6]' : 'border-slate-300'
+          }`}>
+            {form.userType === 'driver' && (
+              <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            )}
+          </div>
+        </button>
+      </div>
+    </div>
+  );
 
-      case 1: // Informations personnelles
-        return (
-          <Box sx={{ py: 4 }}>
-            <Typography variant="h5" gutterBottom fontWeight="bold">
-              Informations personnelles
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-              Parlez-nous un peu de vous
-            </Typography>
+  const renderStep1 = () => (
+    <div className="py-6">
+      <h2 className="text-2xl font-bold text-center mb-2" style={{ color: T.textPrimary }}>
+        Informations personnelles
+      </h2>
+      <p className="text-sm text-center mb-8" style={{ color: T.textSecondary }}>
+        Parlez-nous un peu de vous
+      </p>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 4 }}>
-              <Box 
-                onClick={() => avatarInputRef.current?.click()}
-                sx={{ 
-                  position: 'relative',
-                  cursor: 'pointer',
-                  '&:hover .upload-overlay': {
-                    opacity: 1
-                  }
-                }}
-              >
-                <Avatar
-                  src={formData.avatarUrl}
-                  sx={{ 
-                    width: 140, 
-                    height: 140, 
-                    border: 4, 
-                    borderColor: 'primary.main',
-                    boxShadow: 4,
-                    fontSize: 48,
-                    fontWeight: 'bold',
-                    background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)'
-                  }}
-                >
-                  {formData.fullName[0]?.toUpperCase() || '?'}
-                </Avatar>
-                <Box
-                  className="upload-overlay"
-                  sx={{
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    right: 0,
-                    bottom: 0,
-                    borderRadius: '50%',
-                    background: 'rgba(0, 0, 0, 0.6)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    opacity: 0,
-                    transition: 'opacity 0.3s ease'
-                  }}
-                >
-                  <CloudUpload sx={{ color: 'white', fontSize: 40 }} />
-                </Box>
-              </Box>
-              <input
-                ref={avatarInputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={handleAvatarSelect}
-              />
-              <Button
-                variant="outlined"
-                startIcon={<CloudUpload />}
-                onClick={() => avatarInputRef.current?.click()}
-                sx={{ mt: 2, borderRadius: 2 }}
-              >
-                Choisir une photo
-              </Button>
-            </Box>
+      {/* Avatar */}
+      <div className="flex flex-col items-center mb-8">
+        <button type="button" onClick={() => avatarInputRef.current?.click()} className="relative group">
+          <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-teal-500 shadow-lg shadow-teal-500/20">
+            {form.avatarUrl ? (
+              <img src={form.avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center">
+                <span className="text-3xl font-bold text-white">
+                  {form.fullName?.[0]?.toUpperCase() || '?'}
+                </span>
+              </div>
+            )}
+          </div>
+          <div className="absolute inset-0 rounded-full bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+            <svg className="w-8 h-8 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+        </button>
+        <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarSelect} />
+        <p className="text-xs mt-2" style={{ color: T.textTertiary }}>Cliquez pour ajouter une photo (optionnel)</p>
+      </div>
 
-            <TextField
-              fullWidth
-              label="Nom complet *"
-              value={formData.fullName}
-              onChange={(e) => setFormData(prev => ({ ...prev, fullName: e.target.value }))}
-              sx={{ mb: 2 }}
-            />
-          </Box>
-        );
+      {/* Full name */}
+      <div className="max-w-md mx-auto">
+        <label className="block text-sm font-medium mb-1.5" style={{ color: T.textPrimary }}>
+          Nom complet <span className="text-red-500">*</span>
+        </label>
+        <input
+          type="text"
+          value={form.fullName}
+          onChange={e => setForm(p => ({ ...p, fullName: e.target.value }))}
+          placeholder="Jean Dupont"
+          className={inputCls}
+          style={inputStyle}
+          autoFocus
+        />
+      </div>
+    </div>
+  );
 
-      case 2: // Informations entreprise
-        return (
-          <Box sx={{ py: 4 }}>
-            <Typography variant="h5" gutterBottom fontWeight="bold">
-              Informations entreprise
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-              Complétez les informations de votre société
-            </Typography>
+  const renderStep2 = () => {
+    const ps = form.password ? validationService.evaluatePasswordStrength(form.password) : null;
+    return (
+      <div className="py-6">
+        <h2 className="text-2xl font-bold text-center mb-2" style={{ color: T.textPrimary }}>
+          Creez votre compte
+        </h2>
+        <p className="text-sm text-center mb-8" style={{ color: T.textSecondary }}>
+          Vos identifiants de connexion
+        </p>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', mb: 4 }}>
-              <Avatar
-                src={formData.logoUrl}
-                sx={{ width: 120, height: 120, mb: 2, cursor: 'pointer' }}
-                variant="rounded"
-                onClick={() => logoInputRef.current?.click()}
-              >
-                <Business sx={{ fontSize: 60 }} />
-              </Avatar>
-              <input
-                ref={logoInputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={handleLogoSelect}
-              />
-              <Button
-                startIcon={<CloudUpload />}
-                onClick={() => logoInputRef.current?.click()}
-              >
-                Ajouter un logo
-              </Button>
-            </Box>
-
-            <TextField
-              fullWidth
-              label="Nom de l'entreprise *"
-              value={formData.company}
-              onChange={(e) => setFormData(prev => ({ ...prev, company: e.target.value }))}
-              sx={{ mb: 2 }}
-            />
-
-            <TextField
-              fullWidth
-              label="SIRET *"
-              value={formData.siret}
-              onChange={(e) => {
-                const value = e.target.value.replace(/\s/g, '');
-                setFormData(prev => ({ ...prev, siret: value }));
-              }}
-              placeholder="123 456 789 00012"
-              helperText="14 chiffres sans espaces"
-              sx={{ mb: 2 }}
-            />
-
-            <TextField
-              fullWidth
-              label="Adresse du siège social"
-              value={formData.legalAddress}
-              onChange={(e) => setFormData(prev => ({ ...prev, legalAddress: e.target.value }))}
-              multiline
-              rows={2}
-              sx={{ mb: 2 }}
-            />
-
-            <FormControl fullWidth sx={{ mb: 2 }}>
-              <FormLabel>Taille de l'entreprise *</FormLabel>
-              <RadioGroup
-                value={formData.companySize}
-                onChange={(e) => setFormData(prev => ({ ...prev, companySize: e.target.value as any }))}
-                row
-              >
-                <FormControlLabel value="solo" control={<Radio />} label="Solo (1 personne)" />
-                <FormControlLabel value="small" control={<Radio />} label="Petite (2-10)" />
-                <FormControlLabel value="medium" control={<Radio />} label="Moyenne (11-50)" />
-                <FormControlLabel value="large" control={<Radio />} label="Grande (50+)" />
-              </RadioGroup>
-            </FormControl>
-
-            <TextField
-              fullWidth
-              type="number"
-              label="Nombre de véhicules dans la flotte"
-              value={formData.fleetSize}
-              onChange={(e) => setFormData(prev => ({ ...prev, fleetSize: parseInt(e.target.value) || 0 }))}
-              inputProps={{ min: 0 }}
-            />
-          </Box>
-        );
-
-      case 3: // Coordonnées
-        const passwordStrength = validationService.evaluatePasswordStrength(formData.password);
-        
-        return (
-          <Box sx={{ py: 4 }}>
-            <Typography variant="h5" gutterBottom fontWeight="bold">
-              Coordonnées et sécurité
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-              Comment pouvons-nous vous contacter ?
-            </Typography>
-
-            <TextField
-              fullWidth
-              label="Adresse email *"
+        <div className="max-w-md mx-auto space-y-4">
+          {/* Email */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5" style={{ color: T.textPrimary }}>
+              Email <span className="text-red-500">*</span>
+            </label>
+            <input
               type="email"
-              value={formData.email}
-              onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              sx={{ mb: 2 }}
+              value={form.email}
+              onChange={e => setForm(p => ({ ...p, email: e.target.value }))}
+              placeholder="jean@entreprise.fr"
+              className={inputCls}
+              style={inputStyle}
+              autoFocus
             />
+          </div>
 
-            <TextField
-              fullWidth
-              label="Téléphone (optionnel)"
+          {/* Phone */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5" style={{ color: T.textPrimary }}>
+              Telephone <span className="text-xs font-normal" style={{ color: T.textTertiary }}>(optionnel)</span>
+            </label>
+            <input
               type="tel"
-              value={formData.phone}
-              onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+              value={form.phone}
+              onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
               placeholder="06 12 34 56 78"
-              helperText="Optionnel — utile pour être contacté rapidement"
-              sx={{ mb: 3 }}
+              className={inputCls}
+              style={inputStyle}
             />
+          </div>
 
-            <Divider sx={{ my: 3 }} />
-            <Typography variant="subtitle1" gutterBottom fontWeight="bold">
-              Sécurité de votre compte
-            </Typography>
-
-            <TextField
-              fullWidth
-              label="Mot de passe *"
-              type={showPassword ? 'text' : 'password'}
-              value={formData.password}
-              onChange={(e) => setFormData(prev => ({ ...prev, password: e.target.value }))}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={() => setShowPassword(!showPassword)}>
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
-              sx={{ mb: 1 }}
-            />
-
-            {formData.password && (
-              <Box sx={{ mb: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                  <LinearProgress
-                    variant="determinate"
-                    value={passwordStrength.score}
-                    sx={{ flex: 1, height: 8, borderRadius: 4 }}
-                    color={
-                      passwordStrength.level === 'weak' ? 'error' :
-                      passwordStrength.level === 'medium' ? 'warning' : 'success'
-                    }
+          {/* Password */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5" style={{ color: T.textPrimary }}>
+              Mot de passe <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={form.password}
+                onChange={e => setForm(p => ({ ...p, password: e.target.value }))}
+                placeholder="Minimum 6 caracteres"
+                className={inputCls + " pr-12"}
+                style={inputStyle}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 p-1"
+              >
+                <svg className="w-5 h-5" style={{ color: T.textTertiary }} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  {showPassword ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.878 9.878L3 3m6.878 6.878L21 21" />
+                  ) : (
+                    <>
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                    </>
+                  )}
+                </svg>
+              </button>
+            </div>
+            {/* Strength indicator */}
+            {ps && (
+              <div className="mt-2">
+                <div className="h-1.5 rounded-full overflow-hidden bg-slate-200">
+                  <div
+                    className="h-full rounded-full transition-all duration-300"
+                    style={{
+                      width: `${ps.score}%`,
+                      backgroundColor: ps.level === 'weak' ? T.accentRed : ps.level === 'medium' ? T.accentAmber : T.accentGreen,
+                    }}
                   />
-                  <Chip
-                    label={
-                      passwordStrength.level === 'weak' ? 'Faible' :
-                      passwordStrength.level === 'medium' ? 'Moyen' : 'Fort'
-                    }
-                    size="small"
-                    color={
-                      passwordStrength.level === 'weak' ? 'error' :
-                      passwordStrength.level === 'medium' ? 'warning' : 'success'
-                    }
-                  />
-                </Box>
-                {passwordStrength.suggestions.length > 0 && (
-                  <Typography variant="caption" color="text.secondary">
-                    {passwordStrength.suggestions[0]}
-                  </Typography>
-                )}
-              </Box>
+                </div>
+                <p className="text-xs mt-1" style={{
+                  color: ps.level === 'weak' ? T.accentRed : ps.level === 'medium' ? T.accentAmber : T.accentGreen,
+                }}>
+                  {ps.level === 'weak' ? 'Faible' : ps.level === 'medium' ? 'Moyen' : 'Fort'}
+                  {ps.suggestions.length > 0 && ` - ${ps.suggestions[0]}`}
+                </p>
+              </div>
             )}
+          </div>
 
-            <TextField
-              fullWidth
-              label="Confirmer le mot de passe *"
-              type={showConfirmPassword ? 'text' : 'password'}
-              value={formData.confirmPassword}
-              onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton onClick={() => setShowConfirmPassword(!showConfirmPassword)}>
-                      {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                )
-              }}
+          {/* Confirm password */}
+          <div>
+            <label className="block text-sm font-medium mb-1.5" style={{ color: T.textPrimary }}>
+              Confirmer le mot de passe <span className="text-red-500">*</span>
+            </label>
+            <input
+              type="password"
+              value={form.confirmPassword}
+              onChange={e => setForm(p => ({ ...p, confirmPassword: e.target.value }))}
+              placeholder="Retapez le mot de passe"
+              className={inputCls}
+              style={inputStyle}
             />
-          </Box>
-        );
-
-      case 4: // Profil de facturation
-        return (
-          <Box sx={{ py: 4 }}>
-            <Typography variant="h5" gutterBottom fontWeight="bold">
-              Profil de facturation
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-              Ces informations apparaîtront sur toutes vos factures
-            </Typography>
-
-            <Alert severity="warning" icon={<Business />} sx={{ mb: 3 }}>
-              <Typography variant="subtitle2" fontWeight="bold">Pourquoi ces informations ?</Typography>
-              <Typography variant="body2">
-                Ces données seront automatiquement insérées sur les factures que vous générerez pour vos missions.
-                Elles sont obligatoires pour une facturation conforme.
-              </Typography>
-            </Alert>
-
-            {/* SIRET - Seulement si pas déjà renseigné à l'étape entreprise */}
-            {!formData.siret && (
-              <TextField
-                fullWidth
-                required
-                label="Numéro SIRET"
-                value={formData.siret}
-                onChange={(e) => setFormData(prev => ({ ...prev, siret: e.target.value }))}
-                placeholder="123 456 789 00012"
-                helperText="Obligatoire pour facturer en France (14 chiffres)"
-                sx={{ mb: 2 }}
-              />
-            )}
-
-            {formData.siret && (
-              <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}>
-                SIRET : {validationService.formatSiret(formData.siret)}
-              </Alert>
-            )}
-
-            {/* Adresse complète */}
-            <TextField
-              fullWidth
-              required
-              label="Adresse de facturation"
-              value={formData.billingAddress}
-              onChange={(e) => setFormData(prev => ({ ...prev, billingAddress: e.target.value }))}
-              placeholder="123 rue de la République"
-              helperText="Adresse qui apparaîtra sur vos factures"
-              sx={{ mb: 2 }}
-            />
-
-            {/* Code postal + Ville */}
-            <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
-              <TextField
-                required
-                label="Code postal"
-                value={formData.billingPostalCode}
-                onChange={(e) => setFormData(prev => ({ ...prev, billingPostalCode: e.target.value }))}
-                placeholder="75001"
-                inputProps={{ maxLength: 5 }}
-                sx={{ flex: 2 }}
-              />
-              <TextField
-                required
-                label="Ville"
-                value={formData.billingCity}
-                onChange={(e) => setFormData(prev => ({ ...prev, billingCity: e.target.value }))}
-                placeholder="Paris"
-                sx={{ flex: 3 }}
-              />
-            </Box>
-
-            {/* Email de facturation */}
-            <TextField
-              fullWidth
-              required
-              type="email"
-              label="Email de facturation"
-              value={formData.billingEmail}
-              onChange={(e) => setFormData(prev => ({ ...prev, billingEmail: e.target.value }))}
-              placeholder="facturation@entreprise.fr"
-              helperText="Pour recevoir les notifications de facture"
-              sx={{ mb: 3 }}
-            />
-
-            <Divider sx={{ my: 3 }} />
-
-            <Typography variant="body2" color="text.secondary" fontWeight="600" sx={{ mb: 2 }}>
-              Informations optionnelles
-            </Typography>
-
-            {/* IBAN */}
-            <TextField
-              fullWidth
-              label="IBAN (optionnel)"
-              value={formData.bankIban}
-              onChange={(e) => {
-                const value = e.target.value.toUpperCase();
-                setFormData(prev => ({ ...prev, bankIban: value }));
-              }}
-              placeholder="FR76 1234 5678 9012 3456 7890 123"
-              helperText="Pour recevoir vos paiements"
-              sx={{ mb: 2 }}
-            />
-
-            {/* Numéro TVA */}
-            <TextField
-              fullWidth
-              label="N° TVA intracommunautaire (optionnel)"
-              value={formData.tvaNumber}
-              onChange={(e) => setFormData(prev => ({ ...prev, tvaNumber: e.target.value.toUpperCase() }))}
-              placeholder="FR12345678901"
-              helperText="Si vous êtes assujetti à la TVA"
-              sx={{ mb: 2 }}
-            />
-
-            <Alert severity="info" sx={{ mt: 2 }}>
-              Toutes ces informations sont modifiables à tout moment depuis votre profil.
-            </Alert>
-          </Box>
-        );
-
-      case 5: // Vérification fraude
-        return (
-          <Box sx={{ py: 4, textAlign: 'center' }}>
-            <Shield sx={{ fontSize: 80, color: 'primary.main', mb: 2 }} />
-            <Typography variant="h5" gutterBottom fontWeight="bold">
-              Vérification de sécurité
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-              Nous vérifions l'authenticité de vos informations...
-            </Typography>
-
-            {loading && <CircularProgress sx={{ mb: 3 }} />}
-
-            {formData.fraudCheck && !loading && (
-              <Box>
-                {formData.fraudCheck.recommendation === 'allow' && (
-                  <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" fontWeight="bold">Vérification réussie !</Typography>
-                    <Typography variant="body2">Votre compte est prêt à être créé</Typography>
-                  </Alert>
-                )}
-
-                {formData.fraudCheck.recommendation === 'manual_review' && (
-                  <Alert severity="warning" icon={<Warning />} sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" fontWeight="bold">Vérification manuelle requise</Typography>
-                    <Typography variant="body2">
-                      Votre compte sera examiné par notre équipe (24-48h)
-                    </Typography>
-                  </Alert>
-                )}
-
-                {formData.fraudCheck.recommendation === 'block' && (
-                  <Alert severity="error" icon={<ErrorIcon />} sx={{ mb: 2 }}>
-                    <Typography variant="subtitle1" fontWeight="bold">Inscription bloquée</Typography>
-                    <Typography variant="body2">
-                      Nous ne pouvons pas créer votre compte pour des raisons de sécurité
-                    </Typography>
-                  </Alert>
-                )}
-
-                <Box sx={{ mt: 3, p: 2, bgcolor: 'grey.100', borderRadius: 2 }}>
-                  <Typography variant="caption" color="text.secondary">
-                    Score de sécurité : {formData.fraudCheck.fraudScore}/100
-                  </Typography>
-                </Box>
-              </Box>
-            )}
-          </Box>
-        );
-
-      case 6: // Résumé
-        return (
-          <Box sx={{ py: 4 }}>
-            <Typography variant="h5" gutterBottom fontWeight="bold">
-              Récapitulatif
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-              Vérifiez vos informations avant de valider
-            </Typography>
-
-            <Card sx={{ mb: 3 }}>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                  <Avatar src={formData.avatarUrl} sx={{ width: 60, height: 60 }}>
-                    {formData.fullName[0]?.toUpperCase()}
-                  </Avatar>
-                  <Box>
-                    <Typography variant="h6">{formData.fullName}</Typography>
-                    <Chip
-                      label={
-                        formData.userType === 'company' ? 'Entreprise' :
-                        formData.userType === 'driver' ? 'Convoyeur' : 'Particulier'
-                      }
-                      size="small"
-                      color="primary"
-                    />
-                  </Box>
-                </Box>
-
-                <Divider sx={{ my: 2 }} />
-
-                {formData.userType === 'company' && (
-                  <>
-                    <Typography variant="subtitle2" color="text.secondary">Entreprise</Typography>
-                    <Typography variant="body1" gutterBottom>{formData.company}</Typography>
-                    <Typography variant="subtitle2" color="text.secondary">SIRET</Typography>
-                    <Typography variant="body1" gutterBottom>{validationService.formatSiret(formData.siret)}</Typography>
-                  </>
-                )}
-
-                <Typography variant="subtitle2" color="text.secondary">Email</Typography>
-                <Typography variant="body1" gutterBottom>{formData.email}</Typography>
-
-                {formData.phone && formData.phone.trim() && (
-                  <>
-                    <Typography variant="subtitle2" color="text.secondary">Téléphone</Typography>
-                    <Typography variant="body1" gutterBottom>{validationService.formatPhone(formData.phone)}</Typography>
-                  </>
-                )}
-
-                <Divider sx={{ my: 2 }} />
-
-                <Typography variant="subtitle2" color="primary.main" fontWeight="600">Profil de facturation</Typography>
-                
-                <Typography variant="subtitle2" color="text.secondary" sx={{ mt: 1 }}>Adresse</Typography>
-                <Typography variant="body1" gutterBottom>
-                  {formData.billingAddress}, {formData.billingPostalCode} {formData.billingCity}
-                </Typography>
-
-                <Typography variant="subtitle2" color="text.secondary">Email de facturation</Typography>
-                <Typography variant="body1" gutterBottom>{formData.billingEmail}</Typography>
-
-                {formData.bankIban && (
-                  <>
-                    <Typography variant="subtitle2" color="text.secondary">IBAN</Typography>
-                    <Typography variant="body1" gutterBottom>{validationService.formatIban(formData.bankIban)}</Typography>
-                  </>
-                )}
-
-                {formData.tvaNumber && (
-                  <>
-                    <Typography variant="subtitle2" color="text.secondary">N° TVA intracommunautaire</Typography>
-                    <Typography variant="body1">{formData.tvaNumber}</Typography>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={formData.acceptedTerms}
-                  onChange={(e) => setFormData(prev => ({ ...prev, acceptedTerms: e.target.checked }))}
-                />
-              }
-              label={
-                <Typography variant="body2">
-                  J'accepte les{' '}
-                  <MuiLink href="/terms" target="_blank">conditions d'utilisation</MuiLink>
-                  {' '}et la{' '}
-                  <MuiLink href="/privacy" target="_blank">politique de confidentialité</MuiLink>
-                </Typography>
-              }
-            />
-          </Box>
-        );
-
-      default:
-        return null;
-    }
+          </div>
+        </div>
+      </div>
+    );
   };
 
-  const shouldSkipStep = (step: number) => {
-    return step === 2 && formData.userType !== 'company';
-  };
+  const renderStep3 = () => (
+    <div className="py-6">
+      <h2 className="text-2xl font-bold text-center mb-2" style={{ color: T.textPrimary }}>
+        Recapitulatif
+      </h2>
+      <p className="text-sm text-center mb-6" style={{ color: T.textSecondary }}>
+        Verifiez vos informations
+      </p>
 
-  const getDisplaySteps = () => {
-    return steps.filter((_, index) => !shouldSkipStep(index));
-  };
+      <div className="max-w-md mx-auto">
+        {/* Summary card */}
+        <div className="rounded-2xl bg-white border p-5 mb-6 space-y-4" style={{ borderColor: T.borderDefault }}>
+          <div className="flex items-center gap-4">
+            <div className="w-14 h-14 rounded-full overflow-hidden border-2 border-teal-500 flex-shrink-0">
+              {form.avatarUrl ? (
+                <img src={form.avatarUrl} alt="" className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-gradient-to-br from-teal-500 to-blue-600 flex items-center justify-center">
+                  <span className="text-xl font-bold text-white">{form.fullName[0]?.toUpperCase()}</span>
+                </div>
+              )}
+            </div>
+            <div>
+              <p className="font-bold" style={{ color: T.textPrimary }}>{form.fullName}</p>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded-full" style={{
+                backgroundColor: form.userType === 'company' ? '#DBEAFE' : '#D1FAE5',
+                color: form.userType === 'company' ? '#1E40AF' : '#065F46',
+              }}>
+                {form.userType === 'company' ? 'Entreprise' : 'Convoyeur'}
+              </span>
+            </div>
+          </div>
 
-  const getDisplayStepIndex = (actualIndex: number) => {
-    let displayIndex = actualIndex;
-    for (let i = 0; i < actualIndex; i++) {
-      if (shouldSkipStep(i)) displayIndex--;
-    }
-    return displayIndex;
-  };
+          <div className="h-px" style={{ backgroundColor: T.borderDefault }} />
 
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-3">
+              <svg className="w-4 h-4 flex-shrink-0" style={{ color: T.textTertiary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+              </svg>
+              <span className="text-sm" style={{ color: T.textPrimary }}>{form.email}</span>
+            </div>
+            {form.phone && (
+              <div className="flex items-center gap-3">
+                <svg className="w-4 h-4 flex-shrink-0" style={{ color: T.textTertiary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
+                </svg>
+                <span className="text-sm" style={{ color: T.textPrimary }}>{form.phone}</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Welcome gift */}
+        <div className="rounded-2xl p-4 mb-6 flex items-center gap-3" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
+          <span className="text-2xl">&#127873;</span>
+          <div>
+            <p className="text-sm font-bold" style={{ color: '#92400E' }}>Cadeau de bienvenue</p>
+            <p className="text-xs" style={{ color: '#B45309' }}>10 credits offerts pendant 30 jours</p>
+          </div>
+        </div>
+
+        {/* Info: profil facturation */}
+        <div className="rounded-2xl p-4 mb-6 flex items-start gap-3" style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+          <svg className="w-5 h-5 flex-shrink-0 mt-0.5" style={{ color: '#2563EB' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <p className="text-xs" style={{ color: '#1E40AF' }}>
+            Vous pourrez completer votre <strong>profil de facturation</strong> (SIRET, adresse, IBAN...)
+            depuis votre espace pour acceder au CRM et a la facturation.
+          </p>
+        </div>
+
+        {/* CGU checkbox */}
+        <label className="flex items-start gap-3 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={form.acceptedTerms}
+            onChange={e => setForm(p => ({ ...p, acceptedTerms: e.target.checked }))}
+            className="w-5 h-5 rounded mt-0.5 accent-teal-500"
+          />
+          <span className="text-sm" style={{ color: T.textSecondary }}>
+            J'accepte les{' '}
+            <Link to="/terms" target="_blank" className="underline font-semibold" style={{ color: T.primaryBlue }}>
+              conditions d'utilisation
+            </Link>{' '}
+            et la{' '}
+            <Link to="/privacy" target="_blank" className="underline font-semibold" style={{ color: T.primaryBlue }}>
+              politique de confidentialite
+            </Link>
+          </span>
+        </label>
+      </div>
+    </div>
+  );
+
+  /* ================================
+     MAIN RENDER
+     ================================ */
   return (
-    <Box sx={{ 
-      minHeight: '100vh', 
-      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-      py: { xs: 2, md: 6 },
-      px: 2
-    }}>
-      <Container maxWidth="md">
-        <Paper elevation={24} sx={{ 
-          p: { xs: 3, md: 5 }, 
-          borderRadius: 4,
-          background: 'rgba(255, 255, 255, 0.98)',
-          backdropFilter: 'blur(10px)',
-          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.37)'
-        }}>
-          {/* Header avec retour */}
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-            <IconButton 
-              onClick={() => navigate('/login')} 
-              edge="start"
-              sx={{ 
-                mr: 2,
-                background: 'rgba(102, 126, 234, 0.1)',
-                '&:hover': {
-                  background: 'rgba(102, 126, 234, 0.2)'
-                }
-              }}
-            >
-              <ArrowBack />
-            </IconButton>
-            <Box sx={{ flex: 1 }}>
-              <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-                Créer un compte
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Étape {getDisplayStepIndex(activeStep) + 1} sur {getDisplaySteps().length}
-              </Typography>
-            </Box>
-          </Box>
+    <div className="min-h-screen bg-gradient-to-br from-teal-600 via-blue-600 to-indigo-700 flex items-center justify-center p-4">
+      <div className="w-full max-w-lg bg-white/[0.98] backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden">
+        {/* Header */}
+        <div className="px-6 pt-6 pb-4 flex items-center gap-3">
+          {step > 0 ? (
+            <button onClick={handleBack} className="p-2 rounded-xl hover:bg-slate-100 transition">
+              <svg className="w-5 h-5" style={{ color: T.textSecondary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          ) : (
+            <button onClick={() => navigate('/login')} className="p-2 rounded-xl hover:bg-slate-100 transition">
+              <svg className="w-5 h-5" style={{ color: T.textSecondary }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+          <div className="flex-1">
+            <h1 className="text-lg font-bold" style={{ color: T.textPrimary }}>Creer un compte</h1>
+            <p className="text-xs" style={{ color: T.textSecondary }}>Etape {step + 1} sur {STEPS.length}</p>
+          </div>
+        </div>
 
-          <Stepper 
-            activeStep={getDisplayStepIndex(activeStep)} 
-            sx={{ 
-              mb: 5,
-              '& .MuiStepLabel-root .Mui-active': {
-                color: '#667eea',
-                fontWeight: 600
-              },
-              '& .MuiStepLabel-root .Mui-completed': {
-                color: '#764ba2',
-                fontWeight: 500
-              }
-            }}
-          >
-            {getDisplaySteps().map((label) => (
-              <Step key={label}>
-                <StepLabel>{label}</StepLabel>
-              </Step>
-            ))}
-          </Stepper>
+        {/* Progress bar */}
+        <div className="px-6 pb-4 flex gap-2">
+          {STEPS.map((s, i) => (
+            <div key={i} className="flex-1">
+              <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: T.borderDefault }}>
+                <div
+                  className="h-full rounded-full transition-all duration-500"
+                  style={{
+                    width: i < step ? '100%' : i === step ? '50%' : '0%',
+                    backgroundColor: i <= step ? s.color : T.borderDefault,
+                    opacity: i === step ? 0.6 : 1,
+                  }}
+                />
+              </div>
+              <p className="text-[10px] font-medium text-center mt-1.5" style={{ color: i <= step ? s.color : T.textTertiary }}>
+                {s.label}
+              </p>
+            </div>
+          ))}
+        </div>
 
+        {/* Error */}
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError('')}>
-            {error}
-          </Alert>
+          <div className="mx-6 mb-2 rounded-xl p-3 flex items-start gap-2" style={{ backgroundColor: '#FEE2E2', border: '1px solid #FECACA' }}>
+            <svg className="w-5 h-5 flex-shrink-0 mt-0.5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+            <p className="text-sm text-red-700">{error}</p>
+          </div>
         )}
 
-        {renderStepContent()}
+        {/* Step content */}
+        <div className="px-6 min-h-[360px]">
+          {step === 0 && renderStep0()}
+          {step === 1 && renderStep1()}
+          {step === 2 && renderStep2()}
+          {step === 3 && renderStep3()}
+        </div>
 
-        <Divider sx={{ my: 4 }} />
-
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
-            disabled={activeStep === 0}
-            onClick={handleBack}
-            startIcon={<ArrowBack />}
-            size="large"
-            sx={{ 
-              borderRadius: 2,
-              px: 4,
-              fontWeight: 600,
-              color: '#667eea',
-              borderColor: '#667eea',
-              '&:hover': {
-                borderColor: '#5568d3',
-                background: 'rgba(102, 126, 234, 0.05)'
-              }
-            }}
-          >
-            Retour
-          </Button>
-
-          <Box sx={{ flex: 1 }} />
-
-          {activeStep === steps.length - 1 ? (
-            <Button
-              variant="contained"
-              onClick={handleSubmit}
-              disabled={loading || !formData.acceptedTerms}
-              endIcon={loading ? <CircularProgress size={20} sx={{ color: 'white' }} /> : <CheckCircle />}
-              size="large"
-              sx={{ 
-                borderRadius: 2,
-                px: 4,
-                fontWeight: 600,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                boxShadow: '0 4px 15px 0 rgba(102, 126, 234, 0.4)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #5568d3 0%, #6a3e91 100%)',
-                  boxShadow: '0 6px 20px 0 rgba(102, 126, 234, 0.5)',
-                  transform: 'translateY(-2px)'
-                },
-                '&:disabled': {
-                  background: 'grey.300',
-                  boxShadow: 'none'
-                },
-                transition: 'all 0.3s ease'
-              }}
-            >
-              {loading ? 'Création en cours...' : 'Créer mon compte'}
-            </Button>
-          ) : (
-            <Button
-              variant="contained"
+        {/* Bottom button */}
+        {step > 0 && (
+          <div className="px-6 pb-6 pt-2">
+            <button
+              type="button"
               onClick={handleNext}
-              disabled={loading}
-              endIcon={<ArrowForward />}
-              size="large"
-              sx={{ 
-                borderRadius: 2,
-                px: 4,
-                fontWeight: 600,
-                background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                boxShadow: '0 4px 15px 0 rgba(102, 126, 234, 0.4)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, #5568d3 0%, #6a3e91 100%)',
-                  boxShadow: '0 6px 20px 0 rgba(102, 126, 234, 0.5)',
-                  transform: 'translateY(-2px)'
-                },
-                '&:disabled': {
-                  background: 'grey.300',
-                  boxShadow: 'none'
-                },
-                transition: 'all 0.3s ease'
+              disabled={loading || (step === 3 && !form.acceptedTerms)}
+              className="w-full py-3.5 rounded-xl font-bold text-sm text-white flex items-center justify-center gap-2 transition-all disabled:opacity-40"
+              style={{
+                backgroundColor: step === 3 ? T.accentGreen : T.primaryBlue,
+                boxShadow: `0 4px 14px ${step === 3 ? T.accentGreen : T.primaryBlue}40`,
               }}
             >
-              Continuer
-            </Button>
-          )}
-        </Box>
-      </Paper>
-    </Container>
-    </Box>
+              {loading ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  {step === 3 ? 'Creation en cours...' : 'Verification...'}
+                </>
+              ) : step === 3 ? (
+                <>
+                  <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                  Creer mon compte
+                </>
+              ) : (
+                <>
+                  Continuer
+                  <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </>
+              )}
+            </button>
+          </div>
+        )}
+
+        {/* Login link */}
+        {step === 0 && (
+          <div className="px-6 pb-6">
+            <p className="text-center text-sm" style={{ color: T.textSecondary }}>
+              Deja un compte ?{' '}
+              <Link to="/login" className="font-bold" style={{ color: T.primaryBlue }}>Se connecter</Link>
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

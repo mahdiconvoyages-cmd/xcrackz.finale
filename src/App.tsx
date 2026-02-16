@@ -8,6 +8,7 @@ import ToastContainer from './components/Toast';
 import AccessibilityZoom from './components/AccessibilityZoom';
 import PWAInstallPrompt from './components/PWAInstallPrompt';
 import CookieConsent from './components/CookieConsent';
+import BillingGate from './components/BillingGate';
 import { lazy, Suspense } from 'react';
 
 // Public pages (loaded eagerly for fast LCP)
@@ -81,6 +82,7 @@ const MissionDetail = lazyRetry(() => import('./pages/MissionDetail'));
 const ScannerHomePage = lazyRetry(() => import('./pages/ScannerHomePage'));
 const ProfessionalScannerPage = lazyRetry(() => import('./pages/ProfessionalScannerPage'));
 const MyDocuments = lazyRetry(() => import('./pages/MyDocuments'));
+const BillingProfile = lazyRetry(() => import('./pages/BillingProfile'));
 
 function AppContent() {
   return (
@@ -214,7 +216,9 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <Clients />
+                  <BillingGate>
+                    <Clients />
+                  </BillingGate>
                 </Layout>
               </ProtectedRoute>
             }
@@ -225,7 +229,9 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <CRM />
+                  <BillingGate>
+                    <CRM />
+                  </BillingGate>
                 </Layout>
               </ProtectedRoute>
             }
@@ -265,11 +271,24 @@ function AppContent() {
           />
 
           <Route
+            path="/billing-profile"
+            element={
+              <ProtectedRoute>
+                <Layout>
+                  <BillingProfile />
+                </Layout>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/billing"
             element={
               <ProtectedRoute>
                 <Layout>
-                  <Billing />
+                  <BillingGate>
+                    <Billing />
+                  </BillingGate>
                 </Layout>
               </ProtectedRoute>
             }
@@ -280,7 +299,9 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Layout>
-                  <QuoteGenerator />
+                  <BillingGate>
+                    <QuoteGenerator />
+                  </BillingGate>
                 </Layout>
               </ProtectedRoute>
             }
