@@ -31,6 +31,7 @@ export default defineConfig({
           'supabase-vendor': ['@supabase/supabase-js'],
           'map-vendor': ['leaflet', 'react-leaflet'],
           'pdf-vendor': ['jspdf', 'jspdf-autotable'],
+          'motion-vendor': ['framer-motion'],
         },
       },
       onwarn(warning, warn) {
