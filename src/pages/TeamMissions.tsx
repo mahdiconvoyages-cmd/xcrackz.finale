@@ -256,8 +256,8 @@ export default function TeamMissions() {
     <div className="min-h-screen" style={{ backgroundColor: T.lightBg }}>
       {/* ── Sticky AppBar (identique Flutter) ── */}
       <div className="sticky top-0 z-30 bg-white shadow-sm">
-        <div className="max-w-3xl mx-auto px-4 py-3 flex items-center justify-between">
-          <h1 className="text-lg font-bold" style={{ color: T.textPrimary }}>Mes Convoyages</h1>
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between">
+          <h1 className="text-lg lg:text-xl font-bold" style={{ color: T.textPrimary }}>Mes Convoyages</h1>
           <div className="flex items-center gap-2">
             <button onClick={() => setShowJoinModal(true)}
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition"
@@ -273,7 +273,7 @@ export default function TeamMissions() {
         </div>
 
         {/* ── 3 Tabs (identique Flutter) ── */}
-        <div className="max-w-3xl mx-auto px-4 pb-3">
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 pb-3">
           <div className="flex gap-2">
             {([
               { key: 'pending' as TabType, label: 'En attente', count: stats.pending, color: T.accentAmber, icon: Clock },
@@ -283,7 +283,7 @@ export default function TeamMissions() {
               const active = activeTab === tab.key;
               return (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                  className="flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all"
+                  className="flex-1 flex flex-col items-center gap-1.5 py-2.5 lg:py-3 rounded-xl text-xs lg:text-sm font-semibold transition-all"
                   style={active
                     ? { backgroundColor: `${tab.color}15`, color: tab.color, boxShadow: `0 0 0 1.5px ${tab.color}40` }
                     : { color: T.textTertiary }}>
@@ -305,7 +305,7 @@ export default function TeamMissions() {
       </div>
 
       {/* ── Content ── */}
-      <div className="max-w-3xl mx-auto px-4 py-4 space-y-3">
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 space-y-3 lg:space-y-4">
         {/* Join bar (identique Flutter) */}
         <div className="rounded-2xl p-3 flex items-center gap-3" style={{ backgroundColor: `${T.primaryBlue}08`, border: `1px solid ${T.primaryBlue}20` }}>
           <div className="p-2 rounded-xl" style={{ backgroundColor: `${T.primaryBlue}15` }}>
@@ -352,7 +352,7 @@ export default function TeamMissions() {
         </div>
 
         {/* ── Mission Cards (identique Flutter MissionTile) ── */}
-        <div className={viewMode === 'grid' ? 'grid grid-cols-1 lg:grid-cols-2 gap-3' : 'space-y-3'}>
+        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 lg:gap-4' : 'space-y-3 max-w-4xl'}>
           {filteredMissions.length === 0 ? (
             <div className="col-span-full flex flex-col items-center justify-center py-16 rounded-2xl bg-white" style={{ border: `1px solid ${T.borderDefault}` }}>
               <div className="p-4 rounded-2xl mb-4" style={{ backgroundColor: `${T.primaryTeal}10` }}>
@@ -561,7 +561,7 @@ export default function TeamMissions() {
         const sc = scfg(sm.status);
         return (
           <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => { setShowDetailsModal(false); setSelectedMission(null); }}>
-            <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
               {/* Header */}
               <div className="sticky top-0 z-10 bg-white border-b px-5 py-4 rounded-t-2xl" style={{ borderColor: T.borderDefault }}>
                 <div className="flex items-center gap-3">

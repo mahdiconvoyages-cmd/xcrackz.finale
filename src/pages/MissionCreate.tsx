@@ -282,7 +282,7 @@ export default function MissionCreate() {
      ═══════════════════════════════════ */
 
   const renderStep0 = () => (
-    <div className="space-y-5">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
       {/* Mandataire */}
       <SectionCard color={SEC.mandataire} icon={User} title="Mandataire">
         <Field label="Nom du mandataire" required color={SEC.mandataire}>
@@ -345,8 +345,7 @@ export default function MissionCreate() {
   );
 
   const renderStep1 = () => (
-    <div className="space-y-5">
-      {/* Lieu d'enlèvement */}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
       <SectionCard color={SEC.pickupLieu} icon={MapPin} title="Lieu d'enlèvement">
         <AddressAutocompleteField label="Adresse" value={formData.pickup_address} color={SEC.pickupLieu}
           onChange={v => setFormData(p => ({ ...p, pickup_address: v }))}
@@ -402,8 +401,8 @@ export default function MissionCreate() {
   );
 
   const renderStep2 = () => (
-    <div className="space-y-5">
-      {/* Lieu de livraison */}
+    <div className="space-y-5 lg:space-y-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
       <SectionCard color={SEC.deliveryLieu} icon={MapPin} title="Lieu de livraison">
         <AddressAutocompleteField label="Adresse" value={formData.delivery_address} color={SEC.deliveryLieu}
           onChange={v => setFormData(p => ({ ...p, delivery_address: v }))}
@@ -455,8 +454,10 @@ export default function MissionCreate() {
           </div>
         </Field>
       </SectionCard>
+      </div>
 
-      {/* Options */}
+      {/* Options — full width on desktop */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6">
       <SectionCard color={SEC.options} icon={FileText} title="Options">
         <Field label="Prix (€)" color={SEC.options}>
           <div className="relative">
@@ -472,8 +473,9 @@ export default function MissionCreate() {
             style={inputStyle} />
         </Field>
       </SectionCard>
+      </div>
 
-      {/* Restitution */}
+      {/* Restitution — full width */}
       <SectionCard color={SEC.restitution} icon={RefreshCw} title="Restitution">
         <label className="flex items-center justify-between cursor-pointer">
           <div>
@@ -490,7 +492,7 @@ export default function MissionCreate() {
         </label>
 
         {formData.has_restitution && (
-          <div className="space-y-5 pt-4" style={{ borderTop: `1px solid ${SEC.restitution}33` }}>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 lg:gap-6 pt-4" style={{ borderTop: `1px solid ${SEC.restitution}33` }}>
             {/* Véhicule restitution */}
             <div className="space-y-3">
               <div className="flex items-center gap-2 mb-2">
@@ -660,14 +662,14 @@ export default function MissionCreate() {
     <div className="min-h-screen" style={{ backgroundColor: T.lightBg }}>
       {/* ── Sticky AppBar (identique Flutter) ── */}
       <div className="sticky top-0 z-30 bg-white shadow-sm">
-        <div className="max-w-2xl mx-auto px-4 py-3 flex items-center gap-3">
+        <div className="max-w-5xl mx-auto px-4 lg:px-8 py-3 lg:py-4 flex items-center gap-3">
           <button onClick={() => navigate('/team-missions')} className="p-2 rounded-xl hover:bg-[#F8FAFC] transition">
             <X className="w-5 h-5" style={{ color: T.textSecondary }} />
           </button>
-          <h1 className="text-lg font-bold flex-1" style={{ color: T.textPrimary }}>Nouvelle mission</h1>
+          <h1 className="text-lg lg:text-xl font-bold flex-1" style={{ color: T.textPrimary }}>Nouvelle mission</h1>
         </div>
         {/* 3 barres de progression (identique Flutter) */}
-        <div className="max-w-2xl mx-auto px-4 pb-3 flex gap-2">
+        <div className="max-w-5xl mx-auto px-4 lg:px-8 pb-3 flex gap-2">
           {STEPS.map((s, i) => (
             <div key={i} className="flex-1">
               <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: T.borderDefault }}>
@@ -688,9 +690,9 @@ export default function MissionCreate() {
       </div>
 
       {/* ── Content ── */}
-      <div className="max-w-2xl mx-auto px-4 py-5 pb-40">
+      <div className="max-w-5xl mx-auto px-4 lg:px-8 py-5 lg:py-8 pb-40">
         {/* Crédits (identique Flutter banner) */}
-        <div className="rounded-2xl p-4 mb-5 flex items-center justify-between" style={{
+        <div className="rounded-2xl p-4 lg:p-5 mb-5 lg:mb-6 flex items-center justify-between" style={{
           backgroundColor: `${T.accentAmber}0D`,
           border: `1px solid ${T.accentAmber}33`,
         }}>
@@ -719,7 +721,7 @@ export default function MissionCreate() {
         )}
 
         <form onSubmit={handleSubmit}>
-          <div className="min-h-[500px]">
+          <div className="min-h-[500px] lg:min-h-[400px]">
             {currentStep === 0 && renderStep0()}
             {currentStep === 1 && renderStep1()}
             {currentStep === 2 && renderStep2()}
@@ -729,7 +731,7 @@ export default function MissionCreate() {
 
       {/* ── Bottom nav bar (identique Flutter) ── */}
       <div className="fixed bottom-0 left-0 right-0 bg-white border-t z-30" style={{ borderColor: T.borderDefault }}>
-        <div className="max-w-2xl mx-auto px-4 py-3 flex gap-3">
+        <div className="max-w-5xl mx-auto px-4 lg:px-8 py-3 lg:py-4 flex gap-3">
           {currentStep > 0 && (
             <button type="button" onClick={handlePrevious}
               className="flex-1 px-5 py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition hover:bg-[#F8FAFC]"
