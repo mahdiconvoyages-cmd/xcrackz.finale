@@ -7,6 +7,7 @@ import '../screens/onboarding/onboarding_screen.dart';
 import '../screens/sharing/public_sharing_screen.dart';
 import '../screens/debug/debug_tools_screen.dart';
 import '../screens/profile/profile_screen.dart';
+import '../screens/profile/billing_profile_screen.dart';
 import '../screens/login_screen.dart';
 
 /// Sidebar moderne avec design amélioré et icônes colorées
@@ -180,6 +181,19 @@ class AppDrawer extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const ProfileScreen()),
+              );
+            },
+          ),
+          _buildModernDrawerItem(
+            context,
+            icon: Icons.receipt_long_rounded,
+            iconColor: const Color(0xFF0066FF),
+            title: 'Profil Facturation',
+            onTap: () {
+              Navigator.pop(context);
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const BillingProfileScreen()),
               );
             },
           ),

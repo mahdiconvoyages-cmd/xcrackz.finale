@@ -16,6 +16,7 @@ import 'missions/missions_screen.dart';
 import 'missions/mission_create_screen_new.dart';
 import 'crm/crm_screen.dart';
 import 'scanned_documents/scanned_documents_screen_new.dart';
+import '../widgets/billing_gate.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -85,7 +86,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final List<Widget> _screens = [
     const DashboardScreen(),
     const MissionsScreen(),
-    const CRMScreen(),
+    const BillingGate(child: CRMScreen()),
     const ScannedDocumentsScreenNew(),
   ];
 
