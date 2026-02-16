@@ -52,7 +52,7 @@ export default function ToastContainer() {
   if (activeToasts.length === 0) return null;
 
   return (
-    <div className="fixed top-4 right-4 z-[9999] flex flex-col gap-3 max-w-md">
+    <div className="fixed top-4 left-4 right-4 sm:left-auto sm:right-4 z-[9999] flex flex-col gap-3 max-w-md">
       {activeToasts.map((toast) => (
         <ToastItem key={toast.id} toast={toast} onClose={() => removeToast(toast.id)} />
       ))}
@@ -101,7 +101,7 @@ function ToastItem({ toast, onClose }: { toast: Toast; onClose: () => void }) {
     <div
       className={`
         backdrop-blur-xl bg-gradient-to-r ${bg} border ${border}
-        rounded-2xl shadow-2xl p-4 min-w-[320px]
+        rounded-2xl shadow-2xl p-4 min-w-0 sm:min-w-[320px] w-full
         transform transition-all duration-300
         ${isExiting ? 'translate-x-[400px] opacity-0' : 'translate-x-0 opacity-100'}
         animate-slide-in-right

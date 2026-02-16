@@ -158,7 +158,7 @@ export default function Layout({ children }: LayoutProps) {
   const shouldShowSidebar = !forceHide && (sidebarPinned || sidebarHovered || sidebarOpen);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-teal-50 text-slate-900 flex relative overflow-x-hidden w-full max-w-[100vw]">
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-teal-50 text-slate-900 flex relative overflow-x-hidden w-full max-w-full">
       <FloatingParticles />
       
       {/* Overlay mobile pour fermer le menu */}
