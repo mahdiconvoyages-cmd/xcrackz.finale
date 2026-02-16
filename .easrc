@@ -1,0 +1,14 @@
+{
+  "cli": {
+    "version": ">= 5.2.0",
+    "requireCommit": false
+  },
+  "build": {
+    "preview": {
+      "cache": {
+        "disabled": false,
+        "key": "preview-cache"
+      }
+    }
+  }
+}

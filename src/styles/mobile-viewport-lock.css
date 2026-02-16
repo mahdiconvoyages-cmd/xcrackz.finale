@@ -1,0 +1,48 @@
+/* Design unifié Desktop/Mobile - Garde le même look partout */
+@media (max-width: 1023px) {
+  /* Empêche le texte de disparaître sur mobile */
+  * {
+    -webkit-text-size-adjust: 100% !important;
+    text-size-adjust: 100% !important;
+  }
+  
+  /* Force tous les textes cachés sur mobile à être visibles */
+  .hidden.sm\:block,
+  .hidden.sm\:flex,
+  .hidden.sm\:inline-block,
+  .hidden.md\:block,
+  .hidden.md\:flex,
+  .hidden.lg\:block,
+  .hidden.lg\:flex {
+    display: block !important;
+  }
+  
+  /* Force les grilles à garder leurs colonnes desktop */
+  .grid.grid-cols-1.md\:grid-cols-2,
+  .grid.grid-cols-1.md\:grid-cols-3,
+  .grid.grid-cols-1.md\:grid-cols-4,
+  .grid.grid-cols-2.md\:grid-cols-3.lg\:grid-cols-4 {
+    grid-template-columns: repeat(4, minmax(0, 1fr)) !important;
+  }
+  
+  /* Empêche la sidebar de changer sur mobile */
+  aside {
+    width: 16rem !important; /* w-64 */
+  }
+  
+  /* Le contenu principal garde sa marge */
+  main {
+    margin-left: 0 !important;
+  }
+  
+  /* Sur mobile, header prend toute la largeur disponible */
+  header {
+    margin-left: 0 !important;
+  }
+}
+
+/* Force le zoom initial correct sur mobile */
+@viewport {
+  width: device-width;
+  zoom: 1.0;
+}

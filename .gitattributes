@@ -1,0 +1,2 @@
+# Ensure EAS Build hooks are executable
+eas-hooks/*.sh text eol=lf

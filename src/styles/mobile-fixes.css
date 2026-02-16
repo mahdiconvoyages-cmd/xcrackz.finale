@@ -1,0 +1,269 @@
+/**
+ * Mobile Fixes - Corrections spécifiques pour l'affichage mobile
+ * Résout les problèmes d'affichage sur mobile
+ */
+
+/* Fix viewport pour mobile */
+@media (max-width: 768px) {
+  html {
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+  }
+
+  body {
+    overflow-x: hidden;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Fix pour les inputs sur iOS */
+  input,
+  textarea,
+  select {
+    font-size: 16px !important; /* Évite le zoom automatique sur iOS */
+    -webkit-appearance: none;
+    border-radius: 0;
+  }
+
+  /* Fix pour les boutons */
+  button {
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Fix pour les images qui débordent */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Fix pour les cartes qui débordent */
+  .card,
+  [class*="rounded"] {
+    max-width: 100%;
+  }
+
+  /* Fix pour les grids qui ne s'adaptent pas */
+  .grid {
+    grid-template-columns: 1fr !important;
+  }
+
+  /* Fix pour les flex qui ne wrappent pas */
+  .flex {
+    flex-wrap: wrap;
+  }
+
+  /* Fix pour les modals qui débordent */
+  .modal,
+  [role="dialog"] {
+    max-height: 90vh;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Fix pour les tableaux qui débordent */
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+
+  /* Réduire les paddings excessifs */
+  .container {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+  }
+
+  /* Fix pour les backdrop-blur sur mobile (performance) */
+  .backdrop-blur,
+  [class*="backdrop-blur"] {
+    backdrop-filter: none !important;
+    background-color: rgba(255, 255, 255, 0.95) !important;
+  }
+
+  /* Fix pour les shadows complexes (performance) */
+  .shadow-2xl,
+  .shadow-xl {
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1) !important;
+  }
+
+  /* Fix pour les transitions qui causent des saccades */
+  * {
+    -webkit-transform: translateZ(0);
+    transform: translateZ(0);
+  }
+
+  /* Fix pour les sticky headers */
+  .sticky,
+  [class*="sticky"] {
+    position: relative !important;
+  }
+
+  /* Fix pour les z-index qui se chevauchent */
+  .modal,
+  [role="dialog"] {
+    z-index: 9999 !important;
+  }
+
+  /* Fix pour les tooltips hors écran */
+  .tooltip,
+  [role="tooltip"] {
+    max-width: 90vw;
+  }
+
+  /* Fix pour les menus dropdown */
+  .dropdown-menu {
+    position: fixed !important;
+    max-height: 50vh;
+    overflow-y: auto;
+  }
+
+  /* Fix pour les formulaires trop larges */
+  form {
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  /* Fix pour les inspection pages */
+  .inspection-container {
+    padding: 0.5rem !important;
+  }
+
+  .inspection-step {
+    padding: 1rem !important;
+  }
+
+  /* Fix pour les grids de photos */
+  .photo-grid {
+    grid-template-columns: repeat(2, 1fr) !important;
+    gap: 0.5rem !important;
+  }
+
+  /* Fix pour les signatures canvas */
+  canvas {
+    max-width: 100% !important;
+    height: auto !important;
+  }
+
+  /* Fix pour les rapports qui ne s'affichent pas */
+  .report-card {
+    margin-bottom: 1rem;
+    padding: 1rem !important;
+  }
+
+  /* Fix pour les boutons trop petits */
+  button,
+  .btn {
+    min-height: 44px; /* iOS recommandé */
+    padding: 0.75rem 1.5rem !important;
+  }
+
+  /* Fix pour le texte trop petit */
+  p,
+  span,
+  div {
+    font-size: 14px !important;
+    line-height: 1.5 !important;
+  }
+
+  h1 {
+    font-size: 24px !important;
+  }
+
+  h2 {
+    font-size: 20px !important;
+  }
+
+  h3 {
+    font-size: 18px !important;
+  }
+
+  /* Fix pour les spacing excessifs */
+  .space-y-6 {
+    gap: 1rem !important;
+  }
+
+  .space-y-8 {
+    gap: 1.5rem !important;
+  }
+
+  /* Fix pour les TeamMissions cards */
+  .mission-card {
+    padding: 1rem !important;
+    margin-bottom: 1rem !important;
+  }
+
+  /* Fix pour les overlays qui masquent le contenu */
+  .overlay {
+    background-color: rgba(0, 0, 0, 0.5) !important;
+  }
+
+  /* Fix pour le Layout qui cache du contenu */
+  main {
+    padding-bottom: 80px !important; /* Pour le bottom navigation */
+  }
+
+  /* Fix pour les progress bars */
+  .progress-bar {
+    width: 100% !important;
+  }
+
+  /* Fix pour les leaflet maps */
+  .leaflet-container {
+    height: 300px !important;
+    max-height: 40vh !important;
+  }
+
+  /* Fix pour les absolute positioning qui débordent */
+  [class*="absolute"] {
+    position: relative !important;
+  }
+
+  /* Sauf pour les modals/dropdowns */
+  [role="dialog"] [class*="absolute"],
+  [role="menu"] [class*="absolute"] {
+    position: absolute !important;
+  }
+}
+
+/* Fix spécifique iOS */
+@supports (-webkit-touch-callout: none) {
+  body {
+    /* Fix pour le scroll bounce sur iOS */
+    position: fixed;
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  #root {
+    overflow-y: auto;
+    height: 100vh;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Fix pour le safe area sur iPhone */
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-area-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* Fix pour les très petits écrans */
+@media (max-width: 375px) {
+  body {
+    font-size: 13px;
+  }
+
+  button,
+  .btn {
+    font-size: 13px !important;
+  }
+
+  .container {
+    padding-left: 0.75rem !important;
+    padding-right: 0.75rem !important;
+  }
+}

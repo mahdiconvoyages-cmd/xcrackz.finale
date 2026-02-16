@@ -1,0 +1,1 @@
+c:\Users\mahdi\Desktop\avant.png c:\Users\mahdi\Desktop\arriere.png c:\Users\mahdi\Desktop\lateraldroit avant.png c:\Users\mahdi\Desktop\lateral droit arriere.png c:\Users\mahdi\Desktop\laterale gauche arriere.png c:\Users\mahdi\Desktop\lateral gauche avant.png

@@ -1,0 +1,133 @@
+workflows:
+  ios-workflow:
+    name: iOS Build (App Store)
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+      groups:
+        - appstore_credentials
+      vars:
+        BUNDLE_ID: "com.checksfleet.app"
+        APP_STORE_APPLE_ID: "mahdi.convoyages@gmail.com"
+        APPLE_TEAM_ID: "P35Y6M742T"
+    integrations:
+      app_store_connect: ChecksFleet
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          cd mobile_flutter/finality_app
+          flutter pub get
+      
+      - name: Create .env file
+        script: |
+          cd mobile_flutter/finality_app
+          cat > .env << EOF
+          # Supabase Configuration
+          SUPABASE_URL=https://bfrkthzovwpjrvqktdjn.supabase.co
+          SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmcmt0aHpvdndwanJ2cWt0ZGpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5NzgwNzgsImV4cCI6MjA3NTU1NDA3OH0.ml0TkLYk53U6CqP_iCc8XkZMusFCSI-nYOS0WyV43Nc
+          EOF
+          echo "✅ .env file created"
+
+      - name: Set up code signing
+        script: |
+          app-store-connect fetch-signing-files $BUNDLE_ID \
+            --type IOS_APP_STORE \
+            --create
+          keychain initialize
+          app-store-connect certificates list \
+            --type IOS_DISTRIBUTION \
+            --certificate-key=@env:APP_STORE_CONNECT_PRIVATE_KEY \
+            --issuer-id=$APP_STORE_CONNECT_ISSUER_ID \
+            --key-id=$APP_STORE_CONNECT_KEY_IDENTIFIER || \
+          app-store-connect certificates create \
+            --type IOS_DISTRIBUTION \
+            --certificate-key=@env:APP_STORE_CONNECT_PRIVATE_KEY \
+            --issuer-id=$APP_STORE_CONNECT_ISSUER_ID \
+            --key-id=$APP_STORE_CONNECT_KEY_IDENTIFIER
+          keychain add-certificates
+          xcode-project use-profiles
+
+      - name: Build iOS IPA
+        script: |
+          cd mobile_flutter/finality_app
+          flutter build ipa --release \
+            --build-name=3.6.0 \
+            --build-number=$PROJECT_BUILD_NUMBER \
+            --export-options-plist=/Users/builder/export_options.plist
+          
+          # Copy IPA to root for artifacts
+          cp build/ios/ipa/*.ipa $CM_BUILD_DIR/ChecksFleet.ipa
+          echo "✅ IPA created"
+          ls -lh $CM_BUILD_DIR/*.ipa
+
+    artifacts:
+      - ChecksFleet.ipa
+      - mobile_flutter/finality_app/build/ios/ipa/*.ipa
+    
+    publishing:
+      app_store_connect:
+        apple_id: mahdi.convoyages@gmail.com
+        password: $APP_SPECIFIC_PASSWORD
+        
+  ios-unsigned-workflow:
+    name: iOS Build (Unsigned - Test)
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      xcode: latest
+      cocoapods: default
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          cd mobile_flutter/finality_app
+          flutter pub get
+      
+      - name: Create .env file
+        script: |
+          cd mobile_flutter/finality_app
+          cat > .env << EOF
+          # Supabase Configuration
+          SUPABASE_URL=https://bfrkthzovwpjrvqktdjn.supabase.co
+          SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmcmt0aHpvdndwanJ2cWt0ZGpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5NzgwNzgsImV4cCI6MjA3NTU1NDA3OH0.ml0TkLYk53U6CqP_iCc8XkZMusFCSI-nYOS0WyV43Nc
+          EOF
+          echo "✅ .env file created"
+      
+      - name: Build iOS (unsigned)
+        script: |
+          cd mobile_flutter/finality_app
+          flutter build ios --release --no-codesign
+      
+      - name: Create unsigned IPA
+        script: |
+          cd mobile_flutter/finality_app
+          mkdir -p Payload
+          cp -r build/ios/iphoneos/Runner.app Payload/
+          zip -r $CM_BUILD_DIR/ChecksFleet-unsigned.ipa Payload
+          echo "✅ Unsigned IPA created"
+
+    artifacts:
+      - ChecksFleet-unsigned.ipa
+      
+  android-workflow:
+    name: Android Build
+    max_build_duration: 60
+    instance_type: linux_x2
+    environment:
+      flutter: stable
+    scripts:
+      - name: Get Flutter packages
+        script: |
+          cd mobile_flutter/finality_app
+          flutter pub get
+      
+      - name: Build Android APK
+        script: |
+          cd mobile_flutter/finality_app
+          flutter build apk --release
+    
+    artifacts:
+      - mobile_flutter/finality_app/build/app/outputs/flutter-apk/app-release.apk

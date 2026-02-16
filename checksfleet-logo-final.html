@@ -1,0 +1,570 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChecksFleet - Logos Modernes avec Texte Complet</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            padding: 40px 20px;
+        }
+        .container { max-width: 1600px; margin: 0 auto; }
+        h1 {
+            color: white;
+            text-align: center;
+            font-size: 3.5rem;
+            margin-bottom: 15px;
+            text-shadow: 0 4px 30px rgba(124,58,237,0.5);
+            font-weight: 900;
+        }
+        .subtitle {
+            color: rgba(255,255,255,0.8);
+            text-align: center;
+            font-size: 1.3rem;
+            margin-bottom: 60px;
+        }
+        .logo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 35px;
+            margin-bottom: 50px;
+        }
+        .logo-card {
+            background: white;
+            border-radius: 28px;
+            padding: 45px;
+            box-shadow: 0 25px 80px rgba(0,0,0,0.4);
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        .logo-card:hover {
+            transform: translateY(-12px) scale(1.02);
+            box-shadow: 0 35px 100px rgba(124,58,237,0.3);
+        }
+        .logo-card h3 {
+            color: #7c3aed;
+            margin-bottom: 25px;
+            font-size: 1.6rem;
+            text-align: center;
+            font-weight: 800;
+        }
+        .logo-display {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            padding: 50px;
+            border-radius: 20px;
+            margin-bottom: 25px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 350px;
+            position: relative;
+            overflow: hidden;
+        }
+        .logo-display::before {
+            content: '';
+            position: absolute;
+            width: 300%;
+            height: 300%;
+            background: radial-gradient(circle at center, rgba(124,58,237,0.08) 0%, transparent 60%);
+            animation: pulse 8s ease-in-out infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.1); opacity: 0.8; }
+        }
+        canvas {
+            position: relative;
+            z-index: 1;
+            max-width: 100%;
+            height: auto;
+            filter: drop-shadow(0 15px 40px rgba(0,0,0,0.2));
+        }
+        .btn-group {
+            display: flex;
+            gap: 12px;
+        }
+        button {
+            flex: 1;
+            background: linear-gradient(135deg, #7c3aed 0%, #5b21b6 100%);
+            color: white;
+            border: none;
+            padding: 16px 28px;
+            border-radius: 14px;
+            font-size: 1.05rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 4px 15px rgba(124,58,237,0.3);
+        }
+        button:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 8px 30px rgba(124,58,237,0.5);
+            background: linear-gradient(135deg, #8b5cf6 0%, #6d28d9 100%);
+        }
+        .features {
+            background: white;
+            border-radius: 28px;
+            padding: 45px;
+            margin-top: 40px;
+        }
+        .features h2 {
+            color: #1e293b;
+            font-size: 2rem;
+            margin-bottom: 30px;
+            font-weight: 900;
+        }
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+        }
+        .feature-item {
+            background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+            padding: 25px;
+            border-radius: 16px;
+            border-left: 5px solid #7c3aed;
+            transition: transform 0.3s;
+        }
+        .feature-item:hover {
+            transform: translateX(5px);
+        }
+        .feature-item h4 {
+            color: #7c3aed;
+            margin-bottom: 8px;
+            font-size: 1.1rem;
+        }
+        .feature-item p {
+            color: #64748b;
+            line-height: 1.6;
+            font-size: 0.95rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🚀 ChecksFleet</h1>
+        <p class="subtitle">Logos Professionnels Modernes • Prêts à Utiliser</p>
+        
+        <div class="logo-grid">
+            <!-- Logo 1: Moderne Horizontal -->
+            <div class="logo-card">
+                <h3>Style 1 : Horizontal Moderne</h3>
+                <div class="logo-display">
+                    <canvas id="horizontal-canvas" width="800" height="400"></canvas>
+                </div>
+                <div class="btn-group">
+                    <button onclick="downloadPNG('horizontal', 1024)">📥 Télécharger PNG</button>
+                </div>
+            </div>
+
+            <!-- Logo 2: Badge Carré -->
+            <div class="logo-card">
+                <h3>Style 2 : Badge Carré Pro</h3>
+                <div class="logo-display">
+                    <canvas id="square-canvas" width="600" height="600"></canvas>
+                </div>
+                <div class="btn-group">
+                    <button onclick="downloadPNG('square', 1024)">📥 Télécharger PNG</button>
+                </div>
+            </div>
+
+            <!-- Logo 3: Minimaliste Élégant -->
+            <div class="logo-card">
+                <h3>Style 3 : Minimaliste Élégant</h3>
+                <div class="logo-display">
+                    <canvas id="minimal-canvas" width="700" height="500"></canvas>
+                </div>
+                <div class="btn-group">
+                    <button onclick="downloadPNG('minimal', 1024)">📥 Télécharger PNG</button>
+                </div>
+            </div>
+
+            <!-- Logo 4: Gradient 3D -->
+            <div class="logo-card">
+                <h3>Style 4 : Gradient 3D Tech</h3>
+                <div class="logo-display">
+                    <canvas id="gradient-canvas" width="700" height="500"></canvas>
+                </div>
+                <div class="btn-group">
+                    <button onclick="downloadPNG('gradient', 1024)">📥 Télécharger PNG</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="features">
+            <h2>✨ Caractéristiques des Logos</h2>
+            <div class="feature-grid">
+                <div class="feature-item">
+                    <h4>📱 Optimisé Mobile</h4>
+                    <p>Parfaitement lisible sur tous les écrans, du 16px au 4K</p>
+                </div>
+                <div class="feature-item">
+                    <h4>🎨 Design Moderne</h4>
+                    <p>Tendances 2026 : gradient, minimalisme, typo forte</p>
+                </div>
+                <div class="feature-item">
+                    <h4>⚡ Haute Qualité</h4>
+                    <p>Export PNG haute résolution, prêt pour stores</p>
+                </div>
+                <div class="feature-item">
+                    <h4>🎯 Professionnel</h4>
+                    <p>Design crédible pour votre application B2B</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Style 1: Horizontal Moderne (icône + texte côte à côte)
+        function drawHorizontalLogo(canvas) {
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            // Background transparent ou blanc
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, w, h);
+
+            // Icône moderne à gauche (hexagone avec check)
+            const iconX = w * 0.15;
+            const iconY = h * 0.5;
+            const iconSize = h * 0.35;
+
+            // Gradient pour l'icône
+            const gradient = ctx.createLinearGradient(iconX - iconSize, iconY - iconSize, iconX + iconSize, iconY + iconSize);
+            gradient.addColorStop(0, '#7c3aed');
+            gradient.addColorStop(1, '#5b21b6');
+
+            // Hexagone
+            ctx.fillStyle = gradient;
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (Math.PI / 3) * i - Math.PI / 2;
+                const x = iconX + iconSize * Math.cos(angle);
+                const y = iconY + iconSize * Math.sin(angle);
+                if (i === 0) ctx.moveTo(x, y);
+                else ctx.lineTo(x, y);
+            }
+            ctx.closePath();
+            ctx.fill();
+
+            // Check mark vert
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = iconSize * 0.25;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(iconX - iconSize * 0.35, iconY);
+            ctx.lineTo(iconX - iconSize * 0.05, iconY + iconSize * 0.3);
+            ctx.lineTo(iconX + iconSize * 0.4, iconY - iconSize * 0.35);
+            ctx.stroke();
+
+            // Texte "ChecksFleet" moderne
+            ctx.fillStyle = '#1e293b';
+            ctx.font = `900 ${h * 0.35}px -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif`;
+            ctx.textAlign = 'left';
+            ctx.textBaseline = 'middle';
+            ctx.letterSpacing = '-2px';
+            ctx.fillText('ChecksFleet', w * 0.32, h * 0.5);
+
+            // Sous-titre
+            ctx.fillStyle = '#64748b';
+            ctx.font = `600 ${h * 0.12}px -apple-system, sans-serif`;
+            ctx.fillText('Convoyage Intelligent', w * 0.32, h * 0.72);
+        }
+
+        // Style 2: Badge Carré Pro
+        function drawSquareLogo(canvas) {
+            const ctx = canvas.getContext('2d');
+            const size = canvas.width;
+            ctx.clearRect(0, 0, size, size);
+
+            // Gradient background
+            const bgGrad = ctx.createLinearGradient(0, 0, size, size);
+            bgGrad.addColorStop(0, '#7c3aed');
+            bgGrad.addColorStop(0.5, '#5b21b6');
+            bgGrad.addColorStop(1, '#1e3a8a');
+            
+            ctx.fillStyle = bgGrad;
+            roundRect(ctx, 0, 0, size, size, size * 0.12);
+            ctx.fill();
+
+            // Icône en haut (camion stylisé minimaliste)
+            const iconY = size * 0.28;
+            const iconSize = size * 0.12;
+            
+            // Forme camion ultra simple
+            ctx.fillStyle = 'white';
+            ctx.fillRect(size * 0.35, iconY, size * 0.2, iconSize);
+            ctx.fillRect(size * 0.55, iconY + iconSize * 0.3, size * 0.1, iconSize * 0.7);
+            
+            // Roues
+            ctx.beginPath();
+            ctx.arc(size * 0.42, iconY + iconSize * 1.3, size * 0.03, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.beginPath();
+            ctx.arc(size * 0.58, iconY + iconSize * 1.3, size * 0.03, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Check vert au-dessus
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = size * 0.03;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(size * 0.38, iconY - size * 0.02);
+            ctx.lineTo(size * 0.45, iconY + size * 0.04);
+            ctx.lineTo(size * 0.62, iconY - size * 0.08);
+            ctx.stroke();
+
+            // Texte "ChecksFleet" centré
+            ctx.fillStyle = 'white';
+            ctx.font = `900 ${size * 0.16}px -apple-system, BlinkMacSystemFont, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('ChecksFleet', size * 0.5, size * 0.62);
+
+            // Ligne décorative
+            ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+            ctx.lineWidth = size * 0.003;
+            ctx.beginPath();
+            ctx.moveTo(size * 0.25, size * 0.7);
+            ctx.lineTo(size * 0.75, size * 0.7);
+            ctx.stroke();
+
+            // Sous-titre
+            ctx.fillStyle = 'rgba(255,255,255,0.9)';
+            ctx.font = `600 ${size * 0.065}px -apple-system, sans-serif`;
+            ctx.fillText('Gestion de Convoyage', size * 0.5, size * 0.78);
+        }
+
+        // Style 3: Minimaliste Élégant
+        function drawMinimalLogo(canvas) {
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            ctx.fillStyle = 'white';
+            ctx.fillRect(0, 0, w, h);
+
+            // Icône minimaliste (cercle avec check)
+            const cx = w * 0.5;
+            const cy = h * 0.32;
+            const r = h * 0.15;
+
+            // Cercle gradient
+            const circGrad = ctx.createLinearGradient(cx - r, cy - r, cx + r, cy + r);
+            circGrad.addColorStop(0, '#7c3aed');
+            circGrad.addColorStop(1, '#1e3a8a');
+            
+            ctx.fillStyle = circGrad;
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, 0, Math.PI * 2);
+            ctx.fill();
+
+            // Check blanc épais
+            ctx.strokeStyle = 'white';
+            ctx.lineWidth = r * 0.3;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.beginPath();
+            ctx.moveTo(cx - r * 0.4, cy);
+            ctx.lineTo(cx - r * 0.1, cy + r * 0.3);
+            ctx.lineTo(cx + r * 0.45, cy - r * 0.35);
+            ctx.stroke();
+
+            // Texte "ChecksFleet" élégant
+            ctx.fillStyle = '#1e293b';
+            ctx.font = `800 ${h * 0.24}px -apple-system, BlinkMacSystemFont, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.letterSpacing = '-1px';
+            ctx.fillText('ChecksFleet', cx, h * 0.62);
+
+            // Tagline élégant
+            ctx.fillStyle = '#64748b';
+            ctx.font = `500 ${h * 0.09}px -apple-system, sans-serif`;
+            ctx.fillText('Transport • Tracking • Trust', cx, h * 0.76);
+        }
+
+        // Style 4: Gradient 3D Tech
+        function drawGradientLogo(canvas) {
+            const ctx = canvas.getContext('2d');
+            const w = canvas.width;
+            const h = canvas.height;
+            ctx.clearRect(0, 0, w, h);
+
+            // Background dégradé subtil
+            const bgGrad = ctx.createLinearGradient(0, 0, w, h);
+            bgGrad.addColorStop(0, '#f8fafc');
+            bgGrad.addColorStop(1, '#e2e8f0');
+            ctx.fillStyle = bgGrad;
+            ctx.fillRect(0, 0, w, h);
+
+            // Forme 3D abstraite (cubes empilés style blockchain)
+            const boxSize = h * 0.08;
+            const startX = w * 0.5 - boxSize * 1.5;
+            const startY = h * 0.25;
+
+            // Premier cube (violet)
+            drawIsometricBox(ctx, startX, startY, boxSize, '#7c3aed');
+            // Deuxième cube (bleu)
+            drawIsometricBox(ctx, startX + boxSize, startY - boxSize * 0.5, boxSize, '#5b21b6');
+            // Troisième cube (violet foncé)
+            drawIsometricBox(ctx, startX + boxSize * 2, startY, boxSize, '#1e3a8a');
+
+            // Check vert moderne
+            const checkX = startX + boxSize * 2.8;
+            const checkY = startY - boxSize * 0.2;
+            ctx.strokeStyle = '#10b981';
+            ctx.lineWidth = boxSize * 0.35;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(checkX, checkY);
+            ctx.lineTo(checkX + boxSize * 0.4, checkY + boxSize * 0.4);
+            ctx.lineTo(checkX + boxSize * 1.2, checkY - boxSize * 0.6);
+            ctx.stroke();
+
+            // Texte avec gradient
+            const textGrad = ctx.createLinearGradient(0, h * 0.5, 0, h * 0.7);
+            textGrad.addColorStop(0, '#1e293b');
+            textGrad.addColorStop(1, '#475569');
+            
+            ctx.fillStyle = textGrad;
+            ctx.font = `900 ${h * 0.28}px -apple-system, BlinkMacSystemFont, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('ChecksFleet', w * 0.5, h * 0.65);
+
+            // Effet ombre texte
+            ctx.fillStyle = 'rgba(124,58,237,0.15)';
+            ctx.fillText('ChecksFleet', w * 0.5 + 3, h * 0.65 + 3);
+
+            // Sous-titre tech
+            ctx.fillStyle = '#7c3aed';
+            ctx.font = `700 ${h * 0.11}px -apple-system, sans-serif`;
+            ctx.fillText('SMART LOGISTICS', w * 0.5, h * 0.82);
+        }
+
+        // Helper: Dessiner cube isométrique
+        function drawIsometricBox(ctx, x, y, size, color) {
+            ctx.save();
+            
+            // Face avant
+            ctx.fillStyle = color;
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + size, y);
+            ctx.lineTo(x + size, y + size);
+            ctx.lineTo(x, y + size);
+            ctx.closePath();
+            ctx.fill();
+
+            // Face droite (plus claire)
+            ctx.fillStyle = lightenColor(color, 20);
+            ctx.beginPath();
+            ctx.moveTo(x + size, y);
+            ctx.lineTo(x + size * 1.5, y - size * 0.5);
+            ctx.lineTo(x + size * 1.5, y + size * 0.5);
+            ctx.lineTo(x + size, y + size);
+            ctx.closePath();
+            ctx.fill();
+
+            // Face dessus (encore plus claire)
+            ctx.fillStyle = lightenColor(color, 40);
+            ctx.beginPath();
+            ctx.moveTo(x, y);
+            ctx.lineTo(x + size * 0.5, y - size * 0.5);
+            ctx.lineTo(x + size * 1.5, y - size * 0.5);
+            ctx.lineTo(x + size, y);
+            ctx.closePath();
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        // Helper: Éclaircir couleur
+        function lightenColor(color, percent) {
+            const num = parseInt(color.replace('#', ''), 16);
+            const amt = Math.round(2.55 * percent);
+            const R = (num >> 16) + amt;
+            const G = (num >> 8 & 0x00FF) + amt;
+            const B = (num & 0x0000FF) + amt;
+            return '#' + (0x1000000 + (R < 255 ? R < 1 ? 0 : R : 255) * 0x10000 +
+                (G < 255 ? G < 1 ? 0 : G : 255) * 0x100 +
+                (B < 255 ? B < 1 ? 0 : B : 255))
+                .toString(16).slice(1);
+        }
+
+        // Helper: Rounded Rectangle
+        function roundRect(ctx, x, y, width, height, radius) {
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + width - radius, y);
+            ctx.arcTo(x + width, y, x + width, y + radius, radius);
+            ctx.lineTo(x + width, y + height - radius);
+            ctx.arcTo(x + width, y + height, x + width - radius, y + height, radius);
+            ctx.lineTo(x + radius, y + height);
+            ctx.arcTo(x, y + height, x, y + height - radius, radius);
+            ctx.lineTo(x, y + radius);
+            ctx.arcTo(x, y, x + radius, y, radius);
+            ctx.closePath();
+        }
+
+        // Function de téléchargement PNG
+        function downloadPNG(type, targetSize) {
+            let sourceCanvas;
+            let filename = `checksfleet-${type}-logo.png`;
+
+            switch(type) {
+                case 'horizontal': sourceCanvas = document.getElementById('horizontal-canvas'); break;
+                case 'square': sourceCanvas = document.getElementById('square-canvas'); break;
+                case 'minimal': sourceCanvas = document.getElementById('minimal-canvas'); break;
+                case 'gradient': sourceCanvas = document.getElementById('gradient-canvas'); break;
+            }
+
+            // Créer canvas haute résolution
+            const canvas = document.createElement('canvas');
+            const aspectRatio = sourceCanvas.width / sourceCanvas.height;
+            
+            if (type === 'square') {
+                canvas.width = targetSize;
+                canvas.height = targetSize;
+            } else {
+                canvas.width = targetSize;
+                canvas.height = targetSize / aspectRatio;
+            }
+
+            // Redessiner en haute qualité
+            const ctx = canvas.getContext('2d');
+            ctx.imageSmoothingEnabled = true;
+            ctx.imageSmoothingQuality = 'high';
+            
+            // Copier le contenu
+            ctx.drawImage(sourceCanvas, 0, 0, canvas.width, canvas.height);
+
+            // Télécharger
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = filename;
+                a.click();
+                URL.revokeObjectURL(url);
+            }, 'image/png', 1.0);
+        }
+
+        // Initialisation
+        window.onload = () => {
+            drawHorizontalLogo(document.getElementById('horizontal-canvas'));
+            drawSquareLogo(document.getElementById('square-canvas'));
+            drawMinimalLogo(document.getElementById('minimal-canvas'));
+            drawGradientLogo(document.getElementById('gradient-canvas'));
+        };
+    </script>
+</body>
+</html>

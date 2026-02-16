@@ -1,0 +1,96 @@
+/**
+ * Unified Theme - Optimisation responsive avec cohérence visuelle
+ * Réduit les différences entre mobile et desktop
+ */
+
+/* Empêche le zoom automatique iOS sur les inputs */
+input,
+textarea,
+select {
+  font-size: 16px !important;
+}
+
+/* Assure un rendu cohérent */
+* {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Scroll fluide */
+html {
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Fix Safari iOS */
+@supports (-webkit-touch-callout: none) {
+  .min-h-screen {
+    min-height: -webkit-fill-available;
+  }
+}
+
+/* ===== OPTIMISATIONS RESPONSIVE COHÉRENTES ===== */
+
+/* Force les textes à rester lisibles mais similaires */
+@media (max-width: 640px) {
+  /* Réduit l'écart de taille des titres */
+  h1 { font-size: clamp(1.5rem, 5vw, 2.5rem); }
+  h2 { font-size: clamp(1.25rem, 4vw, 2rem); }
+  h3 { font-size: clamp(1.1rem, 3vw, 1.75rem); }
+}
+
+/* Tablettes - pas de forçage de grilles */
+
+/* ===== COHÉRENCE DES COULEURS ===== */
+
+/* Assure que les gradients sont identiques partout */
+.bg-gradient-to-r,
+.bg-gradient-to-br,
+.bg-gradient-to-l {
+  background-attachment: scroll;
+  -webkit-background-clip: border-box;
+  background-clip: border-box;
+}
+
+/* Les ombres utilisent les classes Tailwind standard */
+
+/* ===== OPTIMISATION CARTES ===== */
+
+/* Les border-radius utilisent les classes Tailwind standard */
+
+/* ===== TYPOGRAPHIE UNIFIÉE ===== */
+
+/* Force une échelle typographique cohérente */
+body {
+  font-size: clamp(14px, 2vw, 16px);
+  line-height: 1.6;
+}
+
+/* Les tailles de texte dans les cartes utilisent les classes Tailwind */
+
+/* ===== PERFORMANCE MOBILE ===== */
+
+/* Rendu mobile standard */
+
+/* Optimise les animations */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ===== TOUCHES FINALES ===== */
+
+/* Assure que les images gardent leurs proportions */
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Conteneurs responsive via Tailwind, pas de forçage global */

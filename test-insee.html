@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test API INSEE</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #0ea5e9;
+            margin-bottom: 30px;
+        }
+        .test-group {
+            margin-bottom: 30px;
+        }
+        button {
+            background: #0ea5e9;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+        }
+        button:hover {
+            background: #0284c7;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            font-family: monospace;
+            white-space: pre-wrap;
+            max-height: 500px;
+            overflow-y: auto;
+        }
+        .success {
+            background: #d1fae5;
+            border: 2px solid #10b981;
+        }
+        .error {
+            background: #fee2e2;
+            border: 2px solid #ef4444;
+        }
+        input {
+            padding: 12px;
+            border: 2px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 16px;
+            width: 300px;
+        }
+        .siret-list {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .siret-btn {
+            background: #64748b;
+            font-size: 14px;
+            padding: 8px 12px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Test API INSEE - SIRET</h1>
+        
+        <div class="test-group">
+            <h3>Test Manuel</h3>
+            <input type="text" id="siretInput" placeholder="Entrez un SIRET (14 chiffres)" maxlength="17">
+            <button onclick="testCustomSiret()">🔍 Tester</button>
+        </div>
+
+        <div class="test-group">
+            <h3>Tests Rapides</h3>
+            <div class="siret-list">
+                <button class="siret-btn" onclick="testSiret('55208673700039')">Google France</button>
+                <button class="siret-btn" onclick="testSiret('88091431100019')">La Poste</button>
+                <button class="siret-btn" onclick="testSiret('55200155800027')">Microsoft</button>
+                <button class="siret-btn" onclick="testSiret('87925905400018')">SNCF</button>
+                <button class="siret-btn" onclick="testSiret('53080213200025')">Amazon</button>
+                <button class="siret-btn" onclick="testSiret('88275018900010')">EDF</button>
+            </div>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function testCustomSiret() {
+            const siret = document.getElementById('siretInput').value.replace(/\s/g, '');
+            if (siret.length !== 14) {
+                showResult('❌ SIRET invalide (doit contenir 14 chiffres)', 'error');
+                return;
+            }
+            testSiret(siret);
+        }
+
+        async function testSiret(siret) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '⏳ Recherche en cours...';
+            resultDiv.className = '';
+
+            try {
+                console.log('🔍 Test SIRET:', siret);
+                
+                // Test API entreprise.data.gouv.fr
+                const url = `https://entreprise.data.gouv.fr/api/sirene/v3/etablissements/${siret}`;
+                console.log('📡 URL:', url);
+                
+                const response = await fetch(url, {
+                    headers: {
+                        'Accept': 'application/json'
+                    }
+                });
+
+                console.log('📥 Response status:', response.status);
+
+                if (!response.ok) {
+                    if (response.status === 404) {
+                        showResult(`❌ SIRET ${siret} non trouvé dans la base INSEE (404)`, 'error');
+                    } else {
+                        showResult(`❌ Erreur API: ${response.status} ${response.statusText}`, 'error');
+                    }
+                    return;
+                }
+
+                const data = await response.json();
+                console.log('📦 Data reçue:', data);
+
+                // Afficher les données brutes
+                const etablissement = data.etablissement;
+                
+                if (!etablissement) {
+                    showResult('❌ Pas de données établissement dans la réponse', 'error');
+                    return;
+                }
+
+                const result = {
+                    '✅ SIRET trouvé': siret,
+                    'SIREN': etablissement.siren,
+                    'Dénomination': etablissement.unite_legale?.denomination || 
+                                   etablissement.unite_legale?.denomination_usuelle ||
+                                   'Non disponible',
+                    'Enseigne 1': etablissement.enseigne_1 || 'N/A',
+                    'Enseigne 2': etablissement.enseigne_2 || 'N/A',
+                    'Enseigne 3': etablissement.enseigne_3 || 'N/A',
+                    'Adresse': {
+                        'Numéro': etablissement.adresse?.numero_voie || '',
+                        'Type voie': etablissement.adresse?.type_voie || '',
+                        'Libellé voie': etablissement.adresse?.libelle_voie || '',
+                        'Code postal': etablissement.adresse?.code_postal || '',
+                        'Commune': etablissement.adresse?.libelle_commune || ''
+                    },
+                    'Activité principale': etablissement.activite_principale || 'N/A',
+                    'Date création': etablissement.date_creation || 'N/A'
+                };
+
+                // Formater l'adresse complète
+                const adresseComplete = [
+                    etablissement.adresse?.numero_voie,
+                    etablissement.adresse?.type_voie,
+                    etablissement.adresse?.libelle_voie,
+                    etablissement.adresse?.code_postal,
+                    etablissement.adresse?.libelle_commune
+                ].filter(Boolean).join(' ');
+
+                result['Adresse formatée'] = adresseComplete || 'N/A';
+
+                showResult(JSON.stringify(result, null, 2), 'success');
+
+            } catch (error) {
+                console.error('❌ Erreur:', error);
+                showResult(`❌ Erreur: ${error.message}\n\n${error.stack}`, 'error');
+            }
+        }
+
+        function showResult(text, type) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = text;
+            resultDiv.className = type;
+        }
+
+        // Test automatique au chargement
+        window.onload = () => {
+            console.log('🚀 Page chargée - Prêt pour les tests');
+            console.log('💡 Ouvrez la console (F12) pour voir les détails');
+        };
+    </script>
+</body>
+</html>

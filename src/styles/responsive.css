@@ -1,0 +1,478 @@
+/* 📱 Styles Responsive Globaux - xCrackz */
+
+/* ============================================
+   CONTAINERS RESPONSIVE
+   ============================================ */
+
+.responsive-container {
+  @apply mx-auto px-3 sm:px-4 md:px-6 lg:px-8;
+}
+
+.responsive-container-narrow {
+  @apply mx-auto px-3 sm:px-4 md:px-6 max-w-7xl;
+}
+
+.responsive-container-wide {
+  @apply mx-auto px-3 sm:px-4 md:px-6 lg:px-8 xl:px-12;
+}
+
+/* ============================================
+   PADDING & SPACING RESPONSIVE
+   ============================================ */
+
+.responsive-padding {
+  @apply p-3 sm:p-4 md:p-6 lg:p-8;
+}
+
+.responsive-padding-x {
+  @apply px-3 sm:px-4 md:px-6 lg:px-8;
+}
+
+.responsive-padding-y {
+  @apply py-3 sm:py-4 md:py-6 lg:py-8;
+}
+
+.responsive-gap {
+  @apply gap-3 sm:gap-4 md:gap-6;
+}
+
+.responsive-space-y {
+  @apply space-y-3 sm:space-y-4 md:space-y-6;
+}
+
+/* ============================================
+   GRIDS RESPONSIVE
+   ============================================ */
+
+.grid-responsive-2 {
+  @apply grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-6;
+}
+
+.grid-responsive-3 {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6;
+}
+
+.grid-responsive-4 {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 sm:gap-6;
+}
+
+.grid-responsive-stats {
+  @apply grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6;
+}
+
+/* ============================================
+   TYPOGRAPHY RESPONSIVE
+   ============================================ */
+
+.text-responsive-xs {
+  @apply text-xs sm:text-sm;
+}
+
+.text-responsive-sm {
+  @apply text-sm sm:text-base;
+}
+
+.text-responsive-base {
+  @apply text-sm sm:text-base md:text-lg;
+}
+
+.text-responsive-lg {
+  @apply text-base sm:text-lg md:text-xl;
+}
+
+.text-responsive-xl {
+  @apply text-lg sm:text-xl md:text-2xl;
+}
+
+.text-responsive-2xl {
+  @apply text-xl sm:text-2xl md:text-3xl;
+}
+
+.text-responsive-3xl {
+  @apply text-2xl sm:text-3xl md:text-4xl;
+}
+
+.text-responsive-4xl {
+  @apply text-3xl sm:text-4xl md:text-5xl;
+}
+
+.text-responsive-5xl {
+  @apply text-4xl sm:text-5xl md:text-6xl lg:text-7xl;
+}
+
+/* Headings */
+.heading-h1 {
+  @apply text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-black;
+}
+
+.heading-h2 {
+  @apply text-xl sm:text-2xl md:text-3xl lg:text-4xl font-black;
+}
+
+.heading-h3 {
+  @apply text-lg sm:text-xl md:text-2xl lg:text-3xl font-bold;
+}
+
+.heading-h4 {
+  @apply text-base sm:text-lg md:text-xl lg:text-2xl font-bold;
+}
+
+/* ============================================
+   BUTTONS RESPONSIVE
+   ============================================ */
+
+.btn-responsive {
+  @apply px-3 sm:px-4 md:px-6 py-2 sm:py-2.5 md:py-3 text-xs sm:text-sm md:text-base rounded-lg sm:rounded-xl;
+}
+
+.btn-responsive-sm {
+  @apply px-2 sm:px-3 md:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-lg;
+}
+
+.btn-responsive-lg {
+  @apply px-4 sm:px-6 md:px-8 py-2.5 sm:py-3 md:py-4 text-sm sm:text-base md:text-lg rounded-xl sm:rounded-2xl;
+}
+
+/* ============================================
+   IMAGES RESPONSIVE
+   ============================================ */
+
+.img-responsive {
+  @apply w-full h-auto object-cover;
+}
+
+.img-responsive-contain {
+  @apply w-full h-auto object-contain;
+}
+
+.img-responsive-avatar {
+  @apply w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12 rounded-full object-cover;
+}
+
+.img-responsive-avatar-lg {
+  @apply w-12 h-12 sm:w-16 sm:h-16 md:w-20 md:h-20 rounded-full object-cover;
+}
+
+/* Hero Images */
+.img-hero {
+  @apply w-full h-[250px] sm:h-[350px] md:h-[450px] lg:h-[550px] object-cover;
+}
+
+.img-hero-contain {
+  @apply w-full h-[250px] sm:h-[350px] md:h-[450px] lg:h-[550px] object-contain;
+}
+
+/* Card Images */
+.img-card {
+  @apply w-full h-[150px] sm:h-[200px] md:h-[250px] object-cover rounded-lg;
+}
+
+.img-card-sm {
+  @apply w-full h-[100px] sm:h-[120px] md:h-[150px] object-cover rounded-lg;
+}
+
+/* ============================================
+   CARDS RESPONSIVE
+   ============================================ */
+
+.card-responsive {
+  @apply rounded-xl sm:rounded-2xl p-4 sm:p-6 shadow-lg;
+}
+
+.card-responsive-sm {
+  @apply rounded-lg sm:rounded-xl p-3 sm:p-4 md:p-5 shadow-md;
+}
+
+.card-responsive-lg {
+  @apply rounded-2xl sm:rounded-3xl p-6 sm:p-8 md:p-10 shadow-2xl;
+}
+
+/* ============================================
+   ICONS RESPONSIVE
+   ============================================ */
+
+.icon-responsive-xs {
+  @apply w-3 h-3 sm:w-4 sm:h-4;
+}
+
+.icon-responsive-sm {
+  @apply w-4 h-4 sm:w-5 sm:h-5;
+}
+
+.icon-responsive {
+  @apply w-5 h-5 sm:w-6 sm:h-6;
+}
+
+.icon-responsive-lg {
+  @apply w-6 h-6 sm:w-7 sm:h-7 md:w-8 md:h-8;
+}
+
+.icon-responsive-xl {
+  @apply w-8 h-8 sm:w-10 sm:h-10 md:w-12 md:h-12;
+}
+
+/* ============================================
+   FORMS RESPONSIVE
+   ============================================ */
+
+.input-responsive {
+  @apply w-full px-3 sm:px-4 py-2 sm:py-2.5 md:py-3 text-sm sm:text-base rounded-lg border-2;
+}
+
+.label-responsive {
+  @apply text-xs sm:text-sm md:text-base font-semibold mb-1.5 sm:mb-2;
+}
+
+.form-grid-responsive {
+  @apply grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6;
+}
+
+/* ============================================
+   MODALS RESPONSIVE
+   ============================================ */
+
+.modal-responsive {
+  @apply bg-white rounded-2xl sm:rounded-3xl shadow-2xl w-full max-w-xs sm:max-w-lg md:max-w-2xl lg:max-w-4xl max-h-[90vh] overflow-y-auto p-4 sm:p-6 md:p-8;
+}
+
+.modal-responsive-sm {
+  @apply bg-white rounded-xl sm:rounded-2xl shadow-xl w-full max-w-xs sm:max-w-md max-h-[80vh] overflow-y-auto p-3 sm:p-4 md:p-6;
+}
+
+.modal-responsive-lg {
+  @apply bg-white rounded-3xl shadow-2xl w-full max-w-sm sm:max-w-2xl md:max-w-4xl lg:max-w-6xl max-h-[95vh] overflow-y-auto p-6 sm:p-8 md:p-10;
+}
+
+/* ============================================
+   TABLES RESPONSIVE
+   ============================================ */
+
+.table-responsive-wrapper {
+  @apply overflow-x-auto -mx-3 sm:mx-0;
+}
+
+.table-responsive {
+  @apply w-full min-w-[600px] sm:min-w-0;
+}
+
+.table-cell-responsive {
+  @apply px-3 sm:px-4 md:px-6 py-2 sm:py-3 md:py-4;
+}
+
+/* ============================================
+   FLEX RESPONSIVE
+   ============================================ */
+
+.flex-responsive {
+  @apply flex flex-col sm:flex-row gap-3 sm:gap-4 md:gap-6;
+}
+
+.flex-responsive-reverse {
+  @apply flex flex-col-reverse sm:flex-row gap-3 sm:gap-4 md:gap-6;
+}
+
+.flex-responsive-center {
+  @apply flex flex-col sm:flex-row items-center gap-3 sm:gap-4 md:gap-6;
+}
+
+/* ============================================
+   BADGES & PILLS RESPONSIVE
+   ============================================ */
+
+.badge-responsive {
+  @apply px-2 sm:px-3 md:px-4 py-1 sm:py-1.5 text-xs sm:text-sm rounded-full;
+}
+
+.pill-responsive {
+  @apply inline-flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-1.5 sm:py-2 text-xs sm:text-sm rounded-full;
+}
+
+/* ============================================
+   ANIMATIONS & TRANSITIONS
+   ============================================ */
+
+.hover-scale-responsive {
+  @apply transition-transform duration-300 hover:scale-105 active:scale-95;
+}
+
+.hover-shadow-responsive {
+  @apply transition-shadow duration-300 shadow-md hover:shadow-xl;
+}
+
+/* ============================================
+   UTILITIES
+   ============================================ */
+
+/* Touch Target (minimum 44x44px for mobile) */
+.touch-target {
+  @apply min-h-[44px] min-w-[44px];
+}
+
+/* Scrollbar custom (webkit) */
+.scrollbar-thin::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 10px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb {
+  background: #94a3b8;
+  border-radius: 10px;
+}
+
+.scrollbar-thin::-webkit-scrollbar-thumb:hover {
+  background: #64748b;
+}
+
+/* Hide scrollbar but keep functionality */
+.hide-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================
+   ASPECT RATIOS
+   ============================================ */
+
+.aspect-video-responsive {
+  @apply aspect-video w-full;
+}
+
+.aspect-square-responsive {
+  @apply aspect-square w-full;
+}
+
+.aspect-4-3-responsive {
+  @apply aspect-[4/3] w-full;
+}
+
+/* ============================================
+   GLASSMORPHISM RESPONSIVE
+   ============================================ */
+
+.glass-responsive {
+  @apply backdrop-blur-xl bg-white/90 border border-slate-200/50 rounded-xl sm:rounded-2xl p-4 sm:p-6;
+}
+
+.glass-responsive-dark {
+  @apply backdrop-blur-xl bg-slate-900/80 border border-slate-700/50 rounded-xl sm:rounded-2xl p-4 sm:p-6;
+}
+
+/* ============================================
+   GRADIENTS RESPONSIVE
+   ============================================ */
+
+.gradient-text-responsive {
+  @apply bg-gradient-to-r from-teal-500 to-cyan-500 bg-clip-text text-transparent;
+}
+
+.gradient-border-responsive {
+  @apply border-2 border-transparent bg-clip-padding;
+  background-image: linear-gradient(white, white), 
+                    linear-gradient(to right, #14b8a6, #06b6d4);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
+}
+
+/* ============================================
+   MEDIA QUERIES CUSTOM
+   ============================================ */
+
+/* Pour des cas spécifiques non couverts par Tailwind */
+
+@media (max-width: 374px) {
+  /* Très petits mobiles (iPhone SE 1st gen) */
+  .text-xs-mobile {
+    font-size: 0.625rem; /* 10px */
+  }
+}
+
+@media (min-width: 375px) and (max-width: 639px) {
+  /* Mobiles standards */
+  .mobile-only {
+    display: block;
+  }
+}
+
+@media (min-width: 640px) and (max-width: 767px) {
+  /* Petites tablettes */
+  .tablet-sm-only {
+    display: block;
+  }
+}
+
+@media (min-width: 768px) and (max-width: 1023px) {
+  /* Tablettes */
+  .tablet-only {
+    display: block;
+  }
+}
+
+@media (min-width: 1024px) {
+  /* Desktop */
+  .desktop-only {
+    display: block;
+  }
+}
+
+/* ============================================
+   PRINT STYLES
+   ============================================ */
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  
+  .page-break-before {
+    page-break-before: always;
+  }
+  
+  .page-break-after {
+    page-break-after: always;
+  }
+  
+  .page-break-inside-avoid {
+    page-break-inside: avoid;
+  }
+}
+
+/* ============================================
+   ACCESSIBILITY
+   ============================================ */
+
+/* Focus visible pour navigation clavier */
+.focus-responsive:focus-visible {
+  @apply outline-none ring-4 ring-teal-500/50 ring-offset-2;
+}
+
+/* Améliorer le contraste pour les utilisateurs */
+@media (prefers-contrast: high) {
+  .high-contrast {
+    border: 2px solid currentColor !important;
+  }
+}
+
+/* Respecter la préférence de mouvement réduit */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Dark mode (si implémenté) */
+@media (prefers-color-scheme: dark) {
+  .dark-mode-responsive {
+    @apply bg-slate-900 text-white;
+  }
+}

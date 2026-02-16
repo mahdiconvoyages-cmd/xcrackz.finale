@@ -1,0 +1,125 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <defs>
+        <!-- Gradients de couleurs sophistiqués -->
+        <linearGradient id="primaryGlow" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:#00f2fe;stop-opacity:1" /> <!-- Cyan électrique -->
+            <stop offset="100%" style="stop-color:#4facfe;stop-opacity:1" /> <!-- Bleu profond -->
+        </linearGradient>
+
+        <linearGradient id="bgSurface" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#1e293b;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#0f172a;stop-opacity:1" />
+        </linearGradient>
+
+        <!-- Filtres de Glow Multi-couches -->
+        <filter id="ultraGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <!-- Lueur diffuse -->
+            <feGaussianBlur in="SourceAlpha" stdDeviation="5" result="blur5" />
+            <feFlood flood-color="#00f2fe" flood-opacity="0.5" result="flood5" />
+            <feComposite in="flood5" in2="blur5" operator="in" result="glow5" />
+            
+            <!-- Lueur centrale intense -->
+            <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur2" />
+            <feFlood flood-color="#ffffff" flood-opacity="0.8" result="flood2" />
+            <feComposite in="flood2" in2="blur2" operator="in" result="glow2" />
+            
+            <feMerge>
+                <feMergeNode in="glow5" />
+                <feMergeNode in="glow2" />
+                <feMergeNode in="SourceGraphic" />
+            </feMerge>
+        </filter>
+
+        <!-- Effet de relief/3D -->
+        <filter id="innerBevel">
+            <feGaussianBlur stdDeviation="1" in="SourceAlpha" result="blur" />
+            <feSpecularLighting surfaceScale="2" specularConstant="1" specularExponent="20" lighting-color="#ffffff" in="blur" result="spec">
+                <fePointLight x="-5000" y="-10000" z="20000" />
+            </feSpecularLighting>
+            <feComposite in="spec" in2="SourceAlpha" operator="in" result="composite" />
+            <feComposite in="SourceGraphic" in2="composite" operator="arithmetic" k1="0" k2="1" k3="1" k4="0" />
+        </filter>
+    </defs>
+
+    <!-- Fond Principal Premium -->
+    <rect width="512" height="512" rx="120" fill="url(#bgSurface)" />
+    
+    <!-- Pattern de grille technologique subtil -->
+    <path d="M 0 64 L 512 64 M 0 128 L 512 128 M 0 192 L 512 192 M 0 256 L 512 256 M 0 320 L 512 320 M 0 384 L 512 384 M 0 448 L 512 448" 
+          stroke="white" stroke-width="0.5" opacity="0.03" />
+    <path d="M 64 0 L 64 512 M 128 0 L 128 512 M 192 0 L 192 512 M 256 0 L 256 512 M 320 0 L 320 512 M 384 0 L 384 512 M 448 0 L 448 512" 
+          stroke="white" stroke-width="0.5" opacity="0.03" />
+
+    <!-- Lignes de circuit principales du "C" -->
+    <g transform="translate(256, 230)" filter="url(#ultraGlow)">
+        
+        <!-- Arc principal 1 (Large) -->
+        <path d="M 120,-80 L 60,-140 L -80,-140 L -140,-80 L -140,80 L -80,140 L 60,140 L 120,80" 
+              fill="none" stroke="url(#primaryGlow)" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" />
+
+        <!-- Arc 2 (Intermédiaire) -->
+        <path d="M 90,-60 L 45,-105 L -60,-105 L -105,-60 L -105,60 L -60,105 L 45,105 L 90,60" 
+              fill="none" stroke="url(#primaryGlow)" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" opacity="0.6" />
+
+        <!-- Arc 3 (Intérieur) -->
+        <path d="M 60,-40 L 30,-70 L -40,-70 L -70,-40 L -70,40 L -40,70 L 30,70 L 60,40" 
+              fill="none" stroke="url(#primaryGlow)" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" />
+
+        <!-- Nodes de circuit (Points terminaux) -->
+        <!-- Node Haut Droite -->
+        <circle cx="120" cy="-80" r="10" fill="url(#primaryGlow)" />
+        <circle cx="120" cy="-80" r="4" fill="white" />
+
+        <!-- Node Bas Droite -->
+        <circle cx="120" cy="80" r="10" fill="url(#primaryGlow)" />
+        <circle cx="120" cy="80" r="4" fill="white" />
+
+        <!-- Nodes de structure -->
+        <circle cx="-140" cy="-80" r="6" fill="url(#primaryGlow)" opacity="0.8" />
+        <circle cx="-140" cy="80" r="6" fill="url(#primaryGlow)" opacity="0.8" />
+        <circle cx="-140" cy="0" r="8" fill="url(#primaryGlow)" />
+        <circle cx="-140" cy="0" r="3" fill="white" />
+
+        <!-- Lignes de données horizontales -->
+        <line x1="-140" y1="0" x2="-105" y2="0" stroke="url(#primaryGlow)" stroke-width="6" opacity="0.8" />
+        <line x1="60" y1="-140" x2="90" y2="-140" stroke="url(#primaryGlow)" stroke-width="2" opacity="0.3" />
+        <circle cx="90" cy="-140" r="3" fill="url(#primaryGlow)" opacity="0.3" />
+
+        <line x1="60" y1="140" x2="90" y2="140" stroke="url(#primaryGlow)" stroke-width="2" opacity="0.3" />
+        <circle cx="90" cy="140" r="3" fill="url(#primaryGlow)" opacity="0.3" />
+
+        <!-- Animation d'impulsion (Cercle qui pulse) -->
+        <circle cx="-140" cy="-80" r="15" fill="white" opacity="0.1">
+            <animate attributeName="r" values="10;25;10" dur="2s" repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.2;0;0.2" dur="2s" repeatCount="indefinite" />
+        </circle>
+    </g>
+
+    <!-- Typographie checksfleet Premium -->
+    <text x="256" y="445" 
+          font-family="system-ui, -apple-system, sans-serif" 
+          font-size="46" 
+          font-weight="900" 
+          fill="white" 
+          text-anchor="middle" 
+          letter-spacing="12" 
+          filter="url(#ultraGlow)">
+        CHECKSFLEET
+    </text>
+
+    <!-- Sous-titre Tech -->
+    <text x="256" y="475" 
+          font-family="system-ui, sans-serif" 
+          font-size="14" 
+          font-weight="600" 
+          fill="url(#primaryGlow)" 
+          text-anchor="middle" 
+          letter-spacing="6" 
+          opacity="0.7">
+        SMART LOGISTICS ECOSYSTEM
+    </text>
+
+    <!-- Overlay de brillance globale -->
+    <rect width="512" height="512" rx="120" fill="none" stroke="white" stroke-width="2" opacity="0.05" />
+</svg>

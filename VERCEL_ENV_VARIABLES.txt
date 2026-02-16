@@ -1,0 +1,75 @@
+Variables d'environnement Vercel - xCrackz
+============================================
+
+A ajouter dans : https://vercel.com/dashboard → Settings → Environment Variables
+Cocher : Production, Preview, Development pour chaque variable
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Variable 1:
+Nom : MAILJET_API_KEY
+Valeur : 993b17d88aefa6e8f93f30f0dec69dd8
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Variable 2:
+Nom : MAILJET_SECRET_KEY
+Valeur : 9fd2fd041887175690388bb5bfe92af4
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Variable 3:
+Nom : MAILJET_FROM_EMAIL
+Valeur : mahdiconvoyages@gmail.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Variable 4:
+Nom : MAILJET_FROM_NAME
+Valeur : xCrackz
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Variable 5:
+Nom : SUPABASE_URL
+Valeur : https://bfrkthzovwpjrvqktdjn.supabase.co
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Variable 6:
+Nom : SUPABASE_SERVICE_KEY
+Valeur : eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmcmt0aHpvdndwanJ2cWt0ZGpuIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc1OTk3ODA3OCwiZXhwIjoyMDc1NTU0MDc4fQ.AUjNlkhMEIer6p847dpy83FzhO0gP5lcKRJZkTXmylM
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Variable 7:
+Nom : INTERNAL_EMAIL
+Valeur : mahdiconvoyages@gmail.com
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+INSTRUCTIONS :
+
+1. Aller sur https://vercel.com/dashboard
+2. Selectionner votre projet
+3. Aller dans Settings → Environment Variables
+4. Cliquer sur "Add New"
+5. Copier le nom et la valeur de chaque variable ci-dessus
+6. Cocher : Production, Preview, Development
+7. Cliquer "Save"
+8. Repeter pour chaque variable
+
+
+IMPORTANT :
+
+⚠️ Verifier l'email expediteur dans Mailjet AVANT d'envoyer des emails :
+   https://app.mailjet.com/account/sender
+   
+   Ajouter : mahdiconvoyages@gmail.com
+   Valider l'email recu
+
+
+Une fois les variables configurees, deployer :
+
+   vercel --prod

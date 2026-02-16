@@ -1,0 +1,380 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChecksFleet - Logos Harmonisés avec le Site</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px;
+            color: white;
+        }
+        
+        h1 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            background: linear-gradient(135deg, #14b8a6 0%, #3b82f6 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-align: center;
+        }
+        
+        .subtitle {
+            font-size: 1.3em;
+            color: #14b8a6;
+            margin-bottom: 50px;
+            text-align: center;
+            letter-spacing: 3px;
+        }
+        
+        .color-palette {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid #14b8a6;
+            border-radius: 20px;
+            padding: 30px;
+            margin-bottom: 50px;
+            max-width: 900px;
+            width: 100%;
+        }
+        
+        .color-palette h2 {
+            color: #14b8a6;
+            margin-bottom: 25px;
+            font-size: 1.8em;
+            text-align: center;
+        }
+        
+        .colors-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 20px;
+        }
+        
+        .color-item {
+            text-align: center;
+        }
+        
+        .color-box {
+            width: 100%;
+            height: 100px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.1em;
+            box-shadow: 0 8px 20px rgba(0,0,0,0.3);
+            border: 3px solid rgba(255,255,255,0.1);
+        }
+        
+        .color-name {
+            font-weight: 600;
+            color: #f8fafc;
+            margin-bottom: 5px;
+            font-size: 1.1em;
+        }
+        
+        .color-code {
+            font-family: 'Courier New', monospace;
+            color: #94a3b8;
+            font-size: 0.95em;
+        }
+        
+        .logos-container {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 40px;
+            max-width: 1400px;
+            width: 100%;
+            margin-bottom: 50px;
+        }
+        
+        .logo-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 2px solid #14b8a6;
+            border-radius: 20px;
+            padding: 30px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            backdrop-filter: blur(10px);
+        }
+        
+        .logo-card h3 {
+            color: #14b8a6;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .logo-preview {
+            width: 100%;
+            max-width: 350px;
+            height: 350px;
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 40px rgba(20, 184, 166, 0.3);
+        }
+        
+        .logo-preview img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .size-tests {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            align-items: center;
+        }
+        
+        .size-test {
+            background: white;
+            border-radius: 8px;
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .size-test img {
+            display: block;
+        }
+        
+        .size-label {
+            color: #94a3b8;
+            font-size: 0.85em;
+            text-align: center;
+            margin-top: 8px;
+        }
+        
+        .download-btn {
+            background: linear-gradient(135deg, #14b8a6 0%, #0d9488 100%);
+            color: white;
+            border: none;
+            padding: 15px 35px;
+            border-radius: 12px;
+            font-size: 1.1em;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            box-shadow: 0 5px 20px rgba(20, 184, 166, 0.4);
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 30px rgba(20, 184, 166, 0.6);
+        }
+        
+        .info {
+            background: rgba(20, 184, 166, 0.1);
+            border: 2px solid #14b8a6;
+            border-radius: 15px;
+            padding: 25px;
+            max-width: 900px;
+            width: 100%;
+            margin-top: 30px;
+        }
+        
+        .info h3 {
+            color: #14b8a6;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+        
+        .info ul {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .info li {
+            color: #cbd5e1;
+            margin-bottom: 12px;
+            padding-left: 30px;
+            position: relative;
+            line-height: 1.6;
+        }
+        
+        .info li:before {
+            content: "✓";
+            position: absolute;
+            left: 0;
+            color: #10b981;
+            font-weight: bold;
+            font-size: 1.3em;
+        }
+    </style>
+</head>
+<body>
+    <h1>ChecksFleet</h1>
+    <div class="subtitle">LOGOS HARMONISÉS AVEC VOTRE SITE</div>
+    
+    <!-- Palette de couleurs du site -->
+    <div class="color-palette">
+        <h2>🎨 Palette de Couleurs ChecksFleet</h2>
+        <div class="colors-grid">
+            <div class="color-item">
+                <div class="color-box" style="background: #14b8a6; color: white;">
+                    Primary
+                </div>
+                <div class="color-name">Teal (Principal)</div>
+                <div class="color-code">#14b8a6</div>
+            </div>
+            
+            <div class="color-item">
+                <div class="color-box" style="background: #3b82f6; color: white;">
+                    Secondary
+                </div>
+                <div class="color-name">Bleu (Secondaire)</div>
+                <div class="color-code">#3b82f6</div>
+            </div>
+            
+            <div class="color-item">
+                <div class="color-box" style="background: #8b5cf6; color: white;">
+                    Accent
+                </div>
+                <div class="color-name">Violet (Accent)</div>
+                <div class="color-code">#8b5cf6</div>
+            </div>
+            
+            <div class="color-item">
+                <div class="color-box" style="background: #10b981; color: white;">
+                    Success
+                </div>
+                <div class="color-name">Vert (Validation)</div>
+                <div class="color-code">#10b981</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Logos -->
+    <div class="logos-container">
+        <!-- Logo Mobile/App -->
+        <div class="logo-card">
+            <h3>📱 Logo App Mobile (Détaillé)</h3>
+            <div class="logo-preview">
+                <img src="../mobile_flutter/finality_app/assets/images/logo_checksfleet.svg" alt="Logo App Mobile">
+            </div>
+            
+            <div class="size-tests">
+                <div>
+                    <div class="size-test" style="width: 48px; height: 48px;">
+                        <img src="../mobile_flutter/finality_app/assets/images/logo_checksfleet.svg" width="48" height="48" alt="48px">
+                    </div>
+                    <div class="size-label">48×48</div>
+                </div>
+                
+                <div>
+                    <div class="size-test" style="width: 96px; height: 96px;">
+                        <img src="../mobile_flutter/finality_app/assets/images/logo_checksfleet.svg" width="96" height="96" alt="96px">
+                    </div>
+                    <div class="size-label">96×96</div>
+                </div>
+                
+                <div>
+                    <div class="size-test" style="width: 192px; height: 192px;">
+                        <img src="../mobile_flutter/finality_app/assets/images/logo_checksfleet.svg" width="192" height="192" alt="192px">
+                    </div>
+                    <div class="size-label">192×192</div>
+                </div>
+            </div>
+            
+            <button class="download-btn" onclick="downloadSVG('mobile')">Télécharger SVG Mobile</button>
+        </div>
+        
+        <!-- Logo Web -->
+        <div class="logo-card">
+            <h3>🌐 Logo Web (Simple)</h3>
+            <div class="logo-preview">
+                <img src="logo.svg" alt="Logo Web">
+            </div>
+            
+            <div class="size-tests">
+                <div>
+                    <div class="size-test" style="width: 48px; height: 48px;">
+                        <img src="logo.svg" width="48" height="48" alt="48px">
+                    </div>
+                    <div class="size-label">48×48</div>
+                </div>
+                
+                <div>
+                    <div class="size-test" style="width: 96px; height: 96px;">
+                        <img src="logo.svg" width="96" height="96" alt="96px">
+                    </div>
+                    <div class="size-label">96×96</div>
+                </div>
+                
+                <div>
+                    <div class="size-test" style="width: 192px; height: 192px;">
+                        <img src="logo.svg" width="192" height="192" alt="192px">
+                    </div>
+                    <div class="size-label">192×192</div>
+                </div>
+            </div>
+            
+            <button class="download-btn" onclick="downloadSVG('web')">Télécharger SVG Web</button>
+        </div>
+    </div>
+    
+    <!-- Informations -->
+    <div class="info">
+        <h3>✨ Harmonisation Parfaite</h3>
+        <ul>
+            <li><strong>Couleur principale :</strong> Teal #14b8a6 (comme le site)</li>
+            <li><strong>Couleur secondaire :</strong> Bleu #3b82f6 (boutons et accents)</li>
+            <li><strong>Validation :</strong> Vert #10b981 (checkmark)</li>
+            <li><strong>Background :</strong> Slate #0f172a → #334155 (cohérent avec dark mode)</li>
+            <li><strong>Format vectoriel :</strong> SVG scalable sans perte de qualité</li>
+            <li><strong>Lisibilité :</strong> Testé de 48px à 512px</li>
+            <li><strong>Contient :</strong> Texte "ChecksFleet" + "SMART LOGISTICS"</li>
+            <li><strong>Animations :</strong> Points GPS pulsants (logo mobile)</strong>
+        </ul>
+    </div>
+    
+    <script>
+        function downloadSVG(type) {
+            let filename, path;
+            if (type === 'mobile') {
+                filename = 'checksfleet-logo-mobile.svg';
+                path = '../mobile_flutter/finality_app/assets/images/logo_checksfleet.svg';
+            } else {
+                filename = 'checksfleet-logo-web.svg';
+                path = 'logo.svg';
+            }
+            
+            fetch(path)
+                .then(response => response.blob())
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                })
+                .catch(err => console.error('Erreur téléchargement:', err));
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Générateur d'icônes xCrackz</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      background: #1e293b;
+      color: white;
+    }
+    canvas {
+      border: 2px solid #14b8a6;
+      margin: 10px;
+      background: white;
+    }
+    .container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    button {
+      background: linear-gradient(135deg, #14b8a6, #06b6d4);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      margin: 10px 5px;
+    }
+    button:hover {
+      transform: scale(1.05);
+    }
+  </style>
+</head>
+<body>
+  <h1>🎨 Générateur d'Icônes xCrackz</h1>
+  <p>Cliquez sur les boutons pour télécharger les icônes</p>
+  
+  <div class="container" id="canvasContainer"></div>
+  
+  <div>
+    <button onclick="downloadAll()">📥 Tout Télécharger</button>
+    <button onclick="generateIcons()">🔄 Régénérer</button>
+  </div>
+
+  <script>
+    const sizes = {
+      'favicon-16': 16,
+      'favicon-32': 32,
+      'favicon-48': 48,
+      'icon-192': 192,
+      'icon-512': 512,
+      'apple-touch-icon': 180,
+      'mobile-icon': 1024,
+    };
+
+    function drawIcon(canvas, size) {
+      const ctx = canvas.getContext('2d');
+      canvas.width = size;
+      canvas.height = size;
+
+      // Background gradient
+      const gradient = ctx.createLinearGradient(0, 0, size, size);
+      gradient.addColorStop(0, '#14b8a6');
+      gradient.addColorStop(1, '#06b6d4');
+      
+      // Rounded rectangle
+      const borderRadius = size * 0.2;
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size, borderRadius);
+      ctx.fill();
+
+      // Shine effect
+      const shineGradient = ctx.createLinearGradient(0, 0, size, size / 2);
+      shineGradient.addColorStop(0, 'rgba(255, 255, 255, 0.3)');
+      shineGradient.addColorStop(1, 'rgba(255, 255, 255, 0)');
+      ctx.fillStyle = shineGradient;
+      ctx.beginPath();
+      ctx.roundRect(0, 0, size, size / 2, [borderRadius, borderRadius, 0, 0]);
+      ctx.fill();
+
+      // XZ Text
+      ctx.fillStyle = 'white';
+      ctx.font = `900 ${size * 0.5}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.letterSpacing = `-${size * 0.025}px`;
+      ctx.fillText('XZ', size / 2, size / 2 + size * 0.05);
+
+      // Border
+      ctx.strokeStyle = 'rgba(255, 255, 255, 0.2)';
+      ctx.lineWidth = size * 0.01;
+      ctx.stroke();
+    }
+
+    function generateIcons() {
+      const container = document.getElementById('canvasContainer');
+      container.innerHTML = '';
+
+      Object.entries(sizes).forEach(([name, size]) => {
+        const wrapper = document.createElement('div');
+        wrapper.style.textAlign = 'center';
+
+        const title = document.createElement('h3');
+        title.textContent = `${name} (${size}x${size})`;
+        wrapper.appendChild(title);
+
+        const canvas = document.createElement('canvas');
+        canvas.id = name;
+        drawIcon(canvas, size);
+        wrapper.appendChild(canvas);
+
+        const btn = document.createElement('button');
+        btn.textContent = `📥 ${name}.png`;
+        btn.onclick = () => downloadCanvas(name, size);
+        wrapper.appendChild(btn);
+
+        container.appendChild(wrapper);
+      });
+    }
+
+    function downloadCanvas(name, size) {
+      const canvas = document.getElementById(name);
+      canvas.toBlob((blob) => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${name}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+      });
+    }
+
+    function downloadAll() {
+      Object.keys(sizes).forEach((name, index) => {
+        setTimeout(() => downloadCanvas(name, sizes[name]), index * 500);
+      });
+    }
+
+    // Generate on load
+    generateIcons();
+  </script>
+</body>
+</html>

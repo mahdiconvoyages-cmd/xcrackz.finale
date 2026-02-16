@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <!-- Gradient Tech - Cyan vers Bleu Électrique -->
+    <linearGradient id="glowGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#22d3ee"/> <!-- cyan-400 -->
+      <stop offset="50%" style="stop-color:#06b6d4"/> <!-- cyan-500 -->
+      <stop offset="100%" style="stop-color:#3b82f6"/> <!-- blue-500 -->
+    </linearGradient>
+    
+    <!-- Gradient Fond Profond -->
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0f172a"/> <!-- slate-950 -->
+      <stop offset="100%" style="stop-color:#1e293b"/> <!-- slate-900 -->
+    </linearGradient>
+
+    <!-- Filtre Néon / Glow -->
+    <filter id="neon" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="5" result="blur"/>
+      <feComposite in="SourceGraphic" in2="blur" operator="over"/>
+    </filter>
+    
+    <filter id="strongGlow" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="8" result="blur"/>
+      <feMerge>
+        <feMergeNode in="blur"/>
+        <feMergeNode in="SourceGraphic"/>
+      </feMerge>
+    </filter>
+  </defs>
+
+  <!-- Fond de l'icône (Rounded Square) -->
+  <rect width="512" height="512" rx="110" fill="url(#bgGrad)"/>
+  <rect width="490" height="490" x="11" y="11" rx="100" fill="none" stroke="white" stroke-width="1.5" opacity="0.1"/>
+
+  <!-- Groupe du Logo C Circuit -->
+  <g transform="translate(256, 256)" filter="url(#neon)">
+    
+    <!-- Ligne Extérieure Principale (Hexagonale) -->
+    <path d="M 100,-60 L 50,-110 L -60,-110 L -110,-60 L -110,60 L -60,110 L 50,110 L 100,60" 
+          fill="none" stroke="url(#glowGrad)" stroke-width="14" stroke-linejoin="round" stroke-linecap="round" />
+    
+    <!-- Lignes de circuit internes (Parallèles) -->
+    <path d="M 70,-45 L 35,-80 L -45,-80 L -80,-45 L -80,45 L -45,80 L 35,80 L 70,45" 
+          fill="none" stroke="url(#glowGrad)" stroke-width="7" stroke-linejoin="round" stroke-linecap="round" opacity="0.6"/>
+
+    <path d="M 40,-30 L 20,-50 L -30,-50 L -50,-30 L -50,30 L -30,50 L 20,50 L 40,30" 
+          fill="none" stroke="url(#glowGrad)" stroke-width="4" stroke-linejoin="round" stroke-linecap="round" opacity="0.4"/>
+
+    <!-- Nodes (Cercles aux extrémités et intersections) -->
+    <!-- Node Haut Droite -->
+    <g transform="translate(100, -60)">
+      <circle r="16" fill="url(#glowGrad)" opacity="0.2"/>
+      <circle r="8" fill="url(#glowGrad)"/>
+      <circle r="3.5" fill="white"/>
+    </g>
+
+    <!-- Node Bas Droite -->
+    <g transform="translate(100, 60)">
+      <circle r="16" fill="url(#glowGrad)" opacity="0.2"/>
+      <circle r="8" fill="url(#glowGrad)"/>
+      <circle r="3.5" fill="white"/>
+    </g>
+
+    <!-- Node Milieu Haut -->
+    <g transform="translate(50, -110)">
+      <circle r="7" fill="url(#glowGrad)"/>
+      <circle r="3" fill="white"/>
+    </g>
+
+    <!-- Node Milieu Bas -->
+    <g transform="translate(50, 110)">
+      <circle r="7" fill="url(#glowGrad)"/>
+      <circle r="3" fill="white"/>
+    </g>
+
+    <!-- Nodes sur les angles gauches -->
+    <circle cx="-110" cy="-60" r="6" fill="#22d3ee"/>
+    <circle cx="-110" cy="60" r="6" fill="#22d3ee"/>
+    <circle cx="-110" cy="0" r="8" fill="url(#glowGrad)"/>
+    <circle cx="-110" cy="0" r="3" fill="white"/>
+
+    <!-- Lignes de circuit transversales (Effet décoratif) -->
+    <line x1="-110" y1="0" x2="-80" y2="0" stroke="url(#glowGrad)" stroke-width="3" />
+    <line x1="100" y1="0" x2="60" y2="0" stroke="url(#glowGrad)" stroke-width="3" opacity="0.5"/>
+    <circle cx="60" cy="0" r="4" fill="url(#glowGrad)"/>
+
+    <!-- Animation de courant (Optionnel - Point brillant) -->
+    <circle cx="-60" cy="-110" r="5" fill="white" filter="url(#strongGlow)">
+      <animate attributeName="cx" values="-60;50;100;-60" dur="4s" repeatCount="indefinite" />
+      <animate attributeName="cy" values="-110;-110;-60;-110" dur="4s" repeatCount="indefinite" />
+    </circle>
+  </g>
+
+  <!-- Nom de l'application stylisé -->
+  <text x="256" y="445" 
+        font-family="system-ui, sans-serif" 
+        font-size="44" 
+        font-weight="900" 
+        fill="url(#glowGrad)" 
+        text-anchor="middle" 
+        letter-spacing="10" 
+        filter="url(#neon)"
+        opacity="0.9">CHECKSFLEET</text>
+
+</svg>

@@ -1,0 +1,27 @@
+/* Améliorations de visibilité et accessibilité - VERSION SIMPLE */
+
+/* Sur mobile, améliore la lisibilité sans casser le thème */
+@media (max-width: 1023px) {
+  /* Textes lisibles */
+  body {
+    font-size: 16px;
+    line-height: 1.6;
+  }
+  
+  /* Boutons accessibles */
+  button {
+    min-height: 44px;
+  }
+  
+  /* Inputs accessibles */
+  input, select, textarea {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  
+  /* Focus visible */
+  *:focus {
+    outline: 3px solid #14B8A6;
+    outline-offset: 2px;
+  }
+}

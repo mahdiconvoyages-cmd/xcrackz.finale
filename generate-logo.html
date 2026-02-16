@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>xCrackz Logo Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f0f0f0;
+        }
+        .preview {
+            margin: 20px 0;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            margin: 10px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        .info {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>🎨 Générateur d'Icônes xCrackz</h1>
+    
+    <div class="info">
+        <p><strong>Instructions :</strong> Cliquez sur les boutons pour télécharger les icônes. Placez-les dans <code>mobile/assets/</code></p>
+    </div>
+
+    <div class="preview">
+        <h2>Icône App (1024x1024)</h2>
+        <canvas id="icon" width="1024" height="1024"></canvas>
+        <br>
+        <button onclick="downloadIcon()">📥 Télécharger icon.png</button>
+        <button onclick="downloadAdaptiveIcon()">📥 Télécharger adaptive-icon.png</button>
+    </div>
+
+    <div class="preview">
+        <h2>Splash Screen (2048x2048)</h2>
+        <canvas id="splash" width="2048" height="2048"></canvas>
+        <br>
+        <button onclick="downloadSplash()">📥 Télécharger splash.png</button>
+    </div>
+
+    <script>
+        // Fonction pour dessiner l'icône principale
+        function drawIcon(canvas) {
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Gradient bleu
+            const gradient = ctx.createLinearGradient(0, 0, 0, height);
+            gradient.addColorStop(0, '#3b82f6');
+            gradient.addColorStop(1, '#2563eb');
+            
+            // Fond avec gradient
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, width, height);
+
+            // Coins arrondis
+            ctx.globalCompositeOperation = 'destination-in';
+            ctx.beginPath();
+            const radius = width * 0.15; // 15% radius pour coins arrondis
+            ctx.moveTo(radius, 0);
+            ctx.lineTo(width - radius, 0);
+            ctx.quadraticCurveTo(width, 0, width, radius);
+            ctx.lineTo(width, height - radius);
+            ctx.quadraticCurveTo(width, height, width - radius, height);
+            ctx.lineTo(radius, height);
+            ctx.quadraticCurveTo(0, height, 0, height - radius);
+            ctx.lineTo(0, radius);
+            ctx.quadraticCurveTo(0, 0, radius, 0);
+            ctx.closePath();
+            ctx.fill();
+
+            // Reset composite operation
+            ctx.globalCompositeOperation = 'source-over';
+
+            // Texte "XZ"
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold ' + (width * 0.45) + 'px Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('XZ', width / 2, height / 2);
+        }
+
+        // Fonction pour dessiner le splash screen
+        function drawSplash(canvas) {
+            const ctx = canvas.getContext('2d');
+            const width = canvas.width;
+            const height = canvas.height;
+
+            // Fond sombre
+            ctx.fillStyle = '#0b1220';
+            ctx.fillRect(0, 0, width, height);
+
+            // Logo au centre (plus grand)
+            const logoSize = width * 0.35;
+            const x = (width - logoSize) / 2;
+            const y = (height - logoSize) / 2 - logoSize * 0.1;
+
+            // Gradient pour le logo
+            const gradient = ctx.createLinearGradient(x, y, x, y + logoSize);
+            gradient.addColorStop(0, '#3b82f6');
+            gradient.addColorStop(1, '#2563eb');
+            
+            // Carré du logo avec coins arrondis
+            ctx.fillStyle = gradient;
+            const radius = logoSize * 0.15;
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.lineTo(x + logoSize - radius, y);
+            ctx.quadraticCurveTo(x + logoSize, y, x + logoSize, y + radius);
+            ctx.lineTo(x + logoSize, y + logoSize - radius);
+            ctx.quadraticCurveTo(x + logoSize, y + logoSize, x + logoSize - radius, y + logoSize);
+            ctx.lineTo(x + radius, y + logoSize);
+            ctx.quadraticCurveTo(x, y + logoSize, x, y + logoSize - radius);
+            ctx.lineTo(x, y + radius);
+            ctx.quadraticCurveTo(x, y, x + radius, y);
+            ctx.closePath();
+            ctx.fill();
+
+            // Texte "XZ" sur le logo
+            ctx.fillStyle = '#FFFFFF';
+            ctx.font = 'bold ' + (logoSize * 0.45) + 'px Arial, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('XZ', x + logoSize / 2, y + logoSize / 2);
+
+            // Texte "xCrackz" en dessous avec gradient
+            const textY = y + logoSize + logoSize * 0.25;
+            const textGradient = ctx.createLinearGradient(0, textY, width, textY);
+            textGradient.addColorStop(0, '#2dd4bf');
+            textGradient.addColorStop(1, '#22d3ee');
+            
+            ctx.fillStyle = textGradient;
+            ctx.font = 'bold ' + (logoSize * 0.25) + 'px Arial, sans-serif';
+            ctx.fillText('xCrackz', width / 2, textY);
+        }
+
+        // Générer les icônes au chargement
+        window.onload = function() {
+            drawIcon(document.getElementById('icon'));
+            drawSplash(document.getElementById('splash'));
+        };
+
+        // Fonctions de téléchargement
+        function downloadIcon() {
+            const canvas = document.getElementById('icon');
+            const link = document.createElement('a');
+            link.download = 'icon.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function downloadAdaptiveIcon() {
+            const canvas = document.getElementById('icon');
+            const link = document.createElement('a');
+            link.download = 'adaptive-icon.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+
+        function downloadSplash() {
+            const canvas = document.getElementById('splash');
+            const link = document.createElement('a');
+            link.download = 'splash.png';
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+    </script>
+</body>
+</html>

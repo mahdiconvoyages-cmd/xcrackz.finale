@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="700" height="500" viewBox="0 0 700 500" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="circGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c3aed"/>
+      <stop offset="100%" style="stop-color:#1e3a8a"/>
+    </linearGradient>
+  </defs>
+  
+  <!-- Background blanc -->
+  <rect width="700" height="500" fill="white"/>
+  
+  <!-- Cercle gradient avec check -->
+  <circle cx="350" cy="160" r="75" fill="url(#circGrad)"/>
+  
+  <!-- Check blanc épais -->
+  <path d="M 320,160 L 342.5,182.5 L 383.75,133.75" stroke="white" stroke-width="22.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  
+  <!-- Texte "ChecksFleet" élégant -->
+  <text x="350" y="310" font-family="-apple-system, BlinkMacSystemFont, sans-serif" font-size="120" font-weight="800" fill="#1e293b" text-anchor="middle" dominant-baseline="middle">ChecksFleet</text>
+  
+  <!-- Tagline élégant -->
+  <text x="350" y="380" font-family="-apple-system, sans-serif" font-size="45" font-weight="500" fill="#64748b" text-anchor="middle" dominant-baseline="middle">Transport • Tracking • Trust</text>
+</svg>

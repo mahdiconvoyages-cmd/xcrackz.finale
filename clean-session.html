@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nettoyage Session - XCrackz</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+        .step {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 8px;
+        }
+        .step h3 {
+            margin: 0 0 10px 0;
+            color: #333;
+            font-size: 18px;
+        }
+        .code {
+            background: #2d3748;
+            color: #68d391;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            margin: 10px 0;
+            overflow-x: auto;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        .success {
+            background: #48bb78;
+            color: white;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+            display: none;
+        }
+        .warning {
+            background: #f6ad55;
+            color: #744210;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Nettoyage de Session</h1>
+        <p class="subtitle">Résolution de l'erreur "Invalid Refresh Token"</p>
+
+        <div class="warning">
+            <strong>⚠️ Attention :</strong> Cette action va vous déconnecter. Vous devrez vous reconnecter après.
+        </div>
+
+        <div class="step">
+            <h3>🎯 Que fait cette page ?</h3>
+            <p>Elle nettoie complètement votre session Supabase corrompue et vous redirige vers la page de connexion.</p>
+        </div>
+
+        <div class="step">
+            <h3>📋 Méthode Manuelle (Console)</h3>
+            <p>Ou copiez-collez ce code dans la console (F12) :</p>
+            <div class="code">
+localStorage.clear();<br>
+sessionStorage.clear();<br>
+location.href = '/login';
+            </div>
+        </div>
+
+        <button onclick="cleanSession()">🚀 Nettoyer la Session Maintenant</button>
+
+        <div class="success" id="success">
+            ✅ Session nettoyée ! Redirection vers la page de connexion...
+        </div>
+    </div>
+
+    <script>
+        function cleanSession() {
+            try {
+                // Nettoyer localStorage
+                localStorage.clear();
+                
+                // Nettoyer sessionStorage
+                sessionStorage.clear();
+                
+                // Afficher le message de succès
+                document.getElementById('success').style.display = 'block';
+                
+                // Rediriger après 2 secondes
+                setTimeout(() => {
+                    window.location.href = '/login';
+                }, 2000);
+            } catch (error) {
+                alert('Erreur lors du nettoyage : ' + error.message);
+            }
+        }
+    </script>
+</body>
+</html>

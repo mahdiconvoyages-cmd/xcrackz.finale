@@ -1,0 +1,385 @@
+/* 🎨 xCrackz Design System */
+@import './styles/design-system.css';
+/* Import unified theme */
+@import './styles/unified-theme.css';
+/* Import responsive utilities */
+@import './styles/responsive.css';
+/* Optionnel: optimisations/fixes mobiles désactivées car trop agressives */
+/* @import './styles/mobile-optimizations.css'; */
+/* @import './styles/mobile-fixes.css'; */
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ============================================
+   RÈGLES CRITIQUES RESPONSIVE (PRIORITÉ MAX)
+   ============================================ */
+* {
+  box-sizing: border-box;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+  touch-action: manipulation;
+  overflow-x: hidden;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  min-width: 320px;
+  overflow-x: hidden;
+}
+
+#root {
+  overflow-x: hidden;
+}
+
+/* Images et médias responsive par défaut */
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+/* Tableaux responsive */
+table {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  display: block;
+}
+
+@media (min-width: 768px) {
+  table {
+    display: table;
+  }
+}
+
+/* ============================================
+   PRÉVENTION DÉBORDEMENT MOBILE
+   ============================================ */
+
+/* Empêcher tout élément de dépasser le viewport */
+@media (max-width: 767px) {
+  .max-w-7xl,
+  .max-w-6xl,
+  .max-w-5xl,
+  .max-w-4xl,
+  .max-w-3xl,
+  .max-w-2xl {
+    max-width: 100% !important;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+  }
+
+  /* Empêcher les flexbox de déborder */
+  .flex {
+    min-width: 0;
+  }
+
+  /* Texte long ne doit pas déborder */
+  p, span, h1, h2, h3, h4, h5, h6, a, label {
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+
+  /* Scrollbar cachée pour les scroll horizontaux */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Inputs et formulaires responsive */
+input,
+textarea,
+select,
+button {
+  max-width: 100%;
+  font-size: 16px; /* Empêche le zoom automatique sur iOS */
+}
+
+@layer base {
+  body {
+    @apply bg-slate-50 text-slate-900;
+  }
+}
+
+@layer utilities {
+  .shadow-glow-teal {
+    box-shadow: 0 0 30px rgba(20, 184, 166, 0.4), 0 10px 40px rgba(20, 184, 166, 0.2);
+  }
+
+  .shadow-glow-cyan {
+    box-shadow: 0 0 30px rgba(6, 182, 212, 0.4), 0 10px 40px rgba(6, 182, 212, 0.2);
+  }
+
+  .shadow-glow-green {
+    box-shadow: 0 0 25px rgba(34, 197, 94, 0.4), 0 8px 35px rgba(34, 197, 94, 0.2);
+  }
+
+  .shadow-glow-amber {
+    box-shadow: 0 0 25px rgba(245, 158, 11, 0.4), 0 8px 35px rgba(245, 158, 11, 0.2);
+  }
+
+  .shadow-glow-blue {
+    box-shadow: 0 0 25px rgba(59, 130, 246, 0.4), 0 8px 35px rgba(59, 130, 246, 0.2);
+  }
+
+  .shadow-depth {
+    box-shadow:
+      0 1px 3px rgba(15, 23, 42, 0.06),
+      0 4px 8px rgba(15, 23, 42, 0.08),
+      0 8px 16px rgba(15, 23, 42, 0.08),
+      0 16px 32px rgba(15, 23, 42, 0.06);
+  }
+
+  .shadow-depth-lg {
+    box-shadow:
+      0 2px 4px rgba(15, 23, 42, 0.08),
+      0 8px 16px rgba(15, 23, 42, 0.1),
+      0 16px 32px rgba(15, 23, 42, 0.1),
+      0 32px 64px rgba(15, 23, 42, 0.08);
+  }
+
+  .shadow-depth-xl {
+    box-shadow:
+      0 4px 8px rgba(15, 23, 42, 0.1),
+      0 12px 24px rgba(15, 23, 42, 0.12),
+      0 24px 48px rgba(15, 23, 42, 0.12),
+      0 48px 96px rgba(15, 23, 42, 0.1);
+  }
+
+  .text-shadow {
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+  }
+
+  .text-shadow-lg {
+    text-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+  }
+
+  @keyframes ripple {
+    0% {
+      width: 0;
+      height: 0;
+      opacity: 1;
+    }
+    100% {
+      width: 300px;
+      height: 300px;
+      opacity: 0;
+      transform: translate(-50%, -50%);
+    }
+  }
+
+  @keyframes gradient-shift {
+    0%, 100% {
+      background-position: 0% 50%;
+    }
+    50% {
+      background-position: 100% 50%;
+    }
+  }
+
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0px);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  @keyframes shimmer {
+    0% {
+      background-position: -1000px 0;
+    }
+    100% {
+      background-position: 1000px 0;
+    }
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.8;
+      transform: scale(1.05);
+    }
+  }
+
+  @keyframes bounce-subtle {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+
+  .animate-ripple {
+    animation: ripple 0.6s ease-out;
+  }
+
+  .animate-gradient {
+    background-size: 200% 200%;
+    animation: gradient-shift 3s ease infinite;
+  }
+
+  .animate-float {
+    animation: float 3s ease-in-out infinite;
+  }
+
+  .animate-shimmer {
+    animation: shimmer 2s infinite;
+    background: linear-gradient(
+      to right,
+      transparent 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      transparent 100%
+    );
+    background-size: 1000px 100%;
+  }
+
+  .animate-pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+
+  .animate-bounce-subtle {
+    animation: bounce-subtle 2s ease-in-out infinite;
+  }
+
+  .gradient-border {
+    position: relative;
+    background: linear-gradient(white, white) padding-box,
+      linear-gradient(135deg, rgba(20, 184, 166, 0.5), rgba(6, 182, 212, 0.5)) border-box;
+    border: 2px solid transparent;
+  }
+
+  .gradient-border-animated {
+    position: relative;
+    background: linear-gradient(white, white) padding-box,
+      linear-gradient(135deg,
+        rgba(20, 184, 166, 0.8),
+        rgba(6, 182, 212, 0.8),
+        rgba(59, 130, 246, 0.8),
+        rgba(20, 184, 166, 0.8)
+      ) border-box;
+    border: 2px solid transparent;
+    background-size: 300% 300%;
+    animation: gradient-shift 3s ease infinite;
+  }
+
+  .glass-reflection {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .glass-reflection::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(
+      90deg,
+      transparent,
+      rgba(255, 255, 255, 0.3),
+      transparent
+    );
+    transition: left 0.5s;
+  }
+
+  .glass-reflection:hover::before {
+    left: 100%;
+  }
+
+  .noise-texture {
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 400 400' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.03'/%3E%3C/svg%3E");
+  }
+
+  .inner-glow {
+    box-shadow: inset 0 0 20px rgba(20, 184, 166, 0.1);
+  }
+
+  .hover-scale {
+    transition: transform 0.3s ease;
+  }
+
+  .hover-scale:hover {
+    transform: scale(1.02);
+  }
+
+  .hover-lift {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-4px);
+  }
+
+  .perspective-card {
+    transform-style: preserve-3d;
+    transition: transform 0.6s cubic-bezier(0.23, 1, 0.32, 1);
+  }
+
+  .perspective-card:hover {
+    transform: rotateX(2deg) rotateY(-2deg) translateY(-5px);
+  }
+
+  @keyframes slide-in-right {
+    0% {
+      transform: translateX(400px);
+      opacity: 0;
+    }
+    100% {
+      transform: translateX(0);
+      opacity: 1;
+    }
+  }
+
+  @keyframes progress-bar {
+    0% {
+      width: 100%;
+    }
+    100% {
+      width: 0%;
+    }
+  }
+
+  .animate-slide-in-right {
+    animation: slide-in-right 0.3s ease-out;
+  }
+
+  .animate-progress-bar {
+    animation: progress-bar linear forwards;
+  }
+
+  @keyframes save-pulse {
+    0%, 100% {
+      opacity: 1;
+      transform: scale(1);
+    }
+    50% {
+      opacity: 0.7;
+      transform: scale(0.95);
+    }
+  }
+
+  .animate-save-pulse {
+    animation: save-pulse 1s ease-in-out;
+  }
+}

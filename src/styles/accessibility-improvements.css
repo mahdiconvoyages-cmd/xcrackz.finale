@@ -1,0 +1,171 @@
+/* Améliorations de visibilité et accessibilité */
+
+/* ==============================
+   CONTRASTES WCAG AA (4.5:1 minimum)
+   ============================== */
+
+/* Textes - Amélioration du contraste sur fond blanc */
+.text-slate-600 { color: #475569 !important; } /* Ratio 7.77:1 */
+.text-slate-500 { color: #334155 !important; } /* Ratio 10.27:1 */
+.text-gray-600 { color: #475569 !important; }
+.text-gray-500 { color: #334155 !important; }
+
+/* Liens et textes interactifs - Meilleur contraste */
+a:not(.bg-gradient-to-r) {
+  color: #0f766e !important; /* Teal-700 - Ratio 5.49:1 */
+}
+
+a:hover:not(.bg-gradient-to-r) {
+  color: #115e59 !important; /* Teal-800 - Ratio 6.77:1 */
+}
+
+/* Boutons secondaires - Amélioration du contraste */
+.border-slate-300 {
+  border-color: #94a3b8 !important; /* Plus visible */
+}
+
+/* États désactivés - Meilleur contraste */
+button:disabled,
+input:disabled,
+select:disabled,
+textarea:disabled {
+  color: #475569 !important; /* Au lieu de gray-400 */
+  opacity: 0.7 !important;
+}
+
+/* Placeholders plus visibles */
+::placeholder {
+  color: #64748b !important; /* Slate-500 - Ratio 5.43:1 */
+  opacity: 1 !important;
+}
+
+/* ==============================
+   FOCUS VISIBLE - Navigation clavier
+   ============================== */
+
+/* Focus ring universel et très visible */
+*:focus-visible {
+  outline: 3px solid #14B8A6 !important;
+  outline-offset: 2px !important;
+}
+
+/* Focus pour les boutons principaux */
+button:focus-visible {
+  outline: 3px solid #0d9488 !important;
+  outline-offset: 3px !important;
+  box-shadow: 0 0 0 6px rgba(20, 184, 166, 0.2) !important;
+}
+
+/* Focus pour les inputs */
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid #0d9488 !important;
+  outline-offset: 2px !important;
+  border-color: #0d9488 !important;
+}
+
+/* Sur mobile, améliore la lisibilité */
+@media (max-width: 1023px) {
+  /* Augmente légèrement la taille de tous les textes sur mobile */
+  body {
+    font-size: 16px !important;
+    line-height: 1.6 !important;
+  }
+  
+  /* Textes plus gros pour meilleure lisibilité */
+  h1 { font-size: 2rem !important; }
+  h2 { font-size: 1.75rem !important; }
+  h3 { font-size: 1.5rem !important; }
+  h4 { font-size: 1.25rem !important; }
+  p { font-size: 1rem !important; }
+  
+  /* Boutons plus grands et plus visibles */
+  button {
+    min-height: 44px !important; /* Taille recommandée WCAG */
+    padding: 0.75rem 1.5rem !important;
+    font-size: 1rem !important;
+  }
+  
+  /* Inputs plus grands */
+  input, select, textarea {
+    min-height: 44px !important;
+    font-size: 16px !important; /* Empêche le zoom auto sur iOS */
+    padding: 0.75rem !important;
+  }
+  
+  /* Améliore le contraste des textes */
+  .text-gray-600 {
+    color: #4B5563 !important; /* Plus foncé */
+  }
+  
+  .text-gray-500 {
+    color: #6B7280 !important;
+  }
+  
+  /* Labels plus visibles */
+  label {
+    font-weight: 600 !important;
+    font-size: 0.95rem !important;
+    color: #1F2937 !important;
+  }
+  
+  /* Navigation plus accessible */
+  nav a, nav button {
+    padding: 0.75rem 1rem !important;
+    font-size: 0.95rem !important;
+  }
+  
+  /* Cards plus espacées */
+  .rounded-xl, .rounded-lg {
+    padding: 1.25rem !important;
+  }
+  
+  /* Améliore l'espacement général */
+  .space-y-4 > * + * {
+    margin-top: 1.25rem !important;
+  }
+  
+  .space-y-6 > * + * {
+    margin-top: 1.75rem !important;
+  }
+  
+  /* Focus plus visible pour accessibilité */
+  *:focus {
+    outline: 3px solid #14B8A6 !important;
+    outline-offset: 2px !important;
+  }
+  
+  /* Améliore la grille de photos sur petit écran */
+  @media (max-width: 640px) {
+    .grid.grid-cols-4 {
+      grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+      gap: 1rem !important;
+    }
+  }
+  
+  /* Sur écran moyen, garde 3 colonnes */
+  @media (min-width: 641px) and (max-width: 900px) {
+    .grid.grid-cols-4 {
+      grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+    }
+  }
+}
+
+/* Mode haute accessibilité pour très petit écran */
+@media (max-width: 480px) {
+  body {
+    font-size: 18px !important;
+  }
+  
+  button, input, select, textarea {
+    min-height: 48px !important;
+    font-size: 18px !important;
+  }
+  
+  /* Une seule colonne sur très petit écran */
+  .grid.grid-cols-4 {
+    grid-template-columns: repeat(1, minmax(0, 1fr)) !important;
+    gap: 1.5rem !important;
+  }
+}

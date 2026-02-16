@@ -1,0 +1,81 @@
+/**
+ * 📱 STYLES MOBILES CRITIQUES
+ * Chargés en priorité pour assurer le responsive
+ */
+
+/* ============================================
+   BASE MOBILE-FIRST
+   ============================================ */
+
+/* Reset viewport et débordement */
+html {
+  width: 100%;
+  overflow-x: hidden;
+  -webkit-text-size-adjust: 100%;
+  -webkit-overflow-scrolling: touch;
+}
+
+body {
+  width: 100%;
+  margin: 0;
+  padding: 0;
+  overflow-x: hidden;
+}
+
+/* Container principal */
+#root {
+  width: 100%;
+  overflow-x: hidden;
+}
+
+/* Empêcher TOUT débordement horizontal */
+* {
+  box-sizing: border-box;
+}
+
+/* ============================================
+   PRÉVENTION DÉBORDEMENT HORIZONTAL
+   ============================================ */
+
+/* Images & médias responsive UNIQUEMENT */
+img:not([class*="w-"]):not([class*="h-"]),
+video:not([class*="w-"]):not([class*="h-"]),
+canvas:not([class*="w-"]):not([class*="h-"]) {
+  max-width: 100%;
+  height: auto;
+}
+
+/* ============================================
+   FORMULAIRES MOBILE
+   ============================================ */
+
+/* Empêcher le zoom sur focus iOS */
+input,
+textarea,
+select {
+  font-size: 16px;
+}
+
+/* ============================================
+   TOUCH-FRIENDLY
+   ============================================ */
+
+/* Améliorer le feedback tactile */
+button,
+a {
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* ============================================
+   SAFE AREAS (iPhone notch, etc.)
+   ============================================ */
+
+@supports (padding: env(safe-area-inset-top)) {
+  body {
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}
