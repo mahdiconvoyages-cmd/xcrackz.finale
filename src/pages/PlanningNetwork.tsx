@@ -35,6 +35,7 @@ interface Planning {
   vehicle_category: string;
   notes: string | null;
   created_at: string;
+  expires_at?: string | null;
   waypoints?: Waypoint[];
   // Joined
   profile?: { first_name: string; last_name: string; company_name: string; avatar_url: string };
@@ -238,6 +239,7 @@ export default function PlanningNetwork() {
       .channel('planning-network')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'convoy_plannings' }, () => loadData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'planning_matches' }, () => loadData())
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'planning_notifications', filter: `user_id=eq.${user.id}` }, () => loadData())
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -307,13 +309,30 @@ export default function PlanningNetwork() {
               L'IA analyse et propose les meilleures optimisations.
             </p>
           </div>
-          <button
-            onClick={() => setShowCreateForm(true)}
-            className="flex items-center gap-2 bg-white text-indigo-700 px-5 py-3 rounded-xl font-bold hover:bg-indigo-50 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-          >
-            <Plus className="w-5 h-5" />
-            Publier un planning
-          </button>
+          <div className="flex items-center gap-3">
+            {/* Notification bell */}
+            <div className="relative">
+              <button
+                onClick={() => setActiveTab('matches')}
+                className="p-3 bg-white/20 rounded-xl backdrop-blur-sm hover:bg-white/30 transition-all"
+                title="Notifications"
+              >
+                <Bell className="w-5 h-5 text-white" />
+              </button>
+              {notifications.length > 0 && (
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-white text-[10px] font-bold flex items-center justify-center">
+                  {notifications.length}
+                </span>
+              )}
+            </div>
+            <button
+              onClick={() => setShowCreateForm(true)}
+              className="flex items-center gap-2 bg-white text-indigo-700 px-5 py-3 rounded-xl font-bold hover:bg-indigo-50 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+            >
+              <Plus className="w-5 h-5" />
+              Publier un planning
+            </button>
+          </div>
         </div>
 
         {/* Quick stats strip */}
@@ -448,12 +467,40 @@ function PlanningsTab({ plannings, onRefresh, onRunMatching, onCreateNew }: {
 
   return (
     <div className="space-y-4">
-      {plannings.map(p => (
-        <div key={p.id} className="bg-white rounded-2xl border border-slate-200 p-5 hover:shadow-lg transition-all">
+      {plannings.map(p => {
+        const expiresAt = p.expires_at ? new Date(p.expires_at) : null;
+        const now = new Date();
+        const isExpired = expiresAt ? now > expiresAt : false;
+        const isExpiringSoon = expiresAt && !isExpired ? (expiresAt.getTime() - now.getTime()) < 60 * 60 * 1000 : false;
+        const waypointCount = p.waypoints?.length || 0;
+
+        const formatCountdown = (date: Date) => {
+          const diff = date.getTime() - now.getTime();
+          const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+          const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+          const mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+          if (days > 0) return `${days}j ${hours}h`;
+          if (hours > 0) return `${hours}h ${mins}min`;
+          return `${mins}min`;
+        };
+
+        return (
+        <div key={p.id} className={`bg-white rounded-2xl border p-5 hover:shadow-lg transition-all ${
+          isExpired ? 'border-red-300 bg-red-50/30' : isExpiringSoon ? 'border-amber-300 bg-amber-50/30' : 'border-slate-200'
+        }`}>
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-3 mb-2 flex-wrap">
                 <h3 className="font-bold text-lg text-slate-800 truncate">{p.title}</h3>
+                {isExpired ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-100 text-red-700 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />Expiré
+                  </span>
+                ) : isExpiringSoon ? (
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-100 text-amber-700 flex items-center gap-1">
+                    <Clock className="w-3 h-3" />{formatCountdown(expiresAt!)}
+                  </span>
+                ) : (
                 <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${
                   p.status === 'published' ? 'bg-emerald-100 text-emerald-700' :
                   p.status === 'completed' ? 'bg-blue-100 text-blue-700' :
@@ -462,6 +509,7 @@ function PlanningsTab({ plannings, onRefresh, onRunMatching, onCreateNew }: {
                 }`}>
                   {p.status === 'published' ? 'Publié' : p.status === 'completed' ? 'Terminé' : p.status === 'cancelled' ? 'Annulé' : 'Brouillon'}
                 </span>
+                )}
                 {p.is_return_trip && (
                   <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-100 text-blue-700">
                     <RefreshCw className="w-3 h-3 inline mr-1" />Retour
@@ -501,6 +549,25 @@ function PlanningsTab({ plannings, onRefresh, onRunMatching, onCreateNew }: {
                   <span className="text-indigo-500 font-medium">±{p.flexibility_minutes}min flex</span>
                 )}
               </div>
+
+              {/* Expiration bar */}
+              {expiresAt && !isExpired && (
+                <div className={`mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 ${
+                  isExpiringSoon ? 'bg-amber-50 text-amber-700' : 'bg-sky-50 text-sky-700'
+                }`}>
+                  <Clock className="w-3.5 h-3.5" />
+                  Expire dans {formatCountdown(expiresAt)}
+                  {waypointCount > 0 && (
+                    <span className="ml-auto text-slate-500">Visible sur {waypointCount + 1} villes</span>
+                  )}
+                </div>
+              )}
+              {isExpired && waypointCount > 0 && (
+                <div className="mt-2 px-3 py-1.5 rounded-lg text-xs font-semibold flex items-center gap-2 bg-emerald-50 text-emerald-700">
+                  <MapPin className="w-3.5 h-3.5" />
+                  Encore visible sur {waypointCount} étape{waypointCount > 1 ? 's' : ''} retour
+                </div>
+              )}
             </div>
 
             {/* Actions */}
@@ -534,7 +601,8 @@ function PlanningsTab({ plannings, onRefresh, onRunMatching, onCreateNew }: {
             </div>
           </div>
         </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

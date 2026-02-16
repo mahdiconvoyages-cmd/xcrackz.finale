@@ -3,6 +3,8 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import '../onboarding/location_onboarding_screen.dart';
+import '../../services/planning_location_service.dart';
 
 /// Réseau Planning - Synchronisation de trajets entre convoyeurs
 /// Aucun transport, paiement ou responsabilité légale - coordination pure
@@ -16,24 +18,55 @@ class PlanningNetworkScreen extends StatefulWidget {
 class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> with SingleTickerProviderStateMixin {
   late TabController _tabController;
   final _supabase = Supabase.instance.client;
+  final _locationService = PlanningLocationService();
 
   List<Map<String, dynamic>> _myPlannings = [];
   List<Map<String, dynamic>> _allPlannings = [];
   List<Map<String, dynamic>> _matches = [];
+  List<Map<String, dynamic>> _notifications = [];
   Map<String, dynamic>? _stats;
   bool _loading = true;
+  bool _showOnboarding = false;
 
   @override
   void initState() {
     super.initState();
     _tabController = TabController(length: 4, vsync: this);
+    _checkOnboarding();
     _loadData();
+    _initLocationService();
   }
 
   @override
   void dispose() {
     _tabController.dispose();
     super.dispose();
+  }
+
+  Future<void> _checkOnboarding() async {
+    final completed = await LocationOnboardingScreen.isCompleted();
+    if (!completed && mounted) {
+      setState(() => _showOnboarding = true);
+    }
+  }
+
+  Future<void> _initLocationService() async {
+    await _locationService.initNotifications();
+    await _locationService.startTracking();
+  }
+
+  Future<void> _loadNotifications() async {
+    if (_userId.isEmpty) return;
+    try {
+      final res = await _supabase
+          .from('planning_notifications')
+          .select('*')
+          .eq('user_id', _userId)
+          .eq('is_read', false)
+          .order('created_at', ascending: false)
+          .limit(20);
+      if (mounted) setState(() => _notifications = List<Map<String, dynamic>>.from(res as List? ?? []));
+    } catch (_) {}
   }
 
   String get _userId => _supabase.auth.currentUser?.id ?? '';
@@ -79,6 +112,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> with Sing
         _stats = results[3] as Map<String, dynamic>?;
         _loading = false;
       });
+      await _loadNotifications();
     } catch (e) {
       debugPrint('Error loading planning data: $e');
       setState(() => _loading = false);
@@ -141,7 +175,18 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> with Sing
 
   @override
   Widget build(BuildContext context) {
+    // Onboarding gate - show location tutorial if not completed
+    if (_showOnboarding) {
+      return LocationOnboardingScreen(
+        onCompleted: () {
+          setState(() => _showOnboarding = false);
+          _initLocationService();
+        },
+      );
+    }
+
     final pendingCount = _matches.where((m) => m['status'] == 'pending').length;
+    final unreadNotifs = _notifications.length;
 
     return Scaffold(
       body: NestedScrollView(
@@ -189,6 +234,24 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> with Sing
                                     style: TextStyle(fontSize: 13, color: Colors.white70)),
                               ],
                             ),
+                          ),
+                          // Notification bell
+                          Stack(
+                            children: [
+                              IconButton(
+                                onPressed: () => _showNotificationsSheet(context),
+                                icon: const Icon(Icons.notifications_outlined, color: Colors.white, size: 24),
+                              ),
+                              if (unreadNotifs > 0)
+                                Positioned(
+                                  right: 4, top: 4,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(4),
+                                    decoration: const BoxDecoration(color: Color(0xFFEF4444), shape: BoxShape.circle),
+                                    child: Text('$unreadNotifs', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold)),
+                                  ),
+                                ),
+                            ],
                           ),
                         ],
                       ),
@@ -272,6 +335,125 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> with Sing
         label: const Text('Publier', style: TextStyle(fontWeight: FontWeight.bold)),
       ),
     );
+  }
+
+  void _showNotificationsSheet(BuildContext context) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (_) => DraggableScrollableSheet(
+        initialChildSize: 0.5,
+        maxChildSize: 0.85,
+        minChildSize: 0.3,
+        expand: false,
+        builder: (context, scrollController) => Column(
+          children: [
+            Container(
+              margin: const EdgeInsets.only(top: 12),
+              width: 40, height: 4,
+              decoration: BoxDecoration(color: Colors.grey[300], borderRadius: BorderRadius.circular(2)),
+            ),
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(
+                children: [
+                  const Icon(Icons.notifications, color: Color(0xFF6366F1)),
+                  const SizedBox(width: 8),
+                  const Text('Notifications', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  const Spacer(),
+                  if (_notifications.isNotEmpty)
+                    TextButton(
+                      onPressed: () async {
+                        for (final n in _notifications) {
+                          await _supabase.from('planning_notifications').update({'is_read': true}).eq('id', n['id']);
+                        }
+                        setState(() => _notifications.clear());
+                        if (context.mounted) Navigator.pop(context);
+                      },
+                      child: const Text('Tout marquer lu'),
+                    ),
+                ],
+              ),
+            ),
+            const Divider(height: 1),
+            Expanded(
+              child: _notifications.isEmpty
+                  ? const Center(child: Text('Aucune notification', style: TextStyle(color: Colors.grey)))
+                  : ListView.separated(
+                      controller: scrollController,
+                      itemCount: _notifications.length,
+                      separatorBuilder: (_, __) => const Divider(height: 1),
+                      itemBuilder: (_, i) {
+                        final n = _notifications[i];
+                        final type = n['type'] ?? '';
+                        IconData icon;
+                        Color color;
+                        switch (type) {
+                          case 'new_match':
+                            icon = Icons.bolt;
+                            color = const Color(0xFFF59E0B);
+                            break;
+                          case 'match_accepted':
+                            icon = Icons.check_circle;
+                            color = const Color(0xFF10B981);
+                            break;
+                          case 'match_declined':
+                            icon = Icons.cancel;
+                            color = const Color(0xFFEF4444);
+                            break;
+                          case 'new_message':
+                            icon = Icons.chat_bubble;
+                            color = const Color(0xFF6366F1);
+                            break;
+                          default:
+                            icon = Icons.info;
+                            color = Colors.grey;
+                        }
+                        return ListTile(
+                          leading: CircleAvatar(
+                            backgroundColor: color.withValues(alpha: 0.15),
+                            child: Icon(icon, color: color, size: 20),
+                          ),
+                          title: Text(n['title'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14)),
+                          subtitle: Text(n['body'] ?? '', style: const TextStyle(fontSize: 12)),
+                          trailing: Text(
+                            _timeAgo(n['created_at']),
+                            style: const TextStyle(fontSize: 11, color: Colors.grey),
+                          ),
+                          onTap: () async {
+                            await _supabase.from('planning_notifications').update({'is_read': true}).eq('id', n['id']);
+                            setState(() => _notifications.removeAt(i));
+                            if (context.mounted) Navigator.pop(context);
+                            // Navigate to matches tab if match notification
+                            if (type == 'new_match' || type == 'match_accepted' || type == 'match_declined') {
+                              _tabController.animateTo(1);
+                            } else if (type == 'new_message') {
+                              _tabController.animateTo(1);
+                            }
+                          },
+                        );
+                      },
+                    ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  String _timeAgo(String? dateStr) {
+    if (dateStr == null) return '';
+    try {
+      final date = DateTime.parse(dateStr);
+      final diff = DateTime.now().difference(date);
+      if (diff.inMinutes < 1) return 'À l\'instant';
+      if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes}min';
+      if (diff.inHours < 24) return 'Il y a ${diff.inHours}h';
+      return 'Il y a ${diff.inDays}j';
+    } catch (_) {
+      return '';
+    }
   }
 
   void _showCreateDialog(BuildContext context) {
@@ -411,11 +593,23 @@ class _PlanningsTab extends StatelessWidget {
           final isPublished = status == 'published';
           final waypoints = (p['waypoints'] as List?)?.length ?? 0;
 
+          // Expiration logic
+          final expiresAt = p['expires_at'] != null ? DateTime.tryParse(p['expires_at'].toString()) : null;
+          final isExpired = expiresAt != null && DateTime.now().isAfter(expiresAt);
+          final isExpiringSoon = expiresAt != null && !isExpired && expiresAt.difference(DateTime.now()).inMinutes < 60;
+
           return Card(
             margin: const EdgeInsets.only(bottom: 12),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             elevation: 2,
-            child: Padding(
+            child: Container(
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(16),
+                border: isExpired ? Border.all(color: const Color(0xFFEF4444).withValues(alpha: 0.5), width: 1.5)
+                    : isExpiringSoon ? Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.5), width: 1.5)
+                    : null,
+              ),
+              child: Padding(
               padding: const EdgeInsets.all(16),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -430,6 +624,34 @@ class _PlanningsTab extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                         ),
                       ),
+                      if (isExpired)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: const Color(0xFFFEE2E2), borderRadius: BorderRadius.circular(20)),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.timer_off, size: 12, color: Color(0xFFDC2626)),
+                              SizedBox(width: 3),
+                              Text('Expiré', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
+                            ],
+                          ),
+                        )
+                      else if (isExpiringSoon)
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(color: const Color(0xFFFEF3C7), borderRadius: BorderRadius.circular(20)),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              const Icon(Icons.timer, size: 12, color: Color(0xFFD97706)),
+                              const SizedBox(width: 3),
+                              Text('${expiresAt!.difference(DateTime.now()).inMinutes}min',
+                                  style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: Color(0xFFD97706))),
+                            ],
+                          ),
+                        )
+                      else
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                         decoration: BoxDecoration(
@@ -492,6 +714,51 @@ class _PlanningsTab extends StatelessWidget {
                         _DetailChip(icon: Icons.swap_horiz, text: '±${p['flexibility_minutes']}min'),
                     ],
                   ),
+                  // Expiration countdown bar
+                  if (expiresAt != null && !isExpired) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: isExpiringSoon ? const Color(0xFFFEF3C7) : const Color(0xFFF0F9FF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          Icon(Icons.schedule, size: 14, color: isExpiringSoon ? const Color(0xFFD97706) : const Color(0xFF0284C7)),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Expire ${_formatCountdown(expiresAt)}',
+                            style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w600,
+                              color: isExpiringSoon ? const Color(0xFFD97706) : const Color(0xFF0284C7),
+                            ),
+                          ),
+                          const Spacer(),
+                          if (waypoints > 0)
+                            Text('Visible sur ${waypoints + 1} ville${waypoints > 0 ? 's' : ''}',
+                                style: TextStyle(fontSize: 11, color: Colors.grey[600])),
+                        ],
+                      ),
+                    ),
+                  ] else if (isExpired && waypoints > 0) ...[
+                    const SizedBox(height: 8),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF0FDF4),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.location_on, size: 14, color: Color(0xFF16A34A)),
+                          const SizedBox(width: 6),
+                          Text('Encore visible sur $waypoints étape${waypoints > 1 ? 's' : ''} retour',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: Color(0xFF16A34A))),
+                        ],
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 12),
                   // Actions
                   Row(
@@ -528,6 +795,7 @@ class _PlanningsTab extends StatelessWidget {
                 ],
               ),
             ),
+            ),
           );
         },
       ),
@@ -541,6 +809,13 @@ class _PlanningsTab extends StatelessWidget {
     } catch (_) {
       return date;
     }
+  }
+
+  String _formatCountdown(DateTime expiresAt) {
+    final diff = expiresAt.difference(DateTime.now());
+    if (diff.inDays > 0) return 'dans ${diff.inDays}j ${diff.inHours % 24}h';
+    if (diff.inHours > 0) return 'dans ${diff.inHours}h ${diff.inMinutes % 60}min';
+    return 'dans ${diff.inMinutes}min';
   }
 }
 
