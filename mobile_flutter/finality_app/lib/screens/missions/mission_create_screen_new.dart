@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import '../../models/mission.dart';
 import '../../services/address_autocomplete_service.dart';
 import '../../services/subscription_service.dart';
 import '../../services/credits_service.dart';
@@ -10,7 +11,9 @@ import '../../theme/premium_theme.dart';
 /// Ecran de creation de mission — version moderne / theme clair
 /// 3 etapes : Donneur d'ordre + Vehicule -> Enlevement -> Livraison + Options
 class MissionCreateScreenNew extends StatefulWidget {
-  const MissionCreateScreenNew({super.key});
+  final Mission? existingMission;
+
+  const MissionCreateScreenNew({super.key, this.existingMission});
 
   @override
   State<MissionCreateScreenNew> createState() =>
@@ -103,10 +106,16 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
 
   int get _requiredCredits => _hasRestitution ? 2 : 1;
 
+  bool get _isEditing => widget.existingMission != null;
+
   @override
   void initState() {
     super.initState();
     _checkSubscription();
+    // Prefill fields if editing
+    if (_isEditing) {
+      _prefillFromMission(widget.existingMission!);
+    }
     // Listeners pour rafraîchir le bouton Continuer en temps réel
     for (final c in [
       _mandataireNameController, _mandataireCompanyController,
@@ -160,6 +169,51 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
     } catch (e) {
       debugPrint('Error checking subscription: $e');
     }
+  }
+
+  void _prefillFromMission(Mission m) {
+    _mandataireNameController.text = m.mandataireName ?? '';
+    _mandataireCompanyController.text = m.mandataireCompany ?? '';
+    _brandController.text = m.vehicleBrand ?? '';
+    _modelController.text = m.vehicleModel ?? '';
+    _plateController.text = m.vehiclePlate ?? '';
+    _vinController.text = m.vehicleVin ?? '';
+    _vehicleType = m.vehicleType ?? 'VL';
+
+    // Pickup - parse city/postal from address if available
+    _pickupCityController.text = m.pickupCity ?? '';
+    _pickupPostcodeController.text = m.pickupPostalCode ?? '';
+    // Extract street part from full address (before the city)
+    final pickupFull = m.pickupAddress ?? '';
+    final pickupCitySuffix = '${m.pickupPostalCode ?? ''} ${m.pickupCity ?? ''}'.trim();
+    _pickupAddressController.text = pickupFull.replaceAll(', $pickupCitySuffix', '').trim();
+    _pickupLat = m.pickupLat;
+    _pickupLng = m.pickupLng;
+    _pickupDate = m.pickupDate;
+    if (m.pickupDate != null) {
+      _pickupTime = TimeOfDay(hour: m.pickupDate!.hour, minute: m.pickupDate!.minute);
+    }
+    _pickupContactNameController.text = m.pickupContactName ?? '';
+    _pickupContactPhoneController.text = m.pickupContactPhone ?? '';
+
+    // Delivery
+    _deliveryCityController.text = m.deliveryCity ?? '';
+    _deliveryPostcodeController.text = m.deliveryPostalCode ?? '';
+    final deliveryFull = m.deliveryAddress ?? '';
+    final deliveryCitySuffix = '${m.deliveryPostalCode ?? ''} ${m.deliveryCity ?? ''}'.trim();
+    _deliveryAddressController.text = deliveryFull.replaceAll(', $deliveryCitySuffix', '').trim();
+    _deliveryLat = m.deliveryLat;
+    _deliveryLng = m.deliveryLng;
+    _deliveryDate = m.deliveryDate;
+    if (m.deliveryDate != null) {
+      _deliveryTime = TimeOfDay(hour: m.deliveryDate!.hour, minute: m.deliveryDate!.minute);
+    }
+    _deliveryContactNameController.text = m.deliveryContactName ?? '';
+    _deliveryContactPhoneController.text = m.deliveryContactPhone ?? '';
+
+    _priceController.text = m.price != null ? m.price.toString() : '';
+    _notesController.text = m.notes ?? '';
+    _hasRestitution = m.hasRestitution;
   }
 
   @override
@@ -352,11 +406,11 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
       _showError('Veuillez remplir tous les champs obligatoires');
       return;
     }
-    if (!_hasActiveSubscription) {
+    if (!_isEditing && !_hasActiveSubscription) {
       _showError('Abonnement expire. Veuillez le renouveler.');
       return;
     }
-    if (_availableCredits < _requiredCredits) {
+    if (!_isEditing && _availableCredits < _requiredCredits) {
       _showError('Pas assez de credits. Necessaire: $_requiredCredits, disponibles: $_availableCredits');
       return;
     }
@@ -561,19 +615,33 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
         });
       }
 
-      await supabase.from('missions').insert(data);
+      if (_isEditing) {
+        // Update existing mission
+        data.remove('user_id');
+        data.remove('reference');
+        data.remove('status');
+        await supabase
+            .from('missions')
+            .update(data)
+            .eq('id', widget.existingMission!.id);
+      } else {
+        // Create new mission
+        await supabase.from('missions').insert(data);
 
-      // Deduire les credits (2 si restitution, 1 sinon)
-      await _creditsService.spendCredits(
-        userId: userId,
-        amount: _requiredCredits,
-        description: 'Creation mission $ref${_hasRestitution ? ' + restitution' : ''}',
-      );
+        // Deduire les credits (2 si restitution, 1 sinon)
+        await _creditsService.spendCredits(
+          userId: userId,
+          amount: _requiredCredits,
+          description: 'Creation mission $ref${_hasRestitution ? ' + restitution' : ''}',
+        );
+      }
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text('Mission creee avec succes ($_requiredCredits credit${_requiredCredits > 1 ? 's' : ''} deduit${_requiredCredits > 1 ? 's' : ''})'),
+            content: Text(_isEditing
+                ? 'Mission modifiee avec succes'
+                : 'Mission creee avec succes ($_requiredCredits credit${_requiredCredits > 1 ? 's' : ''} deduit${_requiredCredits > 1 ? 's' : ''})'),
             backgroundColor: PremiumTheme.accentGreen,
           ),
         );
@@ -740,7 +808,7 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
-          'Nouvelle mission',
+          _isEditing ? 'Modifier la mission' : 'Nouvelle mission',
           style: PremiumTheme.heading4.copyWith(fontSize: 18),
         ),
         bottom: PreferredSize(
@@ -1589,7 +1657,7 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
                       : Icons.arrow_forward_rounded,
                   size: 18,
                 ),
-                label: Text(isLast ? 'Creer la mission' : 'Continuer'),
+                label: Text(isLast ? (_isEditing ? 'Enregistrer' : 'Creer la mission') : 'Continuer'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: isLast
                       ? PremiumTheme.accentGreen

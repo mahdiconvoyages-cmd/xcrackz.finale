@@ -1,12 +1,11 @@
-// @ts-nocheck - Planning Network Optimization - Réseau de convoyeurs
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import {
-  Route, MapPin, Clock, Users, TrendingUp, Plus, Search, Filter,
-  Calendar, Navigation, Zap, Bell, ChevronRight, ChevronDown, X,
+  Route, MapPin, Clock, Users, Plus,
+  Calendar, Navigation, Zap, Bell, X,
   Check, AlertCircle, Truck, Leaf, BarChart3, Share2, Eye, Trash2,
-  RefreshCw, ArrowRight, Star, Target, Map as MapIcon, MessageCircle, Send, User
+  RefreshCw, ArrowRight, Star, Target, Map as MapIcon, MessageCircle, Send
 } from 'lucide-react';
 
 // ============================================================================
@@ -667,7 +666,7 @@ function MatchesTab({ matches, userId, onRefresh }: { matches: Match[]; userId: 
         schema: 'public',
         table: 'planning_messages',
         filter: `match_id=eq.${chatMatchId}`,
-      }, (payload) => {
+      }, (payload: any) => {
         setChatMessages(prev => [...prev, payload.new as ChatMessage]);
         // Auto mark as read if not me
         if ((payload.new as ChatMessage).sender_id !== userId) {
@@ -1005,7 +1004,7 @@ function MapTab({ plannings, userId }: { plannings: Planning[]; userId: string }
   const mapRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const [mapReady, setMapReady] = useState(false);
-  const [selectedPlanning, setSelectedPlanning] = useState<Planning | null>(null);
+  const [_selectedPlanning, _setSelectedPlanning] = useState<Planning | null>(null);
 
   useEffect(() => {
     if (!mapContainerRef.current || mapRef.current) return;

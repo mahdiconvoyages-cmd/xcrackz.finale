@@ -1,4 +1,3 @@
-// @ts-nocheck - Supabase generated types are outdated, all operations work correctly at runtime
 import { useEffect, useState } from 'react';
 import { Plus, Search, Building2, Mail, Phone, MapPin, Edit2, Trash2, FileText, Euro, TrendingUp, Calendar, Clock, Loader2, CheckCircle2, AlertCircle, Sparkles, DollarSign, Settings } from 'lucide-react';
 import { supabase } from '../lib/supabase';

@@ -111,23 +111,16 @@ class _DashboardScreenState extends State<DashboardScreen>
         _daysRemaining = 0;
       }
 
-      // Load missions stats
-      final missions = await supabase
-          .from('missions')
-          .select('status')
-          .or('user_id.eq.$userId,assigned_user_id.eq.$userId');
+      // Load stats via server-side RPC (single query replaces 2 queries + client-side aggregation)
+      final statsRes = await supabase.rpc('get_dashboard_stats', params: {'p_user_id': userId});
 
-      _totalMissions = missions.length;
-      _activeMissions = missions.where((m) => m['status'] == 'in_progress').length;
-      _completedMissions = missions.where((m) => m['status'] == 'completed').length;
-      _completionRate = _totalMissions > 0 ? (_completedMissions / _totalMissions) * 100 : 0;
-
-      // Load contacts
-      final contacts = await supabase
-          .from('contacts')
-          .select('id')
-          .eq('user_id', userId);
-      _totalContacts = contacts.length;
+      if (statsRes != null) {
+        _totalMissions = statsRes['total_missions'] ?? 0;
+        _activeMissions = statsRes['active_missions'] ?? 0;
+        _completedMissions = statsRes['completed_missions'] ?? 0;
+        _completionRate = (statsRes['completion_rate'] ?? 0).toDouble();
+        _totalContacts = statsRes['total_contacts'] ?? 0;
+      }
 
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {

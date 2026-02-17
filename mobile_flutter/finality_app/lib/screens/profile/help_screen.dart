@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
+import 'support_chat_screen.dart';
 
 class HelpScreen extends StatelessWidget {
   const HelpScreen({Key? key}) : super(key: key);
@@ -150,6 +151,37 @@ class HelpScreen extends StatelessWidget {
 
           const SizedBox(height: 32),
 
+          // Chat support
+          FadeInAnimation(
+            delay: const Duration(milliseconds: 550),
+            child: PremiumCard(
+              child: ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                leading: Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: PremiumTheme.primaryGradient,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.support_agent_rounded, color: Colors.white, size: 24),
+                ),
+                title: Text('Chat avec le support',
+                    style: PremiumTheme.body.copyWith(fontWeight: FontWeight.w600)),
+                subtitle: Text('Discutez directement avec notre equipe',
+                    style: PremiumTheme.bodySmall.copyWith(color: PremiumTheme.textSecondary)),
+                trailing: const Icon(Icons.arrow_forward_ios_rounded,
+                    color: PremiumTheme.primaryBlue, size: 16),
+                onTap: () => Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SupportChatScreen()),
+                ),
+              ),
+            ),
+          ),
+
+          const SizedBox(height: 32),
+
           // Section Contact
           Text(
             'Besoin d\'aide supplémentaire ?',
@@ -234,12 +266,12 @@ class HelpScreen extends StatelessWidget {
                     PremiumButton(
                       text: 'Voir les tutoriels',
                       onPressed: () {
-                        // TODO: Open tutorials
                         ScaffoldMessenger.of(context).showSnackBar(
                           const SnackBar(
-                            content: Text('Tutoriels disponibles prochainement'),
+                            content: Text('Les tutoriels vidéo arrivent bientôt. En attendant, contactez le support pour toute question.'),
                             backgroundColor: PremiumTheme.primaryTeal,
                             behavior: SnackBarBehavior.floating,
+                            duration: Duration(seconds: 4),
                           ),
                         );
                       },

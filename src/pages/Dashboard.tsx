@@ -1,4 +1,3 @@
-// @ts-nocheck - Supabase generated types are outdated, all operations work correctly at runtime
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { 
@@ -142,109 +141,43 @@ export default function Dashboard() {
     if (!user) return;
 
     try {
-      const [missionsRes, contactsRes, invoicesRes, recentMissionsRes, creditsRes] = await Promise.all([
-        supabase.from('missions').select('status, price, created_at, company_commission, bonus_amount, pickup_date, delivery_date, distance_km', { count: 'exact' }).eq('user_id', user.id),
-        supabase.from('contacts').select('id, type, is_driver, rating_average', { count: 'exact' }).eq('user_id', user.id),
-        supabase.from('invoices').select('status, total, created_at', { count: 'exact' }).eq('user_id', user.id),
+      // Single RPC call replaces 5 queries + client-side aggregation
+      const [statsRes, recentMissionsRes] = await Promise.all([
+        supabase.rpc('get_dashboard_stats', { p_user_id: user.id }),
         supabase.from('missions').select('*').eq('user_id', user.id).order('created_at', { ascending: false }).limit(5),
-        supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle(),
       ]);
 
-      const missions = missionsRes.data || [];
-      const contacts = contactsRes.data || [];
-      const invoices = invoicesRes.data || [];
-
-      const completedCount = missions.filter((m) => m.status === 'completed').length;
-      const cancelledCount = missions.filter((m) => m.status === 'cancelled').length;
-      const activeCount = missions.filter((m) => m.status === 'in_progress').length;
-      const pendingCount = missions.filter((m) => m.status === 'pending').length;
-      const totalCount = missions.length;
-      const completionRate = totalCount > 0 ? (completedCount / totalCount) * 100 : 0;
-      const cancelledRate = totalCount > 0 ? (cancelledCount / totalCount) * 100 : 0;
-
-      const totalRevenue = missions.filter((m) => m.status === 'completed').reduce((sum, m) => sum + (m.company_commission || 0) + (m.bonus_amount || 0), 0);
-
-      const now = new Date();
-      const currentMonth = now.getMonth();
-      const currentYear = now.getFullYear();
-      const startOfWeek = new Date(now);
-      startOfWeek.setDate(now.getDate() - now.getDay());
-      startOfWeek.setHours(0, 0, 0, 0);
-      const startOfToday = new Date(now.setHours(0, 0, 0, 0));
-
-      const monthlyMissions = missions.filter((m) => {
-        const missionDate = new Date(m.created_at);
-        return missionDate.getMonth() === currentMonth && missionDate.getFullYear() === currentYear;
-      });
-
-      const weeklyMissions = missions.filter((m) => new Date(m.created_at) >= startOfWeek);
-      const todayMissions = missions.filter((m) => new Date(m.created_at) >= startOfToday);
-
-      const monthlyRevenue = monthlyMissions.filter((m) => m.status === 'completed').reduce((sum, m) => sum + (m.company_commission || 0) + (m.bonus_amount || 0), 0);
-      const weeklyRevenue = weeklyMissions.filter((m) => m.status === 'completed').reduce((sum, m) => sum + (m.company_commission || 0) + (m.bonus_amount || 0), 0);
-
-      const avgPrice = completedCount > 0 ? totalRevenue / completedCount : 0;
-
-      const totalDrivers = contacts.filter((c) => c.is_driver).length;
-      const totalClients = contacts.filter((c) => c.type === 'customer').length;
-      const topRatedContacts = contacts.filter((c) => c.rating_average >= 4).length;
-
-      const paidInvoices = invoices.filter((i) => i.status === 'paid').length;
-      const pendingInvoices = invoices.filter((i) => i.status !== 'paid' && i.status !== 'cancelled').length;
-
-      const totalDistance = missions.reduce((sum, m) => sum + (m.distance_km || 0), 0);
-      const completedMissionsWithTime = missions.filter((m) => m.status === 'completed' && m.pickup_date && m.delivery_date);
-      const averageDeliveryTime = completedMissionsWithTime.length > 0
-        ? completedMissionsWithTime.reduce((sum, m) => {
-            const pickup = new Date(m.pickup_date).getTime();
-            const delivery = new Date(m.delivery_date).getTime();
-            return sum + (delivery - pickup) / (1000 * 60 * 60);
-          }, 0) / completedMissionsWithTime.length
-        : 0;
-
-      const totalCredits = creditsRes.data?.balance || 0;
-
-      const last6Months = [];
-      for (let i = 5; i >= 0; i--) {
-        const date = new Date();
-        date.setMonth(date.getMonth() - i);
-        const month = date.toLocaleDateString('fr-FR', { month: 'short' });
-        const monthMissions = missions.filter((m) => {
-          const missionDate = new Date(m.created_at);
-          return missionDate.getMonth() === date.getMonth() && missionDate.getFullYear() === date.getFullYear();
-        });
-        const revenue = monthMissions.filter((m) => m.status === 'completed').reduce((sum, m) => sum + (m.company_commission || 0) + (m.bonus_amount || 0), 0);
-        last6Months.push({ month, missions: monthMissions.length, revenue });
-      }
+      if (statsRes.error) throw statsRes.error;
+      const s = statsRes.data;
 
       setStats({
-        totalMissions: missionsRes.count || 0,
-        activeMissions: activeCount,
-        completedMissions: completedCount,
-        cancelledMissions: cancelledCount,
-        pendingMissions: pendingCount,
-        totalContacts: contactsRes.count || 0,
-        totalDrivers,
-        totalClients,
-        pendingInvoices,
-        paidInvoices,
-        totalInvoices: invoicesRes.count || 0,
-        totalRevenue,
-        monthlyRevenue,
-        weeklyRevenue,
-        averageMissionPrice: avgPrice,
-        completionRate,
-        cancelledRate,
-        totalCredits,
-        usedCredits: totalCount,
-        topRatedContacts,
-        missionsThisWeek: weeklyMissions.length,
-        missionsToday: todayMissions.length,
-        averageDeliveryTime,
-        totalDistance,
+        totalMissions: s.total_missions,
+        activeMissions: s.active_missions,
+        completedMissions: s.completed_missions,
+        cancelledMissions: s.cancelled_missions,
+        pendingMissions: s.pending_missions,
+        totalContacts: s.total_contacts,
+        totalDrivers: s.total_drivers,
+        totalClients: s.total_clients,
+        pendingInvoices: s.pending_invoices,
+        paidInvoices: s.paid_invoices,
+        totalInvoices: s.total_invoices,
+        totalRevenue: s.total_revenue,
+        monthlyRevenue: s.monthly_revenue,
+        weeklyRevenue: s.weekly_revenue,
+        averageMissionPrice: s.average_mission_price,
+        completionRate: s.completion_rate,
+        cancelledRate: s.cancelled_rate,
+        totalCredits: s.total_credits,
+        usedCredits: s.total_missions,
+        topRatedContacts: s.top_rated_contacts,
+        missionsThisWeek: s.missions_this_week,
+        missionsToday: s.missions_today,
+        averageDeliveryTime: s.average_delivery_time_hours,
+        totalDistance: s.total_distance,
       });
 
-      setMonthlyData(last6Months);
+      setMonthlyData(s.monthly_chart || []);
       setRecentMissions(recentMissionsRes.data || []);
     } catch (error) {
       console.error('Error loading dashboard:', error);

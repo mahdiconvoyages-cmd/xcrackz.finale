@@ -28,8 +28,13 @@ class _MissionsScreenState extends State<MissionsScreen>
   final supabase = Supabase.instance.client;
   List<Mission> _missions = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  static const int _pageSize = 50;
   late TabController _tabController;
   final _joinCodeController = TextEditingController();
+  final _searchController = TextEditingController();
+  String _searchQuery = '';
   RealtimeChannel? _missionsChannel;
 
   @override
@@ -84,17 +89,22 @@ class _MissionsScreenState extends State<MissionsScreen>
     _missionsChannel?.unsubscribe();
     _tabController.dispose();
     _joinCodeController.dispose();
+    _searchController.dispose();
     super.dispose();
   }
 
   Future<void> _loadMissions() async {
     if (!mounted) return;
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _hasMore = true;
+    });
     try {
-      final missions = await _missionService.getMissions();
+      final missions = await _missionService.getMissions(limit: _pageSize);
       if (!mounted) return;
       setState(() {
         _missions = missions;
+        _hasMore = missions.length >= _pageSize;
         _isLoading = false;
       });
     } catch (e) {
@@ -106,8 +116,45 @@ class _MissionsScreenState extends State<MissionsScreen>
     }
   }
 
-  List<Mission> _filtered(String status) =>
-      _missions.where((m) => m.status == status).toList();
+  Future<void> _loadMoreMissions() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+    try {
+      final more = await _missionService.getMissions(
+        limit: _pageSize,
+        offset: _missions.length,
+      );
+      if (!mounted) return;
+      setState(() {
+        _missions.addAll(more);
+        _hasMore = more.length >= _pageSize;
+        _isLoadingMore = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isLoadingMore = false);
+    }
+  }
+
+  List<Mission> _filtered(String status) {
+    var list = _missions.where((m) => m.status == status).toList();
+    if (_searchQuery.isNotEmpty) {
+      final q = _searchQuery.toLowerCase();
+      list = list.where((m) {
+        return (m.reference ?? '').toLowerCase().contains(q) ||
+            (m.mandataireCompany ?? '').toLowerCase().contains(q) ||
+            (m.mandataireName ?? '').toLowerCase().contains(q) ||
+            (m.pickupCity ?? '').toLowerCase().contains(q) ||
+            (m.deliveryCity ?? '').toLowerCase().contains(q) ||
+            (m.pickupAddress ?? '').toLowerCase().contains(q) ||
+            (m.deliveryAddress ?? '').toLowerCase().contains(q) ||
+            (m.vehicleBrand ?? '').toLowerCase().contains(q) ||
+            (m.vehicleModel ?? '').toLowerCase().contains(q) ||
+            (m.vehiclePlate ?? '').toLowerCase().contains(q);
+      }).toList();
+    }
+    return list;
+  }
 
   // =========== STATUS HELPERS ===========
   static Color statusColor(String status) {
@@ -200,6 +247,7 @@ class _MissionsScreenState extends State<MissionsScreen>
       ),
       body: Column(
         children: [
+          _buildSearchBar(),
           _buildJoinBar(),
           Expanded(
             child: _isLoading
@@ -243,6 +291,40 @@ class _MissionsScreenState extends State<MissionsScreen>
             ),
           ],
         ],
+      ),
+    );
+  }
+
+  // =========== SEARCH BAR ===========
+  Widget _buildSearchBar() {
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: TextField(
+        controller: _searchController,
+        style: PremiumTheme.body.copyWith(fontSize: 14),
+        decoration: InputDecoration(
+          hintText: 'Rechercher (ref, ville, immat...)',
+          hintStyle: PremiumTheme.bodySmall.copyWith(color: PremiumTheme.textTertiary),
+          prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+          suffixIcon: _searchQuery.isNotEmpty
+              ? IconButton(
+                  icon: const Icon(Icons.clear, size: 18),
+                  onPressed: () {
+                    _searchController.clear();
+                    setState(() => _searchQuery = '');
+                  },
+                )
+              : null,
+          border: InputBorder.none,
+          isDense: true,
+          contentPadding: const EdgeInsets.symmetric(vertical: 12),
+        ),
+        onChanged: (val) => setState(() => _searchQuery = val),
       ),
     );
   }
@@ -368,8 +450,24 @@ class _MissionsScreenState extends State<MissionsScreen>
       child: ListView.builder(
         padding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        itemCount: missions.length,
-        itemBuilder: (_, i) => FadeInAnimation(
+        itemCount: missions.length + (_hasMore ? 1 : 0),
+        itemBuilder: (_, i) {
+          if (i == missions.length) {
+            // "Load more" button
+            return Padding(
+              padding: const EdgeInsets.symmetric(vertical: 16),
+              child: Center(
+                child: _isLoadingMore
+                    ? const CircularProgressIndicator()
+                    : TextButton.icon(
+                        onPressed: _loadMoreMissions,
+                        icon: const Icon(Icons.expand_more_rounded),
+                        label: const Text('Charger plus'),
+                      ),
+              ),
+            );
+          }
+          return FadeInAnimation(
           delay: Duration(milliseconds: 50 * i.clamp(0, 8)),
           child: _MissionTile(
             mission: missions[i],
@@ -385,7 +483,8 @@ class _MissionsScreenState extends State<MissionsScreen>
                 ? () => _createInvoice(missions[i])
                 : null,
           ),
-        ),
+        );
+        },
       ),
     );
   }

@@ -110,7 +110,7 @@ class UserSubscription {
   bool get isCancelled => status == 'cancelled';
   bool get isTrialing => status == 'trialing';
   bool get isFree => plan == 'free';
-  bool get isPremium => plan == 'premium' || plan == 'enterprise';
+  bool get isPremium => plan == 'pro' || plan == 'premium' || plan == 'business' || plan == 'enterprise';
 
   int get daysRemaining {
     if (expiresAt == null) return 0;
@@ -127,10 +127,15 @@ class UserSubscription {
     switch (plan) {
       case 'free':
         return 'Gratuit';
+      case 'essentiel':
       case 'basic':
-        return 'Basique';
+      case 'starter':
+        return 'Essentiel';
+      case 'pro':
       case 'premium':
-        return 'Premium';
+        return 'Pro';
+      case 'business':
+        return 'Business';
       case 'enterprise':
         return 'Enterprise';
       default:

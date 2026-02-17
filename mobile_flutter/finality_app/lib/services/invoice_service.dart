@@ -83,7 +83,7 @@ class InvoiceService {
   }
 
   // Récupérer toutes les factures de l'utilisateur
-  Future<List<Invoice>> getInvoices({String? status}) async {
+  Future<List<Invoice>> getInvoices({String? status, int limit = 30, int offset = 0}) async {
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('Utilisateur non connecté');
@@ -97,7 +97,9 @@ class InvoiceService {
         query = query.eq('status', status);
       }
       
-      final response = await query.order('created_at', ascending: false);
+      final response = await query
+          .order('created_at', ascending: false)
+          .range(offset, offset + limit - 1);
       return (response as List).map((json) => Invoice.fromJson(json)).toList();
     } catch (e) {
       throw Exception('Erreur chargement factures: $e');

@@ -33,16 +33,17 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
       'icon': Icons.card_giftcard,
     },
     {
-      'id': 'basic',
-      'name': 'Basique',
-      'price': 9.99,
+      'id': 'essentiel',
+      'name': 'Essentiel',
+      'price': 10.0,
       'period': 'month',
       'features': [
-        '20 missions par mois',
-        '10 inspections par mois',
-        'Support prioritaire',
-        'Scanner avancé',
-        'Facturation automatique',
+        '10 crédits par mois',
+        'Plateforme complète',
+        'Rapports PDF',
+        'CRM intégré',
+        'Scanner professionnel',
+        'Support par email',
       ],
       'color': Colors.blue,
       'icon': Icons.stars,
@@ -50,34 +51,32 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
     {
       'id': 'pro',
       'name': 'Pro',
-      'price': 29.99,
+      'price': 20.0,
       'period': 'month',
       'features': [
-        'Missions illimitées',
-        'Inspections illimitées',
-        'Support 24/7',
-        'Scanner professionnel OCR',
-        'CRM intégré',
+        '20 crédits par mois',
+        'Assistant IA inclus',
+        'Scanner avancé OCR',
+        'Optimisation des trajets',
         'Rapports avancés',
-        'API access',
+        'Support prioritaire',
       ],
       'color': Colors.purple,
       'icon': Icons.workspace_premium,
       'popular': true,
     },
     {
-      'id': 'enterprise',
-      'name': 'Entreprise',
-      'price': 99.99,
+      'id': 'business',
+      'name': 'Business',
+      'price': 50.0,
       'period': 'month',
       'features': [
-        'Tout du plan Pro',
-        'Équipes multi-utilisateurs',
-        'Gestion centralisée',
-        'SLA garanti',
-        'Formation personnalisée',
-        'Intégration sur mesure',
-        'Support dédié',
+        '100 crédits par mois',
+        'Frais de mise en service offerts',
+        'Gestion de flotte / équipes',
+        'Volume important',
+        'Support téléphonique',
+        'Toutes les fonctionnalités Pro',
       ],
       'color': Colors.amber,
       'icon': Icons.business,
@@ -496,35 +495,24 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
   }
 
   Future<void> _handleSubscribe(String planId) async {
-    // Afficher un dialogue de confirmation
+    // Afficher un dialogue informatif
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: const Text('Confirmer l\'abonnement'),
+        title: const Text('Abonnement'),
         content: const Text(
-          'Cette fonctionnalité sera bientôt disponible. '
-          'Vous serez redirigé vers le système de paiement.',
+          'Le système de paiement en ligne sera disponible prochainement.\n\n'
+          'Pour souscrire à un abonnement dès maintenant, contactez-nous :\n'
+          '• Email : contact@checksfleet.com\n'
+          '• Tél : +33 6 83 39 74 61',
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
-            child: const Text('Annuler'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text('Continuer'),
+            child: const Text('Fermer'),
           ),
         ],
       ),
     );
-
-    if (confirmed == true && mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Paiement en cours de développement...'),
-          backgroundColor: Colors.orange,
-        ),
-      );
-    }
   }
 }

@@ -177,7 +177,7 @@ export default function SignupWizard() {
           const end = new Date();
           end.setDate(end.getDate() + 30);
           await supabase.from('subscriptions').insert({
-            user_id: authData.user.id, plan: 'starter', status: 'active',
+            user_id: authData.user.id, plan: 'free', status: 'active',
             start_date: new Date().toISOString(), end_date: end.toISOString(),
             credits_remaining: 10, auto_renew: false,
           });

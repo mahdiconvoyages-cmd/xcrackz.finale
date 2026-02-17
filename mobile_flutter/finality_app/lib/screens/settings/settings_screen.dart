@@ -1,3 +1,5 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -6,11 +8,14 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/locale_provider.dart';
 import '../../main.dart';
+import '../profile/support_chat_screen.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
   const SettingsScreen({super.key});
@@ -389,21 +394,52 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     );
 
     if (confirm == true) {
-      // Demander confirmation par email
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.email, color: Colors.white),
-              SizedBox(width: 12),
-              Expanded(child: Text('Un email de confirmation vous a été envoyé')),
-            ],
-          ),
-          backgroundColor: PremiumTheme.primaryIndigo,
-          behavior: SnackBarBehavior.floating,
-          duration: const Duration(seconds: 4),
-        ),
-      );
+      try {
+        final supabase = Supabase.instance.client;
+        final userId = supabase.auth.currentUser?.id;
+        if (userId == null) return;
+
+        // Insert real deletion request in Supabase
+        await supabase.from('deletion_requests').insert({
+          'user_id': userId,
+          'reason': 'User requested account deletion from mobile app',
+          'requested_at': DateTime.now().toIso8601String(),
+          'status': 'pending',
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Row(
+                children: [
+                  Icon(Icons.check_circle, color: Colors.white),
+                  SizedBox(width: 12),
+                  Expanded(child: Text('Demande de suppression enregistrée. Votre compte sera supprimé sous 30 jours.')),
+                ],
+              ),
+              backgroundColor: PremiumTheme.primaryIndigo,
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 5),
+            ),
+          );
+
+          // Sign out
+          await supabase.auth.signOut();
+          if (mounted) {
+            Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+          }
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Erreur: $e'),
+              backgroundColor: Colors.red,
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -423,27 +459,75 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
         ),
         backgroundColor: PremiumTheme.primaryTeal,
         behavior: SnackBarBehavior.floating,
-        duration: const Duration(seconds: 3),
+        duration: const Duration(seconds: 10),
       ),
     );
-    
-    // Simulate export
-    await Future.delayed(const Duration(seconds: 2));
-    
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.check_circle, color: Colors.white),
-              SizedBox(width: 12),
-              Text('Données exportées par email'),
-            ],
-          ),
-          backgroundColor: PremiumTheme.accentGreen,
-          behavior: SnackBarBehavior.floating,
+
+    try {
+      final supabase = Supabase.instance.client;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Non connecté');
+
+      // Fetch all user data from Supabase (real RGPD export)
+      final results = await Future.wait([
+        supabase.from('profiles').select().eq('id', userId).maybeSingle(),
+        supabase.from('missions').select().eq('user_id', userId),
+        supabase.from('contacts').select().eq('user_id', userId),
+        supabase.from('invoices').select().eq('user_id', userId),
+        supabase.from('vehicle_inspections').select().eq('inspector_id', userId),
+      ]);
+
+      final userData = {
+        'export_date': DateTime.now().toIso8601String(),
+        'profile': results[0],
+        'missions': results[1],
+        'contacts': results[2],
+        'invoices': results[3],
+        'inspections': results[4],
+      };
+
+      // Save to file
+      final dir = await getTemporaryDirectory();
+      final fileName = 'CHECKSFLEET-export-${DateTime.now().toIso8601String().split('T')[0]}.json';
+      final file = File('${dir.path}/$fileName');
+      await file.writeAsString(const JsonEncoder.withIndent('  ').convert(userData));
+
+      // Share the file
+      await SharePlus.instance.share(
+        ShareParams(
+          files: [XFile(file.path)],
+          subject: 'ChecksFleet - Export de mes données',
+          text: 'Export RGPD de vos données ChecksFleet',
         ),
       );
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Données exportées avec succès'),
+              ],
+            ),
+            backgroundColor: PremiumTheme.accentGreen,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur lors de l\'export: $e'),
+            backgroundColor: Colors.red,
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
     }
   }
 
@@ -500,16 +584,13 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
             _buildContactOption(
               icon: Icons.chat,
               title: 'Chat en direct',
-              subtitle: 'Disponible 24/7',
+              subtitle: 'Discutez avec le support',
               color: PremiumTheme.primaryPurple,
               onTap: () {
                 Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: const Text('Chat en cours de développement'),
-                    backgroundColor: PremiumTheme.primaryPurple,
-                    behavior: SnackBarBehavior.floating,
-                  ),
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SupportChatScreen()),
                 );
               },
             ),

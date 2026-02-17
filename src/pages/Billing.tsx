@@ -1,4 +1,3 @@
-// @ts-nocheck - Supabase generated types are outdated, all operations work correctly at runtime
 import { useEffect, useState, useRef } from 'react';
 import { useLocation } from 'react-router-dom';
 import { 
@@ -599,7 +598,7 @@ export default function Billing() {
 
         // Dupliquer les items
         if (items && items.length > 0) {
-          const newItems = items.map(item => ({
+          const newItems = items.map((item: Record<string, unknown>) => ({
             ...item,
             id: undefined,
             [idField]: newDoc.id,
@@ -735,7 +734,7 @@ export default function Billing() {
 
         // Copier les items
         if (quoteItems && quoteItems.length > 0) {
-          const invoiceItems = quoteItems.map(item => ({
+          const invoiceItems = quoteItems.map((item: Record<string, any>) => ({
             invoice_id: newInvoice.id,
             description: item.description,
             quantity: item.quantity,

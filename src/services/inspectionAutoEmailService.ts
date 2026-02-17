@@ -546,7 +546,7 @@ export async function sendDepartureInspectionEmail(
     });
 
     // 5. Envoyer l'email via Supabase Edge Function (à implémenter)
-    // Pour l'instant, on simule l'envoi
+    // L'email n'est pas encore envoyé - le service d'envoi doit être configuré
     console.log('📨 Email préparé pour:', inspection.client_email);
     console.log('📄 PDF attaché:', pdfBase64.length, 'bytes');
     console.log('📧 HTML template length:', emailHTML.length, 'chars');
@@ -566,9 +566,9 @@ export async function sendDepartureInspectionEmail(
     // });
 
     return {
-      success: true,
-      message: 'Email envoyé au signataire départ',
-      emailsSent: 1,
+      success: false,
+      message: 'Rapport PDF préparé mais l\'envoi par email n\'est pas encore configuré',
+      emailsSent: 0,
     };
   } catch (error: any) {
     console.error('❌ Erreur envoi email départ:', error);
@@ -717,9 +717,9 @@ export async function sendArrivalCompleteEmail(
     // });
 
     return {
-      success: true,
-      message: 'Email complet envoyé au signataire arrivée',
-      emailsSent: 1,
+      success: false,
+      message: 'Rapport PDF préparé mais l\'envoi par email n\'est pas encore configuré',
+      emailsSent: 0,
     };
   } catch (error: any) {
     console.error('❌ Erreur envoi email arrivée:', error);

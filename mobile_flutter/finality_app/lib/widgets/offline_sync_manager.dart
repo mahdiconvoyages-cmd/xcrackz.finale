@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../services/connectivity_service.dart';
 import '../services/offline_service.dart';
 import '../utils/logger.dart';
@@ -59,12 +60,21 @@ class _OfflineSyncManagerState extends State<OfflineSyncManager> {
 
     try {
       await widget.offlineService.syncQueue((action) async {
-        // Exécuter l'action sur Supabase
+        // Execute actual Supabase operation based on action type
+        final supabase = Supabase.instance.client;
         logger.d('Syncing action: ${action.type} on ${action.tableName}');
         
-        // TODO: Implémenter l'exécution réelle selon le type
-        // Pour l'instant, on simule le succès
-        await Future.delayed(const Duration(milliseconds: 100));
+        switch (action.type) {
+          case ActionType.create:
+            await supabase.from(action.tableName).insert(action.data);
+            break;
+          case ActionType.update:
+            await supabase.from(action.tableName).update(action.data).eq('id', action.itemId);
+            break;
+          case ActionType.delete:
+            await supabase.from(action.tableName).delete().eq('id', action.itemId);
+            break;
+        }
       });
 
       logger.i('✅ Sync completed successfully');

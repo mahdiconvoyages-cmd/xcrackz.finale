@@ -16,10 +16,15 @@ class InvoiceListScreen extends StatefulWidget {
 class _InvoiceListScreenState extends State<InvoiceListScreen> {
   final InvoiceService _invoiceService = InvoiceService();
   final _fmt = NumberFormat.currency(locale: 'fr_FR', symbol: '\u20AC');
+  final _searchController = TextEditingController();
 
   List<Invoice> _invoices = [];
   bool _isLoading = true;
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  static const int _pageSize = 30;
   String _filter = 'all';
+  String _searchQuery = '';
   Map<String, dynamic> _stats = {};
 
   @override
@@ -28,23 +33,68 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
     _loadData();
   }
 
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  List<Invoice> get _filteredInvoices {
+    if (_searchQuery.isEmpty) return _invoices;
+    final q = _searchQuery.toLowerCase();
+    return _invoices.where((inv) {
+      return inv.invoiceNumber.toLowerCase().contains(q) ||
+          (inv.clientInfo?['name'] ?? '').toString().toLowerCase().contains(q) ||
+          (inv.clientInfo?['company'] ?? '').toString().toLowerCase().contains(q) ||
+          (inv.notes ?? '').toLowerCase().contains(q);
+    }).toList();
+  }
+
   Future<void> _loadData() async {
-    setState(() => _isLoading = true);
+    setState(() {
+      _isLoading = true;
+      _hasMore = true;
+    });
     try {
       final results = await Future.wait([
-        _invoiceService.getInvoices(status: _filter == 'all' ? null : _filter),
+        _invoiceService.getInvoices(
+          status: _filter == 'all' ? null : _filter,
+          limit: _pageSize,
+        ),
         _invoiceService.getInvoiceStats(),
       ]);
       if (!mounted) return;
       setState(() {
         _invoices = results[0] as List<Invoice>;
         _stats = results[1] as Map<String, dynamic>;
+        _hasMore = _invoices.length >= _pageSize;
         _isLoading = false;
       });
     } catch (_) {
       if (!mounted) return;
       setState(() => _isLoading = false);
       _snack('Erreur de chargement', PremiumTheme.accentRed);
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+    try {
+      final more = await _invoiceService.getInvoices(
+        status: _filter == 'all' ? null : _filter,
+        limit: _pageSize,
+        offset: _invoices.length,
+      );
+      if (!mounted) return;
+      setState(() {
+        _invoices.addAll(more);
+        _hasMore = more.length >= _pageSize;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _isLoadingMore = false);
     }
   }
 
@@ -91,6 +141,7 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
         child: CustomScrollView(
           slivers: [
             SliverToBoxAdapter(child: _buildStats()),
+            SliverToBoxAdapter(child: _buildSearchBar()),
             SliverToBoxAdapter(child: _buildFilters()),
             const SliverToBoxAdapter(child: SizedBox(height: 8)),
             if (_isLoading)
@@ -101,9 +152,25 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
               SliverPadding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
                 sliver: SliverList.separated(
-                  itemCount: _invoices.length,
+                  itemCount: _filteredInvoices.length + (_hasMore && _searchQuery.isEmpty ? 1 : 0),
                   separatorBuilder: (_, __) => const SizedBox(height: 12),
-                  itemBuilder: (_, i) => _card(_invoices[i]),
+                  itemBuilder: (_, i) {
+                    if (i == _filteredInvoices.length) {
+                      return Center(
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          child: _isLoadingMore
+                              ? const CircularProgressIndicator()
+                              : TextButton.icon(
+                                  onPressed: _loadMore,
+                                  icon: const Icon(Icons.expand_more_rounded),
+                                  label: const Text('Charger plus'),
+                                ),
+                        ),
+                      );
+                    }
+                    return _card(_filteredInvoices[i]);
+                  },
                 ),
               ),
           ],
@@ -152,6 +219,42 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
           const SizedBox(height: 2),
           Text(label, style: const TextStyle(fontSize: 11, color: PremiumTheme.textTertiary)),
         ]),
+      ),
+    );
+  }
+
+  // ── Search ───────────────────────────────────────────────────
+  Widget _buildSearchBar() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+      child: Container(
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: TextField(
+          controller: _searchController,
+          style: const TextStyle(fontSize: 14),
+          decoration: InputDecoration(
+            hintText: 'Rechercher (n° facture, client...)',
+            hintStyle: TextStyle(color: Colors.grey.shade400, fontSize: 14),
+            prefixIcon: const Icon(Icons.search, size: 20, color: Colors.grey),
+            suffixIcon: _searchQuery.isNotEmpty
+                ? IconButton(
+                    icon: const Icon(Icons.clear, size: 18),
+                    onPressed: () {
+                      _searchController.clear();
+                      setState(() => _searchQuery = '');
+                    },
+                  )
+                : null,
+            border: InputBorder.none,
+            isDense: true,
+            contentPadding: const EdgeInsets.symmetric(vertical: 12),
+          ),
+          onChanged: (val) => setState(() => _searchQuery = val),
+        ),
       ),
     );
   }

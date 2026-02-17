@@ -12,6 +12,7 @@ import '../inspections/inspection_departure_screen.dart';
 import '../inspections/inspection_arrival_screen.dart';
 import '../../theme/premium_theme.dart';
 import 'package:intl/intl.dart';
+import 'mission_create_screen_new.dart';
 
 class MissionDetailScreen extends StatefulWidget {
   final String missionId;
@@ -256,6 +257,16 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
             color: PremiumTheme.cardBg,
             itemBuilder: (context) => [
               const PopupMenuItem(
+                value: 'edit',
+                child: Row(
+                  children: [
+                    Icon(Icons.edit_rounded, color: PremiumTheme.primaryBlue),
+                    SizedBox(width: 8),
+                    Text('Modifier', style: TextStyle(color: PremiumTheme.primaryBlue)),
+                  ],
+                ),
+              ),
+              const PopupMenuItem(
                 value: 'delete',
                 child: Row(
                   children: [
@@ -268,6 +279,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
             ],
             onSelected: (value) {
               if (value == 'delete') _confirmDelete();
+              if (value == 'edit') _editMission();
             },
           ),
       ],
@@ -2045,6 +2057,19 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(ErrorHelper.cleanError(e)), backgroundColor: PremiumTheme.accentRed),
       );
+    }
+  }
+
+  Future<void> _editMission() async {
+    if (_mission == null) return;
+    final result = await Navigator.push<bool>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => MissionCreateScreenNew(existingMission: _mission),
+      ),
+    );
+    if (result == true) {
+      _loadMission();
     }
   }
 

@@ -23,7 +23,7 @@ class MissionService {
   }
 
   // Get all missions FOR CURRENT USER ONLY
-  Future<List<Mission>> getMissions({String? status}) async {
+  Future<List<Mission>> getMissions({String? status, int limit = 50, int offset = 0}) async {
     await _ensureInitialized();
     
     try {
@@ -48,7 +48,9 @@ class MissionService {
         query = query.eq('status', status);
       }
       
-      final response = await query.order('created_at', ascending: false);
+      final response = await query
+          .order('created_at', ascending: false)
+          .range(offset, offset + limit - 1);
       final missionsList = (response as List).map((json) => Mission.fromJson(json)).toList();
       
       // 🔧 Dédoublonner les missions par ID
