@@ -28,14 +28,36 @@ class InvoiceService {
       final invoiceJson = invoiceWithUserId.toJson();
       invoiceJson.remove('items'); // Retirer les items car ils sont dans une table séparée
       
-      // S'assurer que client_name et client_email sont presents (requis par la DB)
+      // Extraire les champs depuis client_info pour synchronisation Web/Flutter
+      final clientInfo = invoiceJson['client_info'] as Map<String, dynamic>?;
+      
+      // client_name et client_email (requis par la DB)
       if (invoiceJson['client_name'] == null || invoiceJson['client_name'] == '') {
-        final clientInfo = invoiceJson['client_info'] as Map<String, dynamic>?;
         invoiceJson['client_name'] = clientInfo?['name'] ?? 'Client';
       }
       if (invoiceJson['client_email'] == null || invoiceJson['client_email'] == '') {
-        final clientInfo = invoiceJson['client_info'] as Map<String, dynamic>?;
         invoiceJson['client_email'] = clientInfo?['email'] ?? '';
+      }
+      // Champs additionnels pour synchronisation avec le Web
+      if (invoiceJson['client_siret'] == null || invoiceJson['client_siret'] == '') {
+        final siret = clientInfo?['siret'] ?? '';
+        if (siret.toString().isNotEmpty) invoiceJson['client_siret'] = siret;
+      }
+      if (invoiceJson['client_address'] == null || invoiceJson['client_address'] == '') {
+        final address = clientInfo?['address'] ?? '';
+        if (address.toString().isNotEmpty) invoiceJson['client_address'] = address;
+      }
+      if (invoiceJson['payment_terms'] == null || invoiceJson['payment_terms'] == '') {
+        final terms = clientInfo?['payment_terms'] ?? 'Paiement à 30 jours';
+        invoiceJson['payment_terms'] = terms;
+      }
+      // TVA et mentions légales (defaults pour compatibilité Web)
+      final taxRate = invoiceJson['tax_rate'] ?? 20.0;
+      if (invoiceJson['vat_liable'] == null) {
+        invoiceJson['vat_liable'] = (taxRate as num) > 0;
+      }
+      if (invoiceJson['vat_regime'] == null) {
+        invoiceJson['vat_regime'] = (taxRate as num) > 0 ? 'normal' : 'franchise';
       }
       
       logger.d('JSON invoice (sans items): $invoiceJson');
@@ -154,6 +176,28 @@ class InvoiceService {
       // JSON sans les items
       final invoiceJson = invoice.toJson();
       invoiceJson.remove('items');
+      
+      // Extraire les champs depuis client_info pour synchronisation Web/Flutter
+      final clientInfo = invoiceJson['client_info'] as Map<String, dynamic>?;
+      if (invoiceJson['client_siret'] == null || invoiceJson['client_siret'] == '') {
+        final siret = clientInfo?['siret'] ?? '';
+        if (siret.toString().isNotEmpty) invoiceJson['client_siret'] = siret;
+      }
+      if (invoiceJson['client_address'] == null || invoiceJson['client_address'] == '') {
+        final address = clientInfo?['address'] ?? '';
+        if (address.toString().isNotEmpty) invoiceJson['client_address'] = address;
+      }
+      if (invoiceJson['payment_terms'] == null || invoiceJson['payment_terms'] == '') {
+        final terms = clientInfo?['payment_terms'] ?? 'Paiement à 30 jours';
+        invoiceJson['payment_terms'] = terms;
+      }
+      final taxRate = invoiceJson['tax_rate'] ?? 20.0;
+      if (invoiceJson['vat_liable'] == null) {
+        invoiceJson['vat_liable'] = (taxRate as num) > 0;
+      }
+      if (invoiceJson['vat_regime'] == null) {
+        invoiceJson['vat_regime'] = (taxRate as num) > 0 ? 'normal' : 'franchise';
+      }
       
       // 1. Mettre à jour l'invoice
       final invoiceResponse = await _supabase

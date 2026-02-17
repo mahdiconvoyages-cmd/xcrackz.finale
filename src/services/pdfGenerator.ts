@@ -57,6 +57,62 @@ const encodeText = (text: string): string => {
   return String(text);
 };
 
+/**
+ * Detect image format from a data URL or file extension
+ */
+function detectImageFormat(url: string): 'PNG' | 'JPEG' | 'WEBP' {
+  if (!url) return 'PNG';
+  const lower = url.toLowerCase();
+  // Check data URL mime type
+  if (lower.startsWith('data:image/jpeg') || lower.startsWith('data:image/jpg')) return 'JPEG';
+  if (lower.startsWith('data:image/png')) return 'PNG';
+  if (lower.startsWith('data:image/webp')) return 'WEBP';
+  // Check file extension
+  if (lower.includes('.jpg') || lower.includes('.jpeg')) return 'JPEG';
+  if (lower.includes('.webp')) return 'WEBP';
+  return 'PNG'; // default
+}
+
+/**
+ * Convert a remote image URL to a base64 data URL (avoids CORS issues with jsPDF)
+ */
+async function imageUrlToBase64(url: string): Promise<string> {
+  // Already a data URL (base64) — return as-is
+  if (url.startsWith('data:')) return url;
+
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const blob = await response.blob();
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(blob);
+    });
+  } catch (e) {
+    console.warn('Failed to fetch logo image, trying no-cors proxy:', e);
+    // If CORS fails, try via a canvas approach 
+    return new Promise((resolve, reject) => {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.naturalWidth;
+          canvas.height = img.naturalHeight;
+          const ctx = canvas.getContext('2d');
+          if (!ctx) { reject(new Error('Canvas context failed')); return; }
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/png'));
+        } catch (err) { reject(err); }
+      };
+      img.onerror = () => reject(new Error('Image load failed'));
+      img.src = url;
+    });
+  }
+}
+
 export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
   const doc = new jsPDF({
     unit: 'mm',
@@ -98,9 +154,13 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
   let logoXOffset = margin;
   if (data.logoUrl) {
     try {
-      doc.addImage(data.logoUrl, 'PNG', margin, 8, 35, 35);
+      // Pre-fetch remote URL as base64 to avoid CORS issues
+      const logoBase64 = await imageUrlToBase64(data.logoUrl);
+      const format = detectImageFormat(logoBase64);
+      doc.addImage(logoBase64, format, margin, 8, 35, 35);
       logoXOffset = margin + 40;
     } catch (e) {
+      console.warn('Logo failed to load for PDF, skipping:', e);
       // If logo fails, just show company name
     }
   }
