@@ -1,6 +1,6 @@
 ﻿// @ts-nocheck - jsPDF type definitions incomplete, all operations work correctly at runtime
 import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import autoTable from 'jspdf-autotable';
 
 interface InvoiceData {
   number: string;
@@ -231,7 +231,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
     ];
   });
 
-  (doc as any).autoTable({
+  autoTable(doc, {
     startY: y,
     head: [['Description', 'Qte', 'Prix Unit.', 'TVA', 'Total']],
     body: tableData,
