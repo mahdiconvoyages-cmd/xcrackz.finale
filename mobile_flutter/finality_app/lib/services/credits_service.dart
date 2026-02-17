@@ -31,7 +31,7 @@ class CreditsService {
     }
   }
 
-  // Add credits
+  // Add credits (atomic via RPC)
   Future<UserCredits> addCredits({
     required String userId,
     required int amount,
@@ -41,38 +41,27 @@ class CreditsService {
     String? referenceId,
   }) async {
     try {
-      // Get current credits
-      final currentCredits = await getUserCredits(userId);
-      final newBalance = currentCredits.credits + amount;
-
-      // Update credits IN PROFILES TABLE
-      await _supabase
-          .from('profiles')
-          .update({
-            'credits': newBalance,
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-          })
-          .eq('id', userId);
-
-      // Create transaction record
-      await _supabase.from('credit_transactions').insert({
-        'user_id': userId,
-        'amount': amount,
-        'transaction_type': type,
-        if (description != null) 'description': description,
-        if (referenceType != null) 'reference_type': referenceType,
-        if (referenceId != null) 'reference_id': referenceId,
-        'balance_after': newBalance,
+      final result = await _supabase.rpc('add_credits_atomic', params: {
+        'p_user_id': userId,
+        'p_amount': amount,
+        'p_description': description ?? 'Ajout de crédits',
+        'p_transaction_type': type,
+        'p_reference_type': referenceType,
+        'p_reference_id': referenceId,
       });
 
-      logger.i('CREDITS_SERVICE: Added $amount credits, new balance = $newBalance');
-      return await getUserCredits(userId);
+      if (result is Map && result['success'] == true) {
+        logger.i('CREDITS_SERVICE: Added $amount credits, new balance = ${result['new_balance']}');
+        return await getUserCredits(userId);
+      } else {
+        throw Exception(result?['error'] ?? 'Erreur inconnue');
+      }
     } catch (e) {
       throw Exception('Erreur lors de l\'ajout de crédits: $e');
     }
   }
 
-  // Spend credits
+  // Spend credits (atomic via RPC - prevents race conditions)
   Future<UserCredits> spendCredits({
     required String userId,
     required int amount,
@@ -81,38 +70,24 @@ class CreditsService {
     String? referenceId,
   }) async {
     try {
-      // Get current credits
-      final currentCredits = await getUserCredits(userId);
-      
-      if (currentCredits.credits < amount) {
-        logger.w('CREDITS_SERVICE: Insufficient credits: ${currentCredits.credits} < $amount');
-        throw Exception('Crédits insuffisants');
-      }
-
-      final newBalance = currentCredits.credits - amount;
-
-      // Update credits IN PROFILES TABLE
-      await _supabase
-          .from('profiles')
-          .update({
-            'credits': newBalance,
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-          })
-          .eq('id', userId);
-
-      // Create transaction record (negative amount)
-      await _supabase.from('credit_transactions').insert({
-        'user_id': userId,
-        'amount': -amount,
-        'transaction_type': 'deduction',
-        'description': description,
-        if (referenceType != null) 'reference_type': referenceType,
-        if (referenceId != null) 'reference_id': referenceId,
-        'balance_after': newBalance,
+      final result = await _supabase.rpc('spend_credits_atomic', params: {
+        'p_user_id': userId,
+        'p_amount': amount,
+        'p_description': description,
+        'p_reference_type': referenceType,
+        'p_reference_id': referenceId,
       });
 
-      logger.i('CREDITS_SERVICE: Spent $amount credits, new balance = $newBalance');
-      return await getUserCredits(userId);
+      if (result is Map && result['success'] == true) {
+        logger.i('CREDITS_SERVICE: Spent $amount credits, new balance = ${result['new_balance']}');
+        return await getUserCredits(userId);
+      } else {
+        final errorMsg = result?['error'] ?? 'Erreur inconnue';
+        if (errorMsg.toString().contains('insuffisants')) {
+          logger.w('CREDITS_SERVICE: Insufficient credits');
+        }
+        throw Exception(errorMsg);
+      }
     } catch (e) {
       throw Exception('Erreur lors de la dépense de crédits: $e');
     }

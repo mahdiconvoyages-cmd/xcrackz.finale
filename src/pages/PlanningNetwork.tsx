@@ -1351,22 +1351,24 @@ function CreatePlanningModal({ onClose, onCreated, userId }: {
 
     try {
       // Auto-geocode if not already done
-      if (!form.origin_lat) {
-        const geo = await geocodeCity(form.origin_city);
+      let updatedForm = { ...form };
+      if (!updatedForm.origin_lat) {
+        const geo = await geocodeCity(updatedForm.origin_city);
         if (geo.length > 0) {
-          form.origin_lat = geo[0].lat;
-          form.origin_lng = geo[0].lng;
-          form.origin_postal_code = geo[0].postcode;
+          updatedForm.origin_lat = geo[0].lat;
+          updatedForm.origin_lng = geo[0].lng;
+          updatedForm.origin_postal_code = geo[0].postcode;
         }
       }
-      if (!form.destination_lat) {
-        const geo = await geocodeCity(form.destination_city);
+      if (!updatedForm.destination_lat) {
+        const geo = await geocodeCity(updatedForm.destination_city);
         if (geo.length > 0) {
-          form.destination_lat = geo[0].lat;
-          form.destination_lng = geo[0].lng;
-          form.destination_postal_code = geo[0].postcode;
+          updatedForm.destination_lat = geo[0].lat;
+          updatedForm.destination_lng = geo[0].lng;
+          updatedForm.destination_postal_code = geo[0].postcode;
         }
       }
+      setForm(updatedForm);
 
       const { data, error } = await supabase.from('convoy_plannings').insert({
         user_id: userId,
@@ -1376,21 +1378,21 @@ function CreatePlanningModal({ onClose, onCreated, userId }: {
         start_time: form.start_time,
         end_time: form.end_time,
         flexibility_minutes: form.flexibility_minutes,
-        origin_city: form.origin_city,
-        origin_postal_code: form.origin_postal_code,
-        origin_lat: form.origin_lat,
-        origin_lng: form.origin_lng,
-        destination_city: form.destination_city,
-        destination_postal_code: form.destination_postal_code,
-        destination_lat: form.destination_lat,
-        destination_lng: form.destination_lng,
-        is_return_trip: form.is_return_trip,
-        return_city: form.is_return_trip && form.return_city ? form.return_city : null,
-        return_postal_code: form.is_return_trip ? form.return_postal_code || null : null,
-        return_lat: form.is_return_trip ? form.return_lat : null,
-        return_lng: form.is_return_trip ? form.return_lng : null,
-        vehicle_category: form.vehicle_category,
-        notes: form.notes || null,
+        origin_city: updatedForm.origin_city,
+        origin_postal_code: updatedForm.origin_postal_code,
+        origin_lat: updatedForm.origin_lat,
+        origin_lng: updatedForm.origin_lng,
+        destination_city: updatedForm.destination_city,
+        destination_postal_code: updatedForm.destination_postal_code,
+        destination_lat: updatedForm.destination_lat,
+        destination_lng: updatedForm.destination_lng,
+        is_return_trip: updatedForm.is_return_trip,
+        return_city: updatedForm.is_return_trip && updatedForm.return_city ? updatedForm.return_city : null,
+        return_postal_code: updatedForm.is_return_trip ? updatedForm.return_postal_code || null : null,
+        return_lat: updatedForm.is_return_trip ? updatedForm.return_lat : null,
+        return_lng: updatedForm.is_return_trip ? updatedForm.return_lng : null,
+        vehicle_category: updatedForm.vehicle_category,
+        notes: updatedForm.notes || null,
         status: 'published',
       }).select('id').single();
 

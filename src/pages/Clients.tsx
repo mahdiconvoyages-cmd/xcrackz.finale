@@ -128,15 +128,18 @@ export default function Clients() {
   };
 
   const loadClientStats = async (clientId: string) => {
+    if (!user) return;
     const { data: invoices } = await supabase
       .from('invoices')
       .select('total, status, issue_date')
-      .eq('client_id', clientId);
+      .eq('client_id', clientId)
+      .eq('user_id', user.id);
 
     const { data: quotes } = await supabase
       .from('quotes')
       .select('total')
-      .eq('client_id', clientId);
+      .eq('client_id', clientId)
+      .eq('user_id', user.id);
 
     const totalRevenue = invoices?.filter(i => i.status === 'paid').reduce((sum, i) => sum + i.total, 0) || 0;
     const pendingAmount = invoices?.filter(i => i.status === 'sent').reduce((sum, i) => sum + i.total, 0) || 0;
@@ -573,7 +576,7 @@ export default function Clients() {
         onSuccess={handlePricingGridSuccess}
       />
 
-      {/* Modal Quote Generator - Temporairement désactivé
+      {/* Modal Quote Generator - Temporairement dï¿½sactivï¿½
       <QuoteGenerator
         isOpen={showQuoteModal}
         onClose={() => {

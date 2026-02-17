@@ -317,6 +317,7 @@ export default function InspectionArrivalNew() {
 
       // 4. Upload des photos de dommages optionnelles
       for (const optPhoto of optionalPhotos) {
+        if (!optPhoto.file) continue;
         try {
           const fileExt = optPhoto.file.name.split('.').pop();
           const fileName = `${arrivalInspection.id}-optional-${Date.now()}.${fileExt}`;

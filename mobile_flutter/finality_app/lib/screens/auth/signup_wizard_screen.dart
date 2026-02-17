@@ -628,10 +628,15 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
     setState(() => _isLoading = true);
 
     try {
-      // 1. Create Supabase Auth account
+      // 1. Create Supabase Auth account with user metadata
       final authResponse = await supabase.auth.signUp(
         email: _signupData['email'],
         password: _signupData['password'],
+        data: {
+          'full_name': _signupData['full_name'],
+          'user_type': _signupData['user_type'],
+          'phone': _signupData['phone'] ?? '',
+        },
       );
 
       if (authResponse.user == null) {
@@ -649,12 +654,12 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
         avatarUrl = supabase.storage.from('avatars').getPublicUrl(fileName);
       }
 
-      // 3. Create profile
+      // 3. Create/update profile (use upsert to avoid conflict with trigger)
       final deviceFingerprint = await _fraudService.getDeviceFingerprint();
       final ipAddress = await _fraudService.getPublicIP();
 
-      await supabase.from('profiles').insert({
-        'user_id': userId,
+      await supabase.from('profiles').upsert({
+        'id': userId,
         'email': _signupData['email'],
         'full_name': _signupData['full_name'],
         'phone': _signupData['phone'] ?? '',
@@ -663,9 +668,19 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
         'device_fingerprint': deviceFingerprint,
         'registration_ip': ipAddress,
         'app_role': _signupData['user_type'] == 'company' ? 'donneur_d_ordre' : 'convoyeur',
+        'credits': 10,
       });
 
-      // 4. Log successful signup
+      // 4. Create welcome credits transaction
+      await supabase.from('credit_transactions').insert({
+        'user_id': userId,
+        'amount': 10,
+        'transaction_type': 'welcome_bonus',
+        'description': 'Crédits de bienvenue - inscription',
+        'balance_after': 10,
+      });
+
+      // 5. Log successful signup
       await _fraudService.logSignupAttempt(
         email: _signupData['email'],
         phone: _signupData['phone'] ?? '',
@@ -673,18 +688,36 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
         success: true,
       );
 
-      // 5. Navigate to home
+      // 6. Navigate to email verification screen
       if (mounted) {
+        setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('🎉 Inscription reussie ! 10 credits offerts !'),
+            content: Text('🎉 Inscription reussie ! 10 credits offerts ! Verifiez votre email.'),
             backgroundColor: Color(0xFF10B981),
-            duration: Duration(seconds: 3),
+            duration: Duration(seconds: 4),
           ),
         );
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
+        // Show verification message then go to login
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Verifiez votre email'),
+            content: Text(
+              'Un email de verification a ete envoye a ${_signupData['email']}.\n\n'
+              'Cliquez sur le lien dans l\'email pour activer votre compte, puis connectez-vous.',
+            ),
+            actions: [
+              TextButton(
+                onPressed: () {
+                  Navigator.of(ctx).pop();
+                  Navigator.of(context).pop(); // Back to login
+                },
+                child: const Text('Compris'),
+              ),
+            ],
+          ),
         );
       }
     } catch (e) {

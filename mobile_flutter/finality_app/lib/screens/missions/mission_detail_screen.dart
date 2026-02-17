@@ -1327,9 +1327,9 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
                             Expanded(
                               child: Text(
                                 [
-                                  if (_mission!.restitutionVehicleBrand != null ?? _mission!.vehicleBrand != null)
+                                  if (_mission!.restitutionVehicleBrand != null || _mission!.vehicleBrand != null)
                                     _mission!.restitutionVehicleBrand ?? _mission!.vehicleBrand,
-                                  if (_mission!.restitutionVehicleModel != null ?? _mission!.vehicleModel != null)
+                                  if (_mission!.restitutionVehicleModel != null || _mission!.vehicleModel != null)
                                     _mission!.restitutionVehicleModel ?? _mission!.vehicleModel,
                                 ].where((e) => e != null).join(' '),
                                 style: const TextStyle(
@@ -1616,7 +1616,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
     );
   }
 
-  /// Ouvre l'inspection de depart et passe la mission en in_progress
+  /// Ouvre l'inspection de depart et passe la mission en in_progress APRES
   Future<void> _startDepartureInspection() async {
     try {
       // Verifier si deja faite
@@ -1634,8 +1634,25 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         return;
       }
 
-      // Passer en in_progress si pending
-      if (_mission!.status == 'pending') {
+      if (!mounted) return;
+      // Ouvrir l'ecran d'inspection de depart D'ABORD
+      await Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => InspectionDepartureScreen(missionId: _mission!.id),
+        ),
+      );
+
+      // Apres retour, verifier si l'inspection a ete creee
+      final created = await Supabase.instance.client
+          .from('vehicle_inspections')
+          .select('id')
+          .eq('mission_id', _mission!.id)
+          .eq('inspection_type', 'departure')
+          .maybeSingle();
+
+      // Passer en in_progress SEULEMENT si l'inspection existe
+      if (created != null && _mission!.status == 'pending') {
         await _missionService.updateMissionStatus(_mission!.id, 'in_progress');
         final started = await _trackingService.startTracking(_mission!.id, autoStart: true);
         if (started && mounted) {
@@ -1643,14 +1660,6 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         }
       }
 
-      if (!mounted) return;
-      // Ouvrir l'ecran d'inspection de depart
-      await Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (_) => InspectionDepartureScreen(missionId: _mission!.id),
-        ),
-      );
       // Recharger la mission au retour
       await _loadMission();
     } catch (e) {

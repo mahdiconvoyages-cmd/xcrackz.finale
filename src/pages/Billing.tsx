@@ -533,25 +533,9 @@ export default function Billing() {
     );
 
     if (confirmed) {
-      try {
-        // TODO: Intégrer un service d'email (SendGrid, Resend, etc.)
-        // Pour l'instant, on simule avec un message de succès
-        alert(`${docType.charAt(0).toUpperCase() + docType.slice(1)} envoyé avec succès à ${doc.client_email} !\n\n(Fonctionnalité d'envoi email à implémenter)`);
-        
-        // Mettre à jour le statut à "sent"
-        const table = isInvoice ? 'invoices' : 'quotes';
-        // @ts-ignore - Supabase generated types may be outdated
-        await supabase
-          .from(table)
-          .update({ status: 'sent' })
-          .eq('id', doc.id);
-
-        // Recharger les données
-        loadDocuments();
-      } catch (error) {
-        console.error('Error sending email:', error);
-        alert('Erreur lors de l\'envoi de l\'email');
-      }
+      // TODO: Intégrer un service d'email (SendGrid, Resend, etc.)
+      // Pour l'instant, on informe l'utilisateur que la fonctionnalité n'est pas encore disponible
+      alert(`L'envoi d'email n'est pas encore disponible.\n\nLe ${docType} n°${docNumber} n'a pas été envoyé à ${doc.client_email}.\n\nCette fonctionnalité sera bientôt implémentée.`);
     }
   };
 

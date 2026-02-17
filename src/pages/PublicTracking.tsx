@@ -53,6 +53,8 @@ export default function PublicTracking() {
     loadActiveMissions();
     
     // S'abonner aux changements de missions en temps réel
+    // Ne pas s'abonner si pas d'utilisateur (évite de recevoir TOUTES les missions)
+    if (!user) return;
     const missionsChannel = supabase
       .channel('missions_changes')
       .on(
@@ -61,7 +63,7 @@ export default function PublicTracking() {
           event: '*',
           schema: 'public',
           table: 'missions',
-          filter: user ? `user_id=eq.${user.id}` : undefined,
+          filter: `user_id=eq.${user.id}`,
         },
         (payload) => {
           console.log('Mission change detected:', payload);

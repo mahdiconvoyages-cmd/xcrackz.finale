@@ -830,9 +830,9 @@ class _MissionTile extends StatelessWidget {
                                     Flexible(
                                       child: Text(
                                         [
-                                          if (mission.restitutionVehicleBrand != null ?? mission.vehicleBrand != null)
+                                          if (mission.restitutionVehicleBrand != null || mission.vehicleBrand != null)
                                             mission.restitutionVehicleBrand ?? mission.vehicleBrand,
-                                          if (mission.restitutionVehicleModel != null ?? mission.vehicleModel != null)
+                                          if (mission.restitutionVehicleModel != null || mission.vehicleModel != null)
                                             mission.restitutionVehicleModel ?? mission.vehicleModel,
                                         ].where((e) => e != null).join(' '),
                                         style: const TextStyle(
