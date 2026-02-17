@@ -322,22 +322,51 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
   y += 12;
 
   // ========== TABLEAU DES ARTICLES ==========
+  const showVAT = data.vatLiable !== false && data.vatRegime === 'normal';
+
   const tableData = data.items.map(item => {
     const unitPrice = item.unitPrice ?? item.unit_price ?? 0;
     const taxRate = item.taxRate ?? item.tax_rate ?? 0;
     const amount = item.amount ?? (item.quantity * unitPrice);
+    if (showVAT) {
+      return [
+        encodeText(item.description),
+        item.quantity.toString(),
+        `${unitPrice.toFixed(2)} €`,
+        `${taxRate}%`,
+        `${amount.toFixed(2)} €`
+      ];
+    }
     return [
       encodeText(item.description),
       item.quantity.toString(),
       `${unitPrice.toFixed(2)} €`,
-      `${taxRate}%`,
       `${amount.toFixed(2)} €`
     ];
   });
 
+  const tableHead = showVAT
+    ? [['Description', 'Qte', 'Prix Unit.', 'TVA', 'Total']]
+    : [['Description', 'Qte', 'Prix Unit.', 'Total']];
+
+  const tableColumnStyles: Record<number, any> = showVAT
+    ? {
+        0: { cellWidth: 80 },
+        1: { halign: 'center', cellWidth: 20 },
+        2: { halign: 'right', cellWidth: 30 },
+        3: { halign: 'center', cellWidth: 20 },
+        4: { halign: 'right', cellWidth: 30, fontStyle: 'bold' }
+      }
+    : {
+        0: { cellWidth: 90 },
+        1: { halign: 'center', cellWidth: 20 },
+        2: { halign: 'right', cellWidth: 30 },
+        3: { halign: 'right', cellWidth: 30, fontStyle: 'bold' }
+      };
+
   autoTable(doc, {
     startY: y,
-    head: [['Description', 'Qte', 'Prix Unit.', 'TVA', 'Total']],
+    head: tableHead,
     body: tableData,
     theme: 'striped',
     headStyles: {
@@ -354,13 +383,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
     alternateRowStyles: {
       fillColor: [249, 250, 251]
     },
-    columnStyles: {
-      0: { cellWidth: 80 },
-      1: { halign: 'center', cellWidth: 20 },
-      2: { halign: 'right', cellWidth: 30 },
-      3: { halign: 'center', cellWidth: 20 },
-      4: { halign: 'right', cellWidth: 30, fontStyle: 'bold' }
-    },
+    columnStyles: tableColumnStyles,
     margin: { left: margin, right: margin }
   });
 
@@ -369,7 +392,6 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
   // ========== TOTAUX ==========
   const totalsX = pageWidth - margin - 60;
   const totalsWidth = 60;
-  const showVAT = data.vatLiable !== false && data.vatRegime === 'normal';
 
   // Sous-total
   doc.setFillColor(...colors.light);
