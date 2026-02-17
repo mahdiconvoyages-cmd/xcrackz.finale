@@ -475,8 +475,6 @@ export async function sendDepartureInspectionEmail(
   inspectionId: string
 ): Promise<EmailResult> {
   try {
-    console.log('📧 Envoi email inspection départ...', inspectionId);
-
     // 1. Charger les données de l'inspection
     const { data: inspectionRaw, error: inspError } = await supabase
       .from('vehicle_inspections')
@@ -547,9 +545,6 @@ export async function sendDepartureInspectionEmail(
 
     // 5. Envoyer l'email via Supabase Edge Function (à implémenter)
     // L'email n'est pas encore envoyé - le service d'envoi doit être configuré
-    console.log('📨 Email préparé pour:', inspection.client_email);
-    console.log('📄 PDF attaché:', pdfBase64.length, 'bytes');
-    console.log('📧 HTML template length:', emailHTML.length, 'chars');
 
     // TODO: Appeler une Edge Function Supabase pour l'envoi
     // const { data, error } = await supabase.functions.invoke('send-email', {
@@ -586,8 +581,6 @@ export async function sendArrivalCompleteEmail(
   arrivalInspectionId: string
 ): Promise<EmailResult> {
   try {
-    console.log('📧 Envoi email rapport complet...', arrivalInspectionId);
-
     // 1. Charger l'inspection d'arrivée
     const { data: arrivalInspectionRaw, error: arrivalError } = await supabase
       .from('vehicle_inspections')
@@ -698,9 +691,6 @@ export async function sendArrivalCompleteEmail(
     });
 
     // 6. Envoyer l'email
-    console.log('📨 Email complet préparé pour:', arrivalInspection.client_email);
-    console.log('📄 PDF complet attaché:', pdfBase64.length, 'bytes');
-    console.log('📧 HTML template length:', emailHTML.length, 'chars');
 
     // TODO: Appeler Edge Function
     // const { data, error } = await supabase.functions.invoke('send-email', {
@@ -737,8 +727,6 @@ export async function triggerInspectionEmailAuto(
   inspectionId: string,
   inspectionType: 'departure' | 'arrival'
 ): Promise<EmailResult> {
-  console.log(`🔔 Déclenchement auto email ${inspectionType}...`);
-
   if (inspectionType === 'departure') {
     return await sendDepartureInspectionEmail(inspectionId);
   } else {

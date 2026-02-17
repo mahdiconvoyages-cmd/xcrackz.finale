@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'routing_service.dart';
 
 /// Service de localisation dédié au Réseau Planning
 /// - Met à jour la position de l'utilisateur dans profiles
@@ -171,16 +172,26 @@ class PlanningLocationService {
   }
 
   /// Calcule l'ETA vers une position cible (en minutes)
-  int? calculateETA(double targetLat, double targetLng) {
+  /// Utilise OSRM pour le calcul routier, fallback Haversine
+  Future<int?> calculateETA(double targetLat, double targetLng) async {
     if (_lastPosition == null) return null;
-    final distanceKm = Geolocator.distanceBetween(
-      _lastPosition!.latitude,
-      _lastPosition!.longitude,
-      targetLat,
-      targetLng,
-    ) / 1000;
-    // Vitesse moyenne 80 km/h
-    return (distanceKm / 80 * 60).round();
+    try {
+      return await RoutingService.estimateETA(
+        currentLat: _lastPosition!.latitude,
+        currentLng: _lastPosition!.longitude,
+        destLat: targetLat,
+        destLng: targetLng,
+      );
+    } catch (_) {
+      // Fallback to straight-line estimate
+      final distanceKm = Geolocator.distanceBetween(
+        _lastPosition!.latitude,
+        _lastPosition!.longitude,
+        targetLat,
+        targetLng,
+      ) / 1000;
+      return (distanceKm / 80 * 60).round();
+    }
   }
 
   /// Vérifie si le convoyeur est dans un rayon de 2km d'une position

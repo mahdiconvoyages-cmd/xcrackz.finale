@@ -195,8 +195,6 @@ export async function generateCompletePDF(
   }
 ): Promise<{ pdf: jsPDF; success: boolean; message: string }> {
   try {
-    console.log('📄 Génération PDF rapport complet...');
-
     const doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -439,8 +437,6 @@ export async function generateCompletePDF(
         pageHeight - 10
       );
     }
-
-    console.log('✅ PDF rapport complet généré');
 
     return {
       pdf: doc,
@@ -817,7 +813,6 @@ export async function downloadCompletePDF(
     const fileName = `Rapport_Complet_${mission.reference}_${new Date().toISOString().split('T')[0]}.pdf`;
     result.pdf.save(fileName);
 
-    console.log('✅ PDF téléchargé:', fileName);
     return true;
   } catch (error: any) {
     console.error('❌ Erreur téléchargement PDF:', error);

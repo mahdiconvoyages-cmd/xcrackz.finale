@@ -255,17 +255,12 @@ export default function Clients() {
   const handleSiretSearch = async (siret: string) => {
     // Si le SIRET est valide, rechercher dans l'API INSEE
     if (isValidSiret(siret) && !manualMode) {
-      console.log('🔍 Recherche INSEE pour SIRET:', siret);
       setSiretSearching(true);
       setSiretFound(null);
 
       const company = await searchBySiret(siret);
-      console.log('📦 Résultat API INSEE:', company);
 
       if (company) {
-        console.log('✅ Entreprise trouvée:', company.denomination);
-        console.log('📍 Adresse formatée:', formatInseeAddress(company.adresse));
-        
         // Auto-remplir les champs
         const newData = {
           ...formData,
@@ -274,7 +269,6 @@ export default function Clients() {
           address: formatInseeAddress(company.adresse)
         };
         
-        console.log('📝 Nouvelles données formulaire:', newData);
         setFormData(newData);
         setSiretFound(true);
       } else {

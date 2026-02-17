@@ -161,6 +161,13 @@ export default function Layout({ children }: LayoutProps) {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-teal-50 text-slate-900 flex relative overflow-x-hidden w-full max-w-full">
+      {/* Skip to content link for accessibility */}
+      <a
+        href="#main-content"
+        className="sr-only focus:not-sr-only focus:absolute focus:top-2 focus:left-2 focus:z-[100] focus:bg-teal-600 focus:text-white focus:px-4 focus:py-2 focus:rounded-lg focus:text-sm"
+      >
+        Aller au contenu principal
+      </a>
       <FloatingParticles />
       
       {/* Overlay mobile pour fermer le menu */}
@@ -172,6 +179,9 @@ export default function Layout({ children }: LayoutProps) {
       )}
       
       <aside
+        id="main-sidebar"
+        role="navigation"
+        aria-label="Menu principal"
         onMouseEnter={() => {
           if (!forceHide && window.innerWidth >= 1024) {
             setSidebarHovered(true);
@@ -227,7 +237,7 @@ export default function Layout({ children }: LayoutProps) {
           </button>
         </div>
 
-        <nav className="p-4 space-y-1 flex-1 overflow-y-auto">
+        <nav className="p-4 space-y-1 flex-1 overflow-y-auto" aria-label="Navigation principale">
           {menuItems.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path ||
@@ -238,6 +248,7 @@ export default function Layout({ children }: LayoutProps) {
                 key={item.path}
                 to={item.path}
                 onClick={() => setSidebarOpen(false)}
+                aria-current={location.pathname === item.path ? 'page' : undefined}
                 className={`
                   group flex items-center gap-3 px-4 py-3.5 rounded-xl transition-all duration-300
                   ${isActive
@@ -330,6 +341,8 @@ export default function Layout({ children }: LayoutProps) {
                 onClick={() => setSidebarOpen(true)}
                 className="lg:hidden text-slate-300 hover:text-white hover:bg-white/10 p-2 rounded-lg transition touch-manipulation"
                 aria-label="Ouvrir le menu"
+                aria-expanded={sidebarOpen}
+                aria-controls="main-sidebar"
               >
                 <Menu className="w-6 h-6" />
               </button>
@@ -387,7 +400,7 @@ export default function Layout({ children }: LayoutProps) {
           </div>
         </header>
 
-        <main className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 overflow-x-hidden overflow-y-auto relative z-10 w-full max-w-full">
+        <main id="main-content" className="flex-1 p-3 sm:p-4 md:p-6 lg:p-8 overflow-x-hidden overflow-y-auto relative z-10 w-full max-w-full" role="main" aria-label="Contenu principal">
           {children}
         </main>
       </div>

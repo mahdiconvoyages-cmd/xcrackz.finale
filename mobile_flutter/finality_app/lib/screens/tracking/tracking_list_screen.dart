@@ -77,7 +77,7 @@ class _TrackingListScreenState extends State<TrackingListScreen> {
         _isLoading = false;
       });
     } catch (e) {
-      print('Erreur chargement missions: $e');
+      debugPrint('Erreur chargement missions: $e');
       if (!mounted) return;
       setState(() => _isLoading = false);
     }

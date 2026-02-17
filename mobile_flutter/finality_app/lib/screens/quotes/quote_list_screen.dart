@@ -73,7 +73,7 @@ class _QuoteListScreenState extends State<QuoteListScreen>
       if (!mounted) return;
       setState(() => _stats = stats);
     } catch (e) {
-      print('Erreur chargement stats: $e');
+      debugPrint('Erreur chargement stats: $e');
     }
   }
 
