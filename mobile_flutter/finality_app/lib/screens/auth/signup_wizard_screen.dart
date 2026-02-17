@@ -655,13 +655,20 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
       }
 
       // 3. Create/update profile (use upsert to avoid conflict with trigger)
+      // NOTE: full_name is GENERATED ALWAYS — write to first_name + last_name instead!
       final deviceFingerprint = await _fraudService.getDeviceFingerprint();
       final ipAddress = await _fraudService.getPublicIP();
+
+      final fullName = (_signupData['full_name'] ?? '') as String;
+      final nameParts = fullName.trim().split(RegExp(r'\s+'));
+      final firstName = nameParts.isNotEmpty ? nameParts.first : '';
+      final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
       await supabase.from('profiles').upsert({
         'id': userId,
         'email': _signupData['email'],
-        'full_name': _signupData['full_name'],
+        'first_name': firstName,
+        'last_name': lastName,
         'phone': _signupData['phone'] ?? '',
         'avatar_url': avatarUrl,
         'user_type': _signupData['user_type'],
