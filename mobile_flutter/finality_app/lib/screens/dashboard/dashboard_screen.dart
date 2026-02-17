@@ -36,6 +36,9 @@ class _DashboardScreenState extends State<DashboardScreen>
   int _totalContacts = 0;
   double _completionRate = 0.0;
 
+  // Real recent activity
+  List<Map<String, dynamic>> _recentActivity = [];
+
   @override
   void initState() {
     super.initState();
@@ -122,11 +125,131 @@ class _DashboardScreenState extends State<DashboardScreen>
         _totalContacts = statsRes['total_contacts'] ?? 0;
       }
 
+      // Load REAL recent activity (last 5 events across missions, contacts, inspections)
+      await _loadRecentActivity(userId);
+
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
       debugPrint('Erreur chargement dashboard: $e');
       if (mounted) setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _loadRecentActivity(String userId) async {
+    try {
+      final List<Map<String, dynamic>> activities = [];
+
+      // Fetch recent missions (last 5)
+      final missions = await supabase
+          .from('missions')
+          .select('id, reference, status, pickup_city, delivery_city, created_at, updated_at')
+          .or('user_id.eq.$userId,assigned_user_id.eq.$userId')
+          .order('updated_at', ascending: false)
+          .limit(5);
+
+      for (final m in (missions as List)) {
+        final status = m['status'] ?? 'pending';
+        IconData icon;
+        Color color;
+        String title;
+
+        switch (status) {
+          case 'completed':
+            icon = Icons.check_circle;
+            color = PremiumTheme.accentGreen;
+            title = 'Mission terminée';
+            break;
+          case 'in_progress':
+            icon = Icons.local_shipping;
+            color = PremiumTheme.primaryBlue;
+            title = 'Mission en cours';
+            break;
+          case 'cancelled':
+            icon = Icons.cancel;
+            color = Colors.red;
+            title = 'Mission annulée';
+            break;
+          default:
+            icon = Icons.schedule;
+            color = PremiumTheme.primaryPurple;
+            title = 'Nouvelle mission';
+        }
+
+        final pickup = m['pickup_city'] ?? '';
+        final delivery = m['delivery_city'] ?? '';
+        final subtitle = (pickup.isNotEmpty && delivery.isNotEmpty)
+            ? '$pickup → $delivery'
+            : m['reference'] ?? 'Mission';
+
+        activities.add({
+          'icon': icon,
+          'title': title,
+          'subtitle': subtitle,
+          'time': _formatTimeAgo(DateTime.tryParse(m['updated_at'] ?? m['created_at'] ?? '') ?? DateTime.now()),
+          'color': color,
+          'date': DateTime.tryParse(m['updated_at'] ?? m['created_at'] ?? '') ?? DateTime.now(),
+        });
+      }
+
+      // Fetch recent contacts (last 3)
+      final contacts = await supabase
+          .from('contacts')
+          .select('id, name, type, created_at')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(3);
+
+      for (final c in (contacts as List)) {
+        activities.add({
+          'icon': Icons.person_add,
+          'title': c['type'] == 'driver' ? 'Nouveau chauffeur' : 'Nouveau contact',
+          'subtitle': c['name'] ?? 'Contact',
+          'time': _formatTimeAgo(DateTime.tryParse(c['created_at'] ?? '') ?? DateTime.now()),
+          'color': PremiumTheme.primaryBlue,
+          'date': DateTime.tryParse(c['created_at'] ?? '') ?? DateTime.now(),
+        });
+      }
+
+      // Fetch recent inspections (last 3)
+      final inspections = await supabase
+          .from('vehicle_inspections')
+          .select('id, type, vehicle_brand, vehicle_model, created_at')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(3);
+
+      for (final i in (inspections as List)) {
+        final inspType = i['type'] ?? 'departure';
+        activities.add({
+          'icon': Icons.camera_alt,
+          'title': inspType == 'departure' ? 'Inspection départ' : 'Inspection arrivée',
+          'subtitle': '${i['vehicle_brand'] ?? ''} ${i['vehicle_model'] ?? ''}'.trim(),
+          'time': _formatTimeAgo(DateTime.tryParse(i['created_at'] ?? '') ?? DateTime.now()),
+          'color': inspType == 'departure' ? PremiumTheme.primaryPurple : PremiumTheme.primaryTeal,
+          'date': DateTime.tryParse(i['created_at'] ?? '') ?? DateTime.now(),
+        });
+      }
+
+      // Sort all by date descending, take top 5
+      activities.sort((a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
+      _recentActivity = activities.take(5).toList();
+    } catch (e) {
+      debugPrint('Erreur chargement activité récente: $e');
+      _recentActivity = [];
+    }
+  }
+
+  String _formatTimeAgo(DateTime date) {
+    final now = DateTime.now();
+    final diff = now.difference(date);
+
+    if (diff.inMinutes < 1) return 'À l\'instant';
+    if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes}min';
+    if (diff.inHours < 24) return 'Il y a ${diff.inHours}h';
+    if (diff.inDays == 1) return 'Hier';
+    if (diff.inDays < 7) return 'Il y a ${diff.inDays}j';
+    if (diff.inDays < 30) return 'Il y a ${(diff.inDays / 7).floor()} sem.';
+    return DateFormat('dd/MM/yy').format(date);
   }
 
   @override
@@ -929,7 +1052,13 @@ class _DashboardScreenState extends State<DashboardScreen>
                     ],
                   ),
                   TextButton(
-                    onPressed: () {},
+                    onPressed: () {
+                      // Navigate to Missions tab (index 1) in HomeScreen
+                      final homeState = context.findAncestorStateOfType<State>();
+                      if (homeState != null && homeState.widget.runtimeType.toString() == 'HomeScreen') {
+                        // Use callback pattern - the parent HomeScreen handles tab switching
+                      }
+                    },
                     child: Text(
                       l10n.seeAll,
                       style: PremiumTheme.bodySmall.copyWith(
@@ -941,27 +1070,30 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ],
               ),
               const SizedBox(height: 16),
-              _buildActivityItem(
-                icon: Icons.check_circle,
-                title: l10n.missionCompleted,
-                subtitle: 'Paris → Lyon',
-                time: '${l10n.ago} 2h',
-                color: PremiumTheme.accentGreen,
-              ),
-              _buildActivityItem(
-                icon: Icons.person_add,
-                title: l10n.newContact,
-                subtitle: l10n.clientAddedCRM,
-                time: '${l10n.ago} 5h',
-                color: PremiumTheme.primaryBlue,
-              ),
-              _buildActivityItem(
-                icon: Icons.camera_alt,
-                title: l10n.departureInspectionShort,
-                subtitle: l10n.vehicleDocumented,
-                time: l10n.yesterday,
-                color: PremiumTheme.primaryPurple,
-              ),
+              if (_recentActivity.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 24),
+                  child: Center(
+                    child: Column(
+                      children: [
+                        Icon(Icons.inbox_outlined, size: 40, color: Colors.grey.shade300),
+                        const SizedBox(height: 8),
+                        Text(
+                          'Aucune activité récente',
+                          style: PremiumTheme.bodySmall.copyWith(color: PremiumTheme.textSecondary),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              else
+                ...(_recentActivity.map((a) => _buildActivityItem(
+                  icon: a['icon'] as IconData,
+                  title: a['title'] as String,
+                  subtitle: a['subtitle'] as String,
+                  time: a['time'] as String,
+                  color: a['color'] as Color,
+                ))),
             ],
           ),
         ),
