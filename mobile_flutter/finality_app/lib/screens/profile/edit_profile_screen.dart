@@ -42,7 +42,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
       if (userId != null) {
         final response = await supabase
             .from('profiles')
-            .select('first_name, last_name, phone, company')
+            .select('first_name, last_name, phone, company_name')
             .eq('id', userId)
             .maybeSingle();
         
@@ -50,7 +50,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
           _firstNameController.text = response['first_name'] ?? '';
           _lastNameController.text = response['last_name'] ?? '';
           _phoneController.text = response['phone'] ?? '';
-          _companyController.text = response['company'] ?? '';
+          _companyController.text = response['company_name'] ?? '';
         }
       }
     } catch (e) {
@@ -80,7 +80,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         'first_name': _firstNameController.text.trim(),
         'last_name': _lastNameController.text.trim(),
         'phone': _phoneController.text.trim(),
-        'company': _companyController.text.trim(),
+        'company_name': _companyController.text.trim(),
         'updated_at': DateTime.now().toUtc().toIso8601String(),
       }).eq('id', userId);
 

@@ -295,7 +295,7 @@ class SubscriptionService {
           .from('subscriptions')
           .update({
             'auto_renew': false,
-            'cancelled_at': DateTime.now().toUtc().toIso8601String(),
+            'cancel_at_period_end': true,
             'updated_at': DateTime.now().toUtc().toIso8601String(),
           })
           .eq('user_id', userId);
@@ -313,7 +313,7 @@ class SubscriptionService {
           .from('subscriptions')
           .update({
             'auto_renew': true,
-            'cancelled_at': null,
+            'cancel_at_period_end': false,
             'status': 'active',
             'updated_at': DateTime.now().toUtc().toIso8601String(),
           })

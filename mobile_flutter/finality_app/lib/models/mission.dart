@@ -184,6 +184,7 @@ class Mission {
       'vehicle_year': vehicleYear,
       'status': status,
       'driver_id': driverId,
+      'assigned_to_user_id': assignedToUserId,
       'client_name': clientName,
       'client_phone': clientPhone,
       'client_email': clientEmail,

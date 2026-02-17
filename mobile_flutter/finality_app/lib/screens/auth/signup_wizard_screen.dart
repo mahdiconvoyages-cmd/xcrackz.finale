@@ -692,7 +692,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
         await supabase.from('credit_transactions').insert({
           'user_id': userId,
           'amount': 10,
-          'transaction_type': 'welcome_bonus',
+          'transaction_type': 'addition',
           'description': 'Crédits de bienvenue - inscription',
           'balance_after': 10,
         });

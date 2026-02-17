@@ -76,9 +76,11 @@ class Quote {
       clientEmail: json['client_email']?.toString(),
       clientPhone: json['client_phone']?.toString(),
       clientAddress: json['client_address']?.toString(),
-      quoteDate: json['quote_date'] != null 
-          ? DateTime.parse(json['quote_date'].toString()) 
-          : DateTime.now(),
+      quoteDate: json['issue_date'] != null 
+          ? DateTime.parse(json['issue_date'].toString()) 
+          : json['quote_date'] != null
+              ? DateTime.parse(json['quote_date'].toString())
+              : DateTime.now(),
       validUntil: json['valid_until'] != null
           ? DateTime.parse(json['valid_until'].toString())
           : null,
@@ -122,7 +124,7 @@ class Quote {
       if (clientEmail != null) 'client_email': clientEmail,
       if (clientPhone != null) 'client_phone': clientPhone,
       if (clientAddress != null) 'client_address': clientAddress,
-      'quote_date': quoteDate.toIso8601String(),
+      'issue_date': quoteDate.toIso8601String(),
       if (validUntil != null) 'valid_until': validUntil!.toIso8601String(),
       'tax_rate': taxRate,
       'status': status,

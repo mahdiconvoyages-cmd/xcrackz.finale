@@ -78,7 +78,6 @@ class Invoice {
       if (clientId != null) 'client_id': clientId,
       if (missionId != null) 'mission_id': missionId,
       'invoice_number': invoiceNumber,
-      'invoice_date': invoiceDate.toIso8601String().split('T').first,
       'issue_date': invoiceDate.toIso8601String().split('T').first,
       if (dueDate != null) 'due_date': dueDate!.toIso8601String().split('T').first,
       'status': status,

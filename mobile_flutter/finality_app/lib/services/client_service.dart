@@ -177,7 +177,7 @@ class ClientService {
     // Factures
     final invoicesResponse = await _supabase
         .from('invoices')
-        .select('id, status, total_ttc, created_at')
+        .select('id, status, total, created_at')
         .eq('client_id', clientId);
 
     final invoices = invoicesResponse as List;
@@ -197,7 +197,7 @@ class ClientService {
 
     for (final invoice in invoices) {
       final status = invoice['status'] as String?;
-      final amount = (invoice['total_ttc'] as num?)?.toDouble() ?? 0;
+      final amount = (invoice['total'] as num?)?.toDouble() ?? 0;
       
       if (status == 'paid') {
         totalRevenue += amount;
