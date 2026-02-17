@@ -1,10 +1,10 @@
 import { useEffect, useState, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
-import { MapPin, Clock, Navigation, Share2, Gauge, TrendingUp, Activity, Copy, Check, Layers } from 'lucide-react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import { MapPin, Clock, Share2, Gauge, TrendingUp, Activity, Copy, Check, ArrowLeft, User, Phone, Route } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import L from 'leaflet';
-import 'leaflet/dist/leaflet.css';
+import LeafletTracking from '../components/LeafletTracking';
+import type { RealtimeChannel } from '@supabase/supabase-js';
 
 interface Mission {
   id: string;
@@ -16,456 +16,276 @@ interface Mission {
   pickup_address: string;
   delivery_address: string;
   pickup_date: string;
-  delivery_date: string;
-  pickup_lat: number;
-  pickup_lng: number;
-  delivery_lat: number;
-  delivery_lng: number;
-  assigned_driver?: string;
+  delivery_date?: string;
+  pickup_lat?: number;
+  pickup_lng?: number;
+  delivery_lat?: number;
+  delivery_lng?: number;
+  public_tracking_link?: string;
+  driver?: {
+    first_name: string;
+    last_name: string;
+    phone?: string;
+  };
 }
 
-interface TrackingPosition {
+interface GPSLocation {
   id: string;
   latitude: number;
   longitude: number;
-  speed_kmh: number;
-  heading: number;
-  accuracy: number;
+  speed: number | null;
+  heading: number | null;
+  accuracy: number | null;
   recorded_at: string;
 }
 
-interface TrackingSession {
-  id: string;
-  started_at: string;
-  completed_at: string | null;
-  total_distance_km: number;
-  max_speed_kmh: number;
-  average_speed_kmh: number;
-  status: string;
-}
-
 export default function MissionTracking() {
-  const { missionId } = useParams();
+  const { missionId } = useParams<{ missionId: string }>();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<L.Map | null>(null);
-  const vehicleMarker = useRef<L.Marker | null>(null);
-  const routeLine = useRef<L.Polyline | null>(null);
-  const pickupMarker = useRef<L.Marker | null>(null);
-  const deliveryMarker = useRef<L.Marker | null>(null);
-
   const [mission, setMission] = useState<Mission | null>(null);
-  const [positions, setPositions] = useState<TrackingPosition[]>([]);
-  const [currentPosition, setCurrentPosition] = useState<TrackingPosition | null>(null);
-  const [session, setSession] = useState<TrackingSession | null>(null);
+  const [locations, setLocations] = useState<GPSLocation[]>([]);
+  const [currentLocation, setCurrentLocation] = useState<GPSLocation | null>(null);
   const [loading, setLoading] = useState(true);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [eta, setEta] = useState<number>(0);
   const [distanceRemaining, setDistanceRemaining] = useState<number>(0);
-  const [mapLayer, setMapLayer] = useState<'street' | 'satellite'>('street');
-  const [timelineIndex, setTimelineIndex] = useState<number>(0);
-  const [isReplaying, setIsReplaying] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [generatingLink, setGeneratingLink] = useState(false);
+  const channelRef = useRef<RealtimeChannel | null>(null);
 
+  // ── Load mission on mount ──
   useEffect(() => {
-    if (missionId) {
-      loadMissionData();
-    }
+    if (missionId && user) loadMissionData();
   }, [missionId, user]);
 
+  // ── Subscribe to live GPS once mission loaded ──
   useEffect(() => {
-    if (mission && mapContainer.current && !map.current) {
-      initializeMap();
+    if (mission) {
+      loadTrackingData();
+      subscribeToLocationUpdates();
     }
-  }, [mission]);
+    return () => { channelRef.current?.unsubscribe(); };
+  }, [mission?.id]);
 
+  // ── Recalc ETA when driver moves ──
   useEffect(() => {
-    if (currentPosition && mission) {
-      updateMapPosition(currentPosition);
+    if (currentLocation && mission?.delivery_lat && mission?.delivery_lng) {
       calculateETAAndDistance();
     }
-  }, [currentPosition, mission]);
+  }, [currentLocation, mission]);
 
-  useEffect(() => {
-    if (!missionId) return;
-
-    const subscription = supabase
-      .channel(`tracking:${missionId}`)
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'gps_location_points',
-          filter: `mission_id=eq.${missionId}`,
-        },
-        (payload: any) => {
-          const newPosition = payload.new as TrackingPosition;
-          
-          // ✅ FILTRAGE PRÉCISION GPS
-          // Ignorer les positions imprécises (> 50m) ou vitesses aberrantes
-          if (newPosition.accuracy && newPosition.accuracy > 50) {
-            console.log('Position GPS imprécise ignorée (accuracy:', newPosition.accuracy, 'm)');
-            return;
-          }
-          
-          if (newPosition.speed_kmh && newPosition.speed_kmh > 200) {
-            console.log('Vitesse aberrante ignorée:', newPosition.speed_kmh, 'km/h');
-            return;
-          }
-          
-          // ✅ DÉTECTION ARRÊT VÉHICULE
-          // Si vitesse < 5 km/h et proche du dernier point, skip
-          setPositions((prev) => {
-            if (prev.length > 0) {
-              const lastPos = prev[prev.length - 1];
-              const distance = calculateDistance(
-                lastPos.latitude,
-                lastPos.longitude,
-                newPosition.latitude,
-                newPosition.longitude
-              );
-              // Si arrêté (vitesse < 5 km/h) et déplacement < 10m, on skip
-              if (newPosition.speed_kmh < 5 && distance < 0.01) {
-                return prev;
-              }
-            }
-            return [...prev, newPosition];
-          });
-          
-          // ✅ OPTIMISATION: Utiliser payload direct sans requête
-          setCurrentPosition(newPosition);
-        }
-      )
-      .subscribe();
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, [missionId]);
+  // ──────────────────────────────────────────────
+  //  DATA LOADING
+  // ──────────────────────────────────────────────
 
   const loadMissionData = async () => {
     if (!user || !missionId) return;
-
     try {
-      const { data: missionData, error: missionError } = await supabase
+      // Try with FK join, fallback without
+      let result = await supabase
         .from('missions')
-        .select('*')
+        .select('*, driver:profiles!missions_assigned_user_id_fkey(first_name, last_name, phone)')
         .eq('id', missionId)
-        .single();
-
-      if (missionError) throw missionError;
-      setMission(missionData);
-
-      const { data: sessionData } = await supabase
-        .from('gps_tracking_sessions')
-        .select('*')
-        .eq('mission_id', missionId)
-        .eq('status', 'active')
         .maybeSingle();
 
-      if (sessionData) {
-        setSession(sessionData);
-
-        const { data: positionsData } = await supabase
-          .from('gps_location_points')
-          .select('*')
-          .eq('session_id', sessionData.id)
-          .order('recorded_at', { ascending: true });
-
-        setPositions(positionsData || []);
-        if (positionsData && positionsData.length > 0) {
-          setCurrentPosition(positionsData[positionsData.length - 1]);
-        }
+      if (result.error?.message?.includes('fkey') || result.error?.message?.includes('relationship')) {
+        result = await supabase.from('missions').select('*').eq('id', missionId).maybeSingle();
       }
-    } catch (error) {
-      console.error('Error loading mission data:', error);
+      if (result.error) throw result.error;
+      setMission(result.data);
+    } catch (e) {
+      console.error('Error loading mission:', e);
     } finally {
       setLoading(false);
     }
   };
 
-  const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
-    const R = 6371;
-    const dLat = toRadians(lat2 - lat1);
-    const dLon = toRadians(lon2 - lon1);
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(toRadians(lat1)) *
-        Math.cos(toRadians(lat2)) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  };
+  const loadTrackingData = async () => {
+    if (!mission) return;
+    try {
+      // 1. History snapshots (every ~5 min)
+      const { data: historyData } = await supabase
+        .from('mission_tracking_history')
+        .select('*')
+        .eq('mission_id', mission.id)
+        .order('recorded_at', { ascending: true });
 
-  const toRadians = (degrees: number): number => {
-    return degrees * (Math.PI / 180);
-  };
+      const historyLocations: GPSLocation[] = (historyData || []).map((r: any) => ({
+        id: r.id,
+        latitude: parseFloat(r.latitude),
+        longitude: parseFloat(r.longitude),
+        speed: r.speed ? parseFloat(r.speed) : null,
+        heading: r.bearing ? parseFloat(r.bearing) : null,
+        accuracy: r.accuracy ? parseFloat(r.accuracy) : null,
+        recorded_at: r.recorded_at,
+      }));
 
-  const calculateETAAndDistance = () => {
-    if (!currentPosition || !mission) return;
+      // 2. Live position (UPSERT row)
+      const { data: liveData } = await supabase
+        .from('mission_tracking_live')
+        .select('*')
+        .eq('mission_id', mission.id)
+        .eq('is_active', true)
+        .maybeSingle();
 
-    const dist = calculateDistance(
-      currentPosition.latitude,
-      currentPosition.longitude,
-      mission.delivery_lat,
-      mission.delivery_lng
-    );
-
-    setDistanceRemaining(dist);
-
-    // ✅ ETA INTELLIGENT basé sur vitesse récente
-    // Analyser les 20 dernières positions (environ 40 secondes à 2s/point)
-    const recentPositions = positions.slice(-20);
-    const recentSpeed = recentPositions.length > 0
-      ? recentPositions.reduce((sum, p) => sum + (p.speed_kmh || 0), 0) / recentPositions.length
-      : currentPosition.speed_kmh || 50;
-
-    // Facteur heure de pointe (17h-19h = +30% temps)
-    const currentHour = new Date().getHours();
-    const rushFactor = (currentHour >= 17 && currentHour <= 19) ? 1.3 : 1.0;
-    
-    // Vitesse minimale réaliste
-    const effectiveSpeed = Math.max(recentSpeed, 20); // Min 20 km/h
-    
-    const timeInHours = (dist / effectiveSpeed) * rushFactor;
-    setEta(Math.round(timeInHours * 60));
-  };
-
-  const initializeMap = () => {
-    if (!mapContainer.current || map.current || !mission) return;
-
-    // Créer la carte Leaflet avec OpenStreetMap
-    map.current = L.map(mapContainer.current).setView(
-      [mission.pickup_lat, mission.pickup_lng],
-      12
-    );
-
-    // ✅ SUPPORT MULTI-COUCHES (Street / Satellite)
-    const streetLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution: '© OpenStreetMap contributors',
-      maxZoom: 19,
-    });
-
-    const satelliteLayer = L.tileLayer(
-      'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-      {
-        attribution: '© Esri',
-        maxZoom: 19,
-      }
-    );
-
-    // Ajouter la couche par défaut
-    streetLayer.addTo(map.current);
-
-    // Stocker les couches pour switch ultérieur
-    (map.current as any)._streetLayer = streetLayer;
-    (map.current as any)._satelliteLayer = satelliteLayer;
-
-    // Marqueur de départ (vert)
-    const pickupIcon = L.divIcon({
-      className: 'custom-marker',
-      html: `
-        <div style="background: #10b981; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-          <svg width="20" height="20" fill="white" viewBox="0 0 24 24">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-          </svg>
-        </div>
-      `,
-      iconSize: [40, 40],
-      iconAnchor: [20, 40],
-    });
-
-    pickupMarker.current = L.marker([mission.pickup_lat, mission.pickup_lng], { icon: pickupIcon })
-      .addTo(map.current)
-      .bindPopup('<h3 class="font-bold">Départ</h3>');
-
-    // Marqueur d'arrivée (rouge)
-    const deliveryIcon = L.divIcon({
-      className: 'custom-marker',
-      html: `
-        <div style="background: #ef4444; width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 8px rgba(0,0,0,0.3);">
-          <svg width="20" height="20" fill="white" viewBox="0 0 24 24">
-            <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
-          </svg>
-        </div>
-      `,
-      iconSize: [40, 40],
-      iconAnchor: [20, 40],
-    });
-
-    deliveryMarker.current = L.marker([mission.delivery_lat, mission.delivery_lng], { icon: deliveryIcon })
-      .addTo(map.current)
-      .bindPopup('<h3 class="font-bold">Arrivée</h3>');
-
-    // Ajuster la vue pour inclure les deux marqueurs
-    const bounds = L.latLngBounds([
-      [mission.pickup_lat, mission.pickup_lng],
-      [mission.delivery_lat, mission.delivery_lng]
-    ]);
-    map.current.fitBounds(bounds, { padding: [50, 50] });
-  };
-
-  const updateMapPosition = (position: TrackingPosition) => {
-    if (!map.current) return;
-
-    // Centrer la carte sur la nouvelle position
-    map.current.flyTo([position.latitude, position.longitude], 14, {
-      duration: 1.5,
-    });
-
-    // Supprimer l'ancien marqueur véhicule
-    if (vehicleMarker.current) {
-      map.current.removeLayer(vehicleMarker.current);
-    }
-
-    // Créer un nouveau marqueur véhicule animé
-    const vehicleIcon = L.divIcon({
-      className: 'vehicle-marker',
-      html: `
-        <div style="position: relative; width: 48px; height: 48px;">
-          <div style="position: absolute; inset: 0; background: #3b82f6; border-radius: 50%; animation: ping 1s cubic-bezier(0, 0, 0.2, 1) infinite; opacity: 0.75;"></div>
-          <div style="position: relative; width: 48px; height: 48px; background: linear-gradient(to bottom right, #3b82f6, #06b6d4); border-radius: 50%; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(0,0,0,0.3);">
-            <svg width="24" height="24" fill="white" stroke="white" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/>
-            </svg>
-          </div>
-        </div>
-        <style>
-          @keyframes ping {
-            75%, 100% {
-              transform: scale(2);
-              opacity: 0;
-            }
-          }
-        </style>
-      `,
-      iconSize: [48, 48],
-      iconAnchor: [24, 24],
-    });
-
-    vehicleMarker.current = L.marker([position.latitude, position.longitude], { icon: vehicleIcon })
-      .addTo(map.current)
-      .bindPopup(`
-        <div class="p-2">
-          <p class="font-bold">Position actuelle</p>
-          <p class="text-sm">Vitesse: ${position.speed_kmh?.toFixed(0) || 0} km/h</p>
-          <p class="text-xs text-gray-600">${new Date(position.recorded_at).toLocaleTimeString('fr-FR')}</p>
-        </div>
-      `);
-
-    // Mettre à jour la ligne de route
-    if (positions.length > 1) {
-      updateRouteLine();
-    }
-  };
-
-  const updateRouteLine = () => {
-    if (!map.current || positions.length < 2) return;
-
-    // Supprimer l'ancienne ligne si elle existe
-    if (routeLine.current) {
-      map.current.removeLayer(routeLine.current);
-    }
-
-    // ✅ HEATMAP VITESSE: Créer plusieurs segments colorés selon vitesse
-    // Au lieu d'une seule polyline, créer des segments colorés
-    for (let i = 0; i < positions.length - 1; i++) {
-      const pos1 = positions[i];
-      const pos2 = positions[i + 1];
-      
-      // Couleur selon vitesse moyenne du segment
-      const avgSpeed = ((pos1.speed_kmh || 0) + (pos2.speed_kmh || 0)) / 2;
-      const color = getSpeedColor(avgSpeed);
-      
-      L.polyline(
-        [[pos1.latitude, pos1.longitude], [pos2.latitude, pos2.longitude]],
-        {
-          color: color,
-          weight: 4,
-          opacity: 0.8,
+      if (liveData) {
+        const livePos: GPSLocation = {
+          id: liveData.id,
+          latitude: parseFloat(liveData.latitude),
+          longitude: parseFloat(liveData.longitude),
+          speed: liveData.speed ? parseFloat(liveData.speed) : null,
+          heading: liveData.bearing ? parseFloat(liveData.bearing) : null,
+          accuracy: liveData.accuracy ? parseFloat(liveData.accuracy) : null,
+          recorded_at: liveData.last_update,
+        };
+        const lastHistTime = historyLocations.length > 0
+          ? new Date(historyLocations[historyLocations.length - 1].recorded_at).getTime()
+          : 0;
+        if (new Date(livePos.recorded_at).getTime() > lastHistTime) {
+          setLocations([...historyLocations, livePos]);
+        } else {
+          setLocations(historyLocations);
         }
-      ).addTo(map.current);
+        setCurrentLocation(livePos);
+      } else {
+        setLocations(historyLocations);
+        if (historyLocations.length > 0) setCurrentLocation(historyLocations[historyLocations.length - 1]);
+      }
+    } catch (e) {
+      console.error('Error loading tracking:', e);
     }
   };
 
-  // Fonction helper pour couleur selon vitesse
-  const getSpeedColor = (speed: number): string => {
-    if (speed < 30) return '#10b981'; // Vert - lent
-    if (speed < 70) return '#f59e0b'; // Orange - moyen
-    if (speed < 110) return '#3b82f6'; // Bleu - rapide
-    return '#ef4444'; // Rouge - très rapide
+  // ──────────────────────────────────────────────
+  //  REALTIME
+  // ──────────────────────────────────────────────
+
+  const subscribeToLocationUpdates = () => {
+    if (!mission) return;
+    const ch = supabase
+      .channel(`mission-tracking:${mission.id}`)
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'mission_tracking_live',
+        filter: `mission_id=eq.${mission.id}`,
+      }, (payload: any) => {
+        if (!payload.new) return;
+        const loc: GPSLocation = {
+          id: payload.new.id,
+          latitude: parseFloat(payload.new.latitude),
+          longitude: parseFloat(payload.new.longitude),
+          speed: payload.new.speed ? parseFloat(payload.new.speed) : null,
+          heading: payload.new.bearing ? parseFloat(payload.new.bearing) : null,
+          accuracy: payload.new.accuracy ? parseFloat(payload.new.accuracy) : null,
+          recorded_at: payload.new.last_update,
+        };
+        setCurrentLocation(loc);
+        setLocations(prev => {
+          const filtered = prev.filter(l => l.id !== loc.id);
+          return [...filtered, loc];
+        });
+      })
+      .subscribe();
+    channelRef.current = ch;
   };
 
-  const copyPublicLink = () => {
-    if (!session) return;
-    const url = `${window.location.origin}/tracking/public/${session.id}`;
-    navigator.clipboard.writeText(url);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+  // ──────────────────────────────────────────────
+  //  ETA (OSRM + Haversine fallback)
+  // ──────────────────────────────────────────────
 
-  // ✅ SWITCH COUCHE CARTE
-  const toggleMapLayer = () => {
-    if (!map.current) return;
-    
-    const currentLayer = mapLayer === 'street' ? 'street' : 'satellite';
-    const newLayer = currentLayer === 'street' ? 'satellite' : 'street';
-    
-    if (currentLayer === 'street') {
-      map.current.removeLayer((map.current as any)._streetLayer);
-      (map.current as any)._satelliteLayer.addTo(map.current);
-    } else {
-      map.current.removeLayer((map.current as any)._satelliteLayer);
-      (map.current as any)._streetLayer.addTo(map.current);
-    }
-    
-    setMapLayer(newLayer);
-  };
-
-  // ✅ TIMELINE NAVIGATION
-  const handleTimelineChange = (index: number) => {
-    if (positions.length === 0) return;
-    
-    const position = positions[index];
-    setTimelineIndex(index);
-    
-    // Afficher cette position historique
-    if (map.current) {
-      map.current.flyTo([position.latitude, position.longitude], 16, {
-        duration: 0.5,
-      });
-    }
-  };
-
-  // ✅ REPLAY TRAJET
-  const replayRoute = () => {
-    if (positions.length === 0 || isReplaying) return;
-    
-    setIsReplaying(true);
-    let index = 0;
-    
-    const interval = setInterval(() => {
-      if (index >= positions.length) {
-        clearInterval(interval);
-        setIsReplaying(false);
-        setTimelineIndex(positions.length - 1);
+  const calculateETAAndDistance = async () => {
+    if (!currentLocation || !mission?.delivery_lat || !mission?.delivery_lng) return;
+    try {
+      const resp = await fetch(
+        `https://router.project-osrm.org/route/v1/driving/${currentLocation.longitude},${currentLocation.latitude};${mission.delivery_lng},${mission.delivery_lat}?overview=false`
+      );
+      const data = await resp.json();
+      if (data.routes?.[0]) {
+        setDistanceRemaining(data.routes[0].distance / 1000);
+        setEta(Math.round(data.routes[0].duration / 60));
         return;
       }
-      
-      handleTimelineChange(index);
-      index += 2; // Vitesse x2
-    }, 100);
+    } catch { /* fallback */ }
+
+    // Haversine fallback
+    const dist = haversine(currentLocation.latitude, currentLocation.longitude, mission.delivery_lat, mission.delivery_lng);
+    setDistanceRemaining(dist);
+    const speed = currentLocation.speed || 0;
+    setEta(speed > 3 ? Math.round((dist * 1000 / speed) / 60) : Math.round(dist / 60 * 60));
   };
+
+  const haversine = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
+
+  // ──────────────────────────────────────────────
+  //  SHARE LINK
+  // ──────────────────────────────────────────────
+
+  const generatePublicLink = async () => {
+    if (!mission) return;
+    setGeneratingLink(true);
+    try {
+      if (mission.public_tracking_link) {
+        await navigator.clipboard.writeText(mission.public_tracking_link);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 3000);
+        return;
+      }
+
+      const { data: token, error } = await supabase
+        .rpc('generate_public_tracking_link', { p_mission_id: mission.id });
+      if (error) throw new Error(error.message);
+
+      const publicLink = `${window.location.origin}/tracking/${token}`;
+      await supabase.from('missions').update({ public_tracking_link: publicLink }).eq('id', mission.id);
+      setMission(prev => prev ? { ...prev, public_tracking_link: publicLink } : prev);
+      await navigator.clipboard.writeText(publicLink);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 3000);
+    } catch (err: any) {
+      console.error('Share error:', err);
+      alert(err.message || 'Erreur lors de la génération du lien');
+    } finally {
+      setGeneratingLink(false);
+    }
+  };
+
+  // ──────────────────────────────────────────────
+  //  DERIVED STATE
+  // ──────────────────────────────────────────────
+
+  const speedKmh = currentLocation?.speed ? Math.round(currentLocation.speed * 3.6) : 0;
+  const isMoving = speedKmh > 3;
+  const timeSinceUpdate = currentLocation
+    ? Math.round((Date.now() - new Date(currentLocation.recorded_at).getTime()) / 1000)
+    : null;
+  const isOnline = timeSinceUpdate !== null && timeSinceUpdate < 120;
+
+  const formatDuration = (min: number) => {
+    if (min === 0) return 'Calcul...';
+    if (min < 60) return `${min} min`;
+    return `${Math.floor(min / 60)}h${min % 60 > 0 ? ` ${min % 60}min` : ''}`;
+  };
+
+  // ──────────────────────────────────────────────
+  //  RENDER – Loading / Not found
+  // ──────────────────────────────────────────────
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="relative">
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-slate-200"></div>
-          <div className="animate-spin rounded-full h-16 w-16 border-4 border-t-blue-500 absolute top-0 left-0"></div>
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-cyan-50/30">
+        <div className="text-center">
+          <div className="relative w-20 h-20 mx-auto mb-4">
+            <div className="absolute inset-0 animate-spin rounded-full border-4 border-slate-200" />
+            <div className="absolute inset-0 animate-spin rounded-full border-4 border-t-teal-500" />
+          </div>
+          <p className="text-lg font-semibold text-slate-700">Chargement du tracking...</p>
         </div>
       </div>
     );
@@ -473,280 +293,274 @@ export default function MissionTracking() {
 
   if (!mission) {
     return (
-      <div className="flex items-center justify-center h-screen">
-        <div className="text-center">
-          <h2 className="text-2xl font-bold text-slate-900 mb-2">Mission introuvable</h2>
-          <button
-            onClick={() => navigate('/tracking')}
-            className="text-blue-600 hover:underline"
-          >
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-slate-50 to-cyan-50/30">
+        <div className="text-center bg-white rounded-2xl p-8 shadow-xl max-w-md">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <MapPin className="w-8 h-8 text-red-500" />
+          </div>
+          <h2 className="text-2xl font-black text-slate-900 mb-2">Mission introuvable</h2>
+          <p className="text-slate-600 mb-6">Cette mission n'existe pas ou vous n'y avez pas accès.</p>
+          <Link to="/tracking" className="px-6 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700">
             Retour au tracking
-          </button>
+          </Link>
         </div>
       </div>
     );
   }
 
+  // ──────────────────────────────────────────────
+  //  RENDER – Main page
+  // ──────────────────────────────────────────────
+
   return (
-    <div className="h-screen flex flex-col">
-      <div className="bg-gradient-to-r from-teal-600 to-cyan-600 px-6 py-4 shadow-lg">
-        <div className="flex items-center justify-between">
-          <div className="text-white">
-            <h1 className="text-2xl font-bold">{mission.reference}</h1>
-            <p className="text-white/90">
-              {mission.vehicle_brand} {mission.vehicle_model} - {mission.vehicle_plate}
-            </p>
-          </div>
-          <button
-            onClick={() => setShowShareModal(true)}
-            className="flex items-center gap-2 px-6 py-3 bg-white/20 backdrop-blur-sm text-white rounded-lg hover:bg-white/30 transition"
-          >
-            <Share2 className="w-5 h-5" />
-            Partager
-          </button>
-        </div>
-      </div>
-
-      {currentPosition && (
-        <div className="bg-white border-b border-slate-200 px-6 py-4">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-gradient-to-br from-blue-50 to-cyan-50 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Clock className="w-5 h-5 text-blue-600" />
-                <span className="text-sm font-semibold text-blue-900">ETA</span>
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-teal-50/20 to-cyan-50/20">
+      {/* ── HEADER ── */}
+      <div className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 text-white shadow-xl">
+        <div className="container mx-auto px-6 py-6">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div className="flex items-center gap-4">
+              <button onClick={() => navigate('/tracking')} className="p-2 bg-white/20 backdrop-blur rounded-xl hover:bg-white/30 transition-colors">
+                <ArrowLeft className="w-5 h-5" />
+              </button>
+              <div>
+                <div className="flex items-center gap-3 mb-1">
+                  <h1 className="text-2xl font-black">{mission.reference}</h1>
+                  {mission.status === 'in_progress' && isOnline && (
+                    <div className="flex items-center gap-1.5 px-3 py-1 bg-green-500/30 backdrop-blur rounded-full text-xs font-bold">
+                      <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
+                      LIVE
+                    </div>
+                  )}
+                </div>
+                <p className="text-white/80">
+                  {mission.vehicle_brand} {mission.vehicle_model}
+                  {mission.vehicle_plate && <span className="ml-2 font-mono bg-white/20 px-2 py-0.5 rounded">{mission.vehicle_plate}</span>}
+                </p>
               </div>
-              <p className="text-3xl font-bold text-blue-600">{eta} min</p>
-              <p className="text-xs text-blue-700 mt-1">Temps estimé d'arrivée</p>
             </div>
 
-            <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Navigation className="w-5 h-5 text-green-600" />
-                <span className="text-sm font-semibold text-green-900">Distance</span>
-              </div>
-              <p className="text-3xl font-bold text-green-600">{distanceRemaining.toFixed(1)} km</p>
-              <p className="text-xs text-green-700 mt-1">Distance restante</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-orange-50 to-amber-50 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <Gauge className="w-5 h-5 text-orange-600" />
-                <span className="text-sm font-semibold text-orange-900">Vitesse</span>
-              </div>
-              <p className="text-3xl font-bold text-orange-600">
-                {currentPosition.speed_kmh?.toFixed(0) || 0} km/h
-              </p>
-              <p className="text-xs text-orange-700 mt-1">Vitesse actuelle</p>
-            </div>
-
-            <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-xl p-4">
-              <div className="flex items-center gap-2 mb-2">
-                <TrendingUp className="w-5 h-5 text-purple-600" />
-                <span className="text-sm font-semibold text-purple-900">Moy.</span>
-              </div>
-              <p className="text-3xl font-bold text-purple-600">
-                {session?.average_speed_kmh?.toFixed(0) || 0} km/h
-              </p>
-              <p className="text-xs text-purple-700 mt-1">Vitesse moyenne</p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex-1 flex flex-col md:flex-row">
-        <div className="flex-1 relative">
-          <div ref={mapContainer} className="absolute inset-0" />
-          
-          {/* ✅ CONTRÔLES CARTE FLOTTANTS */}
-          <div className="absolute top-4 right-4 flex flex-col gap-2 z-[1000]">
-            {/* Toggle Satellite/Street */}
             <button
-              onClick={toggleMapLayer}
-              className="bg-white shadow-lg rounded-lg p-3 hover:bg-slate-50 transition"
-              title={mapLayer === 'street' ? 'Vue satellite' : 'Vue carte'}
+              onClick={generatePublicLink}
+              disabled={generatingLink}
+              className="flex items-center gap-2 px-5 py-3 bg-white hover:bg-white/90 text-teal-600 rounded-xl font-bold transition-all hover:scale-105 shadow-lg disabled:opacity-50"
             >
-              <Layers className="w-5 h-5 text-slate-700" />
+              {copied ? <><Check className="w-5 h-5" /> Lien copié!</> : generatingLink ? <><Copy className="w-5 h-5 animate-spin" /> Génération...</> : <><Share2 className="w-5 h-5" /> Partager</>}
             </button>
-            
-            {/* Replay Route */}
-            {positions.length > 10 && (
-              <button
-                onClick={replayRoute}
-                disabled={isReplaying}
-                className={`bg-white shadow-lg rounded-lg p-3 transition ${
-                  isReplaying 
-                    ? 'opacity-50 cursor-not-allowed' 
-                    : 'hover:bg-slate-50'
-                }`}
-                title="Rejouer le trajet"
-              >
-                <Activity className={`w-5 h-5 ${isReplaying ? 'text-blue-600 animate-pulse' : 'text-slate-700'}`} />
-              </button>
-            )}
-          </div>
-
-          {/* ✅ TIMELINE TRAJET */}
-          {positions.length > 1 && (
-            <div className="absolute bottom-4 left-4 right-4 bg-white shadow-lg rounded-xl p-4 z-[1000]">
-              <div className="flex items-center gap-4">
-                <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">
-                  {timelineIndex === 0 ? 'Départ' : timelineIndex === positions.length - 1 ? 'Arrivée' : 'En cours'}
-                </span>
-                <input
-                  type="range"
-                  min="0"
-                  max={positions.length - 1}
-                  value={timelineIndex}
-                  onChange={(e) => handleTimelineChange(parseInt(e.target.value))}
-                  className="flex-1 h-2 bg-gradient-to-r from-green-500 via-blue-500 to-red-500 rounded-full appearance-none cursor-pointer"
-                  style={{
-                    background: `linear-gradient(to right, #10b981 0%, #3b82f6 50%, #ef4444 100%)`,
-                  }}
-                />
-                <span className="text-xs font-semibold text-slate-600 whitespace-nowrap">
-                  {positions[timelineIndex] ? new Date(positions[timelineIndex].recorded_at).toLocaleTimeString('fr-FR') : ''}
-                </span>
-              </div>
-              <div className="mt-2 flex justify-between text-xs text-slate-500">
-                <span>{positions.length} points GPS</span>
-                <span>
-                  {positions[timelineIndex]?.speed_kmh?.toFixed(0) || 0} km/h
-                </span>
-              </div>
-            </div>
-          )}
-        </div>
-
-        <div className="w-full md:w-96 bg-white border-t md:border-l md:border-t-0 border-slate-200 overflow-y-auto">
-          <div className="p-6 space-y-6">
-            {currentPosition && (
-              <div className="space-y-4">
-                <h3 className="text-lg font-bold text-slate-900 flex items-center gap-2">
-                  <Activity className="w-5 h-5 text-teal-600" />
-                  Statut en direct
-                </h3>
-
-                <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 border border-slate-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
-                    <span className="text-sm font-semibold text-slate-900">En ligne</span>
-                  </div>
-                  <p className="text-sm text-slate-600">
-                    Dernière mise à jour: {new Date(currentPosition.recorded_at).toLocaleTimeString('fr-FR')}
-                  </p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    Précision GPS: {currentPosition.accuracy?.toFixed(0) || 0}m
-                  </p>
-                </div>
-              </div>
-            )}
-
-            <div className="space-y-4">
-              <h3 className="text-lg font-bold text-slate-900">Itinéraire</h3>
-
-              <div className="relative">
-                <div className="absolute left-5 top-8 bottom-8 w-0.5 bg-gradient-to-b from-green-500 to-red-500"></div>
-
-                <div className="space-y-6">
-                  <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 bg-gradient-to-br from-green-500 to-emerald-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg relative z-10">
-                      <MapPin className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1 pt-1">
-                      <p className="text-sm font-semibold text-green-600 uppercase">Départ</p>
-                      <p className="text-slate-900 font-medium">{mission.pickup_address}</p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-start gap-4">
-                    <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-rose-500 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg relative z-10">
-                      <MapPin className="w-5 h-5 text-white" />
-                    </div>
-                    <div className="flex-1 pt-1">
-                      <p className="text-sm font-semibold text-red-600 uppercase">Arrivée</p>
-                      <p className="text-slate-900 font-medium">{mission.delivery_address}</p>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            {session && (
-              <div className="bg-slate-50 rounded-xl p-4 border border-slate-200">
-                <h4 className="font-semibold text-slate-900 mb-3">Statistiques de trajet</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Distance parcourue</span>
-                    <span className="font-semibold text-slate-900">
-                      {session.total_distance_km?.toFixed(1) || 0} km
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Vitesse max</span>
-                    <span className="font-semibold text-slate-900">
-                      {session.max_speed_kmh?.toFixed(0) || 0} km/h
-                    </span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-600">Début du trajet</span>
-                    <span className="font-semibold text-slate-900">
-                      {new Date(session.started_at).toLocaleTimeString('fr-FR')}
-                    </span>
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {positions.length > 0 && (
-              <div className="space-y-2">
-                <h4 className="font-semibold text-slate-900">Points GPS enregistrés</h4>
-                <p className="text-sm text-slate-600">{positions.length} positions</p>
-              </div>
-            )}
           </div>
         </div>
       </div>
 
-      {showShareModal && session && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-md w-full mx-4 shadow-2xl">
-            <h3 className="text-2xl font-bold text-slate-900 mb-2">Partager le suivi</h3>
-            <p className="text-slate-600 mb-6">
-              Partagez ce lien avec votre client pour qu'il puisse suivre la mission en temps réel.
-            </p>
-            <div className="bg-gradient-to-br from-slate-50 to-slate-100 rounded-xl p-4 mb-4 border-2 border-slate-200">
-              <p className="text-sm text-slate-600 mb-2 font-semibold">Lien de suivi public</p>
-              <p className="text-xs break-all text-slate-700 font-mono">
-                {window.location.origin}/tracking/public/{session.id}
-              </p>
+      <div className="container mx-auto px-6 py-6 space-y-6">
+
+        {/* ── STAT CARDS (only when in_progress) ── */}
+        {mission.status === 'in_progress' && (
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+            {/* Vitesse */}
+            <StatCard icon={<Gauge className="w-6 h-6 text-blue-600" />} label="Vitesse" borderClass="border-blue-200" bgClass="bg-blue-500/10" extra={isMoving && <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse ml-auto" />}>
+              <p className="text-3xl font-black text-blue-600 mt-1">{speedKmh}<span className="text-sm ml-1 font-semibold">km/h</span></p>
+            </StatCard>
+
+            {/* Distance */}
+            <StatCard icon={<Route className="w-6 h-6 text-amber-600" />} label="Distance" borderClass="border-amber-200" bgClass="bg-amber-500/10">
+              <p className="text-3xl font-black text-amber-600 mt-1">{distanceRemaining.toFixed(1)}<span className="text-sm ml-1 font-semibold">km</span></p>
+            </StatCard>
+
+            {/* ETA */}
+            <StatCard icon={<Clock className="w-6 h-6 text-green-600" />} label="ETA" borderClass="border-green-200" bgClass="bg-green-500/10">
+              <p className="text-3xl font-black text-green-600 mt-1">{formatDuration(eta)}</p>
+              {eta > 0 && (
+                <p className="text-xs text-slate-400 mt-1">≈ {new Date(Date.now() + eta * 60000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}</p>
+              )}
+            </StatCard>
+
+            {/* Statut */}
+            <StatCard icon={<Activity className="w-6 h-6 text-teal-600" />} label="Statut" borderClass="border-teal-200" bgClass="bg-teal-500/10">
+              <div className="flex items-center gap-2 mt-2">
+                <div className={`w-3 h-3 rounded-full ${isOnline ? 'bg-green-500 animate-pulse' : 'bg-slate-300'}`} />
+                <p className={`text-lg font-bold ${isOnline ? 'text-green-600' : 'text-slate-400'}`}>
+                  {isOnline ? (isMoving ? 'En mouvement' : 'À l\'arrêt') : 'Hors ligne'}
+                </p>
+              </div>
+              {currentLocation && <p className="text-xs text-slate-400 mt-1">MAJ: {new Date(currentLocation.recorded_at).toLocaleTimeString('fr-FR')}</p>}
+            </StatCard>
+
+            {/* Chauffeur */}
+            <StatCard icon={<User className="w-6 h-6 text-purple-600" />} label="Chauffeur" borderClass="border-purple-200" bgClass="bg-purple-500/10">
+              {mission.driver ? (
+                <>
+                  <p className="text-lg font-black text-purple-600 mt-1">{mission.driver.first_name} {mission.driver.last_name}</p>
+                  {mission.driver.phone && (
+                    <a href={`tel:${mission.driver.phone}`} className="flex items-center gap-1 text-xs text-purple-400 mt-1 hover:text-purple-600">
+                      <Phone className="w-3 h-3" /> {mission.driver.phone}
+                    </a>
+                  )}
+                </>
+              ) : <p className="text-lg font-bold text-slate-300 mt-1">Non assigné</p>}
+            </StatCard>
+          </div>
+        )}
+
+        {/* ── ITINÉRAIRE ── */}
+        <div className="bg-white rounded-2xl p-6 shadow-lg">
+          <div className="flex items-start justify-between mb-5">
+            <h3 className="text-xl font-black text-slate-900">Itinéraire</h3>
+            <StatusBadge status={mission.status} />
+          </div>
+          <div className="grid md:grid-cols-2 gap-6">
+            <AddressBlock type="pickup" address={mission.pickup_address} date={mission.pickup_date} />
+            <AddressBlock type="delivery" address={mission.delivery_address} date={mission.delivery_date} />
+          </div>
+        </div>
+
+        {/* ── CARTE GPS ── */}
+        {mission.pickup_lat && mission.delivery_lat && (
+          <div className="bg-white rounded-2xl p-6 shadow-lg">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-black text-slate-900">{currentLocation ? 'Position en temps réel' : 'Itinéraire prévu'}</h3>
+              {mission.status === 'in_progress' && isOnline && (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm font-bold">
+                  <Activity className="w-4 h-4 animate-pulse" /> LIVE
+                </div>
+              )}
             </div>
-            <div className="flex gap-3">
+            <div className="w-full h-[600px] rounded-xl overflow-hidden border-2 border-slate-200">
+              <LeafletTracking
+                pickupLat={mission.pickup_lat!}
+                pickupLng={mission.pickup_lng!}
+                pickupAddress={mission.pickup_address}
+                deliveryLat={mission.delivery_lat!}
+                deliveryLng={mission.delivery_lng!}
+                deliveryAddress={mission.delivery_address}
+                driverLat={currentLocation?.latitude}
+                driverLng={currentLocation?.longitude}
+                driverSpeed={currentLocation?.speed ?? undefined}
+                driverHeading={currentLocation?.heading ?? undefined}
+                driverName={mission.driver ? `${mission.driver.first_name} ${mission.driver.last_name}` : 'Chauffeur'}
+                vehiclePlate={mission.vehicle_plate}
+                status={mission.status === 'in_progress' ? 'En cours' : 'En attente'}
+                height="600px"
+                showControls={true}
+                gpsPath={locations.length > 1 ? locations.map(l => [l.latitude, l.longitude] as [number, number]) : undefined}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* ── TIMELINE GPS ── */}
+        {locations.length > 0 && (
+          <div className="bg-white rounded-2xl p-6 shadow-lg">
+            <h3 className="text-xl font-black text-slate-900 mb-4">
+              Historique GPS <span className="text-base font-semibold text-slate-400">({locations.length} points)</span>
+            </h3>
+            <div className="space-y-2 max-h-72 overflow-y-auto pr-2">
+              {locations.slice(-15).reverse().map((loc, idx) => {
+                const locSpeed = loc.speed ? Math.round(loc.speed * 3.6) : 0;
+                const speedColor = locSpeed > 90 ? 'text-red-600' : locSpeed > 50 ? 'text-amber-600' : 'text-blue-600';
+                return (
+                  <div key={loc.id + idx} className="flex items-center gap-4 p-3 bg-slate-50 rounded-xl hover:bg-slate-100 transition-colors">
+                    <div className={`p-2 rounded-lg ${locSpeed > 0 ? 'bg-teal-500/10' : 'bg-slate-200/60'}`}>
+                      <TrendingUp className={`w-5 h-5 ${locSpeed > 0 ? 'text-teal-600' : 'text-slate-400'}`} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-slate-900">Position #{locations.length - idx}</p>
+                      <p className="text-xs text-slate-500 truncate">
+                        {loc.latitude.toFixed(5)}, {loc.longitude.toFixed(5)}
+                        {loc.accuracy && <span> · ±{Math.round(loc.accuracy)}m</span>}
+                      </p>
+                    </div>
+                    <div className="text-right flex-shrink-0">
+                      <p className={`text-sm font-bold ${speedColor}`}>{locSpeed > 0 ? `${locSpeed} km/h` : 'Arrêté'}</p>
+                      <p className="text-xs text-slate-400">{new Date(loc.recorded_at).toLocaleTimeString('fr-FR')}</p>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── LIEN PUBLIC ── */}
+        {mission.public_tracking_link && (
+          <div className="bg-teal-50 border-2 border-teal-200 rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-3">
+              <Share2 className="w-5 h-5 text-teal-600" />
+              <h3 className="text-lg font-bold text-teal-900">Lien de suivi public</h3>
+            </div>
+            <div className="flex items-center gap-3">
+              <div className="flex-1 bg-white rounded-xl px-4 py-3 border border-teal-200">
+                <p className="text-sm text-teal-700 font-mono truncate">{mission.public_tracking_link}</p>
+              </div>
               <button
-                onClick={copyPublicLink}
-                className="flex-1 flex items-center justify-center gap-2 bg-gradient-to-r from-teal-500 to-cyan-500 text-white py-3 rounded-xl hover:shadow-lg transition font-semibold"
+                onClick={() => { navigator.clipboard.writeText(mission.public_tracking_link!); setCopied(true); setTimeout(() => setCopied(false), 2000); }}
+                className="px-4 py-3 bg-teal-600 text-white rounded-xl font-bold hover:bg-teal-700 transition-colors flex items-center gap-2"
               >
-                {copied ? (
-                  <>
-                    <Check className="w-5 h-5" />
-                    Copié !
-                  </>
-                ) : (
-                  <>
-                    <Copy className="w-5 h-5" />
-                    Copier le lien
-                  </>
-                )}
-              </button>
-              <button
-                onClick={() => setShowShareModal(false)}
-                className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition font-semibold"
-              >
-                Fermer
+                {copied ? <Check className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                {copied ? 'Copié!' : 'Copier'}
               </button>
             </div>
           </div>
-        </div>
-      )}
+        )}
+
+        {/* ── WAITING STATE ── */}
+        {mission.status !== 'in_progress' && !currentLocation && (
+          <div className="bg-white rounded-2xl p-8 shadow-lg text-center">
+            <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Clock className="w-10 h-10 text-amber-500" />
+            </div>
+            <h3 className="text-2xl font-black text-slate-900 mb-2">En attente du chauffeur</h3>
+            <p className="text-slate-600 max-w-md mx-auto">
+              Le suivi GPS sera disponible dès que le chauffeur démarrera la mission.
+              La carte affichera sa position en temps réel avec la vitesse et l'ETA.
+            </p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ──────────────────────────────────────────────
+//  SUB-COMPONENTS
+// ──────────────────────────────────────────────
+
+function StatCard({ icon, label, borderClass, bgClass, extra, children }: {
+  icon: React.ReactNode; label: string; borderClass: string; bgClass: string; extra?: React.ReactNode; children: React.ReactNode;
+}) {
+  return (
+    <div className={`bg-white rounded-2xl p-5 shadow-lg border-2 ${borderClass} hover:shadow-xl transition-shadow`}>
+      <div className="flex items-center gap-2 mb-3">
+        <div className={`p-2 ${bgClass} rounded-xl`}>{icon}</div>
+        {extra}
+      </div>
+      <p className="text-xs font-bold text-slate-500 uppercase tracking-wider">{label}</p>
+      {children}
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const cfg = status === 'in_progress'
+    ? { cls: 'bg-blue-500/10 text-blue-600 border-blue-200', txt: '🚗 En cours' }
+    : status === 'completed'
+    ? { cls: 'bg-green-500/10 text-green-600 border-green-200', txt: '✅ Terminé' }
+    : { cls: 'bg-amber-500/10 text-amber-600 border-amber-200', txt: '⏳ En attente' };
+  return <div className={`px-4 py-2 rounded-full text-sm font-bold border-2 ${cfg.cls}`}>{cfg.txt}</div>;
+}
+
+function AddressBlock({ type, address, date }: { type: 'pickup' | 'delivery'; address: string; date?: string }) {
+  const isPickup = type === 'pickup';
+  return (
+    <div className="flex items-start gap-3">
+      <div className={`p-2.5 ${isPickup ? 'bg-green-500/10' : 'bg-red-500/10'} rounded-xl mt-1`}>
+        <MapPin className={`w-5 h-5 ${isPickup ? 'text-green-600' : 'text-red-600'}`} />
+      </div>
+      <div>
+        <p className={`text-xs font-bold ${isPickup ? 'text-green-600' : 'text-red-600'} uppercase tracking-wider`}>
+          {isPickup ? 'Départ' : 'Destination'}
+        </p>
+        <p className="text-slate-900 font-semibold mt-1">{address}</p>
+        {date && <p className="text-xs text-slate-400 mt-1">{new Date(date).toLocaleString('fr-FR')}</p>}
+      </div>
     </div>
   );
 }

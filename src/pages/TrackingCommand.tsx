@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef } from 'react';
-import { Navigation, Gauge, Clock, MapPin, Activity, TrendingUp, Users, Share2, Check, Link2 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Navigation, Gauge, Clock, MapPin, Activity, TrendingUp, Users, Share2, Check, Link2, Eye, Truck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import LeafletTracking from '../components/LeafletTracking';
@@ -23,11 +24,22 @@ interface Mission {
   delivery_lng?: number;
   price?: number;
   notes?: string;
+  public_tracking_link?: string;
   driver?: {
     first_name: string;
     last_name: string;
     phone: string;
   };
+}
+
+/** Live position per-mission for the overview map */
+interface DriverLivePos {
+  missionId: string;
+  latitude: number;
+  longitude: number;
+  speed: number | null;
+  heading: number | null;
+  lastUpdate: string;
 }
 
 interface GPSLocation {
@@ -42,19 +54,23 @@ interface GPSLocation {
 
 export default function TrackingCommand() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [missions, setMissions] = useState<Mission[]>([]);
   const [selectedMission, setSelectedMission] = useState<Mission | null>(null);
   const [locations, setLocations] = useState<GPSLocation[]>([]);
   const [currentLocation, setCurrentLocation] = useState<GPSLocation | null>(null);
+  const [allDriverPositions, setAllDriverPositions] = useState<DriverLivePos[]>([]);
   const [loading, setLoading] = useState(true);
   const [eta, setEta] = useState<number>(0);
   const [distanceRemaining, setDistanceRemaining] = useState<number>(0);
   const [copied, setCopied] = useState(false);
   const [generatingLink, setGeneratingLink] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const overviewChannelRef = useRef<RealtimeChannel | null>(null);
 
   useEffect(() => {
     loadActiveMissions();
+    return () => { overviewChannelRef.current?.unsubscribe(); };
   }, [user]);
 
   useEffect(() => {
@@ -95,12 +111,69 @@ export default function TrackingCommand() {
       
       if (data && data.length > 0) {
         setSelectedMission(data[0]);
+
+        // Load live positions for ALL in_progress missions (overview)
+        const inProgressIds = (data || []).filter((m: Mission) => m.status === 'in_progress').map((m: Mission) => m.id);
+        if (inProgressIds.length > 0) {
+          loadAllDriverPositions(inProgressIds);
+          subscribeToAllDrivers(inProgressIds);
+        }
       }
     } catch (error) {
       console.error('Error loading missions:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  const loadAllDriverPositions = async (missionIds: string[]) => {
+    try {
+      const { data } = await supabase
+        .from('mission_tracking_live')
+        .select('*')
+        .in('mission_id', missionIds)
+        .eq('is_active', true);
+
+      if (data) {
+        setAllDriverPositions(data.map((d: any) => ({
+          missionId: d.mission_id,
+          latitude: parseFloat(d.latitude),
+          longitude: parseFloat(d.longitude),
+          speed: d.speed ? parseFloat(d.speed) : null,
+          heading: d.bearing ? parseFloat(d.bearing) : null,
+          lastUpdate: d.last_update,
+        })));
+      }
+    } catch (e) {
+      console.error('Error loading all driver positions:', e);
+    }
+  };
+
+  const subscribeToAllDrivers = (missionIds: string[]) => {
+    overviewChannelRef.current?.unsubscribe();
+    const ch = supabase
+      .channel('all-drivers-live')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'mission_tracking_live',
+      }, (payload: any) => {
+        if (!payload.new || !missionIds.includes(payload.new.mission_id)) return;
+        const pos: DriverLivePos = {
+          missionId: payload.new.mission_id,
+          latitude: parseFloat(payload.new.latitude),
+          longitude: parseFloat(payload.new.longitude),
+          speed: payload.new.speed ? parseFloat(payload.new.speed) : null,
+          heading: payload.new.bearing ? parseFloat(payload.new.bearing) : null,
+          lastUpdate: payload.new.last_update,
+        };
+        setAllDriverPositions(prev => {
+          const filtered = prev.filter(p => p.missionId !== pos.missionId);
+          return [...filtered, pos];
+        });
+      })
+      .subscribe();
+    overviewChannelRef.current = ch;
   };
 
   const loadMissionTracking = async (missionId: string) => {
@@ -370,6 +443,62 @@ export default function TrackingCommand() {
       </div>
 
       <div className="container mx-auto px-6 py-8 space-y-6">
+
+        {/* MISSION SELECTOR (multi-driver) */}
+        {missions.length > 1 && (
+          <div className="bg-white rounded-2xl p-4 shadow-lg">
+            <div className="flex items-center gap-3 mb-3">
+              <Users className="w-5 h-5 text-teal-600" />
+              <h3 className="text-lg font-bold text-slate-900">
+                {missions.length} missions actives
+              </h3>
+              <span className="text-sm text-slate-400">
+                {missions.filter(m => m.status === 'in_progress').length} en cours
+              </span>
+            </div>
+            <div className="flex gap-3 overflow-x-auto pb-2">
+              {missions.map(m => {
+                const isSelected = selectedMission?.id === m.id;
+                const isInProgress = m.status === 'in_progress';
+                const driverPos = allDriverPositions.find(p => p.missionId === m.id);
+                const driverSpeedKmh = driverPos?.speed ? Math.round(driverPos.speed * 3.6) : 0;
+                return (
+                  <button
+                    key={m.id}
+                    onClick={() => setSelectedMission(m)}
+                    className={`flex-shrink-0 flex items-center gap-3 px-4 py-3 rounded-xl border-2 transition-all ${
+                      isSelected
+                        ? 'border-teal-500 bg-teal-50 shadow-md'
+                        : 'border-slate-200 bg-slate-50 hover:border-slate-300'
+                    }`}
+                  >
+                    <div className={`p-2 rounded-lg ${isInProgress ? 'bg-blue-500/10' : 'bg-amber-500/10'}`}>
+                      <Truck className={`w-5 h-5 ${isInProgress ? 'text-blue-600' : 'text-amber-600'}`} />
+                    </div>
+                    <div className="text-left min-w-0">
+                      <p className="text-sm font-bold text-slate-900 truncate">{m.reference}</p>
+                      <p className="text-xs text-slate-500 truncate">
+                        {m.vehicle_plate || `${m.vehicle_brand} ${m.vehicle_model}`}
+                        {m.driver && ` · ${m.driver.first_name}`}
+                      </p>
+                    </div>
+                    {isInProgress && driverPos && (
+                      <div className="flex items-center gap-1 px-2 py-1 bg-green-500/20 rounded-lg flex-shrink-0">
+                        <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
+                        <span className="text-xs font-bold text-green-700">{driverSpeedKmh} km/h</span>
+                      </div>
+                    )}
+                    {isInProgress && !driverPos && (
+                      <div className="px-2 py-1 bg-slate-200 rounded-lg flex-shrink-0">
+                        <span className="text-xs font-bold text-slate-500">GPS OFF</span>
+                      </div>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
         {/* STATS CARDS */}
         {selectedMission && selectedMission.status === 'in_progress' && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
@@ -474,6 +603,12 @@ export default function TrackingCommand() {
             }`}>
               {selectedMission.status === 'in_progress' ? '🚗 En cours' : '⏳ En attente'}
             </div>
+            <button
+              onClick={() => navigate(`/missions/${selectedMission.id}/tracking`)}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-bold text-teal-600 bg-teal-50 border-2 border-teal-200 rounded-full hover:bg-teal-100 transition-colors"
+            >
+              <Eye className="w-4 h-4" /> Détails
+            </button>
           </div>
 
           <div className="grid md:grid-cols-2 gap-6">
