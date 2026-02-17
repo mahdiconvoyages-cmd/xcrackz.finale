@@ -70,8 +70,16 @@ export function useSubscription(): SubscriptionStatus {
       const subscription = subscriptionResult.data as any;
 
       const now = new Date();
-      const expiresAt = subscription?.current_period_end ? new Date(subscription.current_period_end) : null;
-      const hasActiveSubscription = subscription?.status === 'active' && expiresAt ? expiresAt > now : false;
+      let expiresAt = subscription?.current_period_end ? new Date(subscription.current_period_end) : null;
+      
+      // For new users with no current_period_end, calculate 30 days from account creation
+      if (!expiresAt && subscription?.status === 'active' && user) {
+        const createdAt = new Date(user.created_at);
+        expiresAt = new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000);
+      }
+      
+      const hasActiveSubscription = subscription?.status === 'active' && expiresAt ? expiresAt > now : 
+        (subscription?.status === 'active' && creditsBalance > 0);
 
       let daysRemaining: number | null = null;
       let timeRemainingText: string | null = null;

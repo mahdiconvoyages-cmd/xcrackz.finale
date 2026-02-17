@@ -70,7 +70,7 @@ class MissionTrackingMonitor {
       final missionId = newRecord['id'] as String?;
       final status = newRecord['status'] as String?;
       final missionUserId = newRecord['user_id'] as String?;
-      final assignedUserId = newRecord['assigned_user_id'] as String?;
+      final assignedUserId = newRecord['assigned_to_user_id'] as String?;
 
       if (missionId == null || status == null) return;
       
@@ -130,7 +130,7 @@ class MissionTrackingMonitor {
       final response = await _supabase
           .from('missions')
           .select('id, status')
-          .or('user_id.eq.$userId,assigned_user_id.eq.$userId')
+          .or('user_id.eq.$userId,assigned_to_user_id.eq.$userId')
           .eq('status', 'in_progress')
           .limit(1)
           .maybeSingle();
