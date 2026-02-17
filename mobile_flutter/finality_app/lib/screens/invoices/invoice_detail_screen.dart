@@ -604,7 +604,8 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                     ),
                   ),
                   pw.SizedBox(height: 6),
-                  if (_inv!.status != 'draft') pw.Container(
+                  // Only show badge for paid status (useful info for client)
+                  if (_inv!.status == 'paid') pw.Container(
                     padding: const pw.EdgeInsets.symmetric(
                         horizontal: 12, vertical: 4),
                     decoration: pw.BoxDecoration(
