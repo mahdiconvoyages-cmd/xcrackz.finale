@@ -598,6 +598,8 @@ export default function PublicTracking() {
                 deliveryAddress={mission.delivery_address}
                 driverLat={currentLocation.latitude}
                 driverLng={currentLocation.longitude}
+                driverSpeed={currentLocation.speed ?? undefined}
+                driverHeading={currentLocation.heading ?? undefined}
                 driverName={mission.driver ? `${mission.driver.first_name} ${mission.driver.last_name}` : 'Chauffeur'}
                 vehiclePlate={mission.vehicle_plate}
                 status={mission.status === 'in_progress' ? 'En cours' : 'En attente'}

@@ -242,9 +242,26 @@ export default function TrackingCommand() {
     }
   };
 
-  const calculateETAAndDistance = () => {
+  const calculateETAAndDistance = async () => {
     if (!currentLocation || !selectedMission?.delivery_lat || !selectedMission?.delivery_lng) return;
 
+    // Utiliser OSRM pour le calcul routier réel
+    try {
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${currentLocation.longitude},${currentLocation.latitude};${selectedMission.delivery_lng},${selectedMission.delivery_lat}?overview=false`;
+      const response = await fetch(osrmUrl);
+      const data = await response.json();
+      
+      if (data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        setDistanceRemaining(route.distance / 1000); // m → km
+        setEta(Math.round(route.duration / 60)); // s → min
+        return;
+      }
+    } catch (e) {
+      console.warn('OSRM fallback to Haversine:', e);
+    }
+
+    // Fallback Haversine
     const distance = calculateDistance(
       currentLocation.latitude,
       currentLocation.longitude,
@@ -255,11 +272,11 @@ export default function TrackingCommand() {
     setDistanceRemaining(distance);
 
     const speed = currentLocation.speed || 0;
-    if (speed > 5) {
-      const hours = distance / speed;
-      setEta(Math.round(hours * 60));
+    if (speed > 3) {
+      const hours = (distance * 1000) / speed;
+      setEta(Math.round(hours / 60));
     } else {
-      setEta(0);
+      setEta(Math.round((distance / 60) * 60));
     }
   };
 
@@ -496,14 +513,21 @@ export default function TrackingCommand() {
         )}
 
         {/* CARTE GPS */}
-        {selectedMission && selectedMission.status === 'in_progress' && selectedMission.pickup_lat && selectedMission.delivery_lat && (
+        {selectedMission && selectedMission.pickup_lat && selectedMission.delivery_lat && (
           <div className="bg-white rounded-2xl p-6 shadow-lg">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-black text-slate-900">Carte GPS Temps Réel</h3>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm font-bold">
-                <Activity className="w-4 h-4 animate-pulse" />
-                <span>LIVE</span>
-              </div>
+              <h3 className="text-xl font-black text-slate-900">Carte GPS {selectedMission.status === 'in_progress' ? 'Temps Réel' : 'Itinéraire'}</h3>
+              {selectedMission.status === 'in_progress' ? (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm font-bold">
+                  <Activity className="w-4 h-4 animate-pulse" />
+                  <span>LIVE</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-amber-500/20 text-amber-600 rounded-lg text-sm font-bold">
+                  <Clock className="w-4 h-4" />
+                  <span>EN ATTENTE</span>
+                </div>
+              )}
             </div>
             <div className="w-full h-[600px] rounded-xl overflow-hidden border-2 border-slate-200">
               <LeafletTracking
@@ -515,6 +539,8 @@ export default function TrackingCommand() {
                 deliveryAddress={selectedMission.delivery_address}
                 driverLat={currentLocation?.latitude}
                 driverLng={currentLocation?.longitude}
+                driverSpeed={currentLocation?.speed ?? undefined}
+                driverHeading={currentLocation?.heading ?? undefined}
                 driverName={selectedMission.driver ? `${selectedMission.driver.first_name} ${selectedMission.driver.last_name}` : 'Chauffeur'}
                 vehiclePlate={selectedMission.vehicle_plate}
                 status={selectedMission.status === 'in_progress' ? 'En cours' : 'En attente'}

@@ -21,6 +21,8 @@ interface LeafletTrackingProps {
   driverLat?: number;
   driverLng?: number;
   driverName?: string;
+  driverSpeed?: number; // m/s
+  driverHeading?: number; // degrees 0-360
   vehiclePlate?: string;
   status?: string;
   showControls?: boolean;
@@ -38,6 +40,8 @@ export default function LeafletTracking({
   driverLat,
   driverLng,
   driverName = 'Chauffeur',
+  driverSpeed,
+  driverHeading,
   vehiclePlate,
   status = 'En cours',
   showControls = true,
@@ -52,6 +56,25 @@ export default function LeafletTracking({
   const routeLineRef = useRef<L.Polyline | null>(null);
   const gpsTrailRef = useRef<L.Polyline | null>(null);
   const futureRouteRef = useRef<L.Polyline | null>(null);
+  const isFirstRenderRef = useRef(true);
+  const driverLatRef = useRef(driverLat);
+  const driverLngRef = useRef(driverLng);
+
+  // Sync driver position refs
+  useEffect(() => {
+    driverLatRef.current = driverLat;
+    driverLngRef.current = driverLng;
+  }, [driverLat, driverLng]);
+
+  // Cleanup map on unmount only
+  useEffect(() => {
+    return () => {
+      if (mapRef.current) {
+        mapRef.current.remove();
+        mapRef.current = null;
+      }
+    };
+  }, []);
 
   // États pour le tracé GPS
   const [routeLoading, setRouteLoading] = useState(false);
@@ -92,6 +115,14 @@ export default function LeafletTracking({
         return;
       }
     }
+
+    // Clear old layers (preserve map instance)
+    [pickupMarkerRef, deliveryMarkerRef, routeLineRef, gpsTrailRef, futureRouteRef].forEach(ref => {
+      if (ref.current && mapRef.current) {
+        mapRef.current.removeLayer(ref.current);
+        ref.current = null;
+      }
+    });
 
     // Créer les icônes personnalisées
     const pickupIcon = L.divIcon({
@@ -432,40 +463,22 @@ export default function LeafletTracking({
 
     loadRoute();
 
-    // Ajouter le marqueur du chauffeur si position disponible
-    if (driverLat && driverLng) {
-      driverMarkerRef.current = L.marker([driverLat, driverLng], { icon: driverIcon })
-        .addTo(mapRef.current)
-        .bindPopup(`
-          <div style="min-width: 200px;">
-            <div style="font-weight: bold; color: #14b8a6; margin-bottom: 8px; display: flex; align-items: center; gap: 6px;">
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="#14b8a6">
-                <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99z"/>
-              </svg>
-              ${driverName}
-            </div>
-            ${vehiclePlate ? `<div style="color: #475569; font-size: 13px; margin-bottom: 4px;">🚗 ${vehiclePlate}</div>` : ''}
-            <div style="color: #475569; font-size: 13px;">
-              <span style="color: #10b981; font-weight: 600;">${status}</span>
-            </div>
-          </div>
-        `);
+    // Note: driver marker is managed by the dedicated driver useEffect below
+
+    // Ajuster la vue uniquement au premier rendu
+    if (isFirstRenderRef.current) {
+      const dLat = driverLatRef.current;
+      const dLng = driverLngRef.current;
+      const bounds = L.latLngBounds([
+        [pickupLat, pickupLng],
+        [deliveryLat, deliveryLng],
+        ...(dLat && dLng ? [L.latLng(dLat, dLng)] : []),
+      ] as L.LatLngExpression[]);
+      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+      isFirstRenderRef.current = false;
     }
 
-    // Ajuster la vue pour inclure tous les marqueurs
-    const bounds = L.latLngBounds([
-      [pickupLat, pickupLng],
-      [deliveryLat, deliveryLng],
-      ...(driverLat && driverLng ? [L.latLng(driverLat, driverLng)] : []),
-    ] as L.LatLngExpression[]);
-    mapRef.current.fitBounds(bounds, { padding: [50, 50] });
-
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove();
-        mapRef.current = null;
-      }
-    };
+    // No cleanup - map is preserved, layers cleared at start of next render
   }, [
     pickupLat,
     pickupLng,
@@ -475,82 +488,114 @@ export default function LeafletTracking({
     deliveryAddress,
     showControls,
     gpsPath,
-    driverLat,
-    driverLng,
   ]);
 
-  // Mettre à jour la position du chauffeur en temps réel avec animation fluide
+  // Mettre à jour la position du chauffeur en temps réel avec animation fluide style Uber
   useEffect(() => {
     if (!driverLat || !driverLng || !mapRef.current) return;
 
+    const speedKmh = driverSpeed ? Math.round(driverSpeed * 3.6) : 0;
+    const heading = driverHeading || 0;
+    const isMoving = speedKmh > 3;
+    const speedColor = speedKmh > 90 ? '#ef4444' : speedKmh > 50 ? '#f59e0b' : '#3b82f6';
+    const speedText = isMoving ? `${speedKmh} km/h` : 'Arrêté';
+    const badgeBg = isMoving ? speedColor : '#64748b';
+
     const newDriverIcon = L.divIcon({
       html: `
-        <div style="position: relative;">
+        <div style="position: relative; width: 80px; height: 95px;">
+          <!-- Halo pulsant -->
           <div style="
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 70px;
-            height: 70px;
-            background: radial-gradient(circle, rgba(20, 184, 166, 0.4) 0%, transparent 70%);
+            top: 5px; left: 50%;
+            transform: translate(-50%, 0);
+            width: 70px; height: 70px;
+            background: radial-gradient(circle, ${isMoving ? 'rgba(20, 184, 166, 0.35)' : 'rgba(100, 116, 139, 0.25)'} 0%, transparent 70%);
             border-radius: 50%;
-            animation: pulseHalo 2s infinite;
+            animation: pulseDriver 2s infinite;
           "></div>
           
+          <!-- Conteneur rotatif (voiture + flèche direction) -->
           <div style="
-            position: relative;
-            background: linear-gradient(135deg, #14b8a6, #0d9488);
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            border: 4px solid white;
-            box-shadow: 0 6px 20px rgba(0,0,0,0.3);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 10;
+            position: absolute;
+            top: 5px; left: 50%;
+            transform: translate(-50%, 0) rotate(${heading}deg);
+            transform-origin: center center;
+            width: 54px; height: 54px;
           ">
-            <svg width="26" height="26" viewBox="0 0 24 24" fill="white">
-              <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
-            </svg>
+            <!-- Flèche de direction -->
+            <div style="
+              position: absolute;
+              top: -10px; left: 50%;
+              transform: translateX(-50%);
+              width: 0; height: 0;
+              border-left: 9px solid transparent;
+              border-right: 9px solid transparent;
+              border-bottom: 14px solid ${isMoving ? '#14b8a6' : '#94a3b8'};
+              filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
+              transition: border-bottom-color 0.3s;
+            "></div>
+            
+            <!-- Corps de la voiture -->
+            <div style="
+              position: absolute;
+              top: 2px; left: 50%;
+              transform: translateX(-50%);
+              background: linear-gradient(135deg, ${isMoving ? '#14b8a6' : '#94a3b8'}, ${isMoving ? '#0d9488' : '#64748b'});
+              width: 50px; height: 50px;
+              border-radius: 50%;
+              border: 4px solid white;
+              box-shadow: 0 4px 16px rgba(0,0,0,0.35);
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              transition: background 0.3s;
+            ">
+              <svg style="transform: rotate(-${heading}deg);" width="26" height="26" viewBox="0 0 24 24" fill="white">
+                <path d="M18.92 6.01C18.72 5.42 18.16 5 17.5 5h-11c-.66 0-1.21.42-1.42 1.01L3 12v8c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-1h12v1c0 .55.45 1 1 1h1c.55 0 1-.45 1-1v-8l-2.08-5.99zM6.5 16c-.83 0-1.5-.67-1.5-1.5S5.67 13 6.5 13s1.5.67 1.5 1.5S7.33 16 6.5 16zm11 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM5 11l1.5-4.5h11L19 11H5z"/>
+              </svg>
+            </div>
           </div>
           
+          <!-- Badge vitesse (ne tourne PAS) -->
           <div style="
             position: absolute;
-            top: -8px;
-            left: 50%;
+            bottom: 0; left: 50%;
             transform: translateX(-50%);
-            width: 0;
-            height: 0;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-bottom: 12px solid #14b8a6;
-            filter: drop-shadow(0 2px 4px rgba(0,0,0,0.3));
-          "></div>
+            background: ${badgeBg};
+            color: white;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 800;
+            white-space: nowrap;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+            border: 2px solid white;
+            letter-spacing: 0.3px;
+            z-index: 20;
+          ">${speedText}</div>
         </div>
         <style>
-          @keyframes pulseHalo {
+          @keyframes pulseDriver {
             0%, 100% { 
-              transform: translate(-50%, -50%) scale(1);
+              transform: translate(-50%, 0) scale(1);
               opacity: 0.6;
             }
             50% { 
-              transform: translate(-50%, -50%) scale(1.2);
-              opacity: 0.3;
+              transform: translate(-50%, 0) scale(1.3);
+              opacity: 0.2;
             }
           }
-        </style>
+        <\/style>
       `,
       className: '',
-      iconSize: [70, 70],
-      iconAnchor: [35, 35],
+      iconSize: [80, 95],
+      iconAnchor: [40, 40],
     });
 
     if (driverMarkerRef.current) {
       // Animation fluide du déplacement (style Uber)
       const currentLatLng = driverMarkerRef.current.getLatLng();
-      const newLatLng = L.latLng(driverLat, driverLng);
       
       // Animer le mouvement sur 1 seconde
       const duration = 1000;
@@ -582,21 +627,21 @@ export default function LeafletTracking({
       requestAnimationFrame(animate);
       driverMarkerRef.current.setIcon(newDriverIcon);
     } else {
-      driverMarkerRef.current = L.marker([driverLat, driverLng], { icon: newDriverIcon })
+      driverMarkerRef.current = L.marker([driverLat, driverLng], { icon: newDriverIcon, zIndexOffset: 1000 })
         .addTo(mapRef.current)
         .bindPopup(`
-          <div style="min-width: 200px;">
-            <div style="font-weight: bold; color: #14b8a6; margin-bottom: 8px;">
+          <div style="min-width: 220px;">
+            <div style="font-weight: bold; color: #14b8a6; margin-bottom: 8px; font-size: 15px;">
               🚗 ${driverName}
             </div>
-            ${vehiclePlate ? `<div style="color: #475569; font-size: 13px;">${vehiclePlate}</div>` : ''}
+            ${vehiclePlate ? `<div style="color: #475569; font-size: 13px; margin-bottom: 4px;">Plaque: <b>${vehiclePlate}</b></div>` : ''}
             <div style="color: #10b981; font-weight: 600; font-size: 13px; margin-top: 4px;">
               ${status}
             </div>
           </div>
         `);
     }
-  }, [driverLat, driverLng, driverName, vehiclePlate, status]);
+  }, [driverLat, driverLng, driverSpeed, driverHeading, driverName, vehiclePlate, status]);
 
   const toggleFullscreen = () => {
     if (!mapContainerRef.current) return;
