@@ -416,50 +416,67 @@ export default function Billing() {
   const handlePreviewPDF = async (doc: Invoice | Quote) => {
     if (!userProfile) return;
 
-    const isInvoice = 'invoice_number' in doc;
-    const table = isInvoice ? 'invoice_items' : 'quote_items';
-    const idField = isInvoice ? 'invoice_id' : 'quote_id';
+    try {
+      showToast('info', 'Génération...', 'Préparation de l\'aperçu PDF');
 
-    const { data: docItems } = await supabase
-      .from(table)
-      .select('*')
-      .eq(idField, doc.id);
+      const isInvoice = 'invoice_number' in doc;
+      const table = isInvoice ? 'invoice_items' : 'quote_items';
+      const idField = isInvoice ? 'invoice_id' : 'quote_id';
 
-    const pdfBlob = await generateInvoicePDF({
-      number: isInvoice ? doc.invoice_number : doc.quote_number,
-      type: isInvoice ? 'invoice' : 'quote',
-      issueDate: doc.issue_date,
-      dueDate: isInvoice ? (doc as Invoice).due_date : undefined,
-      validUntil: !isInvoice ? (doc as Quote).valid_until : undefined,
-      client: {
-        name: doc.client_name,
-        email: doc.client_email,
-        address: doc.client_address,
-        siret: doc.client_siret,
-      },
-      company: {
-        name: userProfile.company_name || 'Votre Entreprise',
-        address: userProfile.company_address || '',
-        siret: userProfile.company_siret || '',
-        email: userProfile.email || '',
-        phone: userProfile.phone || '',
-      },
-      items: docItems || [],
-      subtotal: doc.subtotal,
-      taxAmount: doc.tax_amount,
-      total: doc.total,
-      notes: doc.notes,
-      paymentTerms: isInvoice ? (doc as Invoice).payment_terms : undefined,
-      vatLiable: (doc as any).vat_liable,
-      vatRegime: (doc as any).vat_regime,
-      legalMentions: (doc as any).legal_mentions,
-      logoUrl: getCompanyLogo()?.url || userProfile.logo_url || undefined,
-    });
+      const { data: docItems } = await supabase
+        .from(table)
+        .select('*')
+        .eq(idField, doc.id);
 
-    // Open PDF in new tab
-    const url = URL.createObjectURL(pdfBlob);
-    window.open(url, '_blank');
-    setTimeout(() => URL.revokeObjectURL(url), 100);
+      const pdfBlob = await generateInvoicePDF({
+        number: isInvoice ? doc.invoice_number : doc.quote_number,
+        type: isInvoice ? 'invoice' : 'quote',
+        issueDate: doc.issue_date,
+        dueDate: isInvoice ? (doc as Invoice).due_date : undefined,
+        validUntil: !isInvoice ? (doc as Quote).valid_until : undefined,
+        client: {
+          name: doc.client_name,
+          email: doc.client_email,
+          address: doc.client_address,
+          siret: doc.client_siret,
+        },
+        company: {
+          name: userProfile.company_name || 'Votre Entreprise',
+          address: userProfile.company_address || '',
+          siret: userProfile.company_siret || '',
+          email: userProfile.email || '',
+          phone: userProfile.phone || '',
+        },
+        items: docItems || [],
+        subtotal: doc.subtotal,
+        taxAmount: doc.tax_amount,
+        total: doc.total,
+        notes: doc.notes,
+        paymentTerms: isInvoice ? (doc as Invoice).payment_terms : undefined,
+        vatLiable: (doc as any).vat_liable,
+        vatRegime: (doc as any).vat_regime,
+        legalMentions: (doc as any).legal_mentions,
+        logoUrl: getCompanyLogo()?.url || userProfile.logo_url || undefined,
+      });
+
+      // Open PDF in new tab — delay revoke to let browser load fully
+      const url = URL.createObjectURL(pdfBlob);
+      const newTab = window.open(url, '_blank');
+      if (!newTab) {
+        // Popup blocked — fallback: download directly
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${isInvoice ? 'Facture' : 'Devis'}_${isInvoice ? doc.invoice_number : (doc as Quote).quote_number}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        showToast('info', 'PDF téléchargé', 'Le popup a été bloqué, le PDF a été téléchargé à la place');
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60000);
+    } catch (e) {
+      console.error('Preview PDF error:', e);
+      showToast('error', 'Erreur PDF', 'Impossible de générer l\'aperçu. Réessayez.');
+    }
   };
 
   const handleDownloadPDF = async (doc: Invoice | Quote) => {
