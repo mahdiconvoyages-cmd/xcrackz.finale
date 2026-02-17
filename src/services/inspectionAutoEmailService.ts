@@ -543,27 +543,28 @@ export async function sendDepartureInspectionEmail(
       },
     });
 
-    // 5. Envoyer l'email via Supabase Edge Function (à implémenter)
-    // L'email n'est pas encore envoyé - le service d'envoi doit être configuré
+    // 5. Envoyer l'email via Supabase Edge Function (Resend)
+    const { data, error } = await supabase.functions.invoke('send-email', {
+      body: {
+        to: inspection.client_email,
+        subject: `Rapport d'inspection départ - Mission ${inspection.mission.reference}`,
+        html: emailHTML,
+        attachments: [{
+          filename: `Inspection_Depart_${inspection.mission.reference}.pdf`,
+          content: pdfBase64,
+          type: 'application/pdf',
+        }],
+      },
+    });
 
-    // TODO: Appeler une Edge Function Supabase pour l'envoi
-    // const { data, error } = await supabase.functions.invoke('send-email', {
-    //   body: {
-    //     to: inspection.client_email,
-    //     subject: `Rapport d'inspection départ - Mission ${inspection.mission.reference}`,
-    //     html: emailHTML,
-    //     attachments: [{
-    //       filename: `Inspection_Depart_${inspection.mission.reference}.pdf`,
-    //       content: pdfBase64,
-    //       type: 'application/pdf',
-    //     }],
-    //   },
-    // });
+    if (error) {
+      throw new Error(`Edge Function error: ${error.message}`);
+    }
 
     return {
-      success: false,
-      message: 'Rapport PDF préparé mais l\'envoi par email n\'est pas encore configuré',
-      emailsSent: 0,
+      success: true,
+      message: `Email départ envoyé à ${inspection.client_email}`,
+      emailsSent: 1,
     };
   } catch (error: any) {
     console.error('❌ Erreur envoi email départ:', error);
@@ -690,26 +691,28 @@ export async function sendArrivalCompleteEmail(
       },
     });
 
-    // 6. Envoyer l'email
+    // 6. Envoyer l'email via Supabase Edge Function (Resend)
+    const { data, error } = await supabase.functions.invoke('send-email', {
+      body: {
+        to: arrivalInspection.client_email,
+        subject: `Rapport complet de transport - Mission ${arrivalInspection.mission.reference}`,
+        html: emailHTML,
+        attachments: [{
+          filename: `Rapport_Complet_${arrivalInspection.mission.reference}.pdf`,
+          content: pdfBase64,
+          type: 'application/pdf',
+        }],
+      },
+    });
 
-    // TODO: Appeler Edge Function
-    // const { data, error } = await supabase.functions.invoke('send-email', {
-    //   body: {
-    //     to: arrivalInspection.client_email,
-    //     subject: `Rapport complet de transport - Mission ${arrivalInspection.mission.reference}`,
-    //     html: emailHTML,
-    //     attachments: [{
-    //       filename: `Rapport_Complet_${arrivalInspection.mission.reference}.pdf`,
-    //       content: pdfBase64,
-    //       type: 'application/pdf',
-    //     }],
-    //   },
-    // });
+    if (error) {
+      throw new Error(`Edge Function error: ${error.message}`);
+    }
 
     return {
-      success: false,
-      message: 'Rapport PDF préparé mais l\'envoi par email n\'est pas encore configuré',
-      emailsSent: 0,
+      success: true,
+      message: `Email rapport complet envoyé à ${arrivalInspection.client_email}`,
+      emailsSent: 1,
     };
   } catch (error: any) {
     console.error('❌ Erreur envoi email arrivée:', error);

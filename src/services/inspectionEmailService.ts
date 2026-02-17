@@ -9,6 +9,7 @@
  * - Retry automatique
  */
 
+import { supabase } from '../lib/supabase';
 import { generateInspectionPDFPro } from './inspectionPdfGeneratorPro';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -383,21 +384,23 @@ export async function sendInspectionEmail(
       ] : undefined
     };
 
-    // Appel API (à adapter selon votre backend)
-    const response = await fetch('/api/send-email', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
+    // Appel via Supabase Edge Function (Resend)
+    const { data, error: fnError } = await supabase.functions.invoke('send-email', {
+      body: {
+        to: options.to[0],
+        subject,
+        html: htmlContent,
+        attachments: payload.attachments?.map(att => ({
+          filename: att.filename,
+          content: att.content,
+          type: att.contentType,
+        })) || [],
       },
-      body: JSON.stringify(payload)
     });
 
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.message || 'Erreur envoi email');
+    if (fnError) {
+      throw new Error(fnError.message || 'Erreur envoi email');
     }
-
-    console.log('✅ Email envoyé avec succès');
     return { success: true };
 
   } catch (error: any) {
@@ -422,7 +425,7 @@ export async function sendInspectionEmailWithRetry(
     }
 
     if (i < retries - 1) {
-      console.log(`⏳ Nouvelle tentative (${i + 2}/${retries}) dans 2 secondes...`);
+      // Retry après 2s
       await new Promise(resolve => setTimeout(resolve, 2000));
     }
   }
