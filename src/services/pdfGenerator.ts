@@ -13,6 +13,7 @@ interface InvoiceData {
     email?: string;
     address?: string;
     siret?: string;
+    vatNumber?: string;
   };
   company: {
     name: string;
@@ -20,6 +21,10 @@ interface InvoiceData {
     siret?: string;
     email?: string;
     phone?: string;
+    legalForm?: string;
+    capitalSocial?: number | null;
+    rcsCity?: string;
+    tvaNumber?: string;
   };
   items: Array<{
     description: string;
@@ -39,6 +44,9 @@ interface InvoiceData {
   vatRegime?: 'normal' | 'franchise' | 'micro';
   legalMentions?: string;
   logoUrl?: string;
+  latePenaltyRate?: number;
+  recoveryFee?: number;
+  discountEarlyPayment?: string;
 }
 
 // jsPDF standard fonts (helvetica) support WinAnsiEncoding
@@ -126,13 +134,29 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...colors.dark);
-  doc.text(encodeText(data.company.name), margin, y);
+  // Company name with legal form
+  const legalForm = data.company.legalForm || '';
+  const needsCapital = ['SAS', 'SASU', 'SARL', 'EURL', 'SA'].includes(legalForm);
+  const isMicro = legalForm === 'Auto-entrepreneur' || data.vatRegime === 'micro';
+  const isEI = legalForm === 'EI';
+  
+  let companyLine = encodeText(data.company.name);
+  if (legalForm && !isMicro && !isEI) {
+    companyLine += ` (${legalForm})`;
+  }
+  doc.text(companyLine, margin, y);
   y += 5;
 
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(9);
   doc.setTextColor(...colors.gray);
-  
+
+  // Micro / EI mention
+  if (isMicro || isEI) {
+    doc.text('Entrepreneur individuel', margin, y);
+    y += 4;
+  }
+
   const companyAddress = encodeText(data.company.address || '');
   const addressLines = doc.splitTextToSize(companyAddress, 80);
   doc.text(addressLines, margin, y);
@@ -140,6 +164,22 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
 
   if (data.company.siret) {
     doc.text(`SIRET: ${data.company.siret}`, margin, y);
+    y += 4;
+  }
+  // RCS (obligatoire pour sociétés commerciales)
+  if (data.company.rcsCity && !isMicro && !isEI) {
+    const siren = data.company.siret ? data.company.siret.substring(0, 9).replace(/(\d{3})(\d{3})(\d{3})/, '$1 $2 $3') : '';
+    doc.text(`RCS ${data.company.rcsCity}${siren ? ` ${siren}` : ''}`, margin, y);
+    y += 4;
+  }
+  // Capital social (obligatoire pour SAS, SASU, SARL, EURL, SA)
+  if (needsCapital && data.company.capitalSocial) {
+    doc.text(`Capital social: ${data.company.capitalSocial.toLocaleString('fr-FR')} EUR`, margin, y);
+    y += 4;
+  }
+  // TVA intracommunautaire (si assujetti)
+  if (data.company.tvaNumber && data.vatLiable && data.vatRegime === 'normal') {
+    doc.text(`TVA: ${data.company.tvaNumber}`, margin, y);
     y += 4;
   }
   if (data.company.phone) {
@@ -184,6 +224,10 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
 
   if (data.client.siret) {
     doc.text(`SIRET: ${data.client.siret}`, xClient, yClient);
+    yClient += 4;
+  }
+  if (data.client.vatNumber) {
+    doc.text(`TVA: ${data.client.vatNumber}`, xClient, yClient);
     yClient += 4;
   }
   if (data.client.email) {
@@ -265,6 +309,7 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
   // ========== TOTAUX ==========
   const totalsX = pageWidth - margin - 60;
   const totalsWidth = 60;
+  const showVAT = data.vatLiable !== false && data.vatRegime === 'normal';
 
   // Sous-total
   doc.setFillColor(...colors.light);
@@ -272,87 +317,143 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
   doc.setFontSize(10);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...colors.gray);
-  doc.text('Sous-total HT:', totalsX, y);
+  doc.text(showVAT ? 'Sous-total HT:' : 'Total:', totalsX, y);
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(...colors.dark);
-  doc.text(`${data.subtotal.toFixed(2)} €`, totalsX + totalsWidth, y, { align: 'right' });
+  doc.text(`${data.subtotal.toFixed(2)} EUR`, totalsX + totalsWidth, y, { align: 'right' });
   y += 10;
 
-  // TVA
-  doc.setFont('helvetica', 'normal');
-  doc.setTextColor(...colors.gray);
-  doc.text('TVA:', totalsX, y);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...colors.dark);
-  doc.text(`${data.taxAmount.toFixed(2)} €`, totalsX + totalsWidth, y, { align: 'right' });
-  y += 10;
+  if (showVAT) {
+    // TVA
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(...colors.gray);
+    doc.text('TVA:', totalsX, y);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...colors.dark);
+    doc.text(`${data.taxAmount.toFixed(2)} EUR`, totalsX + totalsWidth, y, { align: 'right' });
+    y += 10;
 
-  // Total TTC
-  doc.setFillColor(...colors.success);
-  doc.roundedRect(totalsX - 5, y - 6, totalsWidth + 5, 12, 2, 2, 'F');
-  doc.setFontSize(12);
-  doc.setFont('helvetica', 'bold');
-  doc.setTextColor(...colors.white);
-  doc.text('TOTAL TTC:', totalsX, y);
-  doc.setFontSize(14);
-  doc.text(`${data.total.toFixed(2)} €`, totalsX + totalsWidth, y, { align: 'right' });
-  y += 15;
+    // Total TTC
+    doc.setFillColor(...colors.success);
+    doc.roundedRect(totalsX - 5, y - 6, totalsWidth + 5, 12, 2, 2, 'F');
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...colors.white);
+    doc.text('TOTAL TTC:', totalsX, y);
+    doc.setFontSize(14);
+    doc.text(`${data.total.toFixed(2)} EUR`, totalsX + totalsWidth, y, { align: 'right' });
+    y += 15;
+  } else {
+    // No VAT — just show total with green box
+    doc.setFillColor(...colors.success);
+    doc.roundedRect(totalsX - 5, y - 6, totalsWidth + 5, 12, 2, 2, 'F');
+    doc.setFontSize(12);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...colors.white);
+    doc.text('TOTAL:', totalsX, y);
+    doc.setFontSize(14);
+    doc.text(`${data.total.toFixed(2)} EUR`, totalsX + totalsWidth, y, { align: 'right' });
+    y += 10;
 
-  // ========== NOTES & CONDITIONS ==========
-  if (data.notes || data.paymentTerms) {
-    y += 5;
-    doc.setDrawColor(...colors.light);
-    doc.line(margin, y, pageWidth - margin, y);
-    y += 8;
-
-    if (data.notes) {
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...colors.dark);
-      doc.text('Notes:', margin, y);
-      y += 5;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(...colors.gray);
-      const notesLines = doc.splitTextToSize(encodeText(data.notes), pageWidth - 2 * margin);
-      doc.text(notesLines, margin, y);
-      y += notesLines.length * 4 + 5;
-    }
-
-    if (data.paymentTerms) {
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'bold');
-      doc.setTextColor(...colors.dark);
-      doc.text('Conditions de paiement:', margin, y);
-      y += 5;
-      doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.setTextColor(...colors.gray);
-      const termsLines = doc.splitTextToSize(encodeText(data.paymentTerms), pageWidth - 2 * margin);
-      doc.text(termsLines, margin, y);
-      y += termsLines.length * 4;
-    }
+    // TVA exemption mention
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'italic');
+    doc.setTextColor(...colors.gray);
+    doc.text('TVA non applicable - Article 293 B du CGI', totalsX - 5, y);
+    y += 10;
   }
 
-  // ========== PIED DE PAGE ==========
-  const footerY = pageHeight - 25;
-  doc.setDrawColor(...colors.primary);
-  doc.setLineWidth(0.5);
-  doc.line(margin, footerY, pageWidth - margin, footerY);
+  // ========== NOTES & CONDITIONS ==========
+  // Always show payment conditions (mandatory in France)
+  y += 5;
+  doc.setDrawColor(...colors.light);
+  doc.line(margin, y, pageWidth - margin, y);
+  y += 8;
 
+  if (data.notes) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...colors.dark);
+    doc.text('Notes:', margin, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...colors.gray);
+    const notesLines = doc.splitTextToSize(encodeText(data.notes), pageWidth - 2 * margin);
+    doc.text(notesLines, margin, y);
+    y += notesLines.length * 4 + 5;
+  }
+
+  if (data.paymentTerms) {
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(...colors.dark);
+    doc.text('Conditions de paiement:', margin, y);
+    y += 5;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.setTextColor(...colors.gray);
+    const termsLines = doc.splitTextToSize(encodeText(data.paymentTerms), pageWidth - 2 * margin);
+    doc.text(termsLines, margin, y);
+    y += termsLines.length * 4 + 3;
+  }
+
+  // Mandatory payment penalty mentions (French law)
   doc.setFontSize(7);
   doc.setFont('helvetica', 'normal');
   doc.setTextColor(...colors.gray);
 
-  if (data.legalMentions) {
-    const legalLines = doc.splitTextToSize(encodeText(data.legalMentions), pageWidth - 2 * margin);
-    doc.text(legalLines, pageWidth / 2, footerY + 5, { align: 'center' });
+  const penaltyRate = data.latePenaltyRate ?? 10;
+  const recoveryFee = data.recoveryFee ?? 40;
+
+  doc.text(`Penalites de retard: ${penaltyRate}% par an`, margin, y);
+  y += 3.5;
+  doc.text(`Indemnite forfaitaire pour frais de recouvrement: ${recoveryFee} EUR (art. L.441-6 C. com.)`, margin, y);
+  y += 3.5;
+  if (data.discountEarlyPayment) {
+    doc.text(`Escompte paiement anticipe: ${encodeText(data.discountEarlyPayment)}`, margin, y);
+    y += 3.5;
   } else {
-    doc.text(`${title} générée le ${new Date().toLocaleDateString('fr-FR')}`, pageWidth / 2, footerY + 5, { align: 'center' });
+    doc.text('Pas d\'escompte en cas de paiement anticipe.', margin, y);
+    y += 3.5;
+  }
+
+  // ========== PIED DE PAGE ==========
+  const footerY = pageHeight - 20;
+  doc.setDrawColor(...colors.primary);
+  doc.setLineWidth(0.5);
+  doc.line(margin, footerY, pageWidth - margin, footerY);
+
+  doc.setFontSize(6.5);
+  doc.setFont('helvetica', 'normal');
+  doc.setTextColor(...colors.gray);
+
+  // Build footer legal line
+  const footerParts: string[] = [];
+  footerParts.push(encodeText(data.company.name));
+  if (legalForm && !isMicro && !isEI) footerParts.push(legalForm);
+  if (isMicro || isEI) footerParts.push('Entrepreneur individuel');
+  if (needsCapital && data.company.capitalSocial) footerParts.push(`Capital: ${data.company.capitalSocial.toLocaleString('fr-FR')} EUR`);
+  if (data.company.siret) footerParts.push(`SIRET: ${data.company.siret}`);
+  if (data.company.rcsCity && !isMicro && !isEI) {
+    const siren = data.company.siret ? data.company.siret.substring(0, 9) : '';
+    footerParts.push(`RCS ${data.company.rcsCity}${siren ? ` ${siren}` : ''}`);
+  }
+  if (data.company.tvaNumber && data.vatLiable && data.vatRegime === 'normal') footerParts.push(`TVA: ${data.company.tvaNumber}`);
+
+  const footerText = footerParts.join(' - ');
+  const footerLines = doc.splitTextToSize(footerText, pageWidth - 2 * margin);
+  doc.text(footerLines, pageWidth / 2, footerY + 4, { align: 'center' });
+
+  // TVA exemption in footer for micro/franchise
+  if (!showVAT) {
+    const exemptY = footerY + 4 + footerLines.length * 3;
+    doc.setFont('helvetica', 'italic');
+    doc.text('TVA non applicable - Article 293 B du Code General des Impots', pageWidth / 2, exemptY, { align: 'center' });
   }
 
   doc.setFontSize(6);
-  doc.text(`Page 1/1`, pageWidth - margin, footerY + 5, { align: 'right' });
+  doc.text(`Page 1/1`, pageWidth - margin, footerY + 4, { align: 'right' });
 
   return doc.output('blob');
 }

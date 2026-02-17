@@ -442,10 +442,14 @@ export default function Billing() {
         },
         company: {
           name: userProfile.company_name || 'Votre Entreprise',
-          address: userProfile.company_address || '',
+          address: userProfile.company_address || userProfile.address || '',
           siret: userProfile.company_siret || '',
           email: userProfile.email || '',
           phone: userProfile.phone || '',
+          legalForm: userProfile.legal_form || '',
+          capitalSocial: userProfile.capital_social || null,
+          rcsCity: userProfile.rcs_city || '',
+          tvaNumber: userProfile.tva_number || (userProfile.billing_meta?.tva_number) || '',
         },
         items: docItems || [],
         subtotal: doc.subtotal,
@@ -457,6 +461,9 @@ export default function Billing() {
         vatRegime: (doc as any).vat_regime,
         legalMentions: (doc as any).legal_mentions,
         logoUrl: getCompanyLogo()?.url || userProfile.logo_url || undefined,
+        latePenaltyRate: userProfile.late_penalty_rate || 10,
+        recoveryFee: userProfile.recovery_fee || 40,
+        discountEarlyPayment: userProfile.discount_early_payment || '',
       });
 
       // Open PDF in new tab — delay revoke to let browser load fully
@@ -505,10 +512,14 @@ export default function Billing() {
       },
       company: {
         name: userProfile.company_name || 'Votre Entreprise',
-        address: userProfile.company_address || '',
+        address: userProfile.company_address || userProfile.address || '',
         siret: userProfile.company_siret || '',
         email: userProfile.email || '',
         phone: userProfile.phone || '',
+        legalForm: userProfile.legal_form || '',
+        capitalSocial: userProfile.capital_social || null,
+        rcsCity: userProfile.rcs_city || '',
+        tvaNumber: userProfile.tva_number || (userProfile.billing_meta?.tva_number) || '',
       },
       items: docItems || [],
       subtotal: doc.subtotal,
@@ -520,6 +531,9 @@ export default function Billing() {
       vatRegime: (doc as any).vat_regime,
       legalMentions: (doc as any).legal_mentions,
       logoUrl: getCompanyLogo()?.url || userProfile.logo_url || undefined,
+      latePenaltyRate: userProfile.late_penalty_rate || 10,
+      recoveryFee: userProfile.recovery_fee || 40,
+      discountEarlyPayment: userProfile.discount_early_payment || '',
     });
 
     // Download PDF

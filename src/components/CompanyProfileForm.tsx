@@ -112,6 +112,27 @@ export default function CompanyProfileForm() {
     }
   };
 
+  const handleLegalFormChange = (newForm: string) => {
+    const updated = { ...formData, legal_form: newForm };
+    
+    // Auto-configure TVA based on legal form
+    if (newForm === 'Auto-entrepreneur') {
+      updated.tva_applicable = false;
+      updated.tva_regime = 'auto-entrepreneur';
+      updated.capital_social = null;
+      updated.rcs_city = '';
+    } else if (newForm === 'EI') {
+      updated.capital_social = null;
+      updated.rcs_city = '';
+    }
+    
+    setFormData(updated);
+  };
+
+  const needsCapitalSocial = ['SAS', 'SASU', 'SARL', 'EURL', 'SA', 'SNC'].includes(formData.legal_form);
+  const needsRCS = !['Auto-entrepreneur', 'EI'].includes(formData.legal_form);
+  const isMicro = formData.legal_form === 'Auto-entrepreneur';
+
   return (
     <div className="bg-white rounded-2xl shadow-xl border border-slate-200 p-8">
       <div className="flex items-center gap-4 mb-8">
@@ -154,7 +175,7 @@ export default function CompanyProfileForm() {
               </label>
               <select
                 value={formData.legal_form}
-                onChange={(e) => setFormData({ ...formData, legal_form: e.target.value })}
+                onChange={(e) => handleLegalFormChange(e.target.value)}
                 className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
               >
                 <option value="SARL">SARL</option>
@@ -187,6 +208,7 @@ export default function CompanyProfileForm() {
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 Ville RCS
+                {!needsRCS && <span className="text-xs text-slate-400 ml-1">(non requis)</span>}
               </label>
               <input
                 type="text"
@@ -194,12 +216,16 @@ export default function CompanyProfileForm() {
                 onChange={(e) => setFormData({ ...formData, rcs_city: e.target.value })}
                 className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 placeholder="Paris"
+                disabled={!needsRCS}
               />
+              {!needsRCS && <p className="text-xs text-amber-600 mt-1">Non applicable pour {isMicro ? 'micro-entrepreneur' : 'EI'}</p>}
             </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-2">
                 Capital social (€)
+                {needsCapitalSocial && <span className="text-xs text-red-500 ml-1">*obligatoire</span>}
+                {!needsCapitalSocial && <span className="text-xs text-slate-400 ml-1">(non requis)</span>}
               </label>
               <input
                 type="number"
@@ -207,7 +233,9 @@ export default function CompanyProfileForm() {
                 onChange={(e) => setFormData({ ...formData, capital_social: e.target.value ? Number(e.target.value) : null })}
                 className="w-full px-4 py-3 border border-slate-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent transition"
                 placeholder="10000"
+                disabled={!needsCapitalSocial}
               />
+              {!needsCapitalSocial && <p className="text-xs text-slate-400 mt-1">Pas de capital social pour {isMicro ? 'micro-entrepreneur' : 'EI'}</p>}
             </div>
 
             <div>
@@ -268,12 +296,17 @@ export default function CompanyProfileForm() {
                 checked={formData.tva_applicable}
                 onChange={(e) => setFormData({ ...formData, tva_applicable: e.target.checked })}
                 className="w-5 h-5 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+                disabled={isMicro}
               />
               <div>
                 <label className="block text-sm font-medium text-slate-700">
                   TVA applicable
                 </label>
-                <p className="text-xs text-slate-500">Décocher si franchise en base de TVA</p>
+                <p className="text-xs text-slate-500">
+                  {isMicro 
+                    ? 'TVA non applicable (Art. 293 B CGI) - Micro-entrepreneur' 
+                    : 'Décocher si franchise en base de TVA'}
+                </p>
               </div>
             </div>
 
@@ -433,24 +466,34 @@ export default function CompanyProfileForm() {
       <div className="mt-8 p-6 bg-slate-50 rounded-xl border border-slate-200">
         <h4 className="font-semibold text-slate-800 mb-3">Aperçu des mentions légales sur vos factures :</h4>
         <div className="text-xs text-slate-600 space-y-1 font-mono">
-          <p className="font-semibold">{formData.company_name || '[Nom entreprise]'} - {formData.legal_form}</p>
+          <p className="font-semibold">
+            {formData.company_name || '[Nom entreprise]'}
+            {needsRCS && formData.legal_form ? ` (${formData.legal_form})` : ''}
+          </p>
+          {(isMicro || formData.legal_form === 'EI') && (
+            <p className="italic">Entrepreneur individuel</p>
+          )}
           {formData.siret && <p>SIRET : {formData.siret}</p>}
-          {formData.capital_social && <p>Capital social : {formData.capital_social.toLocaleString('fr-FR')}€</p>}
-          {formData.rcs_city && <p>RCS {formData.rcs_city}</p>}
-          {formData.tva_number && <p>TVA : {formData.tva_number}</p>}
+          {needsCapitalSocial && formData.capital_social && (
+            <p>Capital social : {formData.capital_social.toLocaleString('fr-FR')} EUR</p>
+          )}
+          {needsRCS && formData.rcs_city && (
+            <p>RCS {formData.rcs_city}{formData.siret ? ` ${formData.siret.substring(0, 9)}` : ''}</p>
+          )}
+          {formData.tva_applicable && formData.tva_number && <p>TVA : {formData.tva_number}</p>}
           {formData.address && <p className="mt-2">{formData.address}</p>}
-          {formData.phone && <p>Tél : {formData.phone}</p>}
+          {formData.phone && <p>Tel : {formData.phone}</p>}
 
           {!formData.tva_applicable && (
-            <p className="mt-2 italic">TVA non applicable - Article 293 B du Code général des impôts</p>
+            <p className="mt-2 italic text-amber-700 font-semibold">TVA non applicable - Article 293 B du Code general des impots</p>
           )}
 
           <p className="mt-3 font-semibold">CONDITIONS DE PAIEMENT</p>
           <p>{formData.payment_conditions}</p>
           {formData.discount_early_payment && <p>Escompte : {formData.discount_early_payment}</p>}
 
-          <p className="mt-2">Pénalités de retard : {formData.late_penalty_rate}% par an</p>
-          <p>Indemnité forfaitaire pour frais de recouvrement : {formData.recovery_fee}€</p>
+          <p className="mt-2">Penalites de retard : {formData.late_penalty_rate}% par an</p>
+          <p>Indemnite forfaitaire pour frais de recouvrement : {formData.recovery_fee} EUR</p>
 
           {formData.insurance_name && (
             <>
