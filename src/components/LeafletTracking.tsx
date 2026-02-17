@@ -70,7 +70,15 @@ export default function LeafletTracking({
   useEffect(() => {
     return () => {
       if (mapRef.current) {
-        mapRef.current.remove();
+        try {
+          // Stop all ongoing animations/transitions before removing
+          mapRef.current.stop();
+          mapRef.current.off();
+          mapRef.current.remove();
+        } catch (e) {
+          // Ignore _leaflet_pos errors during cleanup
+          console.warn('Map cleanup warning:', e);
+        }
         mapRef.current = null;
       }
     };
@@ -81,14 +89,19 @@ export default function LeafletTracking({
   const [routeInfo, setRouteInfo] = useState<{ distance: number; duration: number } | null>(null);
   const [osrmRoute, setOsrmRoute] = useState<[number, number][]>([]);
 
-  // Gestion du fullscreen
+  // Gestion du fullscreen (standard + webkit prefix for iOS)
   useEffect(() => {
     const handleFullscreenChange = () => {
-      // Fullscreen state change handled
+      // Invalidate map size after fullscreen toggle
+      setTimeout(() => mapRef.current?.invalidateSize(), 100);
     };
 
     document.addEventListener('fullscreenchange', handleFullscreenChange);
-    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', handleFullscreenChange);
+    };
   }, []);
 
   useEffect(() => {
@@ -119,7 +132,7 @@ export default function LeafletTracking({
     // Clear old layers (preserve map instance)
     [pickupMarkerRef, deliveryMarkerRef, routeLineRef, gpsTrailRef, futureRouteRef].forEach(ref => {
       if (ref.current && mapRef.current) {
-        mapRef.current.removeLayer(ref.current);
+        try { mapRef.current.removeLayer(ref.current); } catch { /* ignore */ }
         ref.current = null;
       }
     });
@@ -646,10 +659,42 @@ export default function LeafletTracking({
   const toggleFullscreen = () => {
     if (!mapContainerRef.current) return;
 
-    if (!document.fullscreenElement) {
-      mapContainerRef.current.requestFullscreen();
+    const el = mapContainerRef.current as any;
+    const doc = document as any;
+
+    const isFullscreen = doc.fullscreenElement || doc.webkitFullscreenElement;
+
+    if (!isFullscreen) {
+      // Standard + iOS Safari/WebKit vendor prefix
+      if (el.requestFullscreen) {
+        el.requestFullscreen().catch(() => {});
+      } else if (el.webkitRequestFullscreen) {
+        el.webkitRequestFullscreen();
+      } else {
+        // Fallback: make container fill viewport manually
+        el.style.position = 'fixed';
+        el.style.top = '0';
+        el.style.left = '0';
+        el.style.width = '100vw';
+        el.style.height = '100vh';
+        el.style.zIndex = '99999';
+        mapRef.current?.invalidateSize();
+      }
     } else {
-      document.exitFullscreen();
+      if (doc.exitFullscreen) {
+        doc.exitFullscreen().catch(() => {});
+      } else if (doc.webkitExitFullscreen) {
+        doc.webkitExitFullscreen();
+      } else {
+        // Undo manual fullscreen
+        el.style.position = '';
+        el.style.top = '';
+        el.style.left = '';
+        el.style.width = '';
+        el.style.height = '';
+        el.style.zIndex = '';
+        mapRef.current?.invalidateSize();
+      }
     }
   };
 
