@@ -443,12 +443,22 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
 
   Future<void> _share() async {
     try {
+      // Auto-update status from draft to sent when sharing with client
+      if (_inv!.status == 'draft') {
+        await Supabase.instance.client
+            .from('invoices')
+            .update({'status': 'sent', 'sent_at': DateTime.now().toIso8601String()})
+            .eq('id', _inv!.id!);
+        _inv = _inv!.copyWith(status: 'sent');
+        _changed = true;
+      }
       final pdf = await _genPdf();
       final bytes = await pdf.save();
       final dir = await getTemporaryDirectory();
       final f = File('${dir.path}/${_inv!.invoiceNumber}.pdf');
       await f.writeAsBytes(bytes);
       await SharePlus.instance.share(ShareParams(files: [XFile(f.path)], text: 'Facture ${_inv!.invoiceNumber}'));
+      setState(() {});
     } catch (e) { _snack(ErrorHelper.cleanError(e), PremiumTheme.accentRed); }
   }
 
@@ -594,7 +604,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                     ),
                   ),
                   pw.SizedBox(height: 6),
-                  pw.Container(
+                  if (_inv!.status != 'draft') pw.Container(
                     padding: const pw.EdgeInsets.symmetric(
                         horizontal: 12, vertical: 4),
                     decoration: pw.BoxDecoration(
