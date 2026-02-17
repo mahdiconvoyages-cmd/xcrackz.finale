@@ -84,9 +84,9 @@ export default function TrackingCommand() {
         .from('missions')
         .select(`
           *,
-          driver:profiles!missions_driver_id_fkey(first_name, last_name, phone)
+          driver:profiles!missions_assigned_user_id_fkey(first_name, last_name, phone)
         `)
-        .or(`user_id.eq.${user.id},driver_id.eq.${user.id}`)
+        .or(`user_id.eq.${user.id},assigned_user_id.eq.${user.id}`)
         .in('status', ['pending', 'in_progress'])
         .order('pickup_date', { ascending: true });
 

@@ -49,6 +49,7 @@ export default function PublicTracking() {
   const [distanceRemaining, setDistanceRemaining] = useState<number>(0);
   const [copied, setCopied] = useState(false);
   const channelRef = useRef<RealtimeChannel | null>(null);
+  const pollingRef = useRef<NodeJS.Timer | null>(null);
 
   useEffect(() => {
     if (token) {
@@ -65,6 +66,9 @@ export default function PublicTracking() {
     return () => {
       if (channelRef.current) {
         channelRef.current.unsubscribe();
+      }
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current as unknown as number);
       }
     };
   }, [mission]);
@@ -120,7 +124,18 @@ export default function PublicTracking() {
           driver:profiles!missions_assigned_user_id_fkey(first_name, last_name)
         `)
         .eq('id', trackingLink.mission_id)
-        .maybeSingle();
+        .maybeSingle()
+        .then(res => {
+          // Fallback si la FK n'existe pas
+          if (res.error?.message?.includes('fkey') || res.error?.message?.includes('relationship')) {
+            return supabase
+              .from('missions')
+              .select('*')
+              .eq('id', trackingLink.mission_id)
+              .maybeSingle();
+          }
+          return res;
+        });
 
       if (fetchError) throw fetchError;
 
@@ -130,15 +145,8 @@ export default function PublicTracking() {
         return;
       }
 
-      // 3. Incrémenter le compteur d'accès (async, non bloquant)
-      supabase
-        .from('public_tracking_links')
-        .update({
-          access_count: trackingLink.access_count + 1,
-          last_accessed_at: new Date().toISOString(),
-        })
-        .eq('token', token)
-        .then();
+      // 3. Incrémenter le compteur d'accès via RPC (anon ne peut pas UPDATE)
+      supabase.rpc('increment_tracking_access', { p_token: token }).then(() => {}).catch(() => {});
 
       setMission(missionData);
     } catch (err) {
@@ -285,11 +293,33 @@ export default function PublicTracking() {
       .subscribe();
 
     channelRef.current = channel;
+
+    // Polling fallback toutes les 5s (car realtime peut échouer pour anon)
+    pollingRef.current = setInterval(() => {
+      loadMissionLocations();
+    }, 5000) as unknown as NodeJS.Timer;
   };
 
-  const calculateETAAndDistance = () => {
+  const calculateETAAndDistance = async () => {
     if (!currentLocation || !mission?.delivery_lat || !mission?.delivery_lng) return;
 
+    // Utiliser OSRM pour calculer la distance routière et l'ETA réels
+    try {
+      const osrmUrl = `https://router.project-osrm.org/route/v1/driving/${currentLocation.longitude},${currentLocation.latitude};${mission.delivery_lng},${mission.delivery_lat}?overview=false`;
+      const response = await fetch(osrmUrl);
+      const data = await response.json();
+      
+      if (data.routes && data.routes.length > 0) {
+        const route = data.routes[0];
+        setDistanceRemaining(route.distance / 1000); // m → km
+        setEta(Math.round(route.duration / 60)); // s → min
+        return;
+      }
+    } catch (e) {
+      console.warn('OSRM fallback to Haversine:', e);
+    }
+
+    // Fallback : distance à vol d'oiseau + estimation
     const distance = calculateDistance(
       currentLocation.latitude,
       currentLocation.longitude,
@@ -300,11 +330,13 @@ export default function PublicTracking() {
     setDistanceRemaining(distance);
 
     const speed = currentLocation.speed || 0;
-    if (speed > 5) {
-      const hours = distance / speed;
-      setEta(Math.round(hours * 60));
+    if (speed > 3) {
+      // speed est en m/s, distance en km
+      const hours = (distance * 1000) / speed;
+      setEta(Math.round(hours / 60));
     } else {
-      setEta(0);
+      // Estimation par défaut à 60 km/h
+      setEta(Math.round((distance / 60) * 60));
     }
   };
 

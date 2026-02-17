@@ -162,11 +162,23 @@ class BackgroundTrackingService {
   }
 
   /// Demande la permission "Always" (localisation en arrière-plan)
+  /// Sur Android 11+, le système redirige vers les paramètres
   Future<void> _requestAlwaysPermission() async {
-    final permission = await Geolocator.checkPermission();
+    LocationPermission permission = await Geolocator.checkPermission();
+    
+    if (permission == LocationPermission.denied) {
+      permission = await Geolocator.requestPermission();
+    }
+    
     if (permission == LocationPermission.whileInUse) {
-      // Demander "Always" pour le tracking en arrière-plan
-      await Geolocator.requestPermission();
+      // Demander "Always" — sur Android 11+ cela ouvre les paramètres système
+      logger.i('Permission actuelle: whileInUse — demande de "Always" pour le background');
+      final result = await Geolocator.requestPermission();
+      if (result == LocationPermission.whileInUse) {
+        // L'utilisateur n'a pas accordé "Always", guider vers les paramètres
+        logger.w('Permission "Always" non accordée — ouverture des paramètres');
+        await Geolocator.openAppSettings();
+      }
     }
   }
 
