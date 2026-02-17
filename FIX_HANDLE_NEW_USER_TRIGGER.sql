@@ -123,7 +123,7 @@ BEGIN
     COALESCE(NEW.email, NEW.raw_user_meta_data->>'email', ''),
     v_first_name,
     v_last_name,
-    COALESCE(NEW.raw_user_meta_data->>'phone', NULL),
+    NULLIF(COALESCE(NEW.raw_user_meta_data->>'phone', ''), ''),
     COALESCE(NEW.raw_user_meta_data->>'user_type', 'individual'),
     NEW.raw_user_meta_data->>'avatar_url',
     NEW.raw_user_meta_data->>'device_fingerprint',

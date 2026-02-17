@@ -664,28 +664,41 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
       final firstName = nameParts.isNotEmpty ? nameParts.first : '';
       final lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
-      await supabase.from('profiles').upsert({
-        'id': userId,
-        'email': _signupData['email'],
-        'first_name': firstName,
-        'last_name': lastName,
-        'phone': _signupData['phone'] ?? '',
-        'avatar_url': avatarUrl,
-        'user_type': _signupData['user_type'],
-        'device_fingerprint': deviceFingerprint,
-        'registration_ip': ipAddress,
-        'app_role': _signupData['user_type'] == 'company' ? 'donneur_d_ordre' : 'convoyeur',
-        'credits': 10,
-      });
+      // Use NULL for empty phone to avoid unique constraint violation
+      final phoneValue = (_signupData['phone'] ?? '').toString().trim();
 
-      // 4. Create welcome credits transaction
-      await supabase.from('credit_transactions').insert({
-        'user_id': userId,
-        'amount': 10,
-        'transaction_type': 'welcome_bonus',
-        'description': 'Crédits de bienvenue - inscription',
-        'balance_after': 10,
-      });
+      try {
+        await supabase.from('profiles').upsert({
+          'id': userId,
+          'email': _signupData['email'],
+          'first_name': firstName,
+          'last_name': lastName,
+          'phone': phoneValue.isEmpty ? null : phoneValue,
+          'avatar_url': avatarUrl,
+          'user_type': _signupData['user_type'],
+          'device_fingerprint': deviceFingerprint,
+          'registration_ip': ipAddress,
+          'app_role': _signupData['user_type'] == 'company' ? 'donneur_d_ordre' : 'convoyeur',
+          'credits': 10,
+        });
+      } catch (profileErr) {
+        // Profile upsert may fail (e.g. unique constraint on phone) but 
+        // the trigger already created the profile — don't block signup
+        debugPrint('Profile upsert warning (non-blocking): $profileErr');
+      }
+
+      // 4. Create welcome credits transaction (non-blocking)
+      try {
+        await supabase.from('credit_transactions').insert({
+          'user_id': userId,
+          'amount': 10,
+          'transaction_type': 'welcome_bonus',
+          'description': 'Crédits de bienvenue - inscription',
+          'balance_after': 10,
+        });
+      } catch (creditErr) {
+        debugPrint('Credit transaction warning (non-blocking): $creditErr');
+      }
 
       // 5. Log successful signup
       await _fraudService.logSignupAttempt(
