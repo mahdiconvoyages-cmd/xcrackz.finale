@@ -177,8 +177,12 @@ export default function DashboardPremium() {
       };
 
       if (subscription) {
-        const endDate = subscription.current_period_end ? new Date(subscription.current_period_end) : null;
-        const daysRemaining = endDate ? Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0;
+        // For new users with no current_period_end, calculate 30 days from account creation
+        let endDate = subscription.current_period_end ? new Date(subscription.current_period_end) : null;
+        if (!endDate && user.created_at) {
+          endDate = new Date(new Date(user.created_at).getTime() + 30 * 24 * 60 * 60 * 1000);
+        }
+        const daysRemaining = endDate ? Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 30;
         
         // Calcul temps restant précis
         let timeRemainingText = '';
@@ -197,7 +201,7 @@ export default function DashboardPremium() {
           }
         }
 
-        const hoursRemaining = endDate ? Math.max(0, Math.floor((endDate.getTime() - now.getTime()) / (1000 * 60 * 60))) : 0;
+        const hoursRemaining = endDate ? Math.max(0, Math.floor((endDate.getTime() - now.getTime()) / (1000 * 60 * 60))) : 30 * 24;
         creditData = {
           credits: profile?.credits || 0,
           plan: (subscription.plan || 'free').toUpperCase(),
