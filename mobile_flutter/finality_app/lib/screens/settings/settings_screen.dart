@@ -469,7 +469,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       if (userId == null) throw Exception('Non connecté');
 
       // Fetch all user data from Supabase (real RGPD export)
-      final results = await Future.wait([
+      final results = await Future.wait<dynamic>([
         supabase.from('profiles').select().eq('id', userId).maybeSingle(),
         supabase.from('missions').select().eq('user_id', userId),
         supabase.from('contacts').select().eq('user_id', userId),
