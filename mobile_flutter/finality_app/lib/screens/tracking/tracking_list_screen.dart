@@ -46,15 +46,24 @@ class _TrackingListScreenState extends State<TrackingListScreen> {
 
       final response = await query;
       
-      // Récupérer les données GPS pour chaque mission
-      final missionsWithGPS = <Map<String, dynamic>>[];
-      for (var mission in response as List) {
-        final gpsData = await _supabase
-            .from('mission_tracking_live')
-            .select('*')
-            .eq('mission_id', mission['id'])
-            .maybeSingle();
+      // Récupérer les données GPS pour toutes les missions en une seule requête batch
+      final missionIds = (response as List).map((m) => m['id'] as String).toList();
+      final gpsDataList = missionIds.isNotEmpty
+          ? await _supabase
+              .from('mission_tracking_live')
+              .select('*')
+              .inFilter('mission_id', missionIds)
+          : <dynamic>[];
+      
+      // Créer un map pour accès rapide
+      final gpsMap = <String, Map<String, dynamic>>{};
+      for (final gps in gpsDataList as List) {
+        gpsMap[gps['mission_id']] = gps;
+      }
 
+      final missionsWithGPS = <Map<String, dynamic>>[];
+      for (var mission in response) {
+        final gpsData = gpsMap[mission['id']];
         missionsWithGPS.add({
           ...mission,
           'last_gps': gpsData,

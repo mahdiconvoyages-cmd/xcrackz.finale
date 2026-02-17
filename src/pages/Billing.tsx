@@ -5,9 +5,10 @@ import {
   Plus, Download, Eye, Send, FileText, X, Building2, FileCheck, 
   Search, Calendar, Euro, TrendingUp, Clock, 
   CheckCircle2, XCircle, AlertCircle, MoreHorizontal,
-  Edit2, Trash2, Check
+  Edit2, Trash2, Check, Copy, Archive
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { showToast } from '../components/Toast';
 import { useAuth } from '../contexts/AuthContext';
 import { 
   generateLegalMentions, 
@@ -389,7 +390,7 @@ export default function Billing() {
       loadDocuments();
       resetForm();
     } catch (error: any) {
-      alert(error.message);
+      showToast('error', 'Erreur', error.message);
     }
   };
 
@@ -522,7 +523,7 @@ export default function Billing() {
     const docNumber = isInvoice ? doc.invoice_number : doc.quote_number;
 
     if (!doc.client_email) {
-      alert(`Aucun email n'est renseigné pour ce client. Veuillez ajouter un email dans les informations du ${docType}.`);
+      showToast('error', 'Email manquant', `Aucun email n'est renseigné pour ce client. Veuillez ajouter un email dans les informations du ${docType}.`);
       return;
     }
 
@@ -535,45 +536,31 @@ export default function Billing() {
     if (confirmed) {
       // TODO: Intégrer un service d'email (SendGrid, Resend, etc.)
       // Pour l'instant, on informe l'utilisateur que la fonctionnalité n'est pas encore disponible
-      alert(`L'envoi d'email n'est pas encore disponible.\n\nLe ${docType} n°${docNumber} n'a pas été envoyé à ${doc.client_email}.\n\nCette fonctionnalité sera bientôt implémentée.`);
+      showToast('info', 'Non disponible', `L'envoi d'email n'est pas encore disponible. Le ${docType} n°${docNumber} n'a pas été envoyé.`);
     }
   };
 
-  const handleMoreActions = (doc: Invoice | Quote) => {
-    const isInvoice = 'invoice_number' in doc;
-    const docType = isInvoice ? 'facture' : 'devis';
-    const docNumber = isInvoice ? doc.invoice_number : doc.quote_number;
+  const [activeActionDocId, setActiveActionDocId] = useState<string | null>(null);
 
-    const action = prompt(
-      `Actions disponibles pour ${docType} n°${docNumber}:\n\n` +
-      `1. Dupliquer\n` +
-      `2. Archiver\n` +
-      `3. Supprimer\n` +
-      (isInvoice ? `4. Marquer comme payé\n` : `4. Convertir en facture\n`) +
-      `\nEntrez le numéro de l'action (1-4):`
-    );
-
+  const handleMoreActions = (doc: Invoice | Quote, action: string) => {
+    setActiveActionDocId(null);
     switch (action) {
-      case '1':
+      case 'duplicate':
         handleDuplicate(doc);
         break;
-      case '2':
+      case 'archive':
         handleArchive(doc);
         break;
-      case '3':
+      case 'delete':
         handleDelete(doc);
         break;
-      case '4':
-        if (isInvoice) {
+      case 'special':
+        if ('invoice_number' in doc) {
           handleMarkAsPaid(doc as Invoice);
         } else {
           handleConvertToInvoice(doc as Quote);
         }
         break;
-      default:
-        if (action !== null) {
-          alert('Action non reconnue');
-        }
     }
   };
 
@@ -621,11 +608,11 @@ export default function Billing() {
           await supabase.from(itemsTable).insert(newItems);
         }
 
-        alert(`${isInvoice ? 'Facture' : 'Devis'} dupliqué avec succès !`);
+        showToast('success', 'Dupliqué', `${isInvoice ? 'Facture' : 'Devis'} dupliqué avec succès`);
         loadDocuments();
       } catch (error) {
         console.error('Error duplicating:', error);
-        alert('Erreur lors de la duplication');
+        showToast('error', 'Erreur', 'Erreur lors de la duplication');
       }
     }
   };
@@ -642,11 +629,11 @@ export default function Billing() {
           .update({ status: 'cancelled' })
           .eq('id', doc.id);
 
-        alert('Document archivé');
+        showToast('success', 'Archivé', 'Document archivé avec succès');
         loadDocuments();
       } catch (error) {
         console.error('Error archiving:', error);
-        alert('Erreur lors de l\'archivage');
+        showToast('error', 'Erreur', 'Erreur lors de l\'archivage');
       }
     }
   };
@@ -675,11 +662,11 @@ export default function Billing() {
           .delete()
           .eq('id', doc.id);
 
-        alert('Document supprimé');
+        showToast('success', 'Supprimé', 'Document supprimé définitivement');
         loadDocuments();
       } catch (error) {
         console.error('Error deleting:', error);
-        alert('Erreur lors de la suppression');
+        showToast('error', 'Erreur', 'Erreur lors de la suppression');
       }
     }
   };
@@ -694,11 +681,11 @@ export default function Billing() {
           .update({ status: 'paid' })
           .eq('id', invoice.id);
 
-        alert('Facture marquée comme payée');
+        showToast('success', 'Payée', 'Facture marquée comme payée');
         loadDocuments();
       } catch (error) {
         console.error('Error marking as paid:', error);
-        alert('Erreur lors de la mise à jour');
+        showToast('error', 'Erreur', 'Erreur lors de la mise à jour');
       }
     }
   };
@@ -753,7 +740,7 @@ export default function Billing() {
             description: item.description,
             quantity: item.quantity,
             unit_price: item.unit_price,
-            total: item.total,
+            amount: item.total ?? item.amount ?? (item.quantity * item.unit_price),
           }));
 
           await supabase.from('invoice_items').insert(invoiceItems);
@@ -765,12 +752,12 @@ export default function Billing() {
           .update({ status: 'accepted' })
           .eq('id', quote.id);
 
-        alert(`Facture n°${invoiceNumber} créée avec succès !`);
+        showToast('success', 'Converti', `Facture n°${invoiceNumber} créée avec succès`);
         setActiveTab('invoices');
         loadDocuments();
       } catch (error) {
         console.error('Error converting to invoice:', error);
-        alert('Erreur lors de la conversion');
+        showToast('error', 'Erreur', 'Erreur lors de la conversion');
       }
     }
   };
@@ -1066,13 +1053,32 @@ export default function Billing() {
                           >
                             <Send className="w-5 h-5" />
                           </button>
-                          <button
-                            onClick={() => handleMoreActions(doc)}
-                            className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-all hover:scale-110"
-                            title="Plus"
-                          >
-                            <MoreHorizontal className="w-5 h-5" />
-                          </button>
+                          <div className="relative">
+                            <button
+                              onClick={() => setActiveActionDocId(activeActionDocId === doc.id ? null : doc.id)}
+                              className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-lg transition-all hover:scale-110"
+                              title="Plus"
+                            >
+                              <MoreHorizontal className="w-5 h-5" />
+                            </button>
+                            {activeActionDocId === doc.id && (
+                              <div className="absolute right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-slate-200 py-1 z-50 min-w-[200px] animate-fadeIn">
+                                <button onClick={() => handleMoreActions(doc, 'duplicate')} className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-slate-700">
+                                  <Copy className="w-4 h-4" /> Dupliquer
+                                </button>
+                                <button onClick={() => handleMoreActions(doc, 'archive')} className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-slate-700">
+                                  <Archive className="w-4 h-4" /> Archiver
+                                </button>
+                                <button onClick={() => handleMoreActions(doc, 'special')} className="w-full px-4 py-2.5 text-left text-sm hover:bg-slate-50 flex items-center gap-3 text-emerald-600 font-medium">
+                                  {'invoice_number' in doc ? <><Check className="w-4 h-4" /> Marquer payée</> : <><FileCheck className="w-4 h-4" /> Convertir en facture</>}
+                                </button>
+                                <hr className="my-1 border-slate-100" />
+                                <button onClick={() => handleMoreActions(doc, 'delete')} className="w-full px-4 py-2.5 text-left text-sm hover:bg-red-50 flex items-center gap-3 text-red-600">
+                                  <Trash2 className="w-4 h-4" /> Supprimer
+                                </button>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </td>
                     </tr>

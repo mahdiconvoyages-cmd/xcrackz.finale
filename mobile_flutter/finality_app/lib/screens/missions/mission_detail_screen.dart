@@ -61,33 +61,37 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
 
       final currentUserId = Supabase.instance.client.auth.currentUser?.id;
 
-      // Verifier si les inspections existent
-      final depInsp = await Supabase.instance.client
-          .from('vehicle_inspections')
-          .select('id')
-          .eq('mission_id', widget.missionId)
-          .eq('inspection_type', 'departure')
-          .maybeSingle();
-      final arrInsp = await Supabase.instance.client
-          .from('vehicle_inspections')
-          .select('id')
-          .eq('mission_id', widget.missionId)
-          .eq('inspection_type', 'arrival')
-          .maybeSingle();
-
-      // Verifier les inspections de restitution
-      final restDepInsp = await Supabase.instance.client
-          .from('vehicle_inspections')
-          .select('id')
-          .eq('mission_id', widget.missionId)
-          .eq('inspection_type', 'restitution_departure')
-          .maybeSingle();
-      final restArrInsp = await Supabase.instance.client
-          .from('vehicle_inspections')
-          .select('id')
-          .eq('mission_id', widget.missionId)
-          .eq('inspection_type', 'restitution_arrival')
-          .maybeSingle();
+      // Verifier si les inspections existent (en parallele)
+      final inspectionFutures = await Future.wait([
+        Supabase.instance.client
+            .from('vehicle_inspections')
+            .select('id')
+            .eq('mission_id', widget.missionId)
+            .eq('inspection_type', 'departure')
+            .maybeSingle(),
+        Supabase.instance.client
+            .from('vehicle_inspections')
+            .select('id')
+            .eq('mission_id', widget.missionId)
+            .eq('inspection_type', 'arrival')
+            .maybeSingle(),
+        Supabase.instance.client
+            .from('vehicle_inspections')
+            .select('id')
+            .eq('mission_id', widget.missionId)
+            .eq('inspection_type', 'restitution_departure')
+            .maybeSingle(),
+        Supabase.instance.client
+            .from('vehicle_inspections')
+            .select('id')
+            .eq('mission_id', widget.missionId)
+            .eq('inspection_type', 'restitution_arrival')
+            .maybeSingle(),
+      ]);
+      final depInsp = inspectionFutures[0];
+      final arrInsp = inspectionFutures[1];
+      final restDepInsp = inspectionFutures[2];
+      final restArrInsp = inspectionFutures[3];
 
       // Recuperer le nom du chauffeur assigne
       String? driverName;

@@ -200,25 +200,31 @@ export default function PlanningNetwork() {
       setAllPlannings(allPlanningsRes.data || []);
       setStats(statsRes.data);
 
-      // Enrich matches with other user profile + planning details
+      // Enrich matches with other user profile + planning details (batched)
       const rawMatches: Match[] = matchesRes.data || [];
-      const enrichedMatches: Match[] = [];
       
-      for (const m of rawMatches) {
+      // Collect all unique IDs first
+      const userIds = [...new Set(rawMatches.map(m => m.user_a_id === user.id ? m.user_b_id : m.user_a_id))];
+      const planningIds = [...new Set(rawMatches.map(m => m.user_a_id === user.id ? m.planning_b_id : m.planning_a_id))];
+      
+      // Batch fetch all profiles and plannings in 2 queries instead of 2*N
+      const [profilesRes, planningsDetailRes] = await Promise.all([
+        userIds.length > 0 ? supabase.from('profiles').select('id, first_name, last_name, company_name, phone, email').in_('id', userIds) : { data: [] },
+        planningIds.length > 0 ? supabase.from('convoy_plannings').select('*').in_('id', planningIds) : { data: [] },
+      ]);
+      
+      const profilesMap = Object.fromEntries((profilesRes.data || []).map((p: any) => [p.id, p]));
+      const planningsMap = Object.fromEntries((planningsDetailRes.data || []).map((p: any) => [p.id, p]));
+      
+      const enrichedMatches: Match[] = rawMatches.map(m => {
         const otherUserId = m.user_a_id === user.id ? m.user_b_id : m.user_a_id;
         const otherPlanningId = m.user_a_id === user.id ? m.planning_b_id : m.planning_a_id;
-        
-        const [profileRes, planningRes] = await Promise.all([
-          supabase.from('profiles').select('first_name, last_name, company_name, phone, email').eq('id', otherUserId).maybeSingle(),
-          supabase.from('convoy_plannings').select('*').eq('id', otherPlanningId).maybeSingle(),
-        ]);
-        
-        enrichedMatches.push({
+        return {
           ...m,
-          other_user: profileRes.data || undefined,
-          other_planning: planningRes.data || undefined,
-        });
-      }
+          other_user: profilesMap[otherUserId] || undefined,
+          other_planning: planningsMap[otherPlanningId] || undefined,
+        };
+      });
       
       setMatches(enrichedMatches);
 

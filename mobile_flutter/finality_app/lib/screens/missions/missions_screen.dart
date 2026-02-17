@@ -58,7 +58,21 @@ class _MissionsScreenState extends State<MissionsScreen>
             value: userId,
           ),
           callback: (payload) {
-            debugPrint('🔄 Realtime missions update: ${payload.eventType}');
+            debugPrint('🔄 Realtime missions update (owner): ${payload.eventType}');
+            _loadMissions();
+          },
+        )
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: 'missions',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'assigned_to_user_id',
+            value: userId,
+          ),
+          callback: (payload) {
+            debugPrint('🔄 Realtime missions update (assigned): ${payload.eventType}');
             _loadMissions();
           },
         )

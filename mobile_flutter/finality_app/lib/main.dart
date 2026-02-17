@@ -153,6 +153,7 @@ class CHECKSFLEETApp extends ConsumerWidget {
         '/onboarding': (context) => const OnboardingScreen(),
         '/login': (context) => const LoginScreen(),
         '/home': (context) => const HomeScreen(),
+        '/subscription': (context) => const HomeScreen(),
       },
     );
   }

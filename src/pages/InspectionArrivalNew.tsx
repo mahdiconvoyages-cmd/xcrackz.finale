@@ -292,11 +292,12 @@ export default function InspectionArrivalNew() {
         if (!photo.file || !photo.captured) continue;
 
         try {
-          const fileExt = photo.file.name.split('.').pop();
+          const compressedFile = await compressImage(photo.file, { maxDimension: 1600, quality: 0.8 });
+          const fileExt = compressedFile.name.split('.').pop();
           const fileName = `${arrivalInspection.id}-${photo.type}-${Date.now()}.${fileExt}`;
           const filePath = `inspections/${fileName}`;
 
-          await uploadWithRetry('inspection-photos', filePath, photo.file);
+          await uploadWithRetry('inspection-photos', filePath, compressedFile);
 
           const { data: urlData } = supabase.storage
             .from('inspection-photos')

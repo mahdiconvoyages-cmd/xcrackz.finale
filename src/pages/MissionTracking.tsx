@@ -98,7 +98,7 @@ export default function MissionTracking() {
           event: 'INSERT',
           schema: 'public',
           table: 'gps_location_points',
-          filter: `session_id=eq.${missionId}`,
+          filter: `mission_id=eq.${missionId}`,
         },
         (payload: any) => {
           const newPosition = payload.new as TrackingPosition;
@@ -116,26 +116,26 @@ export default function MissionTracking() {
           }
           
           // ✅ DÉTECTION ARRÊT VÉHICULE
-          // Si vitesse < 5 km/h et proche du dernier point, update au lieu de créer nouveau
-          if (positions.length > 0) {
-            const lastPos = positions[positions.length - 1];
-            const distance = calculateDistance(
-              lastPos.latitude,
-              lastPos.longitude,
-              newPosition.latitude,
-              newPosition.longitude
-            );
-            
-            // Si arrêté (vitesse < 5 km/h) et déplacement < 10m, on skip
-            if (newPosition.speed_kmh < 5 && distance < 0.01) {
-              console.log('Véhicule à l\'arrêt, position similaire ignorée');
-              return;
+          // Si vitesse < 5 km/h et proche du dernier point, skip
+          setPositions((prev) => {
+            if (prev.length > 0) {
+              const lastPos = prev[prev.length - 1];
+              const distance = calculateDistance(
+                lastPos.latitude,
+                lastPos.longitude,
+                newPosition.latitude,
+                newPosition.longitude
+              );
+              // Si arrêté (vitesse < 5 km/h) et déplacement < 10m, on skip
+              if (newPosition.speed_kmh < 5 && distance < 0.01) {
+                return prev;
+              }
             }
-          }
+            return [...prev, newPosition];
+          });
           
           // ✅ OPTIMISATION: Utiliser payload direct sans requête
           setCurrentPosition(newPosition);
-          setPositions((prev) => [...prev, newPosition]);
         }
       )
       .subscribe();
@@ -143,7 +143,7 @@ export default function MissionTracking() {
     return () => {
       subscription.unsubscribe();
     };
-  }, [missionId, positions]);
+  }, [missionId]);
 
   const loadMissionData = async () => {
     if (!user || !missionId) return;

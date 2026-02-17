@@ -94,18 +94,24 @@ export default function Clients() {
   };
 
   const loadClientPricingGrids = async (clientIds: string[]) => {
-    if (!user) return;
+    if (!user || clientIds.length === 0) return;
 
+    // Batch load all pricing grids in parallel instead of sequential N+1
     const gridsMap: Record<string, PricingGrid | null> = {};
+    const results = await Promise.all(
+      clientIds.map(async (clientId) => {
+        try {
+          const grid = await getClientPricingGrid(user.id, clientId);
+          return { clientId, grid };
+        } catch (error) {
+          console.error(`Error loading pricing grid for client ${clientId}:`, error);
+          return { clientId, grid: null };
+        }
+      })
+    );
     
-    for (const clientId of clientIds) {
-      try {
-        const grid = await getClientPricingGrid(user.id, clientId);
-        gridsMap[clientId] = grid;
-      } catch (error) {
-        console.error(`Error loading pricing grid for client ${clientId}:`, error);
-        gridsMap[clientId] = null;
-      }
+    for (const { clientId, grid } of results) {
+      gridsMap[clientId] = grid;
     }
 
     setClientPricingGrids(gridsMap);

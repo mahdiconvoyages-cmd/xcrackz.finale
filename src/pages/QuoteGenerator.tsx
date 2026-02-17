@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react';
 import { FileText, Calculator, MapPin, Truck, Euro, Plus, Trash2, Save, Send, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { showToast } from '../components/Toast';
 import AddressAutocomplete from '../components/AddressAutocomplete';
 import { getRouteFromOpenRouteService, formatDistance, formatDuration } from '../lib/services/openRouteService';
 import { calculatePrice, calculatePriceTTC } from '../lib/services/distanceService';
@@ -155,13 +156,13 @@ export default function QuoteGenerator() {
   const calculateRoutePrice = async (itemId: string) => {
     const item = quoteItems.find(i => i.id === itemId);
     if (!item || !item.pickup_lat || !item.pickup_lng || !item.delivery_lat || !item.delivery_lng) {
-      alert('Veuillez sélectionner les adresses de départ et d\'arrivée');
+      showToast('error', 'Adresses manquantes', 'Veuillez sélectionner les adresses de départ et d\'arrivée');
       return;
     }
 
     const grid = pricingGrids.find(g => g.id === selectedGridId);
     if (!grid) {
-      alert('Veuillez sélectionner une grille tarifaire');
+      showToast('error', 'Grille manquante', 'Veuillez sélectionner une grille tarifaire');
       return;
     }
 
@@ -203,7 +204,7 @@ export default function QuoteGenerator() {
 
     } catch (error) {
       console.error('Error calculating route:', error);
-      alert('Erreur lors du calcul de l\'itinéraire. Veuillez réessayer.');
+      showToast('error', 'Erreur calcul', 'Erreur lors du calcul de l\'itinéraire. Veuillez réessayer.');
     } finally {
       setCalculating(null);
     }
@@ -230,12 +231,12 @@ export default function QuoteGenerator() {
   // Sauvegarder le devis
   const saveQuote = async () => {
     if (!selectedClientId) {
-      alert('Veuillez sélectionner un client');
+      showToast('error', 'Client manquant', 'Veuillez sélectionner un client');
       return;
     }
 
     if (quoteItems.some(item => !item.price_ht)) {
-      alert('Veuillez calculer tous les trajets avant de sauvegarder');
+      showToast('error', 'Calcul incomplet', 'Veuillez calculer tous les trajets avant de sauvegarder');
       return;
     }
 
@@ -244,23 +245,38 @@ export default function QuoteGenerator() {
     try {
       const { totalHT, totalTTC } = getTotals();
 
-      const { error } = await supabase.from('quotes').insert({
+      // @ts-ignore - Insert quote and get back the id
+      const { data: quoteData, error } = await supabase.from('quotes').insert({
         quote_number: quoteNumber,
         user_id: user?.id,
         client_id: selectedClientId,
         pricing_grid_id: selectedGridId,
         quote_date: quoteDate,
         validity_days: validityDays,
-        items: quoteItems,
         total_ht: totalHT,
         total_ttc: totalTTC,
         additional_notes: additionalNotes,
         status: 'draft'
-      });
+      }).select('id').single();
 
       if (error) throw error;
 
-      alert('✅ Devis sauvegardé avec succès!');
+      // Save items to quote_items table (consistent with Billing.tsx)
+      // @ts-ignore
+      const itemsToInsert = quoteItems.map((item, index) => ({
+        quote_id: quoteData.id,
+        description: `${item.pickup_address} → ${item.delivery_address}${item.vehicle_type ? ` (${item.vehicle_type === 'light' ? 'Léger' : item.vehicle_type === 'utility' ? 'Utilitaire' : 'Poids lourd'})` : ''}${item.distance ? ` - ${formatDistance(item.distance)}` : ''}`,
+        quantity: 1,
+        unit_price: item.price_ht || 0,
+        tax_rate: 20,
+        amount: item.price_ttc || item.price_ht || 0,
+        sort_order: index,
+      }));
+
+      const { error: itemsError } = await supabase.from('quote_items').insert(itemsToInsert);
+      if (itemsError) throw itemsError;
+
+      showToast('success', 'Devis sauvegardé', 'Le devis a été créé avec succès');
       
       // Réinitialiser le formulaire
       generateQuoteNumber();
@@ -274,7 +290,7 @@ export default function QuoteGenerator() {
 
     } catch (error) {
       console.error('Error saving quote:', error);
-      alert('❌ Erreur lors de la sauvegarde du devis');
+      showToast('error', 'Erreur', 'Erreur lors de la sauvegarde du devis');
     } finally {
       setLoading(false);
     }

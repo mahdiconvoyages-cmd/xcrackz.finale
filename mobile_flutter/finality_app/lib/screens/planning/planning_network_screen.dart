@@ -870,22 +870,38 @@ class _MatchesTabState extends State<_MatchesTab> {
   }
 
   Future<void> _enrichMatches() async {
+    // Collect all unique IDs first for batch query
+    final userIdsToFetch = <String>{};
+    final planningIdsToFetch = <String>{};
+    
     for (final m in widget.matches) {
       final otherUserId = m['user_a_id'] == _userId ? m['user_b_id'] : m['user_a_id'];
       final otherPlanningId = m['user_a_id'] == _userId ? m['planning_b_id'] : m['planning_a_id'];
-
-      if (!_profiles.containsKey(otherUserId)) {
-        final res = await _supabase.from('profiles')
-            .select('first_name, last_name, company_name, phone, email')
-            .eq('id', otherUserId).maybeSingle();
-        if (res != null) _profiles[otherUserId] = res;
-      }
-      if (!_plannings.containsKey(otherPlanningId)) {
-        final res = await _supabase.from('convoy_plannings')
-            .select('*').eq('id', otherPlanningId).maybeSingle();
-        if (res != null) _plannings[otherPlanningId] = res;
-      }
+      if (!_profiles.containsKey(otherUserId)) userIdsToFetch.add(otherUserId);
+      if (!_plannings.containsKey(otherPlanningId)) planningIdsToFetch.add(otherPlanningId);
     }
+
+    // Batch fetch all profiles and plannings in 2 queries instead of N*2
+    final futures = await Future.wait([
+      userIdsToFetch.isNotEmpty
+          ? _supabase.from('profiles')
+              .select('id, first_name, last_name, company_name, phone, email')
+              .inFilter('id', userIdsToFetch.toList())
+          : Future.value(<dynamic>[]),
+      planningIdsToFetch.isNotEmpty
+          ? _supabase.from('convoy_plannings')
+              .select('*')
+              .inFilter('id', planningIdsToFetch.toList())
+          : Future.value(<dynamic>[]),
+    ]);
+
+    for (final profile in (futures[0] as List? ?? [])) {
+      _profiles[profile['id']] = profile;
+    }
+    for (final planning in (futures[1] as List? ?? [])) {
+      _plannings[planning['id']] = planning;
+    }
+
     if (mounted) setState(() => _enriched = true);
   }
 
