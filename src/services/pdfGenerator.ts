@@ -157,8 +157,8 @@ export async function generateInvoicePDF(data: InvoiceData): Promise<Blob> {
       // Pre-fetch remote URL as base64 to avoid CORS issues
       const logoBase64 = await imageUrlToBase64(data.logoUrl);
       const format = detectImageFormat(logoBase64);
-      doc.addImage(logoBase64, format, margin, 8, 35, 35);
-      logoXOffset = margin + 40;
+      doc.addImage(logoBase64, format, margin, 12, 22, 22);
+      logoXOffset = margin + 26;
     } catch (e) {
       console.warn('Logo failed to load for PDF, skipping:', e);
       // If logo fails, just show company name
