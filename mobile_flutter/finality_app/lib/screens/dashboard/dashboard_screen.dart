@@ -28,6 +28,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   bool _hasActiveSubscription = false;
   String _plan = 'FREE';
   int _daysRemaining = 0;
+  bool _isEmailVerified = false;
 
   // Stats
   int _activeMissions = 0;
@@ -79,6 +80,10 @@ class _DashboardScreenState extends State<DashboardScreen>
         return;
       }
 
+      // Check email verification status
+      final currentUser = supabase.auth.currentUser;
+      _isEmailVerified = currentUser?.emailConfirmedAt != null;
+
       // Load profile
       final profile = await supabase
           .from('profiles')
@@ -107,11 +112,22 @@ class _DashboardScreenState extends State<DashboardScreen>
         if (subscription['current_period_end'] != null) {
           _subscriptionEndDate = DateTime.parse(subscription['current_period_end']);
           _daysRemaining = _subscriptionEndDate!.difference(DateTime.now()).inDays;
+        } else {
+          // New user — subscription has no end date yet (welcome period)
+          // Set 30 days from account creation as default
+          final createdAt = currentUser?.createdAt;
+          if (createdAt != null) {
+            final created = DateTime.parse(createdAt);
+            _subscriptionEndDate = created.add(const Duration(days: 30));
+            _daysRemaining = _subscriptionEndDate!.difference(DateTime.now()).inDays;
+          } else {
+            _daysRemaining = 30;
+          }
         }
       } else {
         _plan = 'FREE';
-        _hasActiveSubscription = false;
-        _daysRemaining = 0;
+        _hasActiveSubscription = true; // New users have a welcome period
+        _daysRemaining = 30;
       }
 
       // Load stats via server-side RPC (single query replaces 2 queries + client-side aggregation)
@@ -476,6 +492,7 @@ class _DashboardScreenState extends State<DashboardScreen>
   Widget _buildCreditsCard(AppLocalizations l10n) {
     final isExpiringSoon = _daysRemaining < 7 && _daysRemaining > 0;
     final isExpired = _daysRemaining <= 0 && _hasActiveSubscription;
+    final needsEmailVerification = !_isEmailVerified;
 
     return FadeInAnimation(
       delay: Duration.zero,
@@ -484,11 +501,13 @@ class _DashboardScreenState extends State<DashboardScreen>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: isExpired 
-                ? [PremiumTheme.accentRed.withValues(alpha: 0.9), PremiumTheme.accentRed]
-                : isExpiringSoon
-                    ? [PremiumTheme.accentAmber.withValues(alpha: 0.9), PremiumTheme.accentAmber]
-                    : [PremiumTheme.primaryTeal, PremiumTheme.primaryBlue],
+            colors: needsEmailVerification
+                ? [const Color(0xFF6366F1), const Color(0xFF8B5CF6)] // Indigo/violet for verification
+                : isExpired 
+                    ? [PremiumTheme.accentRed.withValues(alpha: 0.9), PremiumTheme.accentRed]
+                    : isExpiringSoon
+                        ? [PremiumTheme.accentAmber.withValues(alpha: 0.9), PremiumTheme.accentAmber]
+                        : [PremiumTheme.primaryTeal, PremiumTheme.primaryBlue],
           ),
           borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
           boxShadow: [
@@ -596,7 +615,86 @@ class _DashboardScreenState extends State<DashboardScreen>
                 ),
               ],
             ),
-            if (_hasActiveSubscription) ...[
+            // Email verification banner
+            if (needsEmailVerification) ...[  
+              const SizedBox(height: 16),
+              Divider(color: Colors.white.withValues(alpha: 0.3)),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.email_outlined,
+                    color: Colors.white,
+                    size: 24,
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Activez votre compte',
+                          style: PremiumTheme.body.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Validez votre adresse email pour profiter de votre mois de bienvenue et de vos 10 crédits offerts !',
+                          style: PremiumTheme.bodySmall.copyWith(
+                            color: Colors.white.withValues(alpha: 0.9),
+                            fontSize: 12,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      // Resend verification email
+                      try {
+                        final email = supabase.auth.currentUser?.email;
+                        if (email != null) {
+                          await supabase.auth.resend(
+                            type: OtpType.signup,
+                            email: email,
+                          );
+                          if (mounted) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Text('Email de vérification renvoyé !'),
+                                backgroundColor: Color(0xFF10B981),
+                              ),
+                            );
+                          }
+                        }
+                      } catch (e) {
+                        if (mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text('Erreur: $e'),
+                              backgroundColor: Colors.red,
+                            ),
+                          );
+                        }
+                      }
+                    },
+                    icon: const Icon(Icons.send, size: 16),
+                    label: const Text('Renvoyer', style: TextStyle(fontSize: 12)),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.white,
+                      foregroundColor: const Color(0xFF6366F1),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ] else if (_hasActiveSubscription) ...[
               const SizedBox(height: 16),
               Divider(color: Colors.white.withValues(alpha: 0.3)),
               const SizedBox(height: 16),
