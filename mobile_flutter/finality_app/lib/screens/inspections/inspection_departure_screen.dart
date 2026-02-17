@@ -351,6 +351,7 @@ class _InspectionDepartureScreenState
           'has_fuel_card': _hasFuelCard,
           'is_loaded': _isVehicleLoaded,
           'has_confided_object': _hasConfidedObject,
+          'confided_object_description': _hasConfidedObject ? _confidedObjectController.text : null,
         },
         'inspector_signature': _driverSignature != null
             ? 'data:image/png;base64,${base64Encode(_driverSignature!)}'

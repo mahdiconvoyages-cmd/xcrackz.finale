@@ -613,6 +613,21 @@ async function generateInspectionPages(pdf: jsPDF, inspection: InspectionDetails
     ['Objet confié', vi.has_confided_object ?? inspection.has_confided_object ?? false],
   ]);
 
+  // Afficher la description de l'objet confié si présent
+  const confidedDesc = vi.confided_object_description ?? inspection.confided_object_description;
+  if ((vi.has_confided_object || inspection.has_confided_object) && confidedDesc) {
+    y += 2;
+    pdf.setFillColor(...C.lightGray);
+    const descLines = pdf.splitTextToSize(`📦 Objet confié : ${confidedDesc}`, W - 50);
+    const descHeight = descLines.length * 5 + 4;
+    pdf.roundedRect(22, y, W - 44, descHeight, 2, 2, 'F');
+    pdf.setTextColor(...C.dark);
+    pdf.setFontSize(8.5);
+    pdf.setFont('helvetica', 'normal');
+    pdf.text(descLines, 25, y + 4);
+    y += descHeight + 2;
+  }
+
   // Arrival-specific fields
   if (vi.keys_returned !== undefined) {
     y += 3;
