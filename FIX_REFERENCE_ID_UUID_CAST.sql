@@ -1,10 +1,9 @@
 -- ============================================
--- Atomic Credit Spend Function
--- Prevents race conditions on credit deductions
+-- FIX: reference_id UUID cast error
+-- "column reference_id is of type uuid but expression is of type text"
 -- ============================================
 
--- Function: spend_credits_atomic
--- Uses row-level locking (SELECT FOR UPDATE) to prevent concurrent reads
+-- Fix spend_credits_atomic: cast p_reference_id TEXT → UUID
 CREATE OR REPLACE FUNCTION spend_credits_atomic(
   p_user_id UUID,
   p_amount INTEGER,
@@ -20,7 +19,6 @@ DECLARE
   v_current_credits INTEGER;
   v_new_balance INTEGER;
 BEGIN
-  -- Lock the row and get current credits atomically
   SELECT credits INTO v_current_credits
   FROM profiles
   WHERE id = p_user_id
@@ -41,13 +39,12 @@ BEGIN
 
   v_new_balance := v_current_credits - p_amount;
 
-  -- Update credits
   UPDATE profiles
   SET credits = v_new_balance,
       updated_at = NOW()
   WHERE id = p_user_id;
 
-  -- Create transaction record
+  -- Cast p_reference_id to UUID (the column is UUID type)
   INSERT INTO credit_transactions (user_id, amount, transaction_type, description, reference_type, reference_id, balance_after)
   VALUES (p_user_id, -p_amount, 'deduction', p_description, p_reference_type, p_reference_id::UUID, v_new_balance);
 
@@ -59,7 +56,7 @@ BEGIN
 END;
 $$;
 
--- Function: add_credits_atomic (also secured for consistency)
+-- Fix add_credits_atomic: cast p_reference_id TEXT → UUID
 CREATE OR REPLACE FUNCTION add_credits_atomic(
   p_user_id UUID,
   p_amount INTEGER,
@@ -92,6 +89,7 @@ BEGIN
       updated_at = NOW()
   WHERE id = p_user_id;
 
+  -- Cast p_reference_id to UUID (the column is UUID type)
   INSERT INTO credit_transactions (user_id, amount, transaction_type, description, reference_type, reference_id, balance_after)
   VALUES (p_user_id, p_amount, p_transaction_type, p_description, p_reference_type, p_reference_id::UUID, v_new_balance);
 
@@ -103,6 +101,9 @@ BEGIN
 END;
 $$;
 
--- Grant execute to authenticated users
 GRANT EXECUTE ON FUNCTION spend_credits_atomic TO authenticated;
 GRANT EXECUTE ON FUNCTION add_credits_atomic TO authenticated;
+
+-- ============================================
+-- DONE! The ::UUID cast fixes the type mismatch.
+-- ============================================
