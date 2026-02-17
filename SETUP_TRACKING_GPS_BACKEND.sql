@@ -92,7 +92,9 @@ CREATE TABLE IF NOT EXISTS public_tracking_links (
   mission_id UUID NOT NULL UNIQUE REFERENCES missions(id) ON DELETE CASCADE,
   
   -- Token public unique (impossible à deviner)
-  token TEXT NOT NULL UNIQUE DEFAULT encode(gen_random_bytes(24), 'base64url'),
+  token TEXT NOT NULL UNIQUE DEFAULT replace(replace(replace(
+    encode(gen_random_bytes(24), 'base64'),
+    '+', '-'), '/', '_'), '=', ''),
   
   -- Métadonnées
   created_at TIMESTAMPTZ DEFAULT NOW(),

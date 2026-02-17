@@ -4,7 +4,7 @@ import {
   Plus, Download, Eye, Send, FileText, X, Building2, FileCheck, 
   Search, Calendar, Euro, TrendingUp, Clock, 
   CheckCircle2, XCircle, AlertCircle, MoreHorizontal,
-  Edit2, Trash2, Check, Copy, Archive
+  Edit2, Trash2, Check, Copy, Archive, Share2, MessageCircle, Mail, Link2
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { showToast } from '../components/Toast';
@@ -516,26 +516,75 @@ export default function Billing() {
     URL.revokeObjectURL(url);
   };
 
-  const handleSendEmail = async (doc: Invoice | Quote) => {
+  // ── SHARE MODAL ──
+  const [shareDoc, setShareDoc] = useState<Invoice | Quote | null>(null);
+  const [shareLoading, setShareLoading] = useState(false);
+
+  const handleOpenShare = (doc: Invoice | Quote) => {
+    setShareDoc(doc);
+  };
+
+  const getShareData = (doc: Invoice | Quote) => {
     const isInvoice = 'invoice_number' in doc;
-    const docType = isInvoice ? 'facture' : 'devis';
-    const docNumber = isInvoice ? doc.invoice_number : doc.quote_number;
+    const docType = isInvoice ? 'Facture' : 'Devis';
+    const docNumber = isInvoice ? (doc as Invoice).invoice_number : (doc as Quote).quote_number;
+    const companyName = userProfile?.company_name || 'ChecksFleet';
+    const subject = `${docType} n°${docNumber} - ${companyName}`;
+    const body = `Bonjour,\n\nVeuillez trouver ci-joint le ${docType.toLowerCase()} n°${docNumber} d'un montant de ${doc.total.toFixed(2)}€.\n\nCordialement,\n${companyName}`;
+    return { docType, docNumber, subject, body, companyName };
+  };
 
-    if (!doc.client_email) {
-      showToast('error', 'Email manquant', `Aucun email n'est renseigné pour ce client. Veuillez ajouter un email dans les informations du ${docType}.`);
-      return;
+  const handleShareViaEmail = (doc: Invoice | Quote) => {
+    const { subject, body } = getShareData(doc);
+    const email = doc.client_email || '';
+    const mailtoUrl = `mailto:${encodeURIComponent(email)}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`;
+    window.open(mailtoUrl, '_blank');
+    showToast('info', 'Email', 'Client de messagerie ouvert. N\'oubliez pas d\'ajouter le PDF en pièce jointe.');
+    setShareDoc(null);
+  };
+
+  const handleShareViaWhatsApp = (doc: Invoice | Quote) => {
+    const { docType, docNumber, companyName } = getShareData(doc);
+    const message = `${docType} n°${docNumber} - ${companyName}\nMontant: ${doc.total.toFixed(2)}€\nClient: ${doc.client_name}`;
+    const waUrl = `https://wa.me/?text=${encodeURIComponent(message)}`;
+    window.open(waUrl, '_blank');
+    setShareDoc(null);
+  };
+
+  const handleCopyShareInfo = (doc: Invoice | Quote) => {
+    const { docType, docNumber, companyName } = getShareData(doc);
+    const text = `${docType} n°${docNumber}\n${companyName}\nClient: ${doc.client_name}\nMontant: ${doc.total.toFixed(2)}€\nDate: ${new Date(doc.issue_date).toLocaleDateString('fr-FR')}`;
+    navigator.clipboard.writeText(text);
+    showToast('success', 'Copié', 'Informations copiées dans le presse-papier');
+    setShareDoc(null);
+  };
+
+  const handleDownloadAndShare = async (doc: Invoice | Quote) => {
+    setShareLoading(true);
+    try {
+      await handleDownloadPDF(doc);
+      showToast('success', 'PDF téléchargé', 'Vous pouvez maintenant partager le fichier PDF');
+    } catch (e) {
+      showToast('error', 'Erreur', 'Erreur lors du téléchargement du PDF');
+    } finally {
+      setShareLoading(false);
     }
+  };
 
-    // Simuler l'envoi d'email (à remplacer par un vrai service email)
-    const confirmed = confirm(
-      `Envoyer le ${docType} n°${docNumber} à ${doc.client_email} ?\n\n` +
-      `Cette action enverra un email avec le PDF en pièce jointe.`
-    );
-
-    if (confirmed) {
-      // TODO: Intégrer un service d'email (SendGrid, Resend, etc.)
-      // Pour l'instant, on informe l'utilisateur que la fonctionnalité n'est pas encore disponible
-      showToast('info', 'Non disponible', `L'envoi d'email n'est pas encore disponible. Le ${docType} n°${docNumber} n'a pas été envoyé.`);
+  const handleNativeShare = async (doc: Invoice | Quote) => {
+    const { docType, docNumber, companyName } = getShareData(doc);
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: `${docType} n°${docNumber}`,
+          text: `${docType} n°${docNumber} - ${companyName} - ${doc.total.toFixed(2)}€`,
+        });
+        setShareDoc(null);
+      } catch (e) {
+        // User cancelled share
+      }
+    } else {
+      handleCopyShareInfo(doc);
     }
   };
 
@@ -1030,7 +1079,7 @@ export default function Billing() {
                         {getStatusBadge(doc.status)}
                       </td>
                       <td className="px-6 py-4">
-                        <div className="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center justify-end gap-2 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                           <button
                             onClick={() => handlePreviewPDF(doc)}
                             className="p-2 bg-blue-100 hover:bg-blue-200 text-blue-600 rounded-lg transition-all hover:scale-110"
@@ -1046,11 +1095,11 @@ export default function Billing() {
                             <Download className="w-5 h-5" />
                           </button>
                           <button
-                            onClick={() => handleSendEmail(doc)}
+                            onClick={() => handleOpenShare(doc)}
                             className="p-2 bg-purple-100 hover:bg-purple-200 text-purple-600 rounded-lg transition-all hover:scale-110"
-                            title="Envoyer"
+                            title="Partager"
                           >
-                            <Send className="w-5 h-5" />
+                            <Share2 className="w-5 h-5" />
                           </button>
                           <div className="relative">
                             <button
@@ -1584,6 +1633,105 @@ export default function Billing() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+      {/* 📤 MODAL PARTAGE */}
+      {shareDoc && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 animate-fadeIn" onClick={() => setShareDoc(null)}>
+          <div className="bg-white rounded-3xl shadow-2xl max-w-md w-full animate-scaleIn" onClick={(e) => e.stopPropagation()}>
+            <div className="bg-gradient-to-r from-purple-600 via-pink-500 to-rose-500 p-6 rounded-t-3xl">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-2xl font-black text-white">📤 Partager</h2>
+                  <p className="text-pink-100 text-sm mt-1">
+                    {'invoice_number' in shareDoc ? `Facture n°${(shareDoc as Invoice).invoice_number}` : `Devis n°${(shareDoc as Quote).quote_number}`}
+                  </p>
+                </div>
+                <button
+                  onClick={() => setShareDoc(null)}
+                  className="p-2 bg-white/20 hover:bg-white/30 text-white rounded-full transition-all hover:rotate-90 duration-300"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-3">
+              {/* Email */}
+              <button
+                onClick={() => handleShareViaEmail(shareDoc)}
+                className="w-full flex items-center gap-4 p-4 bg-blue-50 hover:bg-blue-100 rounded-2xl transition-all hover:scale-[1.02] group"
+              >
+                <div className="p-3 bg-blue-500 rounded-xl text-white">
+                  <Mail className="w-6 h-6" />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-slate-800">Email</p>
+                  <p className="text-sm text-slate-500">
+                    {shareDoc.client_email || 'Ouvrir le client mail'}
+                  </p>
+                </div>
+              </button>
+
+              {/* WhatsApp */}
+              <button
+                onClick={() => handleShareViaWhatsApp(shareDoc)}
+                className="w-full flex items-center gap-4 p-4 bg-green-50 hover:bg-green-100 rounded-2xl transition-all hover:scale-[1.02]"
+              >
+                <div className="p-3 bg-green-500 rounded-xl text-white">
+                  <MessageCircle className="w-6 h-6" />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-slate-800">WhatsApp</p>
+                  <p className="text-sm text-slate-500">Envoyer via WhatsApp</p>
+                </div>
+              </button>
+
+              {/* Download PDF to share */}
+              <button
+                onClick={() => handleDownloadAndShare(shareDoc)}
+                disabled={shareLoading}
+                className="w-full flex items-center gap-4 p-4 bg-orange-50 hover:bg-orange-100 rounded-2xl transition-all hover:scale-[1.02] disabled:opacity-50"
+              >
+                <div className="p-3 bg-orange-500 rounded-xl text-white">
+                  <Download className="w-6 h-6" />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-slate-800">{shareLoading ? 'Téléchargement...' : 'Télécharger le PDF'}</p>
+                  <p className="text-sm text-slate-500">Télécharger pour partager manuellement</p>
+                </div>
+              </button>
+
+              {/* Copy info */}
+              <button
+                onClick={() => handleCopyShareInfo(shareDoc)}
+                className="w-full flex items-center gap-4 p-4 bg-slate-50 hover:bg-slate-100 rounded-2xl transition-all hover:scale-[1.02]"
+              >
+                <div className="p-3 bg-slate-500 rounded-xl text-white">
+                  <Link2 className="w-6 h-6" />
+                </div>
+                <div className="text-left">
+                  <p className="font-bold text-slate-800">Copier les infos</p>
+                  <p className="text-sm text-slate-500">Copier dans le presse-papier</p>
+                </div>
+              </button>
+
+              {/* Native share (mobile) */}
+              {'share' in navigator && (
+                <button
+                  onClick={() => handleNativeShare(shareDoc)}
+                  className="w-full flex items-center gap-4 p-4 bg-purple-50 hover:bg-purple-100 rounded-2xl transition-all hover:scale-[1.02]"
+                >
+                  <div className="p-3 bg-purple-500 rounded-xl text-white">
+                    <Share2 className="w-6 h-6" />
+                  </div>
+                  <div className="text-left">
+                    <p className="font-bold text-slate-800">Partager</p>
+                    <p className="text-sm text-slate-500">Utiliser le partage système</p>
+                  </div>
+                </button>
+              )}
+            </div>
           </div>
         </div>
       )}

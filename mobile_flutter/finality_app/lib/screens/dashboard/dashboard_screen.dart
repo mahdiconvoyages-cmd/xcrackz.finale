@@ -156,94 +156,157 @@ class _DashboardScreenState extends State<DashboardScreen>
       final List<Map<String, dynamic>> activities = [];
 
       // Fetch recent missions (last 5)
-      final missions = await supabase
-          .from('missions')
-          .select('id, reference, status, pickup_city, delivery_city, created_at, updated_at')
-          .or('user_id.eq.$userId,assigned_user_id.eq.$userId')
-          .order('updated_at', ascending: false)
-          .limit(5);
+      try {
+        final missions = await supabase
+            .from('missions')
+            .select('id, reference, status, pickup_city, delivery_city, created_at, updated_at')
+            .or('user_id.eq.$userId,assigned_user_id.eq.$userId')
+            .order('updated_at', ascending: false)
+            .limit(5);
 
-      for (final m in (missions as List)) {
-        final status = m['status'] ?? 'pending';
-        IconData icon;
-        Color color;
-        String title;
+        for (final m in (missions as List)) {
+          final status = m['status'] ?? 'pending';
+          IconData icon;
+          Color color;
+          String title;
 
-        switch (status) {
-          case 'completed':
-            icon = Icons.check_circle;
-            color = PremiumTheme.accentGreen;
-            title = 'Mission terminée';
-            break;
-          case 'in_progress':
-            icon = Icons.local_shipping;
-            color = PremiumTheme.primaryBlue;
-            title = 'Mission en cours';
-            break;
-          case 'cancelled':
-            icon = Icons.cancel;
-            color = Colors.red;
-            title = 'Mission annulée';
-            break;
-          default:
-            icon = Icons.schedule;
-            color = PremiumTheme.primaryPurple;
-            title = 'Nouvelle mission';
+          switch (status) {
+            case 'completed':
+              icon = Icons.check_circle;
+              color = PremiumTheme.accentGreen;
+              title = 'Mission terminée';
+              break;
+            case 'in_progress':
+              icon = Icons.local_shipping;
+              color = PremiumTheme.primaryBlue;
+              title = 'Mission en cours';
+              break;
+            case 'cancelled':
+              icon = Icons.cancel;
+              color = Colors.red;
+              title = 'Mission annulée';
+              break;
+            default:
+              icon = Icons.schedule;
+              color = PremiumTheme.primaryPurple;
+              title = 'Nouvelle mission';
+          }
+
+          final pickup = m['pickup_city'] ?? '';
+          final delivery = m['delivery_city'] ?? '';
+          final subtitle = (pickup.isNotEmpty && delivery.isNotEmpty)
+              ? '$pickup → $delivery'
+              : m['reference'] ?? 'Mission';
+
+          activities.add({
+            'icon': icon,
+            'title': title,
+            'subtitle': subtitle,
+            'time': _formatTimeAgo(DateTime.tryParse(m['updated_at'] ?? m['created_at'] ?? '') ?? DateTime.now()),
+            'color': color,
+            'date': DateTime.tryParse(m['updated_at'] ?? m['created_at'] ?? '') ?? DateTime.now(),
+          });
         }
-
-        final pickup = m['pickup_city'] ?? '';
-        final delivery = m['delivery_city'] ?? '';
-        final subtitle = (pickup.isNotEmpty && delivery.isNotEmpty)
-            ? '$pickup → $delivery'
-            : m['reference'] ?? 'Mission';
-
-        activities.add({
-          'icon': icon,
-          'title': title,
-          'subtitle': subtitle,
-          'time': _formatTimeAgo(DateTime.tryParse(m['updated_at'] ?? m['created_at'] ?? '') ?? DateTime.now()),
-          'color': color,
-          'date': DateTime.tryParse(m['updated_at'] ?? m['created_at'] ?? '') ?? DateTime.now(),
-        });
+      } catch (e) {
+        debugPrint('Erreur chargement missions récentes: $e');
       }
 
       // Fetch recent contacts (last 3)
-      final contacts = await supabase
-          .from('contacts')
-          .select('id, name, type, created_at')
-          .eq('user_id', userId)
-          .order('created_at', ascending: false)
-          .limit(3);
+      try {
+        final contacts = await supabase
+            .from('contacts')
+            .select('id, name, type, created_at')
+            .eq('user_id', userId)
+            .order('created_at', ascending: false)
+            .limit(3);
 
-      for (final c in (contacts as List)) {
-        activities.add({
-          'icon': Icons.person_add,
-          'title': c['type'] == 'driver' ? 'Nouveau chauffeur' : 'Nouveau contact',
-          'subtitle': c['name'] ?? 'Contact',
-          'time': _formatTimeAgo(DateTime.tryParse(c['created_at'] ?? '') ?? DateTime.now()),
-          'color': PremiumTheme.primaryBlue,
-          'date': DateTime.tryParse(c['created_at'] ?? '') ?? DateTime.now(),
-        });
+        for (final c in (contacts as List)) {
+          activities.add({
+            'icon': Icons.person_add,
+            'title': c['type'] == 'driver' ? 'Nouveau chauffeur' : 'Nouveau contact',
+            'subtitle': c['name'] ?? 'Contact',
+            'time': _formatTimeAgo(DateTime.tryParse(c['created_at'] ?? '') ?? DateTime.now()),
+            'color': PremiumTheme.primaryBlue,
+            'date': DateTime.tryParse(c['created_at'] ?? '') ?? DateTime.now(),
+          });
+        }
+      } catch (e) {
+        debugPrint('Erreur chargement contacts récents: $e');
       }
 
-      // Fetch recent inspections (last 3)
-      final inspections = await supabase
-          .from('vehicle_inspections')
-          .select('id, type, vehicle_brand, vehicle_model, created_at')
-          .eq('user_id', userId)
-          .order('created_at', ascending: false)
-          .limit(3);
+      // Fetch recent inspections (last 3) — column is inspector_id
+      try {
+        final inspections = await supabase
+            .from('vehicle_inspections')
+            .select('id, type, vehicle_brand, vehicle_model, created_at')
+            .eq('inspector_id', userId)
+            .order('created_at', ascending: false)
+            .limit(3);
 
-      for (final i in (inspections as List)) {
-        final inspType = i['type'] ?? 'departure';
-        activities.add({
-          'icon': Icons.camera_alt,
-          'title': inspType == 'departure' ? 'Inspection départ' : 'Inspection arrivée',
-          'subtitle': '${i['vehicle_brand'] ?? ''} ${i['vehicle_model'] ?? ''}'.trim(),
-          'time': _formatTimeAgo(DateTime.tryParse(i['created_at'] ?? '') ?? DateTime.now()),
-          'color': inspType == 'departure' ? PremiumTheme.primaryPurple : PremiumTheme.primaryTeal,
-          'date': DateTime.tryParse(i['created_at'] ?? '') ?? DateTime.now(),
-        });
+        for (final i in (inspections as List)) {
+          final inspType = i['type'] ?? 'departure';
+          activities.add({
+            'icon': Icons.camera_alt,
+            'title': inspType == 'departure' ? 'Inspection départ' : 'Inspection arrivée',
+            'subtitle': '${i['vehicle_brand'] ?? ''} ${i['vehicle_model'] ?? ''}'.trim(),
+            'time': _formatTimeAgo(DateTime.tryParse(i['created_at'] ?? '') ?? DateTime.now()),
+            'color': inspType == 'departure' ? PremiumTheme.primaryPurple : PremiumTheme.primaryTeal,
+            'date': DateTime.tryParse(i['created_at'] ?? '') ?? DateTime.now(),
+          });
+        }
+      } catch (e) {
+        debugPrint('Erreur chargement inspections récentes: $e');
+      }
+
+      // Fetch recent invoices (last 3)
+      try {
+        final invoices = await supabase
+            .from('invoices')
+            .select('id, invoice_number, client_name, status, total, created_at, updated_at')
+            .eq('user_id', userId)
+            .order('updated_at', ascending: false)
+            .limit(3);
+
+        for (final inv in (invoices as List)) {
+          final status = inv['status'] ?? 'draft';
+          IconData icon;
+          Color color;
+          String title;
+
+          switch (status) {
+            case 'paid':
+              icon = Icons.check_circle;
+              color = PremiumTheme.accentGreen;
+              title = 'Facture payée';
+              break;
+            case 'sent':
+              icon = Icons.send;
+              color = PremiumTheme.primaryBlue;
+              title = 'Facture envoyée';
+              break;
+            case 'cancelled':
+              icon = Icons.cancel;
+              color = Colors.red;
+              title = 'Facture annulée';
+              break;
+            default:
+              icon = Icons.receipt_long;
+              color = PremiumTheme.primaryPurple;
+              title = 'Nouvelle facture';
+          }
+
+          final total = (inv['total'] ?? 0).toDouble();
+          activities.add({
+            'icon': icon,
+            'title': title,
+            'subtitle': '${inv['client_name'] ?? 'Client'} · ${total.toStringAsFixed(2)}€',
+            'time': _formatTimeAgo(DateTime.tryParse(inv['updated_at'] ?? inv['created_at'] ?? '') ?? DateTime.now()),
+            'color': color,
+            'date': DateTime.tryParse(inv['updated_at'] ?? inv['created_at'] ?? '') ?? DateTime.now(),
+          });
+        }
+      } catch (e) {
+        debugPrint('Erreur chargement factures récentes: $e');
       }
 
       // Sort all by date descending, take top 5
