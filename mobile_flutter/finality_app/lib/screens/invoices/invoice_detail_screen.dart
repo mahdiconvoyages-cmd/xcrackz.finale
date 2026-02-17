@@ -820,13 +820,15 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
               width: 220,
               child: pw.Column(
                 children: [
-                  _totalRow('Sous-total HT', _inv!.subtotal, fontRegular),
-                  pw.SizedBox(height: 4),
-                  _totalRow(
-                      'TVA (${_inv!.taxRate.toStringAsFixed(1)} %)',
-                      _inv!.taxAmount,
-                      fontRegular),
-                  pw.SizedBox(height: 6),
+                  if (_inv!.taxRate > 0) ...[
+                    _totalRow('Sous-total HT', _inv!.subtotal, fontRegular),
+                    pw.SizedBox(height: 4),
+                    _totalRow(
+                        'TVA (${_inv!.taxRate.toStringAsFixed(1)} %)',
+                        _inv!.taxAmount,
+                        fontRegular),
+                    pw.SizedBox(height: 6),
+                  ],
                   pw.Container(
                     padding: const pw.EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
@@ -837,7 +839,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                     child: pw.Row(
                       mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                       children: [
-                        pw.Text('TOTAL TTC',
+                        pw.Text(_inv!.taxRate > 0 ? 'TOTAL TTC' : 'TOTAL',
                             style: pw.TextStyle(
                                 font: fontBold,
                                 fontSize: 12,
@@ -852,6 +854,18 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                       ],
                     ),
                   ),
+                  // TVA exemption mention if not applicable
+                  if (_inv!.taxRate <= 0) ...[
+                    pw.SizedBox(height: 6),
+                    pw.Text(
+                      'TVA non applicable - Article 293 B du CGI',
+                      style: pw.TextStyle(
+                          font: fontRegular,
+                          fontSize: 7.5,
+                          color: _textMuted,
+                          fontStyle: pw.FontStyle.italic),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -968,6 +982,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
 
   // ── Items table ──
   pw.Widget _buildItemsTable(pw.Font fontBold, pw.Font fontRegular) {
+    final hasVAT = _inv!.taxRate > 0;
     return pw.Table(
       columnWidths: {
         0: const pw.FlexColumnWidth(5),
@@ -982,8 +997,8 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
           children: [
             _tableHeader('DESIGNATION', fontBold, left: true),
             _tableHeader('QTE', fontBold),
-            _tableHeader('P.U. HT', fontBold),
-            _tableHeader('TOTAL HT', fontBold),
+            _tableHeader(hasVAT ? 'P.U. HT' : 'P.U.', fontBold),
+            _tableHeader(hasVAT ? 'TOTAL HT' : 'TOTAL', fontBold),
           ],
         ),
         // Data rows

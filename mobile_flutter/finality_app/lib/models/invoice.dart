@@ -65,10 +65,25 @@ class Invoice {
       items: json['items'] != null
           ? (json['items'] as List).map((i) => InvoiceItem.fromJson(i)).toList()
           : [],
-      clientInfo: json['client_info'] as Map<String, dynamic>?,
+      // Si client_info est null (facture créée depuis le web), le reconstituer
+      // depuis les colonnes top-level pour que le PDF mobile affiche les infos client
+      clientInfo: json['client_info'] as Map<String, dynamic>? ?? _buildClientInfoFromColumns(json),
       createdAt: json['created_at'] != null ? DateTime.parse(json['created_at'].toString()) : null,
       updatedAt: json['updated_at'] != null ? DateTime.parse(json['updated_at'].toString()) : null,
     );
+  }
+
+  /// Reconstruit client_info depuis les colonnes top-level (compatibilité web)
+  static Map<String, dynamic>? _buildClientInfoFromColumns(Map<String, dynamic> json) {
+    final name = json['client_name']?.toString();
+    if (name == null || name.isEmpty) return null;
+    return {
+      'name': name,
+      if (json['client_email'] != null) 'email': json['client_email'].toString(),
+      if (json['client_siret'] != null) 'siret': json['client_siret'].toString(),
+      if (json['client_address'] != null) 'address': json['client_address'].toString(),
+      if (json['payment_terms'] != null) 'payment_terms': json['payment_terms'].toString(),
+    };
   }
 
   Map<String, dynamic> toJson() {
