@@ -12,6 +12,8 @@ import 'providers/locale_provider.dart';
 import 'services/sync_service.dart';
 import 'services/offline_service.dart';
 import 'services/background_tracking_service.dart';
+import 'services/connectivity_service.dart';
+import 'widgets/offline_sync_manager.dart';
 import 'theme/premium_theme.dart';
 import 'utils/logger.dart';
 import 'l10n/app_localizations.dart';
@@ -21,6 +23,9 @@ bool supabaseInitialized = false;
 
 /// Startup error for display
 String? startupError;
+
+/// Global connectivity service (singleton)
+final connectivityService = ConnectivityService();
 
 void main() {
   // Wrap absolutely everything in try-catch
@@ -132,7 +137,7 @@ class CHECKSFLEETApp extends ConsumerWidget {
       locale = const Locale('fr');
     }
 
-    // Build the app WITHOUT SyncProvider to isolate the crash
+    // Build the app with OfflineSyncManager wrapping all screens
     return MaterialApp(
       title: 'CHECKSFLEET',
       debugShowCheckedModeBanner: false,
@@ -147,6 +152,13 @@ class CHECKSFLEETApp extends ConsumerWidget {
         GlobalWidgetsLocalizations.delegate,
         GlobalCupertinoLocalizations.delegate,
       ],
+      builder: (context, child) {
+        return OfflineSyncManager(
+          offlineService: OfflineService(),
+          connectivityService: connectivityService,
+          child: child ?? const SizedBox.shrink(),
+        );
+      },
       initialRoute: '/',
       routes: {
         '/': (context) => const SplashScreen(),

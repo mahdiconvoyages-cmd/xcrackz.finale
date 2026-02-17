@@ -2,16 +2,37 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/inspection.dart';
 import 'dart:io';
 import 'dart:typed_data';
+import 'offline_service.dart';
+import 'connectivity_service.dart';
+import '../utils/logger.dart';
 
 class InspectionService {
   final SupabaseClient _supabase = Supabase.instance.client;
+  final OfflineService _offlineService = OfflineService();
+  final ConnectivityService _connectivityService = ConnectivityService();
+  bool _isInitialized = false;
+
+  Future<void> _ensureInitialized() async {
+    if (!_isInitialized) {
+      await _offlineService.initialize();
+      _isInitialized = true;
+    }
+  }
 
   // Get all inspections for the current user
   Future<List<VehicleInspection>> getUserInspections() async {
+    await _ensureInitialized();
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return [];
-      
+
+      // Si offline, retourner le cache
+      if (_connectivityService.isOffline) {
+        logger.w('InspectionService: Offline - returning cached inspections');
+        final cached = await _offlineService.getCachedInspections();
+        return cached.map((json) => VehicleInspection.fromJson(json)).toList();
+      }
+
       final response = await _supabase
           .from('vehicle_inspections')
           .select()
@@ -19,23 +40,50 @@ class InspectionService {
           .order('created_at', ascending: false)
           .limit(50);
 
-      return (response as List).map((json) => VehicleInspection.fromJson(json)).toList();
+      final list = response as List;
+      // Cache pour offline
+      await _offlineService.cacheInspections(
+        list.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+      );
+
+      return list.map((json) => VehicleInspection.fromJson(json)).toList();
     } catch (e) {
+      // Fallback cache
+      logger.e('InspectionService: Error, fallback to cache: $e');
+      final cached = await _offlineService.getCachedInspections();
+      if (cached.isNotEmpty) {
+        return cached.map((json) => VehicleInspection.fromJson(json)).toList();
+      }
       throw Exception('Erreur lors du chargement des inspections: $e');
     }
   }
 
   // Get inspections for a mission
   Future<List<VehicleInspection>> getInspectionsByMission(String missionId) async {
+    await _ensureInitialized();
     try {
+      if (_connectivityService.isOffline) {
+        final cached = await _offlineService.getCachedInspections(missionId: missionId);
+        return cached.map((json) => VehicleInspection.fromJson(json)).toList();
+      }
+
       final response = await _supabase
           .from('vehicle_inspections')
           .select()
           .eq('mission_id', missionId)
           .order('created_at', ascending: false);
 
-      return (response as List).map((json) => VehicleInspection.fromJson(json)).toList();
+      final list = response as List;
+      await _offlineService.cacheInspections(
+        list.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+      );
+
+      return list.map((json) => VehicleInspection.fromJson(json)).toList();
     } catch (e) {
+      final cached = await _offlineService.getCachedInspections(missionId: missionId);
+      if (cached.isNotEmpty) {
+        return cached.map((json) => VehicleInspection.fromJson(json)).toList();
+      }
       throw Exception('Erreur lors du chargement des inspections: $e');
     }
   }

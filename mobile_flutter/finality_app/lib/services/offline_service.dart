@@ -25,55 +25,33 @@ class OfflineService {
 
       _database = await openDatabase(
         path,
-        version: 1,
+        version: 2,
         onCreate: (db, version) async {
-          logger.i('📦 Creating offline database schema...');
-
-          // Table missions cache
-          await db.execute('''
-            CREATE TABLE missions (
-              id TEXT PRIMARY KEY,
-              data TEXT NOT NULL,
-              cached_at INTEGER NOT NULL,
-              status TEXT
-            )
-          ''');
-
-          // Table inspections cache
-          await db.execute('''
-            CREATE TABLE inspections (
-              id TEXT PRIMARY KEY,
-              mission_id TEXT NOT NULL,
-              data TEXT NOT NULL,
-              cached_at INTEGER NOT NULL,
-              type TEXT
-            )
-          ''');
-
-          // Table documents cache
-          await db.execute('''
-            CREATE TABLE documents (
-              id TEXT PRIMARY KEY,
-              data TEXT NOT NULL,
-              cached_at INTEGER NOT NULL,
-              file_path TEXT
-            )
-          ''');
-
-          // Table queue de synchronisation
-          await db.execute('''
-            CREATE TABLE sync_queue (
-              id INTEGER PRIMARY KEY AUTOINCREMENT,
-              action_type TEXT NOT NULL,
-              table_name TEXT NOT NULL,
-              item_id TEXT NOT NULL,
-              data TEXT NOT NULL,
-              created_at INTEGER NOT NULL,
-              retry_count INTEGER DEFAULT 0
-            )
-          ''');
-
+          logger.i('📦 Creating offline database schema v2...');
+          await _createTables(db);
           logger.i('✅ Offline database created');
+        },
+        onUpgrade: (db, oldVersion, newVersion) async {
+          if (oldVersion < 2) {
+            logger.i('📦 Upgrading offline database to v2...');
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS contacts (
+                id TEXT PRIMARY KEY,
+                data TEXT NOT NULL,
+                cached_at INTEGER NOT NULL
+              )
+            ''');
+            await db.execute('''
+              CREATE TABLE IF NOT EXISTS inspections (
+                id TEXT PRIMARY KEY,
+                mission_id TEXT NOT NULL,
+                data TEXT NOT NULL,
+                cached_at INTEGER NOT NULL,
+                type TEXT
+              )
+            ''');
+            logger.i('✅ Offline database upgraded to v2');
+          }
         },
       );
 
@@ -84,6 +62,62 @@ class OfflineService {
     } catch (e, stack) {
       logger.e('❌ Failed to initialize OfflineService', e, stack);
     }
+  }
+
+  /// Créer toutes les tables
+  Future<void> _createTables(Database db) async {
+    // Table missions cache
+    await db.execute('''
+      CREATE TABLE missions (
+        id TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        cached_at INTEGER NOT NULL,
+        status TEXT
+      )
+    ''');
+
+    // Table contacts cache
+    await db.execute('''
+      CREATE TABLE contacts (
+        id TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        cached_at INTEGER NOT NULL
+      )
+    ''');
+
+    // Table inspections cache
+    await db.execute('''
+      CREATE TABLE inspections (
+        id TEXT PRIMARY KEY,
+        mission_id TEXT NOT NULL,
+        data TEXT NOT NULL,
+        cached_at INTEGER NOT NULL,
+        type TEXT
+      )
+    ''');
+
+    // Table documents cache
+    await db.execute('''
+      CREATE TABLE documents (
+        id TEXT PRIMARY KEY,
+        data TEXT NOT NULL,
+        cached_at INTEGER NOT NULL,
+        file_path TEXT
+      )
+    ''');
+
+    // Table queue de synchronisation
+    await db.execute('''
+      CREATE TABLE sync_queue (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        action_type TEXT NOT NULL,
+        table_name TEXT NOT NULL,
+        item_id TEXT NOT NULL,
+        data TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        retry_count INTEGER DEFAULT 0
+      )
+    ''');
   }
 
   /// Vérifier si la base est initialisée
@@ -154,21 +188,161 @@ class OfflineService {
     try {
       final weekAgo = DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch;
 
-      await _database!.delete(
-        'missions',
-        where: 'cached_at < ?',
-        whereArgs: [weekAgo],
-      );
-
-      await _database!.delete(
-        'inspections',
-        where: 'cached_at < ?',
-        whereArgs: [weekAgo],
-      );
+      for (final table in ['missions', 'inspections', 'contacts', 'documents']) {
+        await _database!.delete(
+          table,
+          where: 'cached_at < ?',
+          whereArgs: [weekAgo],
+        );
+      }
 
       logger.i('🧹 Old cache cleaned');
     } catch (e, stack) {
       logger.e('Failed to clean cache', e, stack);
+    }
+  }
+
+  // ==========================================
+  // CACHE - CONTACTS
+  // ==========================================
+
+  /// Mettre en cache un contact (Map<String, dynamic>)
+  Future<void> cacheContact(Map<String, dynamic> contact) async {
+    if (_database == null) return;
+    try {
+      final id = contact['id'] as String?;
+      if (id == null) return;
+      await _database!.insert(
+        'contacts',
+        {
+          'id': id,
+          'data': jsonEncode(contact),
+          'cached_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e, stack) {
+      logger.e('Failed to cache contact', e, stack);
+    }
+  }
+
+  /// Mettre en cache une liste de contacts
+  Future<void> cacheContacts(List<Map<String, dynamic>> contacts) async {
+    if (_database == null) return;
+    final batch = _database!.batch();
+    for (final contact in contacts) {
+      final id = contact['id'] as String?;
+      if (id == null) continue;
+      batch.insert(
+        'contacts',
+        {
+          'id': id,
+          'data': jsonEncode(contact),
+          'cached_at': DateTime.now().millisecondsSinceEpoch,
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    try {
+      await batch.commit(noResult: true);
+      logger.d('💾 Cached ${contacts.length} contacts');
+    } catch (e, stack) {
+      logger.e('Failed to batch cache contacts', e, stack);
+    }
+  }
+
+  /// Récupérer les contacts en cache
+  Future<List<Map<String, dynamic>>> getCachedContacts() async {
+    if (_database == null) return [];
+    try {
+      final results = await _database!.query(
+        'contacts',
+        orderBy: 'cached_at DESC',
+      );
+      return results.map((row) {
+        return jsonDecode(row['data'] as String) as Map<String, dynamic>;
+      }).toList();
+    } catch (e, stack) {
+      logger.e('Failed to load cached contacts', e, stack);
+      return [];
+    }
+  }
+
+  // ==========================================
+  // CACHE - INSPECTIONS
+  // ==========================================
+
+  /// Mettre en cache une inspection (Map<String, dynamic>)
+  Future<void> cacheInspection(Map<String, dynamic> inspection) async {
+    if (_database == null) return;
+    try {
+      final id = inspection['id'] as String?;
+      if (id == null) return;
+      await _database!.insert(
+        'inspections',
+        {
+          'id': id,
+          'mission_id': inspection['mission_id'] ?? '',
+          'data': jsonEncode(inspection),
+          'cached_at': DateTime.now().millisecondsSinceEpoch,
+          'type': inspection['inspection_type'],
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    } catch (e, stack) {
+      logger.e('Failed to cache inspection', e, stack);
+    }
+  }
+
+  /// Mettre en cache une liste d'inspections
+  Future<void> cacheInspections(List<Map<String, dynamic>> inspections) async {
+    if (_database == null) return;
+    final batch = _database!.batch();
+    for (final insp in inspections) {
+      final id = insp['id'] as String?;
+      if (id == null) continue;
+      batch.insert(
+        'inspections',
+        {
+          'id': id,
+          'mission_id': insp['mission_id'] ?? '',
+          'data': jsonEncode(insp),
+          'cached_at': DateTime.now().millisecondsSinceEpoch,
+          'type': insp['inspection_type'],
+        },
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    try {
+      await batch.commit(noResult: true);
+      logger.d('💾 Cached ${inspections.length} inspections');
+    } catch (e, stack) {
+      logger.e('Failed to batch cache inspections', e, stack);
+    }
+  }
+
+  /// Récupérer les inspections en cache
+  Future<List<Map<String, dynamic>>> getCachedInspections({String? missionId}) async {
+    if (_database == null) return [];
+    try {
+      String? where;
+      List<dynamic>? whereArgs;
+      if (missionId != null) {
+        where = 'mission_id = ?';
+        whereArgs = [missionId];
+      }
+      final results = await _database!.query(
+        'inspections',
+        where: where,
+        whereArgs: whereArgs,
+        orderBy: 'cached_at DESC',
+      );
+      return results.map((row) {
+        return jsonDecode(row['data'] as String) as Map<String, dynamic>;
+      }).toList();
+    } catch (e, stack) {
+      logger.e('Failed to load cached inspections', e, stack);
+      return [];
     }
   }
 
@@ -293,6 +467,7 @@ class OfflineService {
     try {
       await _database!.delete('missions');
       await _database!.delete('inspections');
+      await _database!.delete('contacts');
       await _database!.delete('documents');
       await _database!.delete('sync_queue');
       _syncQueue.clear();

@@ -1,11 +1,24 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/client.dart';
 import '../utils/logger.dart';
+import 'offline_service.dart';
+import 'connectivity_service.dart';
 
 /// Service de gestion des clients
 /// CRUD complet avec recherche SIRET via API INSEE
+/// Supporte le mode hors-ligne avec cache SQLite
 class ClientService {
   final SupabaseClient _supabase = Supabase.instance.client;
+  final OfflineService _offlineService = OfflineService();
+  final ConnectivityService _connectivityService = ConnectivityService();
+  bool _isInitialized = false;
+
+  Future<void> _ensureInitialized() async {
+    if (!_isInitialized) {
+      await _offlineService.initialize();
+      _isInitialized = true;
+    }
+  }
 
   /// Récupère tous les clients de l'utilisateur courant
   Future<List<Client>> getClients({
@@ -15,42 +28,89 @@ class ClientService {
     String orderBy = 'created_at',
     bool ascending = false,
   }) async {
-    final userId = _supabase.auth.currentUser?.id;
-    if (userId == null) throw Exception('Utilisateur non connecté');
+    await _ensureInitialized();
 
-    var query = _supabase
-        .from('clients')
-        .select()
-        .eq('user_id', userId);
+    try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
 
-    if (isCompany != null) {
-      query = query.eq('is_company', isCompany);
+      // Si offline, retourner le cache
+      if (_connectivityService.isOffline) {
+        logger.w('ClientService: Offline - returning cached contacts');
+        final cached = await _offlineService.getCachedContacts();
+        List<Client> clients = cached
+            .map((json) => Client.fromJson(json))
+            .toList();
+        // Appliquer les filtres localement
+        if (isCompany != null) {
+          clients = clients.where((c) => c.isCompany == isCompany).toList();
+        }
+        if (isFavorite != null) {
+          clients = clients.where((c) => c.isFavorite == isFavorite).toList();
+        }
+        if (searchQuery != null && searchQuery.isNotEmpty) {
+          final q = searchQuery.toLowerCase();
+          clients = clients.where((c) {
+            return c.name.toLowerCase().contains(q) ||
+                c.email.toLowerCase().contains(q) ||
+                (c.companyName?.toLowerCase().contains(q) ?? false) ||
+                (c.phone?.contains(q) ?? false) ||
+                (c.city?.toLowerCase().contains(q) ?? false) ||
+                (c.siret?.contains(q) ?? false);
+          }).toList();
+        }
+        return clients;
+      }
+
+      // Online: fetch from Supabase
+      var query = _supabase
+          .from('clients')
+          .select()
+          .eq('user_id', userId);
+
+      if (isCompany != null) {
+        query = query.eq('is_company', isCompany);
+      }
+
+      if (isFavorite != null) {
+        query = query.eq('is_favorite', isFavorite);
+      }
+
+      final response = await query.order(orderBy, ascending: ascending);
+      
+      final rawList = response as List;
+      // Cache pour offline
+      await _offlineService.cacheContacts(
+        rawList.map((e) => Map<String, dynamic>.from(e as Map)).toList(),
+      );
+
+      List<Client> clients = rawList
+          .map((json) => Client.fromJson(json as Map<String, dynamic>))
+          .toList();
+
+      // Filtrer localement si recherche
+      if (searchQuery != null && searchQuery.isNotEmpty) {
+        final q = searchQuery.toLowerCase();
+        clients = clients.where((client) {
+          return client.name.toLowerCase().contains(q) ||
+              client.email.toLowerCase().contains(q) ||
+              (client.companyName?.toLowerCase().contains(q) ?? false) ||
+              (client.phone?.contains(q) ?? false) ||
+              (client.city?.toLowerCase().contains(q) ?? false) ||
+              (client.siret?.contains(q) ?? false);
+        }).toList();
+      }
+
+      return clients;
+    } catch (e) {
+      // Fallback cache
+      logger.e('ClientService: Error, fallback to cache: $e');
+      final cached = await _offlineService.getCachedContacts();
+      if (cached.isNotEmpty) {
+        return cached.map((json) => Client.fromJson(json)).toList();
+      }
+      rethrow;
     }
-
-    if (isFavorite != null) {
-      query = query.eq('is_favorite', isFavorite);
-    }
-
-    final response = await query.order(orderBy, ascending: ascending);
-    
-    List<Client> clients = (response as List)
-        .map((json) => Client.fromJson(json as Map<String, dynamic>))
-        .toList();
-
-    // Filtrer localement si recherche
-    if (searchQuery != null && searchQuery.isNotEmpty) {
-      final query = searchQuery.toLowerCase();
-      clients = clients.where((client) {
-        return client.name.toLowerCase().contains(query) ||
-            client.email.toLowerCase().contains(query) ||
-            (client.companyName?.toLowerCase().contains(query) ?? false) ||
-            (client.phone?.contains(query) ?? false) ||
-            (client.city?.toLowerCase().contains(query) ?? false) ||
-            (client.siret?.contains(query) ?? false);
-      }).toList();
-    }
-
-    return clients;
   }
 
   /// Récupère un client par son ID
