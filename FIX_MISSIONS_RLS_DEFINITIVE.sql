@@ -38,7 +38,7 @@ CREATE POLICY "missions_select" ON public.missions
   USING (
     auth.uid() = user_id
     OR
-    auth.uid() = assigned_to_user_id
+    auth.uid() = assigned_user_id
   );
 
 -- 4. INSERT : Seul le créateur peut insérer
@@ -52,12 +52,12 @@ CREATE POLICY "missions_update" ON public.missions
   USING (
     auth.uid() = user_id
     OR
-    auth.uid() = assigned_to_user_id
+    auth.uid() = assigned_user_id
   )
   WITH CHECK (
     auth.uid() = user_id
     OR
-    auth.uid() = assigned_to_user_id
+    auth.uid() = assigned_user_id
   );
 
 -- 6. DELETE : Seul le créateur peut supprimer
@@ -77,8 +77,8 @@ ORDER BY policyname;
 
 -- ============================================================
 -- RÉSULTAT ATTENDU :
--- missions_select  | SELECT | user_id=auth.uid() OR assigned_to_user_id=auth.uid()
+-- missions_select  | SELECT | user_id=auth.uid() OR assigned_user_id=auth.uid()
 -- missions_insert  | INSERT | user_id=auth.uid()
--- missions_update  | UPDATE | user_id=auth.uid() OR assigned_to_user_id=auth.uid()
+-- missions_update  | UPDATE | user_id=auth.uid() OR assigned_user_id=auth.uid()
 -- missions_delete  | DELETE | user_id=auth.uid()
 -- ============================================================

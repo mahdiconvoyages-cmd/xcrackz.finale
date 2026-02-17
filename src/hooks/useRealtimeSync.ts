@@ -118,7 +118,7 @@ export function useMissionsSync(userId: string, onUpdate: () => void) {
   useRealtimeSync({
     table: 'missions',
     userId,
-    filter: `assigned_to_user_id=eq.${userId}`,
+    filter: `assigned_user_id=eq.${userId}`,
     onInsert: onUpdate,
     onUpdate: onUpdate,
     onDelete: onUpdate,

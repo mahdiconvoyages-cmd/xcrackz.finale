@@ -73,7 +73,7 @@ class _MissionsScreenState extends State<MissionsScreen>
           table: 'missions',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'assigned_to_user_id',
+            column: 'assigned_user_id',
             value: userId,
           ),
           callback: (payload) {

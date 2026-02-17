@@ -1897,11 +1897,11 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
     if (confirmed != true) return;
 
     try {
-      // Liberer le chauffeur actuel en mettant assigned_to_user_id a null
+      // Liberer le chauffeur actuel en mettant assigned_user_id a null
       await Supabase.instance.client
           .from('missions')
           .update({
-            'assigned_to_user_id': null,
+            'assigned_user_id': null,
             'status': 'pending',
           })
           .eq('id', _mission!.id);

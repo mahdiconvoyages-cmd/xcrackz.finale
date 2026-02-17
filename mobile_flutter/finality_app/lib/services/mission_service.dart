@@ -42,7 +42,7 @@ class MissionService {
       var query = _supabase
           .from('missions')
           .select()
-          .or('assigned_to_user_id.eq.$userId,user_id.eq.$userId');
+          .or('assigned_user_id.eq.$userId,user_id.eq.$userId');
       
       if (status != null && status != 'all') {
         query = query.eq('status', status);
@@ -54,7 +54,7 @@ class MissionService {
       final missionsList = (response as List).map((json) => Mission.fromJson(json)).toList();
       
       // 🔧 Dédoublonner les missions par ID
-      // (évite les doublons si user_id == assigned_to_user_id)
+      // (évite les doublons si user_id == assigned_user_id)
       final Map<String, Mission> uniqueMissions = {};
       for (final mission in missionsList) {
         uniqueMissions[mission.id] = mission;

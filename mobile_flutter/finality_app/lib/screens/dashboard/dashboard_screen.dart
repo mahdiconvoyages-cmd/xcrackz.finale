@@ -159,7 +159,7 @@ class _DashboardScreenState extends State<DashboardScreen>
       final missions = await supabase
           .from('missions')
           .select('id, reference, status, pickup_city, delivery_city, created_at, updated_at')
-          .or('user_id.eq.$userId,assigned_to_user_id.eq.$userId')
+          .or('user_id.eq.$userId,assigned_user_id.eq.$userId')
           .order('updated_at', ascending: false)
           .limit(5);
 
