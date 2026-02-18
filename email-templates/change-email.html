@@ -3,16 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Connexion rapide - ChecksFleet</title>
+  <title>Changement d'adresse email - ChecksFleet</title>
   <style>
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
       font-family: 'Inter', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #0d1520 0%, #0a0f18 100%);
       padding: 40px 20px;
       line-height: 1.6;
     }
@@ -25,7 +21,7 @@
       box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
     }
     .header {
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #00d4aa 0%, #00b4d8 100%);
       padding: 40px 30px;
       text-align: center;
       color: #ffffff;
@@ -59,7 +55,7 @@
     }
     .cta-button {
       display: inline-block;
-      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      background: linear-gradient(135deg, #00d4aa 0%, #00b4d8 100%);
       color: #ffffff;
       text-decoration: none;
       padding: 16px 40px;
@@ -67,20 +63,15 @@
       font-size: 16px;
       font-weight: 600;
       text-align: center;
-      box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
-      transition: all 0.3s ease;
+      box-shadow: 0 4px 15px rgba(0, 212, 170, 0.4);
       margin: 20px 0;
-    }
-    .cta-button:hover {
-      box-shadow: 0 6px 20px rgba(102, 126, 234, 0.6);
-      transform: translateY(-2px);
     }
     .alternative-link {
       margin-top: 30px;
       padding: 20px;
-      background: #f5f5f7;
+      background: #f0fdf9;
       border-radius: 8px;
-      border-left: 4px solid #667eea;
+      border-left: 4px solid #00d4aa;
     }
     .alternative-link p {
       font-size: 14px;
@@ -88,9 +79,36 @@
       margin-bottom: 10px;
     }
     .alternative-link a {
-      color: #667eea;
+      color: #00b4d8;
       word-break: break-all;
       font-size: 13px;
+    }
+    .info-box {
+      margin-top: 25px;
+      padding: 20px;
+      background: #eef6ff;
+      border-radius: 8px;
+      border-left: 4px solid #00b4d8;
+    }
+    .info-box p {
+      font-size: 14px;
+      color: #1e3a5f;
+      margin: 0;
+    }
+    .security-notice {
+      margin-top: 25px;
+      padding: 20px;
+      background: #ffe6e6;
+      border-radius: 8px;
+      border-left: 4px solid #dc3545;
+    }
+    .security-notice p {
+      font-size: 14px;
+      color: #721c24;
+      margin: 0;
+    }
+    .security-notice strong {
+      color: #491217;
     }
     .footer {
       background: #f9f9f9;
@@ -104,39 +122,15 @@
       margin-bottom: 10px;
     }
     .footer a {
-      color: #667eea;
+      color: #00d4aa;
       text-decoration: none;
       font-weight: 600;
     }
-    .security-notice {
-      margin-top: 30px;
-      padding: 20px;
-      background: #e6f7ff;
-      border-radius: 8px;
-      border-left: 4px solid #0096ff;
-    }
-    .security-notice p {
-      font-size: 14px;
-      color: #004085;
-      margin: 0;
-    }
-    .security-notice strong {
-      color: #002752;
-    }
     @media only screen and (max-width: 600px) {
-      body {
-        padding: 20px 10px;
-      }
-      .content {
-        padding: 30px 20px;
-      }
-      .greeting {
-        font-size: 20px;
-      }
-      .cta-button {
-        padding: 14px 30px;
-        font-size: 15px;
-      }
+      body { padding: 20px 10px; }
+      .content { padding: 30px 20px; }
+      .greeting { font-size: 20px; }
+      .cta-button { padding: 14px 30px; font-size: 15px; }
     }
   </style>
 </head>
@@ -144,29 +138,37 @@
   <div class="email-container">
     <!-- Header -->
     <div class="header">
-      <div class="logo">⚡ ChecksFleet</div>
-      <div class="header-subtitle">Connexion rapide sans mot de passe</div>
+      <div class="logo">📧 ChecksFleet</div>
+      <div class="header-subtitle">Changement d'adresse email</div>
     </div>
 
     <!-- Content -->
     <div class="content">
-      <div class="greeting">Connectez-vous en un clic ! ✨</div>
+      <div class="greeting">Confirmez votre nouvelle adresse email ✉️</div>
       
       <div class="message">
         <p>Bonjour,</p>
         <p style="margin-top: 15px;">
-          Vous avez demandé un lien de connexion rapide pour accéder à votre compte <strong>ChecksFleet</strong>.
+          Vous avez demandé à changer l'adresse email associée à votre compte <strong>ChecksFleet</strong>.
         </p>
         <p style="margin-top: 15px;">
-          Cliquez sur le bouton ci-dessous pour vous connecter instantanément, sans avoir besoin de saisir votre mot de passe :
+          Pour confirmer ce changement, cliquez sur le bouton ci-dessous :
         </p>
       </div>
 
       <!-- CTA Button -->
       <div style="text-align: center;">
         <a href="{{ .ConfirmationURL }}" class="cta-button">
-          🚀 Me connecter maintenant
+          ✅ Confirmer le changement d'email
         </a>
+      </div>
+
+      <!-- Info -->
+      <div class="info-box">
+        <p>
+          <strong>📋 Détails :</strong> Une fois confirmé, votre adresse de connexion sera mise à jour.
+          Vous devrez utiliser votre nouvelle adresse pour vous connecter.
+        </p>
       </div>
 
       <!-- Alternative Link -->
@@ -179,8 +181,9 @@
       <!-- Security Notice -->
       <div class="security-notice">
         <p>
-          <strong>ℹ️ Information :</strong> Ce lien de connexion est valide pendant <strong>15 minutes</strong> et ne peut être utilisé qu'une seule fois. 
-          Si vous n'avez pas demandé cette connexion, vous pouvez ignorer cet email en toute sécurité.
+          <strong>⚠️ Sécurité :</strong> Ce lien est valide pendant <strong>1 heure</strong>.
+          Si vous n'avez pas demandé ce changement, ignorez cet email — votre adresse actuelle restera inchangée.
+          Si vous pensez que votre compte est compromis, changez immédiatement votre mot de passe.
         </p>
       </div>
     </div>
