@@ -132,6 +132,7 @@ export default function PlanningNetwork() {
   const [loading, setLoading] = useState(true);
   const [showCreateOffer, setShowCreateOffer] = useState(false);
   const [showCreateRequest, setShowCreateRequest] = useState(false);
+  const [contactDriverData, setContactDriverData] = useState<{ from?: { city: string; lat: number; lng: number }; to?: { city: string; lat: number; lng: number } } | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
 
   // Map state
@@ -149,8 +150,8 @@ export default function PlanningNetwork() {
       const [offersRes, requestsRes, allOffersRes, allRequestsRes, matchesRes] = await Promise.all([
         supabase.from('ride_offers').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('ride_requests').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('ride_offers').select('*').in('status', ['active', 'en_route']).order('departure_date', { ascending: true }),
-        supabase.from('ride_requests').select('*').eq('status', 'active').order('needed_date', { ascending: true }),
+        supabase.from('ride_offers').select('*, profile:profiles!ride_offers_user_id_fkey(first_name, last_name, company_name, avatar_url, phone)').in('status', ['active', 'en_route']).order('departure_date', { ascending: true }),
+        supabase.from('ride_requests').select('*, profile:profiles!ride_requests_user_id_fkey(first_name, last_name, company_name, avatar_url, phone)').eq('status', 'active').order('needed_date', { ascending: true }),
         supabase.from('ride_matches').select('*').or(`driver_id.eq.${user.id},passenger_id.eq.${user.id}`).order('match_score', { ascending: false }),
       ]);
 
@@ -414,11 +415,27 @@ function LiveMapTab({ liveDrivers, allOffers, allRequests, userId, searchFrom, s
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const markersRef = useRef<any[]>([]);
+  const routeLinesRef = useRef<any[]>([]);
   const [mapReady, setMapReady] = useState(false);
   const [fromSuggestions, setFromSuggestions] = useState<GeoSuggestion[]>([]);
   const [toSuggestions, setToSuggestions] = useState<GeoSuggestion[]>([]);
   const [showFromSug, setShowFromSug] = useState(false);
   const [showToSug, setShowToSug] = useState(false);
+
+  // Search filter state
+  const [filterFromCoords, setFilterFromCoords] = useState<{ lat: number; lng: number; city: string } | null>(null);
+  const [filterToCoords, setFilterToCoords] = useState<{ lat: number; lng: number; city: string } | null>(null);
+  const [filterActive, setFilterActive] = useState(false);
+  const [filterResultCount, setFilterResultCount] = useState<number | null>(null);
+
+  // Haversine distance in km
+  const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLng = (lng2 - lng1) * Math.PI / 180;
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  };
 
   // Init map
   useEffect(() => {
@@ -468,12 +485,51 @@ function LiveMapTab({ liveDrivers, allOffers, allRequests, userId, searchFrom, s
     const L = (window as any).L;
     const map = mapRef.current;
 
-    // Clear old markers
+    // Clear old markers & route lines
     markersRef.current.forEach(m => map.removeLayer(m));
     markersRef.current = [];
+    routeLinesRef.current.forEach(l => map.removeLayer(l));
+    routeLinesRef.current = [];
+
+    const RADIUS_KM = 60; // match within 60km of search city
+
+    // Filter logic for drivers
+    const filteredDrivers = filterActive ? liveDrivers.filter(d => {
+      let matchFrom = true, matchTo = true;
+      if (filterFromCoords) {
+        // Driver's pickup or current position near search origin
+        matchFrom = haversineKm(d.current_lat, d.current_lng, filterFromCoords.lat, filterFromCoords.lng) < RADIUS_KM
+          || (d.pickup_city?.toLowerCase().includes(filterFromCoords.city.toLowerCase()));
+      }
+      if (filterToCoords) {
+        // Driver's delivery city near search destination (use city name match as fallback)
+        matchTo = d.delivery_city?.toLowerCase().includes(filterToCoords.city.toLowerCase()) || false;
+      }
+      return matchFrom && matchTo;
+    }) : liveDrivers;
+
+    // Filter logic for requests
+    const filteredRequests = filterActive ? allRequests.filter(r => {
+      if (!r.pickup_lat || !r.pickup_lng) return false;
+      let matchFrom = true, matchTo = true;
+      if (filterFromCoords) {
+        matchFrom = haversineKm(r.pickup_lat, r.pickup_lng, filterFromCoords.lat, filterFromCoords.lng) < RADIUS_KM
+          || r.pickup_city?.toLowerCase().includes(filterFromCoords.city.toLowerCase());
+      }
+      if (filterToCoords) {
+        matchTo = r.destination_city?.toLowerCase().includes(filterToCoords.city.toLowerCase()) || false;
+      }
+      return matchFrom && matchTo;
+    }) : allRequests;
+
+    if (filterActive) {
+      setFilterResultCount(filteredDrivers.length + filteredRequests.filter(r => r.user_id !== userId).length);
+    } else {
+      setFilterResultCount(null);
+    }
 
     // Add live driver markers
-    liveDrivers.forEach(d => {
+    filteredDrivers.forEach(d => {
       const isLive = d.freshness === 'live';
       const hasSeats = d.seats_available && d.seats_available > 0;
 
@@ -528,7 +584,7 @@ function LiveMapTab({ liveDrivers, allOffers, allRequests, userId, searchFrom, s
     });
 
     // Add request markers (piétons)
-    allRequests.forEach(r => {
+    filteredRequests.forEach(r => {
       if (!r.pickup_lat || !r.pickup_lng || r.user_id === userId) return;
       const icon = L.divIcon({
         className: 'custom-request-marker',
@@ -562,7 +618,68 @@ function LiveMapTab({ liveDrivers, allOffers, allRequests, userId, searchFrom, s
       markersRef.current.push(marker);
     });
 
-  }, [mapReady, liveDrivers, allRequests, userId]);
+    // Draw search area circles when filter is active
+    if (filterActive) {
+      if (filterFromCoords) {
+        const circle = L.circle([filterFromCoords.lat, filterFromCoords.lng], {
+          radius: RADIUS_KM * 1000,
+          color: '#10B981',
+          fillColor: '#10B981',
+          fillOpacity: 0.08,
+          weight: 2,
+          dashArray: '8,6',
+        }).addTo(map);
+        routeLinesRef.current.push(circle);
+
+        const fromLabel = L.marker([filterFromCoords.lat, filterFromCoords.lng], {
+          icon: L.divIcon({
+            className: 'search-label',
+            html: `<div style="background:#10B981;color:white;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.2);">${filterFromCoords.city}</div>`,
+            iconSize: [0, 0],
+            iconAnchor: [0, -15],
+          }),
+        }).addTo(map);
+        routeLinesRef.current.push(fromLabel);
+      }
+      if (filterToCoords) {
+        const circle = L.circle([filterToCoords.lat, filterToCoords.lng], {
+          radius: RADIUS_KM * 1000,
+          color: '#0066FF',
+          fillColor: '#0066FF',
+          fillOpacity: 0.08,
+          weight: 2,
+          dashArray: '8,6',
+        }).addTo(map);
+        routeLinesRef.current.push(circle);
+
+        const toLabel = L.marker([filterToCoords.lat, filterToCoords.lng], {
+          icon: L.divIcon({
+            className: 'search-label',
+            html: `<div style="background:#0066FF;color:white;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.2);">${filterToCoords.city}</div>`,
+            iconSize: [0, 0],
+            iconAnchor: [0, -15],
+          }),
+        }).addTo(map);
+        routeLinesRef.current.push(toLabel);
+      }
+
+      // Draw dashed line between search cities
+      if (filterFromCoords && filterToCoords) {
+        const line = L.polyline(
+          [[filterFromCoords.lat, filterFromCoords.lng], [filterToCoords.lat, filterToCoords.lng]],
+          { color: '#6366F1', weight: 2, dashArray: '10,8', opacity: 0.5 }
+        ).addTo(map);
+        routeLinesRef.current.push(line);
+
+        // Fit map to show both cities
+        map.fitBounds([
+          [filterFromCoords.lat, filterFromCoords.lng],
+          [filterToCoords.lat, filterToCoords.lng],
+        ], { padding: [80, 80] });
+      }
+    }
+
+  }, [mapReady, liveDrivers, allRequests, userId, filterActive, filterFromCoords, filterToCoords]);
 
   // Geocode search
   useEffect(() => {
@@ -590,12 +707,29 @@ function LiveMapTab({ liveDrivers, allOffers, allRequests, userId, searchFrom, s
   const handleSelectFrom = (s: GeoSuggestion) => {
     setSearchFrom(s.city);
     setShowFromSug(false);
+    setFilterFromCoords({ lat: s.lat, lng: s.lng, city: s.city });
     if (mapRef.current) mapRef.current.setView([s.lat, s.lng], 10);
   };
 
   const handleSelectTo = (s: GeoSuggestion) => {
     setSearchTo(s.city);
     setShowToSug(false);
+    setFilterToCoords({ lat: s.lat, lng: s.lng, city: s.city });
+  };
+
+  const handleSearch = () => {
+    if (!filterFromCoords && !filterToCoords) return;
+    setFilterActive(true);
+  };
+
+  const handleClearFilter = () => {
+    setFilterActive(false);
+    setFilterResultCount(null);
+    setSearchFrom('');
+    setSearchTo('');
+    setFilterFromCoords(null);
+    setFilterToCoords(null);
+    if (mapRef.current) mapRef.current.setView([46.603354, 1.888334], 6);
   };
 
   return (
@@ -644,9 +778,19 @@ function LiveMapTab({ liveDrivers, allOffers, allRequests, userId, searchFrom, s
               </div>
             )}
           </div>
-          <button className="px-5 py-3 bg-indigo-600 text-white rounded-xl font-semibold text-sm hover:bg-indigo-700 transition flex items-center gap-2">
+          <button onClick={handleSearch}
+            disabled={!filterFromCoords && !filterToCoords}
+            className={`px-5 py-3 text-white rounded-xl font-semibold text-sm transition flex items-center gap-2 ${
+              filterFromCoords || filterToCoords ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-300 cursor-not-allowed'
+            }`}>
             <Search className="w-4 h-4" /> Rechercher
           </button>
+          {filterActive && (
+            <button onClick={handleClearFilter}
+              className="px-4 py-3 bg-red-50 text-red-600 rounded-xl font-semibold text-sm hover:bg-red-100 transition flex items-center gap-2">
+              <X className="w-4 h-4" /> Effacer
+            </button>
+          )}
         </div>
         {/* Legend */}
         <div className="flex flex-wrap gap-4 mt-3 text-xs" style={{ color: T.textTertiary }}>
@@ -663,9 +807,23 @@ function LiveMapTab({ liveDrivers, allOffers, allRequests, userId, searchFrom, s
             <span className="w-3 h-3 rounded-full bg-slate-400 inline-block" /> Hors ligne
           </span>
         </div>
+        {/* Filter result banner */}
+        {filterActive && filterResultCount !== null && (
+          <div className="flex items-center gap-3 mt-3 px-4 py-2.5 rounded-xl" style={{ backgroundColor: filterResultCount > 0 ? '#EEF2FF' : '#FEF2F2' }}>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+              filterResultCount > 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-red-100 text-red-600'
+            }`}>
+              {filterResultCount}
+            </div>
+            <span className="text-sm font-medium" style={{ color: filterResultCount > 0 ? '#4338CA' : '#DC2626' }}>
+              {filterResultCount > 0
+                ? `${filterResultCount} résultat${filterResultCount > 1 ? 's' : ''} trouvé${filterResultCount > 1 ? 's' : ''} ${filterFromCoords ? 'depuis ' + filterFromCoords.city : ''} ${filterToCoords ? '→ ' + filterToCoords.city : ''}`
+                : `Aucun résultat ${filterFromCoords ? 'depuis ' + filterFromCoords.city : ''} ${filterToCoords ? '→ ' + filterToCoords.city : ''}`
+              }
+            </span>
+          </div>
+        )}
       </div>
-
-      {/* Map + sidebar */}
       <div className="flex gap-4">
         {/* Map */}
         <div className="flex-1 rounded-2xl overflow-hidden shadow-lg" style={{ border: `1px solid ${T.borderDefault}` }}>
@@ -835,6 +993,7 @@ function OffersTab({ allOffers, myOffers, userId, onRefresh, onCreateNew }: {
     <div className="space-y-3">
       {allOffers.map(o => {
         const isMine = o.user_id === userId;
+        const driverName = o.profile ? `${o.profile.first_name || ''} ${o.profile.last_name || ''}`.trim() : '';
         return (
           <div key={o.id} className={`bg-white rounded-2xl p-4 lg:p-5 transition hover:shadow-md ${isMine ? 'ring-2 ring-indigo-200' : ''}`}
             style={{ border: `1px solid ${T.borderDefault}` }}>
@@ -842,6 +1001,13 @@ function OffersTab({ allOffers, myOffers, userId, onRefresh, onCreateNew }: {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                   {isMine && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Mon offre</span>}
+                  {!isMine && driverName && (
+                    <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: T.textPrimary }}>
+                      <User className="w-3 h-3" style={{ color: T.primaryIndigo }} />
+                      {driverName}
+                      {o.profile?.company_name && <span className="text-[10px] font-normal" style={{ color: T.textTertiary }}> · {o.profile.company_name}</span>}
+                    </span>
+                  )}
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                     o.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
                     o.status === 'en_route' ? 'bg-blue-100 text-blue-700' :
@@ -931,6 +1097,7 @@ function RequestsTab({ allRequests, myRequests, userId, onRefresh, onRunMatching
     <div className="space-y-3">
       {allRequests.map(r => {
         const isMine = r.user_id === userId;
+        const requesterName = r.profile ? `${r.profile.first_name || ''} ${r.profile.last_name || ''}`.trim() : '';
         return (
           <div key={r.id} className={`bg-white rounded-2xl p-4 lg:p-5 transition hover:shadow-md ${isMine ? 'ring-2 ring-amber-200' : ''}`}
             style={{ border: `1px solid ${T.borderDefault}` }}>
@@ -938,6 +1105,13 @@ function RequestsTab({ allRequests, myRequests, userId, onRefresh, onRunMatching
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-3 mb-2 flex-wrap">
                   {isMine && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Ma demande</span>}
+                  {!isMine && requesterName && (
+                    <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: T.textPrimary }}>
+                      <User className="w-3 h-3" style={{ color: T.accentAmber }} />
+                      {requesterName}
+                      {r.profile?.company_name && <span className="text-[10px] font-normal" style={{ color: T.textTertiary }}> · {r.profile.company_name}</span>}
+                    </span>
+                  )}
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
                     {REQUEST_TYPE_LABELS[r.request_type] || r.request_type}
                   </span>
@@ -1432,11 +1606,19 @@ function CreateOfferModal({ userId, onClose, onCreated }: { userId: string; onCl
 // ============================================================================
 // CREATE REQUEST MODAL
 // ============================================================================
-function CreateRequestModal({ userId, onClose, onCreated }: { userId: string; onClose: () => void; onCreated: () => void }) {
-  const [pickupCity, setPickupCity] = useState('');
-  const [destCity, setDestCity] = useState('');
-  const [pickupGeo, setPickupGeo] = useState<GeoSuggestion | null>(null);
-  const [destGeo, setDestGeo] = useState<GeoSuggestion | null>(null);
+function CreateRequestModal({ userId, onClose, onCreated, initialFrom, initialTo }: {
+  userId: string; onClose: () => void; onCreated: () => void;
+  initialFrom?: { city: string; lat: number; lng: number };
+  initialTo?: { city: string; lat: number; lng: number };
+}) {
+  const [pickupCity, setPickupCity] = useState(initialFrom?.city || '');
+  const [destCity, setDestCity] = useState(initialTo?.city || '');
+  const [pickupGeo, setPickupGeo] = useState<GeoSuggestion | null>(
+    initialFrom ? { label: initialFrom.city, city: initialFrom.city, postcode: '', lat: initialFrom.lat, lng: initialFrom.lng } : null
+  );
+  const [destGeo, setDestGeo] = useState<GeoSuggestion | null>(
+    initialTo ? { label: initialTo.city, city: initialTo.city, postcode: '', lat: initialTo.lat, lng: initialTo.lng } : null
+  );
   const [pickupSugs, setPickupSugs] = useState<GeoSuggestion[]>([]);
   const [destSugs, setDestSugs] = useState<GeoSuggestion[]>([]);
   const [showPickup, setShowPickup] = useState(false);

@@ -193,14 +193,39 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen>
 
   Future<void> _runMatchingForRequest(String requestId) async {
     try {
-      await _supabase.rpc('find_ride_matches_for_request',
+      final results = await _supabase.rpc('find_ride_matches_for_request',
           params: {'p_request_id': requestId});
+      
+      final matches = List<Map<String, dynamic>>.from(results as List? ?? []);
+      int inserted = 0;
+      
+      for (final match in matches) {
+        try {
+          await _supabase.from('ride_matches').upsert({
+            'offer_id': match['offer_id'],
+            'request_id': requestId,
+            'driver_id': match['driver_id'],
+            'passenger_id': _userId,
+            'pickup_city': match['pickup_city'],
+            'dropoff_city': match['dropoff_city'],
+            'detour_km': match['detour_km'],
+            'distance_covered_km': match['distance_covered_km'],
+            'match_score': match['match_score'],
+            'match_type': match['match_type'],
+            'status': 'proposed',
+          }, onConflict: 'offer_id,request_id');
+          inserted++;
+        } catch (_) {}
+      }
+      
       await _loadData();
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🔍 Matching IA lancé ! Vérifiez l\'onglet Mes Matchs.'),
-            backgroundColor: Color(0xFF10B981),
+          SnackBar(
+            content: Text(inserted > 0
+                ? '🎯 $inserted match${inserted > 1 ? 's' : ''} trouvé${inserted > 1 ? 's' : ''} ! Vérifiez l\'onglet Mes Matchs.'
+                : '😕 Aucun match trouvé pour le moment. Réessayez plus tard.'),
+            backgroundColor: inserted > 0 ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
           ),
         );
       }

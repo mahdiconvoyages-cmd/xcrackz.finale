@@ -472,9 +472,11 @@ BEGIN
       COALESCE(NEW.assigned_user_id, NEW.user_id),
       NEW.id,
       COALESCE(NEW.pickup_city, split_part(NEW.pickup_address, ',', 1)),
-      NULL, NULL, -- sera mis à jour par geocoding client
+      NEW.pickup_lat::double precision,
+      NEW.pickup_lng::double precision,
       COALESCE(NEW.delivery_city, split_part(NEW.delivery_address, ',', 1)),
-      NULL, NULL,
+      NEW.delivery_lat::double precision,
+      NEW.delivery_lng::double precision,
       COALESCE(NEW.pickup_date::date, CURRENT_DATE),
       COALESCE(NEW.pickup_date::time, '08:00'::time),
       COALESCE(NEW.vehicle_type, 'car'),
