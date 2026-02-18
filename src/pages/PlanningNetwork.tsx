@@ -230,8 +230,29 @@ export default function PlanningNetwork() {
     } catch (err) { console.error('Matching error:', err); }
   };
 
-  const respondToMatch = async (matchId: string, response: 'accepted' | 'declined') => {
+  const respondToMatch = async (matchId: string, response: 'accepted' | 'declined' | 'in_transit' | 'completed' | 'cancelled') => {
     await supabase.from('ride_matches').update({ status: response }).eq('id', matchId);
+    await loadData();
+  };
+
+  const rateRide = async (matchId: string, rating: number, badges: string[], comment: string) => {
+    const match = matches.find(m => m.id === matchId);
+    if (!match) return;
+    const isDriver = match.driver_id === user?.id;
+    await supabase.from('ride_ratings').upsert({
+      match_id: matchId,
+      rater_id: user?.id,
+      rated_id: isDriver ? match.passenger_id : match.driver_id,
+      rating,
+      badges,
+      comment: comment || null,
+    }, { onConflict: 'match_id,rater_id' });
+    await loadData();
+  };
+
+  const toggleOfferVisibility = async (offerId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'paused' ? 'active' : 'paused';
+    await supabase.from('ride_offers').update({ status: newStatus }).eq('id', offerId);
     await loadData();
   };
 
@@ -352,7 +373,19 @@ export default function PlanningNetwork() {
               setSearchTo={setSearchTo}
               selectedDriver={selectedDriver}
               setSelectedDriver={setSelectedDriver}
-              onContactDriver={(driver) => {
+              on// Open requestasync (driver) => {
+                // Geocode the driver's route cities → open request modal pre-filled
+                const fromGeo = driver.pickup_city ? await geocodeCity(driver.pickup_city) : [];
+                const toGeo = driver.delivery_city ? await geocodeCity(driver.delivery_city) : [];
+                setContactDriverData({
+                  from: fromGeo.length > 0 ? { city: fromGeo[0].city, lat: fromGeo[0].lat, lng: fromGeo[0].lng } : undefined,
+                  to: toGeo.length > 0 ? { city: toGeo[0].city, lat: toGeo[0].lat, lng: toGeo[0].lng } : undefined,
+                });
+                setShowCreateRequest(true
+                  from: driver.pickup_city ? { city: driver.pickup_city, lat: driver.current_lat, lng: driver.current_lng } : undefined,
+                  to: driver.delivery_city ? { city: driver.delivery_city, lat: driver.current_lat, lng: driver.current_lng } : undefined,
+                });
+                setShowCreateRequest(true) => {
                 setActiveTab('matches');
               }}
             />
@@ -364,6 +397,7 @@ export default function PlanningNetwork() {
               userId={user?.id || ''}
               onRefresh={loadData}
               onCreateNew={() => setShowCreateOffer(true)}
+              onToggleVisibility={toggleOfferVisibility}
             />
           )}
           {activeTab === 'requests' && (
@@ -382,11 +416,18 @@ export default function PlanningNetwork() {
               userId={user?.id || ''}
               onRefresh={loadData}
               onRespond={respondToMatch}
+              onRate={rateRide}
             />
           )}
         </>
       )}
 
+          userId={user?.id || ''}
+          onClose={() => { setShowCreateRequest(false); setContactDriverData(null); }}
+          onCreated={loadData}
+          initialFrom={contactDriverData?.from}
+          initialTo={contactDriverData?.to}
+       
       {/* ── Create Offer Modal ── */}
       {showCreateOffer && (
         <CreateOfferModal userId={user?.id || ''} onClose={() => setShowCreateOffer(false)} onCreated={loadData} />
@@ -961,9 +1002,10 @@ function LiveMapTab({ liveDrivers, allOffers, allRequests, userId, searchFrom, s
 // ============================================================================
 // OFFERS TAB — Conducteurs avec places libres
 // ============================================================================
-function OffersTab({ allOffers, myOffers, userId, onRefresh, onCreateNew }: {
+function OffersTab({ allOffers, myOffers, userId, onRefresh, onCreateNew, onToggleVisibility }: {
   allOffers: RideOffer[]; myOffers: RideOffer[]; userId: string;
   onRefresh: () => void; onCreateNew: () => void;
+  onToggleVisibility: (id: string, currentStatus: string) => void;
 }) {
   const handleDelete = async (id: string) => {
     if (!confirm('Supprimer cette offre ?')) return;
@@ -1011,9 +1053,10 @@ function OffersTab({ allOffers, myOffers, userId, onRefresh, onCreateNew }: {
                   <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                     o.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
                     o.status === 'en_route' ? 'bg-blue-100 text-blue-700' :
+                    o.status === 'paused' ? 'bg-amber-100 text-amber-700' :
                     'bg-slate-100 text-slate-600'
                   }`}>
-                    {o.status === 'active' ? 'Disponible' : o.status === 'en_route' ? 'En route' : o.status}
+                    {o.status === 'active' ? 'Disponible' : o.status === 'en_route' ? 'En route' : o.status === 'paused' ? '⏸ En pause' : o.status}
                   </span>
                   {o.seats_available > 0 && (
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${T.accentAmber}15`, color: T.accentAmber }}>
@@ -1045,9 +1088,16 @@ function OffersTab({ allOffers, myOffers, userId, onRefresh, onCreateNew }: {
                 )}
               </div>
               {isMine && (
-                <button onClick={() => handleDelete(o.id)} className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition" title="Supprimer">
-                  <Trash2 className="w-4 h-4" />
-                </button>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => onToggleVisibility(o.id, o.status)}
+                    className={`p-2 rounded-lg transition ${o.status === 'paused' ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}
+                    title={o.status === 'paused' ? 'Réactiver' : 'Mettre en pause'}>
+                    {o.status === 'paused' ? <Eye className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+                  </button>
+                  <button onClick={() => handleDelete(o.id)} className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition" title="Supprimer">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
               )}
             </div>
           </div>
@@ -1160,14 +1210,27 @@ function RequestsTab({ allRequests, myRequests, userId, onRefresh, onRunMatching
 // ============================================================================
 // MATCHES TAB
 // ============================================================================
-function MatchesTab({ matches, userId, onRefresh, onRespond }: {
+function MatchesTab({ matches, userId, onRefresh, onRespond, onRate }: {
   matches: RideMatch[]; userId: string; onRefresh: () => void;
-  onRespond: (id: string, status: 'accepted' | 'declined') => void;
+  onRespond: (id: string, status: 'accepted' | 'declined' | 'in_transit' | 'completed' | 'cancelled') => void;
+  onRate: (matchId: string, rating: number, badges: string[], comment: string) => void;
 }) {
   const [chatMatchId, setChatMatchId] = useState<string | null>(null);
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const [ratingMatchId, setRatingMatchId] = useState<string | null>(null);
+  const [ratingStars, setRatingStars] = useState(5);
+  const [ratingBadges, setRatingBadges] = useState<string[]>([]);
+  const [ratingComment, setRatingComment] = useState('');
+
+  const BADGE_OPTIONS = [
+    { id: 'punctual', label: '⏰ Ponctuel', icon: '⏰' },
+    { id: 'friendly', label: '😊 Sympathique', icon: '😊' },
+    { id: 'safe_driver', label: '🛡️ Conduite sûre', icon: '🛡️' },
+    { id: 'clean_vehicle', label: '✨ Véhicule propre', icon: '✨' },
+    { id: 'good_communication', label: '💬 Bonne com.', icon: '💬' },
+  ];
 
   const loadChat = useCallback(async (matchId: string) => {
     const { data } = await supabase.from('ride_messages').select('*').eq('match_id', matchId).order('created_at', { ascending: true });
@@ -1286,12 +1349,27 @@ function MatchesTab({ matches, userId, onRefresh, onRespond }: {
               {/* Status badges */}
               {m.status === 'accepted' && (
                 <div className="text-xs font-bold px-3 py-1.5 rounded-lg mb-3 flex items-center gap-1.5" style={{ backgroundColor: `${T.accentGreen}10`, color: T.accentGreen }}>
-                  <Check className="w-3.5 h-3.5" /> Accepté — vous pouvez discuter
+                  <Check className="w-3.5 h-3.5" /> Accepté — prêt à démarrer
+                </div>
+              )}
+              {m.status === 'in_transit' && (
+                <div className="text-xs font-bold px-3 py-1.5 rounded-lg mb-3 flex items-center gap-1.5 animate-pulse" style={{ backgroundColor: '#EEF2FF', color: T.primaryIndigo }}>
+                  <Navigation className="w-3.5 h-3.5" /> En cours de trajet...
+                </div>
+              )}
+              {m.status === 'completed' && (
+                <div className="text-xs font-bold px-3 py-1.5 rounded-lg mb-3 flex items-center gap-1.5" style={{ backgroundColor: `${T.primaryPurple}10`, color: T.primaryPurple }}>
+                  <Award className="w-3.5 h-3.5" /> Trajet terminé
                 </div>
               )}
               {m.status === 'declined' && (
                 <div className="text-xs font-bold px-3 py-1.5 rounded-lg mb-3" style={{ backgroundColor: `${T.accentRed}10`, color: T.accentRed }}>
                   Décliné
+                </div>
+              )}
+              {m.status === 'cancelled' && (
+                <div className="text-xs font-bold px-3 py-1.5 rounded-lg mb-3" style={{ backgroundColor: `${T.accentAmber}10`, color: T.accentAmber }}>
+                  Annulé
                 </div>
               )}
 
@@ -1312,11 +1390,43 @@ function MatchesTab({ matches, userId, onRefresh, onRespond }: {
                   </>
                 )}
                 {m.status === 'accepted' && (
-                  <button onClick={() => setChatMatchId(chatMatchId === m.id ? null : m.id)}
-                    className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition ${
-                      chatMatchId === m.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
-                    }`}>
-                    <MessageCircle className="w-4 h-4" /> Discuter
+                  <>
+                    {m.driver_id === userId && (
+                      <button onClick={() => onRespond(m.id, 'in_transit')}
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold text-white transition hover:shadow-lg bg-indigo-600 hover:bg-indigo-700">
+                        <Navigation className="w-4 h-4" /> Démarrer le trajet
+                      </button>
+                    )}
+                    <button onClick={() => setChatMatchId(chatMatchId === m.id ? null : m.id)}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition ${
+                        chatMatchId === m.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                      }`}>
+                      <MessageCircle className="w-4 h-4" /> Discuter
+                    </button>
+                    <button onClick={() => { if (confirm('Annuler ce trajet ?')) onRespond(m.id, 'cancelled'); }}
+                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-semibold text-red-500 bg-red-50 hover:bg-red-100 transition">
+                      <X className="w-3.5 h-3.5" /> Annuler
+                    </button>
+                  </>
+                )}
+                {m.status === 'in_transit' && (
+                  <>
+                    <button onClick={() => { onRespond(m.id, 'completed'); setRatingMatchId(m.id); }}
+                      className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition hover:shadow-lg">
+                      <Check className="w-4 h-4" /> Terminer le trajet
+                    </button>
+                    <button onClick={() => setChatMatchId(chatMatchId === m.id ? null : m.id)}
+                      className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition ${
+                        chatMatchId === m.id ? 'bg-indigo-600 text-white shadow-lg' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                      }`}>
+                      <MessageCircle className="w-4 h-4" /> Discuter
+                    </button>
+                  </>
+                )}
+                {m.status === 'completed' && (
+                  <button onClick={() => setRatingMatchId(m.id)}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 transition hover:shadow-lg">
+                    <Star className="w-4 h-4" /> Noter le trajet
                   </button>
                 )}
               </div>
@@ -1403,14 +1513,67 @@ function MatchesTab({ matches, userId, onRefresh, onRespond }: {
           </div>
         </div>
       )}
+
+      {/* Rating Modal */}
+      {ratingMatchId && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setRatingMatchId(null)}>
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+            <div className="text-center mb-5">
+              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+                <Star className="w-8 h-8 text-amber-500" />
+              </div>
+              <h3 className="text-lg font-bold" style={{ color: T.textPrimary }}>Noter ce trajet</h3>
+              <p className="text-sm mt-1" style={{ color: T.textSecondary }}>Votre avis aide la communauté</p>
+            </div>
+
+            {/* Stars */}
+            <div className="flex justify-center gap-2 mb-5">
+              {[1,2,3,4,5].map(n => (
+                <button key={n} onClick={() => setRatingStars(n)} className="transition hover:scale-110">
+                  <Star className={`w-10 h-10 ${n <= ratingStars ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />
+                </button>
+              ))}
+            </div>
+
+            {/* Badges */}
+            <div className="mb-4">
+              <p className="text-xs font-semibold mb-2" style={{ color: T.textSecondary }}>Points forts (optionnel)</p>
+              <div className="flex flex-wrap gap-2">
+                {BADGE_OPTIONS.map(b => (
+                  <button key={b.id}
+                    onClick={() => setRatingBadges(prev => prev.includes(b.id) ? prev.filter(x => x !== b.id) : [...prev, b.id])}
+                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                      ratingBadges.includes(b.id) ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                    }`}>
+                    {b.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Comment */}
+            <textarea value={ratingComment} onChange={e => setRatingComment(e.target.value)}
+              placeholder="Un commentaire ? (optionnel)"
+              className="w-full px-4 py-3 rounded-xl border text-sm outline-none resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 mb-4"
+              style={{ borderColor: T.borderDefault }} rows={2} />
+
+            {/* Submit */}
+            <div className="flex gap-3">
+              <button onClick={() => setRatingMatchId(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold" style={{ backgroundColor: T.fieldBg, color: T.textSecondary }}>
+                Plus tard
+              </button>
+              <button onClick={() => { onRate(ratingMatchId, ratingStars, ratingBadges, ratingComment); setRatingMatchId(null); setRatingStars(5); setRatingBadges([]); setRatingComment(''); }}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 transition">
+                Envoyer ★
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
-
-
-// ============================================================================
-// CREATE OFFER MODAL
-// ============================================================================
 function CreateOfferModal({ userId, onClose, onCreated }: { userId: string; onClose: () => void; onCreated: () => void }) {
   const [originCity, setOriginCity] = useState('');
   const [destCity, setDestCity] = useState('');

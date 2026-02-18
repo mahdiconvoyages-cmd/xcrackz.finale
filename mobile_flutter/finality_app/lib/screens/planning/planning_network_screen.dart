@@ -5,10 +5,14 @@
 // ============================================================================
 
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_map/flutter_map.dart';
+import 'package:latlong2/latlong.dart';
 import '../onboarding/location_onboarding_screen.dart';
 import '../../services/planning_location_service.dart';
 
@@ -243,6 +247,12 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen>
     _loadData();
   }
 
+  Future<void> _toggleOfferPause(String id, String currentStatus) async {
+    final newStatus = currentStatus == 'paused' ? 'active' : 'paused';
+    await _supabase.from('ride_offers').update({'status': newStatus}).eq('id', id);
+    _loadData();
+  }
+
   Future<void> _deleteRequest(String id) async {
     await _supabase.from('ride_requests').delete().eq('id', id);
     _loadData();
@@ -420,6 +430,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen>
                     myOffers: _myOffers,
                     allOffers: _allOffers,
                     onDelete: _deleteOffer,
+                    onTogglePause: _toggleOfferPause,
                     onCreate: () => _showCreateOfferDialog(),
                     onRefresh: _loadData,
                   ),
@@ -680,7 +691,7 @@ class _TabBarDelegate extends SliverPersistentHeaderDelegate {
 // LIVE TAB — Active drivers on road + all offers
 // ============================================================================
 
-class _LiveTab extends StatelessWidget {
+class _LiveTab extends StatefulWidget {
   final List<Map<String, dynamic>> drivers;
   final List<Map<String, dynamic>> offers;
   final String userId;
@@ -694,58 +705,540 @@ class _LiveTab extends StatelessWidget {
   });
 
   @override
+  State<_LiveTab> createState() => _LiveTabState();
+}
+
+class _LiveTabState extends State<_LiveTab> {
+  final MapController _mapController = MapController();
+  final TextEditingController _fromCtrl = TextEditingController();
+  final TextEditingController _toCtrl = TextEditingController();
+  List<Map<String, String>> _fromSugs = [];
+  List<Map<String, String>> _toSugs = [];
+  bool _showFromSug = false;
+  bool _showToSug = false;
+  LatLng? _filterFrom;
+  LatLng? _filterTo;
+  String? _filterFromCity;
+  String? _filterToCity;
+  bool _filterActive = false;
+  Map<String, dynamic>? _selectedDriver;
+  bool _showList = false;
+
+  Future<List<Map<String, String>>> _geocode(String q) async {
+    if (q.length < 2) return [];
+    try {
+      final res = await http.get(Uri.parse(
+          'https://api-adresse.data.gouv.fr/search/?q=${Uri.encodeComponent(q)}&type=municipality&limit=5'));
+      if (res.statusCode != 200) return [];
+      final data = jsonDecode(res.body);
+      return ((data['features'] ?? []) as List).map<Map<String, String>>((f) {
+        final props = f['properties'] ?? {};
+        final coords = f['geometry']?['coordinates'] ?? [0, 0];
+        return {
+          'label': '${props['label'] ?? ''} (${props['postcode'] ?? ''})',
+          'city': (props['city'] ?? props['label'] ?? '').toString(),
+          'lat': coords[1].toString(),
+          'lng': coords[0].toString(),
+        };
+      }).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  double _haversineKm(double lat1, double lng1, double lat2, double lng2) {
+    const R = 6371.0;
+    final dLat = (lat2 - lat1) * pi / 180;
+    final dLng = (lng2 - lng1) * pi / 180;
+    final a = sin(dLat / 2) * sin(dLat / 2) +
+        cos(lat1 * pi / 180) * cos(lat2 * pi / 180) * sin(dLng / 2) * sin(dLng / 2);
+    return R * 2 * atan2(sqrt(a), sqrt(1 - a));
+  }
+
+  List<Map<String, dynamic>> get _filteredDrivers {
+    if (!_filterActive) return widget.drivers;
+    return widget.drivers.where((d) {
+      bool matchFrom = true, matchTo = true;
+      final lat = (d['current_lat'] as num?)?.toDouble();
+      final lng = (d['current_lng'] as num?)?.toDouble();
+      if (_filterFrom != null && lat != null && lng != null) {
+        matchFrom = _haversineKm(lat, lng, _filterFrom!.latitude, _filterFrom!.longitude) < 60 ||
+            (d['pickup_city']?.toString().toLowerCase().contains(_filterFromCity?.toLowerCase() ?? '') ?? false);
+      }
+      if (_filterTo != null) {
+        matchTo = d['delivery_city']?.toString().toLowerCase().contains(_filterToCity?.toLowerCase() ?? '') ?? false;
+      }
+      return matchFrom && matchTo;
+    }).toList();
+  }
+
+  void _handleSearch() {
+    if (_filterFrom == null && _filterTo == null) return;
+    setState(() => _filterActive = true);
+    if (_filterFrom != null && _filterTo != null) {
+      _mapController.fitCamera(CameraFit.bounds(
+        bounds: LatLngBounds(_filterFrom!, _filterTo!),
+        padding: const EdgeInsets.all(80),
+      ));
+    } else if (_filterFrom != null) {
+      _mapController.move(_filterFrom!, 10);
+    }
+  }
+
+  void _clearFilter() {
+    setState(() {
+      _filterActive = false;
+      _filterFrom = null;
+      _filterTo = null;
+      _filterFromCity = null;
+      _filterToCity = null;
+      _fromCtrl.clear();
+      _toCtrl.clear();
+      _selectedDriver = null;
+    });
+    _mapController.move(const LatLng(46.603354, 1.888334), 6);
+  }
+
+  @override
+  void dispose() {
+    _fromCtrl.dispose();
+    _toCtrl.dispose();
+    _mapController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    if (drivers.isEmpty && offers.isEmpty) {
+    final drivers = _filteredDrivers;
+    final resultCount = drivers.length;
+
+    return Column(
+      children: [
+        // Search bar
+        Container(
+          margin: const EdgeInsets.fromLTRB(12, 8, 12, 0),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(16),
+            boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10)],
+          ),
+          child: Column(
+            children: [
+              // From
+              _buildSearchField(_fromCtrl, '🟢 Départ...', _fromSugs, _showFromSug, (q) async {
+                final sugs = await _geocode(q);
+                setState(() { _fromSugs = sugs; _showFromSug = sugs.isNotEmpty; });
+              }, (s) {
+                setState(() {
+                  _fromCtrl.text = s['city']!;
+                  _filterFromCity = s['city'];
+                  _filterFrom = LatLng(double.parse(s['lat']!), double.parse(s['lng']!));
+                  _showFromSug = false;
+                });
+                _mapController.move(_filterFrom!, 10);
+              }, () => setState(() => _showFromSug = false)),
+              const SizedBox(height: 8),
+              // To
+              _buildSearchField(_toCtrl, '🔵 Arrivée...', _toSugs, _showToSug, (q) async {
+                final sugs = await _geocode(q);
+                setState(() { _toSugs = sugs; _showToSug = sugs.isNotEmpty; });
+              }, (s) {
+                setState(() {
+                  _toCtrl.text = s['city']!;
+                  _filterToCity = s['city'];
+                  _filterTo = LatLng(double.parse(s['lat']!), double.parse(s['lng']!));
+                  _showToSug = false;
+                });
+              }, () => setState(() => _showToSug = false)),
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: (_filterFrom != null || _filterTo != null) ? _handleSearch : null,
+                      icon: const Icon(Icons.search, size: 18),
+                      label: const Text('Rechercher'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF6366F1),
+                        foregroundColor: Colors.white,
+                        disabledBackgroundColor: Colors.grey.shade300,
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  if (_filterActive) ...[
+                    const SizedBox(width: 8),
+                    OutlinedButton.icon(
+                      onPressed: _clearFilter,
+                      icon: const Icon(Icons.close, size: 16),
+                      label: const Text('Effacer'),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Colors.red,
+                        side: const BorderSide(color: Colors.red),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 12),
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+              if (_filterActive)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: resultCount > 0 ? const Color(0xFFEEF2FF) : const Color(0xFFFEE2E2),
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          resultCount > 0
+                              ? '$resultCount résultat${resultCount > 1 ? 's' : ''} trouvé${resultCount > 1 ? 's' : ''}'
+                              : 'Aucun résultat',
+                          style: TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.bold,
+                            color: resultCount > 0 ? const Color(0xFF4338CA) : const Color(0xFFDC2626),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+
+        // Toggle Map / List
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          child: Row(
+            children: [
+              _ToggleChip(label: 'Carte', icon: Icons.map, selected: !_showList, onTap: () => setState(() => _showList = false)),
+              const SizedBox(width: 8),
+              _ToggleChip(label: 'Liste', icon: Icons.list, selected: _showList, onTap: () => setState(() => _showList = true)),
+              const Spacer(),
+              Text('${drivers.length} conducteur${drivers.length != 1 ? 's' : ''}',
+                  style: const TextStyle(fontSize: 12, color: Colors.grey)),
+            ],
+          ),
+        ),
+
+        // Map or List
+        Expanded(
+          child: _showList
+              ? _buildListView(drivers)
+              : _buildMapView(drivers),
+        ),
+
+        // Selected driver bottom sheet
+        if (_selectedDriver != null)
+          _buildDriverBottomSheet(),
+      ],
+    );
+  }
+
+  Widget _buildSearchField(
+    TextEditingController ctrl,
+    String placeholder,
+    List<Map<String, String>> suggestions,
+    bool showSugs,
+    void Function(String) onChanged,
+    void Function(Map<String, String>) onSelect,
+    VoidCallback onDismiss,
+  ) {
+    return Column(
+      children: [
+        Container(
+          decoration: BoxDecoration(
+            color: Colors.grey.shade50,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: Colors.grey.shade200),
+          ),
+          child: TextField(
+            controller: ctrl,
+            decoration: InputDecoration(
+              hintText: placeholder,
+              hintStyle: const TextStyle(fontSize: 14),
+              border: InputBorder.none,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              suffixIcon: ctrl.text.isNotEmpty
+                  ? IconButton(
+                      icon: const Icon(Icons.close, size: 18),
+                      onPressed: () { ctrl.clear(); onDismiss(); },
+                    )
+                  : null,
+            ),
+            onChanged: onChanged,
+          ),
+        ),
+        if (showSugs)
+          Container(
+            margin: const EdgeInsets.only(top: 2),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.1), blurRadius: 8)],
+            ),
+            child: Column(
+              children: suggestions.map((s) => InkWell(
+                onTap: () => onSelect(s),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.place, size: 16, color: Colors.grey),
+                      const SizedBox(width: 8),
+                      Expanded(child: Text(s['label'] ?? '', style: const TextStyle(fontSize: 13))),
+                    ],
+                  ),
+                ),
+              )).toList(),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildMapView(List<Map<String, dynamic>> drivers) {
+    final markers = <Marker>[];
+
+    for (final d in drivers) {
+      final lat = (d['current_lat'] as num?)?.toDouble();
+      final lng = (d['current_lng'] as num?)?.toDouble();
+      if (lat == null || lng == null) continue;
+
+      final freshness = d['freshness'] ?? '';
+      final isLive = freshness == 'live' || freshness == 'recent';
+      final seats = d['seats_available'] as int? ?? 0;
+      final hasSeats = seats > 0;
+
+      markers.add(Marker(
+        point: LatLng(lat, lng),
+        width: 50, height: 50,
+        child: GestureDetector(
+          onTap: () => setState(() => _selectedDriver = d),
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Container(
+                width: 40, height: 40,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: isLive ? (hasSeats ? const Color(0xFF10B981) : const Color(0xFF0066FF)) : const Color(0xFF94A3B8),
+                  border: Border.all(color: Colors.white, width: 3),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 6)],
+                ),
+                child: const Icon(Icons.directions_car, size: 20, color: Colors.white),
+              ),
+              if (hasSeats)
+                Positioned(
+                  top: -4, right: -4,
+                  child: Container(
+                    width: 22, height: 22,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: const Color(0xFFF59E0B),
+                      border: Border.all(color: Colors.white, width: 2),
+                    ),
+                    child: Center(
+                      child: Text('$seats', style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ));
+    }
+
+    // Search area circles
+    final circles = <CircleMarker>[];
+    if (_filterActive) {
+      if (_filterFrom != null) {
+        circles.add(CircleMarker(
+          point: _filterFrom!,
+          radius: 60000,
+          useRadiusInMeter: true,
+          color: const Color(0xFF10B981).withValues(alpha: 0.08),
+          borderColor: const Color(0xFF10B981),
+          borderStrokeWidth: 2,
+        ));
+      }
+      if (_filterTo != null) {
+        circles.add(CircleMarker(
+          point: _filterTo!,
+          radius: 60000,
+          useRadiusInMeter: true,
+          color: const Color(0xFF0066FF).withValues(alpha: 0.08),
+          borderColor: const Color(0xFF0066FF),
+          borderStrokeWidth: 2,
+        ));
+      }
+    }
+
+    return FlutterMap(
+      mapController: _mapController,
+      options: const MapOptions(
+        initialCenter: LatLng(46.603354, 1.888334),
+        initialZoom: 6,
+      ),
+      children: [
+        TileLayer(
+          urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+          userAgentPackageName: 'com.checksfleet.app',
+        ),
+        if (circles.isNotEmpty)
+          CircleLayer(circles: circles),
+        if (_filterActive && _filterFrom != null && _filterTo != null)
+          PolylineLayer(polylines: [
+            Polyline(
+              points: [_filterFrom!, _filterTo!],
+              color: const Color(0xFF6366F1).withValues(alpha: 0.4),
+              strokeWidth: 2,
+              isDotted: true,
+            ),
+          ]),
+        MarkerLayer(markers: markers),
+      ],
+    );
+  }
+
+  Widget _buildListView(List<Map<String, dynamic>> drivers) {
+    if (drivers.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             Container(
-              width: 80,
-              height: 80,
-              decoration: BoxDecoration(
-                color: const Color(0xFFE0E7FF),
-                borderRadius: BorderRadius.circular(40),
-              ),
-              child: const Icon(Icons.gps_fixed,
-                  size: 40, color: Color(0xFF6366F1)),
+              width: 80, height: 80,
+              decoration: BoxDecoration(color: const Color(0xFFE0E7FF), borderRadius: BorderRadius.circular(40)),
+              child: const Icon(Icons.gps_fixed, size: 40, color: Color(0xFF6366F1)),
             ),
             const SizedBox(height: 16),
-            const Text('Aucun conducteur sur le réseau',
-                style:
-                    TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text(
-              'Seuls les conducteurs ayant publié\nune offre de place apparaissent ici.',
-              textAlign: TextAlign.center,
-              style: TextStyle(color: Colors.grey),
-            ),
+            const Text('Aucun conducteur trouvé', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            if (_filterActive)
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: TextButton.icon(
+                  onPressed: _clearFilter,
+                  icon: const Icon(Icons.close, size: 16),
+                  label: const Text('Effacer le filtre'),
+                ),
+              ),
           ],
         ),
       );
     }
-
     return RefreshIndicator(
-      onRefresh: onRefresh,
-      child: ListView(
-        padding: const EdgeInsets.all(16),
+      onRefresh: widget.onRefresh,
+      child: ListView.builder(
+        padding: const EdgeInsets.all(12),
+        itemCount: drivers.length,
+        itemBuilder: (_, i) => _LiveDriverCard(driver: drivers[i]),
+      ),
+    );
+  }
+
+  Widget _buildDriverBottomSheet() {
+    final d = _selectedDriver!;
+    final name = '${d['first_name'] ?? ''} ${d['last_name'] ?? ''}'.trim();
+    final company = d['company_name'] ?? '';
+    final seats = d['seats_available'] as int? ?? 0;
+    final freshness = d['freshness'] ?? '';
+
+    return Container(
+      margin: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.15), blurRadius: 16, offset: const Offset(0, -4))],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Live drivers section
-          if (drivers.isNotEmpty) ...[
-            _SectionHeader(
-                title: '🟢 En route maintenant', count: drivers.length),
-            const SizedBox(height: 8),
-            ...drivers.map((d) => _LiveDriverCard(driver: d)),
-            const SizedBox(height: 20),
-          ],
-          // Available offers section
-          if (offers.isNotEmpty) ...[
-            _SectionHeader(
-                title: '🚗 Places disponibles', count: offers.length),
-            const SizedBox(height: 8),
-            ...offers.map((o) => _OfferCard(offer: o, isMine: false)),
-          ],
+          Row(
+            children: [
+              Container(
+                width: 10, height: 10,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: freshness == 'live' ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(child: Text(name.isNotEmpty ? name : 'Conducteur',
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+              if (seats > 0)
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(color: const Color(0xFFD1FAE5), borderRadius: BorderRadius.circular(12)),
+                  child: Text('$seats place${seats > 1 ? 's' : ''}',
+                      style: const TextStyle(color: Color(0xFF059669), fontWeight: FontWeight.bold, fontSize: 12)),
+                ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => setState(() => _selectedDriver = null),
+                child: const Icon(Icons.close, size: 20, color: Colors.grey),
+              ),
+            ],
+          ),
+          if (company.isNotEmpty) Text(company, style: const TextStyle(color: Colors.grey, fontSize: 13)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(Icons.place, size: 14, color: Color(0xFF10B981)),
+              const SizedBox(width: 4),
+              Text(d['pickup_city'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+              const SizedBox(width: 4),
+              const Icon(Icons.arrow_forward, size: 12, color: Colors.grey),
+              const SizedBox(width: 4),
+              const Icon(Icons.place, size: 14, color: Color(0xFFEF4444)),
+              const SizedBox(width: 4),
+              Flexible(child: Text(d['delivery_city'] ?? '', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13))),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Text('${d['vehicle_brand'] ?? ''} ${d['vehicle_model'] ?? ''} · ${d['reference'] ?? ''}',
+              style: const TextStyle(color: Colors.grey, fontSize: 12)),
         ],
+      ),
+    );
+  }
+}
+
+class _ToggleChip extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+  const _ToggleChip({required this.label, required this.icon, required this.selected, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: selected ? const Color(0xFF6366F1) : Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 16, color: selected ? Colors.white : Colors.grey),
+            const SizedBox(width: 6),
+            Text(label, style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600,
+                color: selected ? Colors.white : Colors.grey.shade600)),
+          ],
+        ),
       ),
     );
   }
@@ -898,6 +1391,7 @@ class _OffersTab extends StatelessWidget {
   final List<Map<String, dynamic>> myOffers;
   final List<Map<String, dynamic>> allOffers;
   final Future<void> Function(String) onDelete;
+  final Future<void> Function(String, String) onTogglePause;
   final VoidCallback onCreate;
   final Future<void> Function() onRefresh;
 
@@ -905,6 +1399,7 @@ class _OffersTab extends StatelessWidget {
     required this.myOffers,
     required this.allOffers,
     required this.onDelete,
+    required this.onTogglePause,
     required this.onCreate,
     required this.onRefresh,
   });
@@ -965,7 +1460,8 @@ class _OffersTab extends StatelessWidget {
                 title: '🚗 Mes offres', count: myOffers.length),
             const SizedBox(height: 8),
             ...myOffers.map((o) => _OfferCard(
-                offer: o,
+                offer: o,,
+                onTogglePause: () => onTogglePause(o['id'], o['status'] ?? 'active')
                 isMine: true,
                 onDelete: () => onDelete(o['id']))),
             const SizedBox(height: 20),
@@ -990,11 +1486,13 @@ class _OfferCard extends StatelessWidget {
   final Map<String, dynamic> offer;
   final bool isMine;
   final VoidCallback? onDelete;
+  final VoidCallback? onTogglePause;
 
   const _OfferCard({
     required this.offer,
     required this.isMine,
     this.onDelete,
+    this.onTogglePause,
   });
 
   @override
@@ -1138,6 +1636,16 @@ class _OfferCard extends StatelessWidget {
               Row(
                 mainAxisAlignment: MainAxisAlignment.end,
                 children: [
+                  if (onTogglePause != null)
+                    Padding(
+                      padding: const EdgeInsets.only(right: 8),
+                      child: _ActionChip(
+                        icon: status == 'paused' ? Icons.play_arrow : Icons.pause,
+                        label: status == 'paused' ? 'Réactiver' : 'Pause',
+                        color: status == 'paused' ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+                        onTap: onTogglePause!,
+                      ),
+                    ),
                   _ActionChip(
                     icon: Icons.delete_outline,
                     label: 'Supprimer',
@@ -1586,6 +2094,10 @@ class _MatchesTabState extends State<_MatchesTab> {
           final status = m['status'] ?? 'proposed';
           final isProposed = status == 'proposed';
           final isAccepted = status == 'accepted';
+          final isInTransit = status == 'in_transit';
+          final isCompleted = status == 'completed';
+          final isCancelled = status == 'cancelled';
+          final isDeclined = status == 'declined';
           final isDriver = m['driver_id'] == widget.userId;
 
           final otherId =
@@ -1605,10 +2117,14 @@ class _MatchesTabState extends State<_MatchesTab> {
               side: BorderSide(
                 color: isProposed
                     ? const Color(0xFFFCD34D)
-                    : (isAccepted
-                        ? const Color(0xFF6EE7B7)
-                        : Colors.grey.shade200),
-                width: isProposed || isAccepted ? 2 : 1,
+                    : isInTransit
+                        ? const Color(0xFF818CF8)
+                        : isCompleted
+                            ? const Color(0xFFA78BFA)
+                            : (isAccepted
+                                ? const Color(0xFF6EE7B7)
+                                : Colors.grey.shade200),
+                width: isProposed || isAccepted || isInTransit ? 2 : 1,
               ),
             ),
             elevation: isProposed ? 4 : 1,
@@ -1825,7 +2341,75 @@ class _MatchesTabState extends State<_MatchesTab> {
                   ),
                   const SizedBox(height: 14),
 
-                  // Actions
+                  // Status badges
+                  if (isInTransit)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF2FF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.navigation, size: 14, color: Color(0xFF6366F1)),
+                          SizedBox(width: 6),
+                          Text('En cours de trajet...', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF6366F1))),
+                        ],
+                      ),
+                    ),
+                  if (isCompleted)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF3E8FF),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.emoji_events, size: 14, color: Color(0xFF8B5CF6)),
+                          SizedBox(width: 6),
+                          Text('Trajet terminé', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFF8B5CF6))),
+                        ],
+                      ),
+                    ),
+                  if (isCancelled)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.cancel, size: 14, color: Color(0xFFD97706)),
+                          SizedBox(width: 6),
+                          Text('Annulé', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFD97706))),
+                        ],
+                      ),
+                    ),
+                  if (isDeclined)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEE2E2),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(Icons.block, size: 14, color: Color(0xFFDC2626)),
+                          SizedBox(width: 6),
+                          Text('Décliné', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: Color(0xFFDC2626))),
+                        ],
+                      ),
+                    ),
+                  if (isInTransit || isCompleted || isCancelled || isDeclined)
+                    const SizedBox(height: 14),
+
+                  // Actions — Proposed
                   if (isProposed && !isDriver)
                     Row(
                       mainAxisAlignment: MainAxisAlignment.end,
@@ -1859,7 +2443,103 @@ class _MatchesTabState extends State<_MatchesTab> {
                         ),
                       ],
                     ),
-                  if (isAccepted)
+
+                  // Actions — Accepted
+                  if (isAccepted) ...[
+                    if (isDriver)
+                      ElevatedButton.icon(
+                        onPressed: () =>
+                            widget.onRespond(m['id'], 'in_transit'),
+                        icon: const Icon(Icons.navigation, size: 16),
+                        label: const Text('Démarrer le trajet'),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: const Color(0xFF6366F1),
+                          foregroundColor: Colors.white,
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12)),
+                          minimumSize: const Size(double.infinity, 42),
+                        ),
+                      ),
+                    if (isDriver) const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => _RideChatScreen(
+                                    matchId: m['id'],
+                                    otherUserName: otherName,
+                                    otherUserCompany: profile?['company_name'] ?? '',
+                                    otherUserPhone: profile?['phone'] ?? '',
+                                    otherUserEmail: profile?['email'] ?? '',
+                                    pickupCity: m['pickup_city'],
+                                    dropoffCity: m['dropoff_city'],
+                                  ),
+                                ),
+                              );
+                            },
+                            icon: const Icon(Icons.chat_bubble_rounded, size: 16),
+                            label: const Text('Discuter'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: const Color(0xFF6366F1),
+                              foregroundColor: Colors.white,
+                              shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            showDialog(
+                              context: context,
+                              builder: (ctx) => AlertDialog(
+                                title: const Text('Annuler le trajet ?'),
+                                content: const Text('Cette action est irréversible. La place sera restituée.'),
+                                actions: [
+                                  TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Non')),
+                                  TextButton(
+                                    onPressed: () { Navigator.pop(ctx); widget.onRespond(m['id'], 'cancelled'); },
+                                    child: const Text('Oui, annuler', style: TextStyle(color: Colors.red)),
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                          icon: const Icon(Icons.close, size: 16),
+                          label: const Text('Annuler'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            side: const BorderSide(color: Colors.red),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12)),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+
+                  // Actions — In Transit
+                  if (isInTransit) ...[
+                    ElevatedButton.icon(
+                      onPressed: () {
+                        widget.onRespond(m['id'], 'completed');
+                        _showRatingDialog(context, m, isDriver);
+                      },
+                      icon: const Icon(Icons.check_circle, size: 16),
+                      label: const Text('Terminer le trajet'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF10B981),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        minimumSize: const Size(double.infinity, 42),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
                     ElevatedButton.icon(
                       onPressed: () {
                         Navigator.push(
@@ -1868,23 +2548,36 @@ class _MatchesTabState extends State<_MatchesTab> {
                             builder: (_) => _RideChatScreen(
                               matchId: m['id'],
                               otherUserName: otherName,
-                              otherUserCompany:
-                                  profile?['company_name'] ?? '',
-                              otherUserPhone:
-                                  profile?['phone'] ?? '',
-                              otherUserEmail:
-                                  profile?['email'] ?? '',
+                              otherUserCompany: profile?['company_name'] ?? '',
+                              otherUserPhone: profile?['phone'] ?? '',
+                              otherUserEmail: profile?['email'] ?? '',
                               pickupCity: m['pickup_city'],
                               dropoffCity: m['dropoff_city'],
                             ),
                           ),
                         );
                       },
-                      icon: const Icon(Icons.chat_bubble_rounded,
-                          size: 16),
+                      icon: const Icon(Icons.chat_bubble_rounded, size: 16),
                       label: const Text('Discuter'),
                       style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6366F1),
+                        backgroundColor: const Color(0xFF6366F1).withValues(alpha: 0.15),
+                        foregroundColor: const Color(0xFF6366F1),
+                        elevation: 0,
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12)),
+                        minimumSize: const Size(double.infinity, 42),
+                      ),
+                    ),
+                  ],
+
+                  // Actions — Completed (rate)
+                  if (isCompleted)
+                    ElevatedButton.icon(
+                      onPressed: () => _showRatingDialog(context, m, isDriver),
+                      icon: const Icon(Icons.star, size: 16),
+                      label: const Text('Noter le trajet'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFF59E0B),
                         foregroundColor: Colors.white,
                         shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12)),
@@ -1896,6 +2589,134 @@ class _MatchesTabState extends State<_MatchesTab> {
             ),
           );
         },
+      ),
+    );
+  }
+
+  void _showRatingDialog(BuildContext context, Map<String, dynamic> match, bool isDriver) {
+    int stars = 5;
+    final badges = <String>[];
+    final commentCtrl = TextEditingController();
+    final badgeOptions = [
+      {'id': 'punctual', 'label': '⏰ Ponctuel'},
+      {'id': 'friendly', 'label': '😊 Sympathique'},
+      {'id': 'safe_driver', 'label': '🛡️ Conduite sûre'},
+      {'id': 'clean_vehicle', 'label': '✨ Véhicule propre'},
+      {'id': 'good_communication', 'label': '💬 Bonne com.'},
+    ];
+
+    showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: Column(
+            children: [
+              Container(
+                width: 56, height: 56,
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(28),
+                ),
+                child: const Icon(Icons.star, size: 32, color: Color(0xFFF59E0B)),
+              ),
+              const SizedBox(height: 12),
+              const Text('Noter ce trajet', textAlign: TextAlign.center),
+            ],
+          ),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Stars
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: List.generate(5, (i) => GestureDetector(
+                    onTap: () => setDialogState(() => stars = i + 1),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: Icon(
+                        i < stars ? Icons.star : Icons.star_border,
+                        size: 36,
+                        color: i < stars ? const Color(0xFFF59E0B) : Colors.grey.shade300,
+                      ),
+                    ),
+                  )),
+                ),
+                const SizedBox(height: 16),
+                // Badges
+                Wrap(
+                  spacing: 8, runSpacing: 8,
+                  children: badgeOptions.map((b) {
+                    final selected = badges.contains(b['id']);
+                    return GestureDetector(
+                      onTap: () => setDialogState(() {
+                        if (selected) badges.remove(b['id']); else badges.add(b['id']!);
+                      }),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: selected ? const Color(0xFFEEF2FF) : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                          border: Border.all(color: selected ? const Color(0xFF6366F1) : Colors.transparent, width: 2),
+                        ),
+                        child: Text(b['label']!, style: TextStyle(
+                          fontSize: 12, fontWeight: FontWeight.w600,
+                          color: selected ? const Color(0xFF6366F1) : Colors.grey.shade600,
+                        )),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                TextField(
+                  controller: commentCtrl,
+                  decoration: InputDecoration(
+                    hintText: 'Commentaire (optionnel)',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  ),
+                  maxLines: 2,
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Plus tard'),
+            ),
+            ElevatedButton.icon(
+              onPressed: () async {
+                final supabase = Supabase.instance.client;
+                final userId = supabase.auth.currentUser?.id;
+                if (userId == null) return;
+                final ratedId = isDriver ? match['passenger_id'] : match['driver_id'];
+                await supabase.from('ride_ratings').upsert({
+                  'match_id': match['id'],
+                  'rater_id': userId,
+                  'rated_id': ratedId,
+                  'rating': stars,
+                  'badges': badges,
+                  'comment': commentCtrl.text.isEmpty ? null : commentCtrl.text,
+                }, onConflict: 'match_id,rater_id');
+                if (ctx.mounted) Navigator.pop(ctx);
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('⭐ Merci pour votre note !'), backgroundColor: Color(0xFFF59E0B)),
+                  );
+                }
+              },
+              icon: const Icon(Icons.star, size: 16),
+              label: const Text('Envoyer'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: const Color(0xFFF59E0B),
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2114,21 +2935,36 @@ class _RideChatScreenState extends State<_RideChatScreen> {
               ],
             ),
             const SizedBox(height: 20),
-            if (widget.otherUserPhone.isNotEmpty)
+            if (widget.otherUserPhone.isNotEmpty) ...[
               ListTile(
                 leading: const Icon(Icons.phone,
                     color: Color(0xFF10B981)),
                 title: Text(widget.otherUserPhone),
-                subtitle: const Text('Téléphone'),
+                subtitle: const Text('Appeler'),
                 contentPadding: EdgeInsets.zero,
+                onTap: () => launchUrl(Uri.parse('tel:${widget.otherUserPhone}')),
               ),
+              ListTile(
+                leading: const Icon(Icons.chat,
+                    color: Color(0xFF25D366)),
+                title: const Text('WhatsApp'),
+                subtitle: Text(widget.otherUserPhone),
+                contentPadding: EdgeInsets.zero,
+                onTap: () {
+                  final phone = widget.otherUserPhone.replaceAll(RegExp(r'[^0-9+]'), '');
+                  final waPhone = phone.startsWith('+') ? phone.substring(1) : (phone.startsWith('0') ? '33${phone.substring(1)}' : phone);
+                  launchUrl(Uri.parse('https://wa.me/$waPhone'), mode: LaunchMode.externalApplication);
+                },
+              ),
+            ],
             if (widget.otherUserEmail.isNotEmpty)
               ListTile(
                 leading: const Icon(Icons.email,
                     color: Color(0xFF3B82F6)),
                 title: Text(widget.otherUserEmail),
-                subtitle: const Text('Email'),
+                subtitle: const Text('Envoyer un email'),
                 contentPadding: EdgeInsets.zero,
+                onTap: () => launchUrl(Uri.parse('mailto:${widget.otherUserEmail}')),
               ),
             const SizedBox(height: 12),
           ],
@@ -3515,7 +4351,22 @@ class _StatusBadge extends StatelessWidget {
     switch (status) {
       case 'active':
         bg = const Color(0xFFD1FAE5);
+        fg =paused':
+        bg = const Color(0xFFFEF3C7);
+        fg = const Color(0xFFD97706);
+        label = '⏸ En pause';
+        break;
+      case 'in_transit':
+        bg = const Color(0xFFEEF2FF);
+        fg = const Color(0xFF6366F1);
+        label = 'En trajet';
+        break;
+      case 'matched':
+        bg = const Color(0xFFD1FAE5);
         fg = const Color(0xFF059669);
+        label = 'Matché';
+        break;
+      case ' const Color(0xFF059669);
         label = 'Active';
         break;
       case 'en_route':
