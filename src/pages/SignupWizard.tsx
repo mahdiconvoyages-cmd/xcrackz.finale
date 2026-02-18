@@ -63,6 +63,14 @@ export default function SignupWizard() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
+  /* -- Phone verification state -- */
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [verificationId, setVerificationId] = useState('');
+  const [otpCode, setOtpCode] = useState('');
+  const [otpSending, setOtpSending] = useState(false);
+  const [otpTimer, setOtpTimer] = useState(0);
+  const otpTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
   const [form, setForm] = useState<SignupData>({
     userType: '',
     fullName: '',
@@ -93,9 +101,13 @@ export default function SignupWizard() {
         if (!emailV.isValid) { setError(emailV.error || 'Email invalide'); return false; }
         const emailAvail = await validationService.checkEmailAvailability(form.email);
         if (!emailAvail.isValid) { setError(emailAvail.error || 'Email deja utilise'); return false; }
-        if (form.phone && form.phone.trim()) {
-          const phoneV = validationService.validatePhone(form.phone);
-          if (!phoneV.isValid) { setError(phoneV.error || 'Telephone invalide'); return false; }
+        if (!form.phone || !form.phone.trim()) {
+          setError('Le numero de telephone est requis'); return false;
+        }
+        const phoneV = validationService.validatePhone(form.phone);
+        if (!phoneV.isValid) { setError(phoneV.error || 'Telephone invalide'); return false; }
+        if (!phoneVerified) {
+          setError('Veuillez verifier votre numero de telephone par SMS'); return false;
         }
         if (form.password.length < 6) { setError('Le mot de passe doit contenir au moins 6 caracteres'); return false; }
         if (form.password !== form.confirmPassword) { setError('Les mots de passe ne correspondent pas'); return false; }
@@ -137,6 +149,71 @@ export default function SignupWizard() {
     return supabase.storage.from('avatars').getPublicUrl(`${path}/${name}`).data.publicUrl;
   };
 
+  /* -- Phone OTP -- */
+  const startOtpTimer = () => {
+    setOtpTimer(60);
+    if (otpTimerRef.current) clearInterval(otpTimerRef.current);
+    otpTimerRef.current = setInterval(() => {
+      setOtpTimer(prev => {
+        if (prev <= 1) {
+          if (otpTimerRef.current) clearInterval(otpTimerRef.current);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+  };
+
+  const handleSendOtp = async () => {
+    setError('');
+    if (!form.phone || !form.phone.trim()) {
+      setError('Entrez votre numero de telephone');
+      return;
+    }
+    const phoneV = validationService.validatePhone(form.phone);
+    if (!phoneV.isValid) { setError(phoneV.error || 'Telephone invalide'); return; }
+
+    setOtpSending(true);
+    try {
+      const res = await supabase.functions.invoke('verify-phone', {
+        body: { action: 'send', phone: form.phone },
+      });
+      if (res.error) throw new Error(res.error.message || 'Erreur envoi SMS');
+      const data = res.data as any;
+      if (!data?.success) throw new Error(data?.error || 'Erreur envoi SMS');
+      setVerificationId(data.verification_id);
+      startOtpTimer();
+    } catch (err: any) {
+      setError(err.message || 'Impossible d\'envoyer le SMS');
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
+  const handleVerifyOtp = async () => {
+    setError('');
+    if (!otpCode || otpCode.length !== 6) {
+      setError('Entrez le code a 6 chiffres recu par SMS');
+      return;
+    }
+    setOtpSending(true);
+    try {
+      const res = await supabase.functions.invoke('verify-phone', {
+        body: { action: 'verify', verification_id: verificationId, code: otpCode },
+      });
+      if (res.error) throw new Error(res.error.message || 'Erreur verification');
+      const data = res.data as any;
+      if (!data?.success) throw new Error(data?.error || 'Code incorrect');
+      setPhoneVerified(true);
+      if (otpTimerRef.current) clearInterval(otpTimerRef.current);
+      setOtpTimer(0);
+    } catch (err: any) {
+      setError(err.message || 'Code incorrect');
+    } finally {
+      setOtpSending(false);
+    }
+  };
+
   /* -- Submit -- */
   const handleSubmit = async () => {
     setLoading(true);
@@ -155,6 +232,7 @@ export default function SignupWizard() {
           data: {
             full_name: form.fullName,
             phone: form.phone || null,
+            phone_verified: phoneVerified,
             user_type: form.userType,
             avatar_url: avatarUrl || null,
             device_fingerprint: deviceFingerprint,
@@ -359,20 +437,96 @@ export default function SignupWizard() {
             />
           </div>
 
-          {/* Phone */}
+          {/* Phone + OTP Verification */}
           <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: T.textPrimary }}>
-              Telephone <span className="text-xs font-normal" style={{ color: T.textTertiary }}>(optionnel)</span>
+              Telephone <span className="text-red-500">*</span>
             </label>
-            <input
-              type="tel"
-              value={form.phone}
-              onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
-              placeholder="06 12 34 56 78"
-              className={inputCls}
-              style={inputStyle}
-            />
+            <div className="flex gap-2">
+              <input
+                type="tel"
+                value={form.phone}
+                onChange={e => {
+                  setForm(p => ({ ...p, phone: e.target.value }));
+                  setPhoneVerified(false);
+                  setVerificationId('');
+                  setOtpCode('');
+                }}
+                placeholder="06 12 34 56 78"
+                className={inputCls + " flex-1"}
+                style={{
+                  ...inputStyle,
+                  borderColor: phoneVerified ? '#10B981' : inputStyle.borderColor,
+                }}
+                disabled={phoneVerified}
+              />
+              {!phoneVerified && (
+                <button
+                  type="button"
+                  onClick={handleSendOtp}
+                  disabled={otpSending || otpTimer > 0 || !form.phone.trim()}
+                  className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-40 whitespace-nowrap"
+                  style={{ backgroundColor: T.primaryTeal }}
+                >
+                  {otpSending ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : otpTimer > 0 ? (
+                    `${otpTimer}s`
+                  ) : verificationId ? (
+                    'Renvoyer'
+                  ) : (
+                    'Verifier'
+                  )}
+                </button>
+              )}
+            </div>
+            {phoneVerified && (
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+                <span className="text-xs font-medium text-emerald-600">Numero verifie</span>
+              </div>
+            )}
           </div>
+
+          {/* OTP Input — visible when code sent but not yet verified */}
+          {verificationId && !phoneVerified && (
+            <div className="rounded-xl p-4" style={{ backgroundColor: '#F0FDFA', border: '1px solid #99F6E4' }}>
+              <p className="text-sm font-medium mb-2" style={{ color: T.textPrimary }}>
+                Code de verification envoye par SMS
+              </p>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={6}
+                  value={otpCode}
+                  onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="000000"
+                  className="flex-1 rounded-xl px-4 py-3 text-center text-lg font-bold tracking-[0.5em] outline-none border focus:border-[#14B8A6] focus:ring-2 focus:ring-[#14B8A6]/20"
+                  style={{ backgroundColor: '#fff', borderColor: T.borderDefault, color: T.textPrimary }}
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={handleVerifyOtp}
+                  disabled={otpSending || otpCode.length !== 6}
+                  className="px-5 py-2 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40"
+                  style={{ backgroundColor: T.accentGreen }}
+                >
+                  {otpSending ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    'Valider'
+                  )}
+                </button>
+              </div>
+              <p className="text-xs mt-2" style={{ color: T.textTertiary }}>
+                Entrez le code a 6 chiffres recu par SMS
+              </p>
+            </div>
+          )}
 
           {/* Password */}
           <div>
@@ -494,6 +648,12 @@ export default function SignupWizard() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
                 <span className="text-sm" style={{ color: T.textPrimary }}>{form.phone}</span>
+                {phoneVerified && (
+                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
+                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                    Verifie
+                  </span>
+                )}
               </div>
             )}
           </div>
