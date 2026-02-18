@@ -1095,12 +1095,12 @@ class _LiveTabState extends State<_LiveTab> {
         if (circles.isNotEmpty)
           CircleLayer(circles: circles),
         if (_filterActive && _filterFrom != null && _filterTo != null)
-          PolylineLayer(polylines: [
+          PolylineLayer(polylines: <Polyline>[
             Polyline(
               points: [_filterFrom!, _filterTo!],
               color: const Color(0xFF6366F1).withValues(alpha: 0.4),
               strokeWidth: 2,
-              isDotted: true,
+              pattern: StrokePattern.dashed(segments: [10, 8]),
             ),
           ]),
         MarkerLayer(markers: markers),
@@ -1460,8 +1460,8 @@ class _OffersTab extends StatelessWidget {
                 title: '🚗 Mes offres', count: myOffers.length),
             const SizedBox(height: 8),
             ...myOffers.map((o) => _OfferCard(
-                offer: o,,
-                onTogglePause: () => onTogglePause(o['id'], o['status'] ?? 'active')
+                offer: o,
+                onTogglePause: () => onTogglePause(o['id'], o['status'] ?? 'active'),
                 isMine: true,
                 onDelete: () => onDelete(o['id']))),
             const SizedBox(height: 20),
@@ -4351,7 +4351,10 @@ class _StatusBadge extends StatelessWidget {
     switch (status) {
       case 'active':
         bg = const Color(0xFFD1FAE5);
-        fg =paused':
+        fg = const Color(0xFF059669);
+        label = 'Active';
+        break;
+      case 'paused':
         bg = const Color(0xFFFEF3C7);
         fg = const Color(0xFFD97706);
         label = '⏸ En pause';
@@ -4365,9 +4368,6 @@ class _StatusBadge extends StatelessWidget {
         bg = const Color(0xFFD1FAE5);
         fg = const Color(0xFF059669);
         label = 'Matché';
-        break;
-      case ' const Color(0xFF059669);
-        label = 'Active';
         break;
       case 'en_route':
         bg = const Color(0xFFDBEAFE);
