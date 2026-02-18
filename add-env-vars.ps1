@@ -5,7 +5,7 @@ Write-Host "🔧 Ajout des variables d'environnement Vercel`n" -ForegroundColor 
 
 # VITE_SUPABASE_ANON_KEY
 Write-Host "→ VITE_SUPABASE_ANON_KEY" -ForegroundColor Gray
-echo "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJmcmt0aHpvdndwanJ2cWt0ZGpuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTk5NzgwNzgsImV4cCI6MjA3NTU1NDA3OH0.ml0TkLYk53U6CqP_iCc8XkZMusFCSI-nYOS0WyV43Nc" | vercel env add VITE_SUPABASE_ANON_KEY production --token=$TOKEN
+echo "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxcnVsZ2thdnR6dW1tYnN4c29rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMTc5OTAsImV4cCI6MjA3NTY5Mzk5MH0.HyY4qR7OLsadOnwITmdn1tAiKyN7AVuNLcuVpLaQfKM" | vercel env add VITE_SUPABASE_ANON_KEY production --token=$TOKEN
 
 # VITE_DEEPSEEK_API_KEY
 Write-Host "→ VITE_DEEPSEEK_API_KEY" -ForegroundColor Gray
