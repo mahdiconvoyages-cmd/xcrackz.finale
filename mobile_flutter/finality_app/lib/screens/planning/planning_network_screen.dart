@@ -686,12 +686,12 @@ class _LiveTab extends StatelessWidget {
                   size: 40, color: Color(0xFF6366F1)),
             ),
             const SizedBox(height: 16),
-            const Text('Aucun conducteur en route',
+            const Text('Aucun conducteur sur le réseau',
                 style:
                     TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
             const SizedBox(height: 8),
             const Text(
-              'Les conducteurs actifs apparaîtront ici\nen temps réel.',
+              'Seuls les conducteurs ayant publié\nune offre de place apparaissent ici.',
               textAlign: TextAlign.center,
               style: TextStyle(color: Colors.grey),
             ),

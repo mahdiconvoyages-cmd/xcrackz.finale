@@ -571,12 +571,12 @@ SELECT
 FROM mission_tracking_live mtl
 INNER JOIN missions m ON m.id = mtl.mission_id
 INNER JOIN profiles p ON p.id = mtl.user_id
-LEFT JOIN ride_offers ro ON ro.mission_id = mtl.mission_id AND ro.status IN ('active', 'en_route')
+INNER JOIN ride_offers ro ON ro.mission_id = mtl.mission_id AND ro.status IN ('active', 'en_route')
 WHERE mtl.is_active = true
   AND m.status = 'in_progress'
 ORDER BY mtl.last_update DESC;
 
-COMMENT ON VIEW active_drivers_on_road IS 'Tous les conducteurs actuellement en route avec position GPS live, infos mission et offre de place';
+COMMENT ON VIEW active_drivers_on_road IS 'Conducteurs en route ayant publié une offre de place — seuls les convoyeurs inscrits au réseau planning apparaissent';
 
 
 -- =============================================================================
