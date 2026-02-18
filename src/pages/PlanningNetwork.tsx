@@ -373,20 +373,14 @@ export default function PlanningNetwork() {
               setSearchTo={setSearchTo}
               selectedDriver={selectedDriver}
               setSelectedDriver={setSelectedDriver}
-              on// Open requestasync (driver) => {
-                // Geocode the driver's route cities → open request modal pre-filled
+              onContactDriver={async (driver) => {
                 const fromGeo = driver.pickup_city ? await geocodeCity(driver.pickup_city) : [];
                 const toGeo = driver.delivery_city ? await geocodeCity(driver.delivery_city) : [];
                 setContactDriverData({
                   from: fromGeo.length > 0 ? { city: fromGeo[0].city, lat: fromGeo[0].lat, lng: fromGeo[0].lng } : undefined,
                   to: toGeo.length > 0 ? { city: toGeo[0].city, lat: toGeo[0].lat, lng: toGeo[0].lng } : undefined,
                 });
-                setShowCreateRequest(true
-                  from: driver.pickup_city ? { city: driver.pickup_city, lat: driver.current_lat, lng: driver.current_lng } : undefined,
-                  to: driver.delivery_city ? { city: driver.delivery_city, lat: driver.current_lat, lng: driver.current_lng } : undefined,
-                });
-                setShowCreateRequest(true) => {
-                setActiveTab('matches');
+                setShowCreateRequest(true);
               }}
             />
           )}
