@@ -1,6 +1,6 @@
 // @ts-nocheck - Supabase generated types are outdated, all operations work correctly at runtime
 // Mes Convoyages — DESIGN IDENTIQUE AU FLUTTER PremiumTheme
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { 
   Users, MapPin, Plus, X, Search, Truck, Package, 
   TrendingUp, Calendar, Eye, Edit, Trash2, Play, CheckCircle, 
@@ -250,31 +250,61 @@ export default function TeamMissions() {
   }
 
   /* ═══════════════════════════════════════════
-     RENDER — Flutter PremiumTheme Design
+     RENDER — Desktop-optimized + Mobile compatible
      ═══════════════════════════════════════════ */
   return (
     <div className="min-h-screen" style={{ backgroundColor: T.lightBg }}>
-      {/* ── Sticky AppBar (identique Flutter) ── */}
+      {/* ── Sticky AppBar ── */}
       <div className="sticky top-0 z-30 bg-white shadow-sm">
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between">
-          <h1 className="text-lg lg:text-xl font-bold" style={{ color: T.textPrimary }}>Mes Convoyages</h1>
-          <div className="flex items-center gap-2">
+          <div>
+            <h1 className="text-lg lg:text-2xl font-bold" style={{ color: T.textPrimary }}>Mes Convoyages</h1>
+            <p className="hidden lg:block text-sm mt-0.5" style={{ color: T.textSecondary }}>{missions.length} mission{missions.length > 1 ? 's' : ''} au total</p>
+          </div>
+          <div className="flex items-center gap-2 lg:gap-3">
             <button onClick={() => setShowJoinModal(true)}
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold transition"
+              className="flex items-center gap-1.5 px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-sm font-semibold transition hover:shadow-sm"
               style={{ backgroundColor: `${T.primaryBlue}0D`, color: T.primaryBlue }}>
-              <LogIn className="w-4 h-4" /> Rejoindre
+              <LogIn className="w-4 h-4" /> <span className="hidden sm:inline">Rejoindre</span>
             </button>
             <Link to="/missions/create"
-              className="flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-semibold text-white transition"
+              className="flex items-center gap-1.5 px-3 lg:px-5 py-2 lg:py-2.5 rounded-xl text-sm font-semibold text-white transition hover:shadow-md"
               style={{ backgroundColor: T.primaryTeal }}>
-              <Plus className="w-4 h-4" /> Nouvelle
+              <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Nouvelle mission</span><span className="sm:hidden">Nouvelle</span>
             </Link>
           </div>
         </div>
 
-        {/* ── 3 Tabs (identique Flutter) ── */}
-        <div className="max-w-7xl mx-auto px-4 lg:px-8 pb-3">
-          <div className="flex gap-2">
+        {/* ── Desktop stats cards + Tabs ── */}
+        <div className="max-w-7xl mx-auto px-4 lg:px-8 pb-3 lg:pb-4">
+          {/* Desktop: horizontal stat cards */}
+          <div className="hidden lg:grid grid-cols-3 gap-4 mb-0">
+            {([
+              { key: 'pending' as TabType, label: 'En attente', count: stats.pending, color: T.accentAmber, icon: Clock, desc: 'Missions à démarrer' },
+              { key: 'in_progress' as TabType, label: 'En cours', count: stats.inProgress, color: T.primaryBlue, icon: TrendingUp, desc: 'Missions actives' },
+              { key: 'completed' as TabType, label: 'Terminées', count: stats.completed, color: T.accentGreen, icon: CheckCircle, desc: 'Missions complétées' },
+            ]).map(tab => {
+              const active = activeTab === tab.key;
+              return (
+                <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+                  className="flex items-center gap-4 p-4 rounded-2xl text-left transition-all hover:shadow-md"
+                  style={active
+                    ? { backgroundColor: '#FFF', boxShadow: `0 0 0 2px ${tab.color}60, 0 4px 12px ${tab.color}15`, border: `1px solid ${tab.color}30` }
+                    : { backgroundColor: '#FFF', border: `1px solid ${T.borderDefault}` }}>
+                  <div className="p-3 rounded-xl shrink-0" style={{ backgroundColor: active ? `${tab.color}15` : T.fieldBg }}>
+                    <tab.icon className="w-6 h-6" style={{ color: active ? tab.color : T.textTertiary }} />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-2xl font-bold" style={{ color: active ? tab.color : T.textPrimary }}>{tab.count}</p>
+                    <p className="text-sm font-semibold" style={{ color: active ? tab.color : T.textSecondary }}>{tab.label}</p>
+                    <p className="text-xs mt-0.5" style={{ color: T.textTertiary }}>{tab.desc}</p>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          {/* Mobile: compact tabs */}
+          <div className="flex gap-2 lg:hidden">
             {([
               { key: 'pending' as TabType, label: 'En attente', count: stats.pending, color: T.accentAmber, icon: Clock },
               { key: 'in_progress' as TabType, label: 'En cours', count: stats.inProgress, color: T.primaryBlue, icon: TrendingUp },
@@ -283,7 +313,7 @@ export default function TeamMissions() {
               const active = activeTab === tab.key;
               return (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                  className="flex-1 flex flex-col items-center gap-1.5 py-2.5 lg:py-3 rounded-xl text-xs lg:text-sm font-semibold transition-all"
+                  className="flex-1 flex flex-col items-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold transition-all"
                   style={active
                     ? { backgroundColor: `${tab.color}15`, color: tab.color, boxShadow: `0 0 0 1.5px ${tab.color}40` }
                     : { color: T.textTertiary }}>
@@ -305,45 +335,47 @@ export default function TeamMissions() {
       </div>
 
       {/* ── Content ── */}
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 space-y-3 lg:space-y-4">
-        {/* Join bar (identique Flutter) */}
-        <div className="rounded-2xl p-3 flex items-center gap-3" style={{ backgroundColor: `${T.primaryBlue}08`, border: `1px solid ${T.primaryBlue}20` }}>
-          <div className="p-2 rounded-xl" style={{ backgroundColor: `${T.primaryBlue}15` }}>
-            <LogIn className="w-5 h-5" style={{ color: T.primaryBlue }} />
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 space-y-3 lg:space-y-5">
+        {/* Join bar */}
+        <div className="rounded-2xl p-3 lg:p-4 flex items-center gap-3" style={{ backgroundColor: `${T.primaryBlue}08`, border: `1px solid ${T.primaryBlue}20` }}>
+          <div className="p-2 lg:p-3 rounded-xl" style={{ backgroundColor: `${T.primaryBlue}15` }}>
+            <LogIn className="w-5 h-5 lg:w-6 lg:h-6" style={{ color: T.primaryBlue }} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm font-semibold" style={{ color: T.textPrimary }}>Rejoindre une mission</p>
-            <p className="text-xs" style={{ color: T.textSecondary }}>Entrez le code reçu</p>
+            <p className="text-sm lg:text-base font-semibold" style={{ color: T.textPrimary }}>Rejoindre une mission</p>
+            <p className="text-xs lg:text-sm" style={{ color: T.textSecondary }}>Entrez le code reçu par le donneur d'ordre</p>
           </div>
           <button onClick={() => setShowJoinModal(true)}
-            className="px-4 py-2 rounded-xl text-sm font-semibold text-white shrink-0"
+            className="px-4 lg:px-6 py-2 lg:py-2.5 rounded-xl text-sm font-semibold text-white shrink-0 hover:shadow-md transition"
             style={{ backgroundColor: T.primaryBlue }}>
-            <UserPlus className="w-4 h-4" />
+            <span className="hidden lg:inline">Rejoindre</span>
+            <UserPlus className="w-4 h-4 lg:hidden" />
           </button>
         </div>
 
         {/* Toolbar */}
-        <div className="rounded-2xl p-3 bg-white" style={{ border: `1px solid ${T.borderDefault}` }}>
-          <div className="flex gap-2 items-center">
+        <div className="rounded-2xl p-3 lg:p-4 bg-white" style={{ border: `1px solid ${T.borderDefault}` }}>
+          <div className="flex gap-2 lg:gap-3 items-center">
             <div className="flex-1 relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4" style={{ color: T.textTertiary }} />
+              <Search className="absolute left-3 lg:left-4 top-1/2 -translate-y-1/2 w-4 h-4 lg:w-5 lg:h-5" style={{ color: T.textTertiary }} />
               <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Rechercher..." className="w-full rounded-xl pl-10 pr-3 py-2.5 text-sm outline-none border transition focus:border-[#0066FF]"
+                placeholder="Rechercher une mission..." className="w-full rounded-xl pl-10 lg:pl-12 pr-3 py-2.5 lg:py-3 text-sm lg:text-base outline-none border transition focus:border-[#0066FF]"
                 style={{ backgroundColor: T.fieldBg, borderColor: T.borderDefault, color: T.textPrimary }} />
             </div>
             <button onClick={() => setShowArchived(!showArchived)}
-              className="p-2.5 rounded-xl transition" title={showArchived ? 'Masquer archives' : 'Voir archives'}
+              className="flex items-center gap-2 p-2.5 lg:px-4 lg:py-2.5 rounded-xl transition" title={showArchived ? 'Masquer archives' : 'Voir archives'}
               style={showArchived
                 ? { backgroundColor: `${T.accentAmber}15`, color: T.accentAmber, border: `1.5px solid ${T.accentAmber}60` }
                 : { backgroundColor: T.fieldBg, color: T.textTertiary, border: `1px solid ${T.borderDefault}` }}>
               <Archive className="w-4 h-4" />
+              <span className="hidden lg:inline text-sm font-medium">{showArchived ? 'Archives' : 'Archives'}</span>
             </button>
             <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: T.fieldBg }}>
-              <button onClick={() => setViewMode('grid')} className="p-1.5 rounded-lg transition"
+              <button onClick={() => setViewMode('grid')} className="p-1.5 lg:p-2 rounded-lg transition"
                 style={viewMode === 'grid' ? { backgroundColor: '#FFF', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : {}}>
                 <Grid className="w-4 h-4" style={{ color: viewMode === 'grid' ? T.textPrimary : T.textTertiary }} />
               </button>
-              <button onClick={() => setViewMode('list')} className="p-1.5 rounded-lg transition"
+              <button onClick={() => setViewMode('list')} className="p-1.5 lg:p-2 rounded-lg transition"
                 style={viewMode === 'list' ? { backgroundColor: '#FFF', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : {}}>
                 <List className="w-4 h-4" style={{ color: viewMode === 'list' ? T.textPrimary : T.textTertiary }} />
               </button>
@@ -351,60 +383,185 @@ export default function TeamMissions() {
           </div>
         </div>
 
-        {/* ── Mission Cards (identique Flutter MissionTile) ── */}
-        <div className={viewMode === 'grid' ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 lg:gap-4' : 'space-y-3 max-w-4xl'}>
+        {/* ── Mission Cards ── */}
+        <div className={
+          viewMode === 'grid'
+            ? 'grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 lg:gap-5'
+            : 'space-y-2 lg:space-y-0'
+        }>
           {filteredMissions.length === 0 ? (
-            <div className="col-span-full flex flex-col items-center justify-center py-16 rounded-2xl bg-white" style={{ border: `1px solid ${T.borderDefault}` }}>
-              <div className="p-4 rounded-2xl mb-4" style={{ backgroundColor: `${T.primaryTeal}10` }}>
-                <Truck className="w-10 h-10" style={{ color: T.primaryTeal }} />
+            <div className="col-span-full flex flex-col items-center justify-center py-16 lg:py-24 rounded-2xl bg-white" style={{ border: `1px solid ${T.borderDefault}` }}>
+              <div className="p-5 rounded-2xl mb-5" style={{ backgroundColor: `${T.primaryTeal}10` }}>
+                <Truck className="w-12 h-12 lg:w-16 lg:h-16" style={{ color: T.primaryTeal }} />
               </div>
-              <p className="font-medium mb-1" style={{ color: T.textPrimary }}>Aucune mission</p>
-              <p className="text-sm mb-4" style={{ color: T.textSecondary }}>Créez votre première mission</p>
-              <Link to="/missions/create" className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white"
+              <p className="font-semibold text-lg mb-1" style={{ color: T.textPrimary }}>Aucune mission</p>
+              <p className="text-sm mb-5" style={{ color: T.textSecondary }}>Créez votre première mission pour commencer</p>
+              <Link to="/missions/create" className="flex items-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold text-white hover:shadow-lg transition"
                 style={{ backgroundColor: T.primaryTeal }}>
                 <Plus className="w-4 h-4" /> Créer une mission
               </Link>
             </div>
+          ) : viewMode === 'list' ? (
+            <>
+              {/* Desktop table header */}
+              <div className="hidden lg:grid lg:grid-cols-12 gap-3 px-5 py-3 text-xs font-semibold rounded-t-xl" style={{ backgroundColor: T.fieldBg, color: T.textTertiary, borderBottom: `1px solid ${T.borderDefault}` }}>
+                <div className="col-span-2">Référence</div>
+                <div className="col-span-2">Véhicule</div>
+                <div className="col-span-3">Itinéraire</div>
+                <div className="col-span-1 text-center">Date</div>
+                <div className="col-span-1 text-center">Prix</div>
+                <div className="col-span-1 text-center">Statut</div>
+                <div className="col-span-2 text-right">Actions</div>
+              </div>
+              {filteredMissions.map((m) => {
+                const sc = scfg(m.status);
+                return (
+                  <React.Fragment key={m.id}>
+                    {/* ── Desktop list row ── */}
+                    <div className="hidden lg:grid lg:grid-cols-12 gap-3 items-center px-5 py-3.5 bg-white hover:bg-[#F8FAFC] cursor-pointer transition-colors"
+                      style={{ borderBottom: `1px solid ${T.borderDefault}` }}
+                      onClick={() => { setSelectedMission(m); setShowDetailsModal(true); }}>
+                      <div className="col-span-2 flex items-center gap-2 min-w-0">
+                        <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: sc.color }} />
+                        <span className="text-sm font-bold truncate" style={{ color: T.textPrimary }}>{m.reference}</span>
+                        {m.assigned_user_id && m.assigned_user_id !== m.user_id && (
+                          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full shrink-0" style={{ backgroundColor: `${T.primaryBlue}15`, color: T.primaryBlue }}>Reçue</span>
+                        )}
+                      </div>
+                      <div className="col-span-2 flex items-center gap-2 min-w-0">
+                        <Car className="w-4 h-4 shrink-0" style={{ color: T.primaryTeal }} />
+                        <span className="text-sm truncate" style={{ color: T.textPrimary }}>{m.vehicle_brand} {m.vehicle_model}</span>
+                        {m.vehicle_plate && (
+                          <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded shrink-0" style={{ backgroundColor: T.fieldBg, border: `1px solid ${T.borderDefault}`, color: T.textSecondary }}>{m.vehicle_plate}</span>
+                        )}
+                      </div>
+                      <div className="col-span-3 flex items-center gap-2 min-w-0">
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: T.accentGreen }} />
+                          <span className="text-xs truncate" style={{ color: T.textSecondary }}>{m.pickup_city || m.pickup_address}</span>
+                        </div>
+                        <ChevronRight className="w-3.5 h-3.5 shrink-0" style={{ color: T.textTertiary }} />
+                        <div className="flex items-center gap-1.5 min-w-0 flex-1">
+                          <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: T.primaryBlue }} />
+                          <span className="text-xs truncate" style={{ color: T.textSecondary }}>{m.delivery_city || m.delivery_address}</span>
+                        </div>
+                      </div>
+                      <div className="col-span-1 text-center">
+                        <span className="text-xs" style={{ color: T.textSecondary }}>
+                          {new Date(m.pickup_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                        </span>
+                      </div>
+                      <div className="col-span-1 text-center">
+                        {m.price > 0 ? (
+                          <span className="text-sm font-bold" style={{ color: T.primaryTeal }}>{m.price.toLocaleString('fr-FR')} €</span>
+                        ) : <span className="text-xs" style={{ color: T.textTertiary }}>—</span>}
+                      </div>
+                      <div className="col-span-1 flex justify-center">
+                        <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>{sc.label}</span>
+                      </div>
+                      <div className="col-span-2 flex justify-end gap-1.5" onClick={e => e.stopPropagation()}>
+                        {m.status === 'pending' && (
+                          <button onClick={() => handleStartInspection(m)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ backgroundColor: T.primaryTeal }}>
+                            <Play className="w-3 h-3" /> Démarrer
+                          </button>
+                        )}
+                        {m.status === 'in_progress' && (
+                          <button onClick={() => handleStartInspection(m)} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ backgroundColor: T.primaryBlue }}>
+                            <TrendingUp className="w-3 h-3" /> Continuer
+                          </button>
+                        )}
+                        {m.status === 'completed' && (
+                          <>
+                            <button onClick={() => handleViewReport(m.id)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ backgroundColor: T.accentGreen }}>
+                              <FileText className="w-3 h-3" /> Rapport
+                            </button>
+                            <button onClick={() => handleCreateInvoice(m)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ backgroundColor: T.accentAmber }}>
+                              <Receipt className="w-3 h-3" /> Facture
+                            </button>
+                          </>
+                        )}
+                        <button onClick={async () => { try { await generateMissionPDF(m); } catch (e) { console.error(e); } }}
+                          className="p-1.5 rounded-lg transition hover:scale-105" style={{ color: T.primaryPurple, backgroundColor: `${T.primaryPurple}10` }} title="PDF">
+                          <FileText className="w-3.5 h-3.5" />
+                        </button>
+                        {m.user_id === user?.id && (
+                          <button onClick={() => navigate(`/missions/edit/${m.id}`)}
+                            className="p-1.5 rounded-lg transition hover:scale-105" style={{ color: T.primaryBlue, backgroundColor: `${T.primaryBlue}10` }} title="Modifier">
+                            <Edit className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    {/* ── Mobile list card (fallback) ── */}
+                    <div className="lg:hidden rounded-2xl overflow-hidden bg-white transition-all hover:shadow-md cursor-pointer"
+                      style={{ border: `1px solid ${T.borderDefault}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+                      onClick={() => { setSelectedMission(m); setShowDetailsModal(true); }}>
+                      <div className="px-4 py-3 flex items-center gap-2" style={{ backgroundColor: `${sc.color}08` }}>
+                        <div className="w-2 h-2 rounded-full" style={{ backgroundColor: sc.color }} />
+                        <span className="text-sm font-bold flex-1" style={{ color: T.textPrimary }}>{m.reference}</span>
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>{sc.label}</span>
+                        <ChevronRight className="w-4 h-4" style={{ color: T.textTertiary }} />
+                      </div>
+                      <div className="px-4 pb-3 pt-2 space-y-2">
+                        <div className="flex items-center gap-2">
+                          <Car className="w-4 h-4" style={{ color: T.primaryTeal }} />
+                          <span className="text-sm font-semibold" style={{ color: T.textPrimary }}>{m.vehicle_brand} {m.vehicle_model}</span>
+                          {m.vehicle_plate && <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: T.fieldBg, color: T.textSecondary }}>{m.vehicle_plate}</span>}
+                        </div>
+                        <div className="flex items-center justify-between text-xs">
+                          <span style={{ color: T.textSecondary }}>{m.pickup_city || m.pickup_address} → {m.delivery_city || m.delivery_address}</span>
+                          {m.price > 0 && <span className="font-bold" style={{ color: T.primaryTeal }}>{m.price.toLocaleString('fr-FR')} €</span>}
+                        </div>
+                      </div>
+                    </div>
+                  </React.Fragment>
+                );
+              })}
+            </>
           ) : (
+            /* ── Grid view cards ── */
             filteredMissions.map((m) => {
               const sc = scfg(m.status);
               return (
-                <div key={m.id} className="rounded-2xl overflow-hidden bg-white transition-all hover:shadow-md cursor-pointer"
-                  style={{ border: `1px solid ${T.borderDefault}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+                <div key={m.id} className="group rounded-2xl overflow-hidden bg-white transition-all hover:shadow-lg cursor-pointer"
+                  style={{ border: `1px solid ${T.borderDefault}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}
                   onClick={() => { setSelectedMission(m); setShowDetailsModal(true); }}>
 
-                  {/* ── Header teinté (identique Flutter MissionTile) ── */}
-                  <div className="px-4 py-3 flex items-center gap-2" style={{ backgroundColor: `${sc.color}08` }}>
-                    <div className="w-2 h-2 rounded-full" style={{ backgroundColor: sc.color }} />
-                    <span className="text-sm font-bold flex-1" style={{ color: T.textPrimary }}>{m.reference}</span>
+                  {/* ── Card header ── */}
+                  <div className="px-4 lg:px-5 py-3 lg:py-3.5 flex items-center gap-2" style={{ backgroundColor: `${sc.color}08`, borderBottom: `1px solid ${sc.color}15` }}>
+                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: sc.color }} />
+                    <span className="text-sm lg:text-base font-bold flex-1" style={{ color: T.textPrimary }}>{m.reference}</span>
                     {m.assigned_user_id && m.assigned_user_id !== m.user_id && (
                       <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${T.primaryBlue}15`, color: T.primaryBlue }}>Reçue</span>
                     )}
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>
+                    <span className="text-[10px] lg:text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>
                       {sc.label}
                     </span>
-                    <ChevronRight className="w-4 h-4" style={{ color: T.textTertiary }} />
+                    <ChevronRight className="w-4 h-4 opacity-40 group-hover:opacity-100 transition" style={{ color: T.textTertiary }} />
                   </div>
 
-                  <div className="px-4 pb-4 pt-2 space-y-2.5">
-                    {/* ── Vehicle row (identique Flutter) ── */}
-                    <div className="flex items-center gap-2.5">
-                      <div className="p-1.5 rounded-lg" style={{ backgroundColor: `${T.primaryTeal}15` }}>
-                        <Car className="w-4 h-4" style={{ color: T.primaryTeal }} />
+                  <div className="px-4 lg:px-5 pb-4 lg:pb-5 pt-3 space-y-3">
+                    {/* ── Vehicle row ── */}
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-xl" style={{ backgroundColor: `${T.primaryTeal}12` }}>
+                        <Car className="w-4 h-4 lg:w-5 lg:h-5" style={{ color: T.primaryTeal }} />
                       </div>
-                      <span className="text-sm font-semibold flex-1" style={{ color: T.textPrimary }}>
-                        {m.vehicle_brand} {m.vehicle_model}
-                      </span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-sm lg:text-base font-semibold block" style={{ color: T.textPrimary }}>
+                          {m.vehicle_brand} {m.vehicle_model}
+                        </span>
+                        {m.vehicle_type && <span className="text-[10px] lg:text-xs" style={{ color: T.textTertiary }}>{m.vehicle_type}</span>}
+                      </div>
                       {m.vehicle_plate && (
-                        <span className="text-xs font-mono font-semibold px-2 py-0.5 rounded-lg" style={{ backgroundColor: T.fieldBg, border: `1px solid ${T.borderDefault}`, color: T.textSecondary }}>
+                        <span className="text-xs lg:text-sm font-mono font-bold px-2.5 py-1 rounded-lg" style={{ backgroundColor: T.fieldBg, border: `1.5px solid ${T.borderDefault}`, color: T.textPrimary }}>
                           {m.vehicle_plate}
                         </span>
                       )}
                     </div>
 
-                    {/* ── Restitution badge (identique Flutter) ── */}
+                    {/* ── Restitution badge ── */}
                     {m.has_restitution && (
-                      <div className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl" style={{ backgroundColor: `${T.deepOrange}0D`, border: `1px solid ${T.deepOrange}30` }}>
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ backgroundColor: `${T.deepOrange}0D`, border: `1px solid ${T.deepOrange}30` }}>
                         <RefreshCw className="w-3.5 h-3.5" style={{ color: T.deepOrange }} />
                         <span className="text-xs font-semibold" style={{ color: T.deepOrange }}>
                           Restitution
@@ -418,63 +575,61 @@ export default function TeamMissions() {
                       </div>
                     )}
 
-                    {/* ── Route row (identique Flutter grey container) ── */}
-                    <div className="rounded-xl p-2.5" style={{ backgroundColor: T.fieldBg }}>
-                      <div className="flex items-start gap-2 mb-1.5">
-                        <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: T.accentGreen }} />
+                    {/* ── Route row ── */}
+                    <div className="rounded-xl p-3" style={{ backgroundColor: T.fieldBg }}>
+                      <div className="flex items-start gap-2.5 mb-2">
+                        <div className="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style={{ backgroundColor: T.accentGreen }} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs truncate" style={{ color: T.textPrimary }}>{m.pickup_city || m.pickup_address}</p>
-                          {m.pickup_contact_name && <p className="text-[10px] truncate" style={{ color: T.textTertiary }}>{m.pickup_contact_name}</p>}
+                          <p className="text-xs lg:text-sm font-medium" style={{ color: T.textPrimary }}>{m.pickup_city || m.pickup_address}</p>
+                          {m.pickup_address && m.pickup_city && <p className="hidden lg:block text-[11px] mt-0.5" style={{ color: T.textTertiary }}>{m.pickup_address}</p>}
+                          {m.pickup_contact_name && <p className="text-[10px] lg:text-xs mt-0.5" style={{ color: T.textTertiary }}>{m.pickup_contact_name}</p>}
                         </div>
                       </div>
-                      <div className="ml-1 w-px h-3 mb-1.5" style={{ backgroundColor: T.borderDefault }} />
-                      <div className="flex items-start gap-2">
-                        <div className="w-2 h-2 rounded-full mt-1.5 shrink-0" style={{ backgroundColor: T.primaryBlue }} />
+                      <div className="ml-[5px] w-px h-3 mb-2" style={{ backgroundColor: T.borderDefault }} />
+                      <div className="flex items-start gap-2.5">
+                        <div className="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style={{ backgroundColor: T.primaryBlue }} />
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs truncate" style={{ color: T.textPrimary }}>{m.delivery_city || m.delivery_address}</p>
-                          {m.delivery_contact_name && <p className="text-[10px] truncate" style={{ color: T.textTertiary }}>{m.delivery_contact_name}</p>}
+                          <p className="text-xs lg:text-sm font-medium" style={{ color: T.textPrimary }}>{m.delivery_city || m.delivery_address}</p>
+                          {m.delivery_address && m.delivery_city && <p className="hidden lg:block text-[11px] mt-0.5" style={{ color: T.textTertiary }}>{m.delivery_address}</p>}
+                          {m.delivery_contact_name && <p className="text-[10px] lg:text-xs mt-0.5" style={{ color: T.textTertiary }}>{m.delivery_contact_name}</p>}
                         </div>
                       </div>
                     </div>
 
-                    {/* ── Mandataire row (identique Flutter purple row) ── */}
-                    {(m.mandataire_name || m.mandataire_company) && (
-                      <div className="flex items-center gap-2">
-                        <div className="p-1 rounded-md" style={{ backgroundColor: `${T.primaryPurple}15` }}>
+                    {/* ── Meta rows (mandataire, driver) ── */}
+                    <div className="flex flex-wrap gap-x-4 gap-y-1.5">
+                      {(m.mandataire_name || m.mandataire_company) && (
+                        <div className="flex items-center gap-1.5">
                           <Building2 className="w-3.5 h-3.5" style={{ color: T.primaryPurple }} />
+                          <span className="text-xs font-medium" style={{ color: T.primaryPurple }}>{m.mandataire_name}{m.mandataire_company ? ` · ${m.mandataire_company}` : ''}</span>
                         </div>
-                        <span className="text-xs font-medium" style={{ color: T.primaryPurple }}>{m.mandataire_name}{m.mandataire_company ? ` · ${m.mandataire_company}` : ''}</span>
-                      </div>
-                    )}
-
-                    {/* ── Driver row (identique Flutter) ── */}
-                    {m.assigned_user_id && driverNames[m.assigned_user_id] && (
-                      <div className="flex items-center gap-2">
-                        <div className="p-1 rounded-md" style={{ backgroundColor: `${T.primaryBlue}15` }}>
+                      )}
+                      {m.assigned_user_id && driverNames[m.assigned_user_id] && (
+                        <div className="flex items-center gap-1.5">
                           <User className="w-3.5 h-3.5" style={{ color: T.primaryBlue }} />
+                          <span className="text-xs font-medium" style={{ color: T.primaryBlue }}>{driverNames[m.assigned_user_id]}</span>
                         </div>
-                        <span className="text-xs font-medium" style={{ color: T.primaryBlue }}>{driverNames[m.assigned_user_id]}</span>
-                      </div>
-                    )}
-
-                    {/* ── Date + Price row (identique Flutter) ── */}
-                    <div className="flex items-center justify-between pt-1">
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
-                        <span className="text-xs" style={{ color: T.textSecondary }}>
-                          {new Date(m.pickup_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: '2-digit' })}
-                        </span>
-                      </div>
-                      {m.price > 0 && (
-                        <span className="text-sm font-bold" style={{ color: T.primaryTeal }}>{m.price.toLocaleString('fr-FR')} €</span>
                       )}
                     </div>
 
-                    {/* ── Action buttons (identique Flutter, contextual) ── */}
-                    <div className="flex flex-wrap gap-1.5 pt-1" onClick={e => e.stopPropagation()}>
+                    {/* ── Date + Price row ── */}
+                    <div className="flex items-center justify-between pt-1 border-t" style={{ borderColor: `${T.borderDefault}80` }}>
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
+                        <span className="text-xs lg:text-sm" style={{ color: T.textSecondary }}>
+                          {new Date(m.pickup_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </span>
+                      </div>
+                      {m.price > 0 && (
+                        <span className="text-sm lg:text-base font-bold" style={{ color: T.primaryTeal }}>{m.price.toLocaleString('fr-FR')} €</span>
+                      )}
+                    </div>
+
+                    {/* ── Action buttons ── */}
+                    <div className="flex flex-wrap gap-1.5 lg:gap-2 pt-1" onClick={e => e.stopPropagation()}>
                       {m.status === 'pending' && (
                         <button onClick={() => handleStartInspection(m)}
-                          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white transition"
+                          className="flex items-center gap-1.5 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold text-white transition hover:shadow-md"
                           style={{ backgroundColor: T.primaryTeal }}>
                           <Play className="w-3.5 h-3.5" /> Démarrer
                         </button>
@@ -482,12 +637,12 @@ export default function TeamMissions() {
                       {m.status === 'in_progress' && (
                         <>
                           <button onClick={() => handleStartInspection(m)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white"
+                            className="flex items-center gap-1.5 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold text-white hover:shadow-md transition"
                             style={{ backgroundColor: T.primaryBlue }}>
                             <TrendingUp className="w-3.5 h-3.5" /> Continuer
                           </button>
                           <button onClick={() => handleCompleteMission(m)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white"
+                            className="flex items-center gap-1.5 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold text-white hover:shadow-md transition"
                             style={{ backgroundColor: hasDepartureInspection(m.id) && hasArrivalInspection(m.id) ? T.accentGreen : T.textTertiary }}>
                             <CheckCircle className="w-3.5 h-3.5" /> Terminer
                           </button>
@@ -496,54 +651,56 @@ export default function TeamMissions() {
                       {m.status === 'completed' && (
                         <>
                           <button onClick={() => handleViewReport(m.id)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white"
+                            className="flex items-center gap-1.5 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold text-white hover:shadow-md transition"
                             style={{ backgroundColor: T.accentGreen }}>
                             <FileText className="w-3.5 h-3.5" /> Rapport
                           </button>
                           <button onClick={() => handleCreateInvoice(m)}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white"
+                            className="flex items-center gap-1.5 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold text-white hover:shadow-md transition"
                             style={{ backgroundColor: T.accentAmber }}>
                             <Receipt className="w-3.5 h-3.5" /> Facture
                           </button>
                         </>
                       )}
                       {/* Secondary actions */}
-                      <button onClick={async () => { try { await generateMissionPDF(m); } catch (e) { console.error(e); } }}
-                        className="p-1.5 rounded-lg transition" style={{ color: T.primaryPurple, backgroundColor: `${T.primaryPurple}10` }}
-                        title="PDF">
-                        <FileText className="w-3.5 h-3.5" />
-                      </button>
-                      {m.user_id === user?.id && (
-                        <>
-                          <button onClick={() => navigate(`/missions/edit/${m.id}`)}
-                            className="p-1.5 rounded-lg transition" style={{ color: T.primaryBlue, backgroundColor: `${T.primaryBlue}10` }}
-                            title="Modifier">
-                            <Edit className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => { setSelectedMission(m); setShowShareCodeModal(true); }}
-                            className="p-1.5 rounded-lg transition" style={{ color: T.primaryIndigo, backgroundColor: `${T.primaryIndigo}10` }}
-                            title="Partager">
-                            <Users className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => handleArchiveMission(m.id, !m.archived)}
-                            className="p-1.5 rounded-lg transition" style={{ color: T.accentAmber, backgroundColor: `${T.accentAmber}10` }}
-                            title={m.archived ? 'Restaurer' : 'Archiver'}>
-                            <Archive className="w-3.5 h-3.5" />
-                          </button>
-                          <button onClick={() => handleDeleteMission(m.id)}
-                            className="p-1.5 rounded-lg transition" style={{ color: T.accentRed, backgroundColor: `${T.accentRed}10` }}
-                            title="Supprimer">
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </>
-                      )}
-                      {m.status === 'in_progress' && (
-                        <button onClick={() => navigate(`/missions/${m.id}/tracking`)}
-                          className="p-1.5 rounded-lg transition" style={{ color: T.primaryTeal, backgroundColor: `${T.primaryTeal}10` }}
-                          title="GPS Tracking">
-                          <Navigation className="w-3.5 h-3.5" />
+                      <div className="flex gap-1 lg:gap-1.5 ml-auto">
+                        <button onClick={async () => { try { await generateMissionPDF(m); } catch (e) { console.error(e); } }}
+                          className="p-1.5 lg:p-2 rounded-lg transition hover:scale-105" style={{ color: T.primaryPurple, backgroundColor: `${T.primaryPurple}10` }}
+                          title="PDF">
+                          <FileText className="w-3.5 h-3.5" />
                         </button>
-                      )}
+                        {m.user_id === user?.id && (
+                          <>
+                            <button onClick={() => navigate(`/missions/edit/${m.id}`)}
+                              className="p-1.5 lg:p-2 rounded-lg transition hover:scale-105" style={{ color: T.primaryBlue, backgroundColor: `${T.primaryBlue}10` }}
+                              title="Modifier">
+                              <Edit className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => { setSelectedMission(m); setShowShareCodeModal(true); }}
+                              className="p-1.5 lg:p-2 rounded-lg transition hover:scale-105" style={{ color: T.primaryIndigo, backgroundColor: `${T.primaryIndigo}10` }}
+                              title="Partager">
+                              <Users className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => handleArchiveMission(m.id, !m.archived)}
+                              className="p-1.5 lg:p-2 rounded-lg transition hover:scale-105" style={{ color: T.accentAmber, backgroundColor: `${T.accentAmber}10` }}
+                              title={m.archived ? 'Restaurer' : 'Archiver'}>
+                              <Archive className="w-3.5 h-3.5" />
+                            </button>
+                            <button onClick={() => handleDeleteMission(m.id)}
+                              className="p-1.5 lg:p-2 rounded-lg transition hover:scale-105" style={{ color: T.accentRed, backgroundColor: `${T.accentRed}10` }}
+                              title="Supprimer">
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </>
+                        )}
+                        {m.status === 'in_progress' && (
+                          <button onClick={() => navigate(`/missions/${m.id}/tracking`)}
+                            className="p-1.5 lg:p-2 rounded-lg transition hover:scale-105" style={{ color: T.primaryTeal, backgroundColor: `${T.primaryTeal}10` }}
+                            title="GPS Tracking">
+                            <Navigation className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -560,8 +717,8 @@ export default function TeamMissions() {
         const sm = selectedMission;
         const sc = scfg(sm.status);
         return (
-          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4" onClick={() => { setShowDetailsModal(false); setSelectedMission(null); }}>
-            <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
+          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-3 lg:p-8" onClick={() => { setShowDetailsModal(false); setSelectedMission(null); }}>
+            <div className="bg-white rounded-2xl shadow-2xl max-w-3xl lg:max-w-4xl w-full max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
               {/* Header */}
               <div className="sticky top-0 z-10 bg-white border-b px-5 py-4 rounded-t-2xl" style={{ borderColor: T.borderDefault }}>
                 <div className="flex items-center gap-3">
