@@ -249,8 +249,8 @@ export default function SignupWizard() {
         userAgent: navigator.userAgent, stepReached: 4, success: true,
       });
 
-      // Welcome gift: 10 credits
-      if (authData?.user?.id) {
+      // Welcome gift: 10 credits — ONLY if phone verified
+      if (authData?.user?.id && phoneVerified) {
         try {
           const end = new Date();
           end.setDate(end.getDate() + 30);
@@ -270,7 +270,10 @@ export default function SignupWizard() {
         } catch (e) { console.error('Erreur cadeau bienvenue:', e); }
       }
 
-      alert('Inscription reussie ! Verifiez votre email pour activer votre compte.\n\nCadeau de bienvenue : 10 credits offerts pendant 30 jours !');
+      const giftMsg = phoneVerified
+        ? 'Inscription reussie ! Verifiez votre email pour activer votre compte.\n\nCadeau de bienvenue : 10 credits offerts pendant 30 jours !'
+        : 'Inscription reussie ! Verifiez votre email pour activer votre compte.\n\nVerifiez votre telephone pour recevoir vos 10 credits de bienvenue.';
+      alert(giftMsg);
       navigate('/login');
     } catch (err: any) {
       console.error(err);
@@ -660,11 +663,20 @@ export default function SignupWizard() {
         </div>
 
         {/* Welcome gift */}
-        <div className="rounded-2xl p-4 mb-6 flex items-center gap-3" style={{ backgroundColor: '#FEF3C7', border: '1px solid #FCD34D' }}>
-          <span className="text-2xl">&#127873;</span>
+        <div className="rounded-2xl p-4 mb-6 flex items-center gap-3" style={{
+          backgroundColor: phoneVerified ? '#FEF3C7' : '#FEE2E2',
+          border: phoneVerified ? '1px solid #FCD34D' : '1px solid #FECACA',
+        }}>
+          <span className="text-2xl">{phoneVerified ? '\u{1F381}' : '\u{1F512}'}</span>
           <div>
-            <p className="text-sm font-bold" style={{ color: '#92400E' }}>Cadeau de bienvenue</p>
-            <p className="text-xs" style={{ color: '#B45309' }}>10 credits offerts pendant 30 jours</p>
+            <p className="text-sm font-bold" style={{ color: phoneVerified ? '#92400E' : '#991B1B' }}>
+              {phoneVerified ? 'Cadeau de bienvenue' : 'Pas de cadeau'}
+            </p>
+            <p className="text-xs" style={{ color: phoneVerified ? '#B45309' : '#DC2626' }}>
+              {phoneVerified
+                ? '10 credits offerts pendant 30 jours'
+                : 'Verifiez votre telephone pour recevoir 10 credits offerts'}
+            </p>
           </div>
         </div>
 

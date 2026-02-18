@@ -761,29 +761,31 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: Colors.amber[50],
+              color: _phoneVerified ? Colors.amber[50] : Colors.red[50],
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: Colors.amber[300]!),
+              border: Border.all(color: _phoneVerified ? Colors.amber[300]! : Colors.red[300]!),
             ),
             child: Row(
               children: [
-                const Text('🎁', style: TextStyle(fontSize: 28)),
+                Text(_phoneVerified ? '🎁' : '🔒', style: const TextStyle(fontSize: 28)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Cadeau de bienvenue',
+                        _phoneVerified ? 'Cadeau de bienvenue' : 'Pas de cadeau',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: Colors.amber[900],
+                          color: _phoneVerified ? Colors.amber[900] : Colors.red[900],
                         ),
                       ),
                       Text(
-                        '10 credits offerts pendant 30 jours',
-                        style: TextStyle(fontSize: 12, color: Colors.amber[800]),
+                        _phoneVerified
+                            ? '10 credits offerts pendant 30 jours'
+                            : 'Verifiez votre telephone pour recevoir 10 credits',
+                        style: TextStyle(fontSize: 12, color: _phoneVerified ? Colors.amber[800] : Colors.red[700]),
                       ),
                     ],
                   ),
@@ -932,7 +934,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           'device_fingerprint': deviceFingerprint,
           'registration_ip': ipAddress,
           'app_role': _signupData['user_type'] == 'company' ? 'donneur_d_ordre' : 'convoyeur',
-          'credits': 10,
+          'credits': _phoneVerified ? 10 : 0,
         });
       } catch (profileErr) {
         // Profile upsert may fail (e.g. unique constraint on phone) but 
@@ -940,17 +942,19 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
         debugPrint('Profile upsert warning (non-blocking): $profileErr');
       }
 
-      // 4. Create welcome credits transaction (non-blocking)
-      try {
-        await supabase.from('credit_transactions').insert({
-          'user_id': userId,
-          'amount': 10,
-          'transaction_type': 'addition',
-          'description': 'Crédits de bienvenue - inscription',
-          'balance_after': 10,
-        });
-      } catch (creditErr) {
-        debugPrint('Credit transaction warning (non-blocking): $creditErr');
+      // 4. Create welcome credits transaction (non-blocking) — ONLY if phone verified
+      if (_phoneVerified) {
+        try {
+          await supabase.from('credit_transactions').insert({
+            'user_id': userId,
+            'amount': 10,
+            'transaction_type': 'addition',
+            'description': 'Crédits de bienvenue - inscription (telephone verifie)',
+            'balance_after': 10,
+          });
+        } catch (creditErr) {
+          debugPrint('Credit transaction warning (non-blocking): $creditErr');
+        }
       }
 
       // 5. Log successful signup
@@ -965,10 +969,12 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🎉 Inscription reussie ! 10 credits offerts ! Verifiez votre email.'),
-            backgroundColor: Color(0xFF10B981),
-            duration: Duration(seconds: 4),
+          SnackBar(
+            content: Text(_phoneVerified
+                ? '🎉 Inscription reussie ! 10 credits offerts ! Verifiez votre email.'
+                : '✅ Inscription reussie ! Verifiez votre telephone pour recevoir vos 10 credits.'),
+            backgroundColor: const Color(0xFF10B981),
+            duration: const Duration(seconds: 4),
           ),
         );
         // Show verification message then go to login
