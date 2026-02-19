@@ -41,6 +41,10 @@ dependencies:
   # Backend & Database
   supabase_flutter: ^2.10.3
   
+  # Firebase (Push Notifications)
+  firebase_core: ^3.12.1
+  firebase_messaging: ^15.2.4
+  
   # Configuration
   flutter_dotenv: ^6.0.0
   

@@ -11,7 +11,7 @@ export interface CreditInfo {
  * Hook pour suivre les crédits de l'utilisateur en temps réel
  */
 export function useCredits(): CreditInfo & {
-  deductCredits: (amount: number, reason: string) => Promise<{ success: boolean; error?: string }>;
+  deductCredits: (amount: number, reason: string, referenceType?: string, referenceId?: string) => Promise<{ success: boolean; error?: string }>;
   hasEnoughCredits: (amount: number) => boolean;
   refreshCredits: () => Promise<void>;
 } {
@@ -75,7 +75,7 @@ export function useCredits(): CreditInfo & {
   }, [user]);
 
   // Déduire des crédits
-  const deductCredits = async (amount: number, reason: string) => {
+  const deductCredits = async (amount: number, reason: string, referenceType?: string, referenceId?: string) => {
     if (!user) {
       return { success: false, error: 'Non connecté' };
     }
@@ -83,18 +83,20 @@ export function useCredits(): CreditInfo & {
     console.log(`💳 Déduction de ${amount} crédit(s) pour: ${reason}`);
 
     try {
-      const { data, error } = await (supabase.rpc as any)('deduct_credits', {
+      const { data, error } = await (supabase.rpc as any)('spend_credits_atomic', {
         p_user_id: user.id,
         p_amount: amount,
-        p_description: reason, // ✅ Corrigé: utiliser p_description au lieu de p_reason
+        p_description: reason,
+        p_reference_type: referenceType || null,
+        p_reference_id: referenceId || null,
       });
 
       if (error) {
-        console.error('❌ RPC deduct_credits erreur:', error);
+        console.error('❌ RPC spend_credits_atomic erreur:', error);
         throw error;
       }
 
-      console.log('📊 Réponse RPC deduct_credits:', data);
+      console.log('📊 Réponse RPC spend_credits_atomic:', data);
 
       if (!data.success) {
         console.error('❌ Déduction refusée:', data.error);

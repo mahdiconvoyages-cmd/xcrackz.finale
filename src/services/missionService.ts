@@ -166,6 +166,19 @@ export async function createMission(
     throw new Error('Crédits insuffisants. Vous avez besoin de 1 crédit pour créer une mission.');
   }
 
+  // Déduire les crédits AVANT l'insert (cohérent avec MissionCreate.tsx et Flutter)
+  const { data: deductResult, error: deductError } = await supabase.rpc('spend_credits_atomic', {
+    p_user_id: missionData.user_id,
+    p_amount: 1,
+    p_description: `Création de mission`,
+    p_reference_type: 'mission',
+    p_reference_id: null,
+  });
+
+  if (deductError || !deductResult?.success) {
+    throw new Error(deductResult?.error || deductError?.message || 'Erreur déduction crédits');
+  }
+
   const { data, error } = await supabase
     .from('missions')
     .insert([missionData])
@@ -175,16 +188,6 @@ export async function createMission(
   if (error) {
     console.error('Error creating mission:', error);
     throw error;
-  }
-
-  const { error: deductError } = await supabase.rpc('deduct_credits', {
-    p_user_id: missionData.user_id,
-    p_amount: 1,
-    p_description: `Création de mission ${data.reference}`,
-  });
-
-  if (deductError) {
-    console.error('Error deducting credits:', deductError);
   }
 
   return data;
@@ -297,7 +300,7 @@ export async function assignMissionToDriver(
 
   const { error: updateError } = await supabase
     .from('missions')
-    .update({ driver_id: driverId, status: 'in_progress' })
+    .update({ driver_id: driverId, status: 'assigned', assigned_user_id: driverId })
     .eq('id', missionId);
 
   if (updateError) {

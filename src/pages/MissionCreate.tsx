@@ -218,7 +218,7 @@ export default function MissionCreate() {
     if (!user || !hasEnoughCredits(requiredCredits)) { setShowBuyCreditModal(true); return; }
     setLoading(true); setError('');
     try {
-      const dr = await deductCredits(requiredCredits, `Création mission ${formData.reference}${formData.has_restitution ? ' + restitution' : ''}`);
+      const dr = await deductCredits(requiredCredits, `Création mission ${formData.reference}${formData.has_restitution ? ' + restitution' : ''}`, 'mission');
       if (!dr.success) throw new Error(dr.error);
       const pickupDT = formData.pickup_time ? `${formData.pickup_date}T${formData.pickup_time}` : formData.pickup_date;
       const deliveryDT = formData.delivery_time ? `${formData.delivery_date}T${formData.delivery_time}` : formData.delivery_date;

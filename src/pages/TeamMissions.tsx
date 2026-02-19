@@ -38,6 +38,7 @@ const T = {
 
 const STATUS_CFG: Record<string, { color: string; label: string; bg: string; border: string; text: string }> = {
   pending:     { color: T.accentAmber,  label: 'En attente', bg: '#FEF3C7', border: '#FCD34D', text: '#92400E' },
+  assigned:    { color: '#8B5CF6',      label: 'Assignée',   bg: '#EDE9FE', border: '#C4B5FD', text: '#5B21B6' },
   in_progress: { color: T.primaryBlue,  label: 'En cours',   bg: '#DBEAFE', border: '#93C5FD', text: '#1E40AF' },
   completed:   { color: T.accentGreen,  label: 'Terminée',   bg: '#D1FAE5', border: '#6EE7B7', text: '#065F46' },
   cancelled:   { color: T.accentRed,    label: 'Annulée',    bg: '#FEE2E2', border: '#FCA5A5', text: '#991B1B' },
@@ -109,13 +110,7 @@ export default function TeamMissions() {
     }
     setInspections(loadedInsp);
     const processed = (allData || []).map(m => {
-      let st = m.status;
-      if (!st || st === 'pending') {
-        const mi = loadedInsp.filter(i => i.mission_id === m.id);
-        const hd = mi.some(i => i.inspection_type === 'departure');
-        const ha = mi.some(i => i.inspection_type === 'arrival');
-        st = hd && ha ? 'completed' : hd ? 'in_progress' : 'pending';
-      }
+      const st = m.status || 'pending';
       return { ...m, status: st };
     });
     setMissions(processed || []);
@@ -225,13 +220,17 @@ export default function TeamMissions() {
     .filter(m => {
       const ms = (m.reference + m.vehicle_brand + m.vehicle_model + (m.mandataire_name || '') + (m.vehicle_plate || '')).toLowerCase().includes(searchTerm.toLowerCase());
       const mf = statusFilter === 'all' || m.status === statusFilter;
-      return ms && mf && m.status === activeTab;
+      // 'assigned' is shown in the 'in_progress' tab alongside 'in_progress'
+      const tabMatch = activeTab === 'in_progress'
+        ? (m.status === 'in_progress' || m.status === 'assigned')
+        : m.status === activeTab;
+      return ms && mf && tabMatch;
     })
     .sort((a, b) => new Date(b.updated_at || b.delivery_date || b.created_at).getTime() - new Date(a.updated_at || a.delivery_date || a.created_at).getTime());
 
   const stats = {
     pending: missions.filter(m => m.status === 'pending').length,
-    inProgress: missions.filter(m => m.status === 'in_progress').length,
+    inProgress: missions.filter(m => m.status === 'in_progress' || m.status === 'assigned').length,
     completed: missions.filter(m => m.status === 'completed').length,
   };
 

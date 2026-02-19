@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'screens/splash_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/login_screen.dart';
@@ -13,6 +14,7 @@ import 'services/sync_service.dart';
 import 'services/offline_service.dart';
 import 'services/background_tracking_service.dart';
 import 'services/connectivity_service.dart';
+import 'services/fcm_service.dart';
 import 'widgets/offline_sync_manager.dart';
 import 'theme/premium_theme.dart';
 import 'utils/logger.dart';
@@ -55,6 +57,14 @@ void main() {
       }
     } else {
       startupError = 'Credentials manquants dans .env';
+    }
+
+    // Firebase & FCM
+    try {
+      await Firebase.initializeApp();
+      await FCMService().initialize();
+    } catch (e) {
+      logger.e('Firebase init error: $e');
     }
 
     // OfflineService

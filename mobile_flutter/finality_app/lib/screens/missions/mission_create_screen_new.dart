@@ -625,15 +625,16 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
             .update(data)
             .eq('id', widget.existingMission!.id);
       } else {
-        // Create new mission
-        await supabase.from('missions').insert(data);
-
-        // Deduire les credits (2 si restitution, 1 sinon)
+        // Deduire les credits AVANT l'insert (atomique, évite les missions gratuites)
         await _creditsService.spendCredits(
           userId: userId,
           amount: _requiredCredits,
-          description: 'Creation mission $ref${_hasRestitution ? ' + restitution' : ''}',
+          description: 'Création mission $ref${_hasRestitution ? ' + restitution' : ''}',
+          referenceType: 'mission',
         );
+
+        // Insérer la mission après déduction réussie
+        await supabase.from('missions').insert(data);
       }
 
       if (mounted) {

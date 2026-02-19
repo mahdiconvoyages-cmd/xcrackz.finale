@@ -281,11 +281,13 @@ export async function publishTrip(
       };
     }
 
-    // 4. Déduire les crédits avec RPC sécurisé
-    const { data: deductResult, error: deductError } = await supabase.rpc('deduct_credits', {
+    // 4. Déduire les crédits avec RPC sécurisé (unifié avec spend_credits_atomic)
+    const { data: deductResult, error: deductError } = await supabase.rpc('spend_credits_atomic', {
       p_user_id: userId,
       p_amount: PUBLISH_COST,
-      p_description: `Publication trajet covoiturage ${tripData.departure_city} → ${tripData.arrival_city}`
+      p_description: `Publication trajet covoiturage ${tripData.departure_city} → ${tripData.arrival_city}`,
+      p_reference_type: 'carpooling',
+      p_reference_id: newTrip.id,
     });
 
     if (deductError || !deductResult?.success) {

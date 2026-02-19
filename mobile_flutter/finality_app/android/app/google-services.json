@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "184598427392",
+    "project_id": "checksfleet",
+    "storage_bucket": "checksfleet.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:184598427392:android:de0ae80942cbc7b6b4e5e5",
+        "android_client_info": {
+          "package_name": "com.checksfleet.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCnSnadgAi_L93Erdn9lkg7jUxVCIaobBY"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
