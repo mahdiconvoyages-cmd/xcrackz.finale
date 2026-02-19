@@ -1,6 +1,6 @@
 // Supabase Edge Function - Phone verification via Bird (MessageBird) SMS
 // Deploy: supabase functions deploy verify-phone
-// Secret required: BIRD_API_KEY
+// Secrets: BIRD_API_KEY (optional — if missing, runs in DEV mode with code 123456)
 // @ts-nocheck
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
@@ -9,6 +9,10 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 const BIRD_API_KEY = Deno.env.get('BIRD_API_KEY') || ''
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ''
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+
+// DEV MODE: when BIRD_API_KEY is empty or set to "dev", use fixed OTP 123456
+const DEV_MODE = !BIRD_API_KEY || BIRD_API_KEY === 'dev'
+const DEV_OTP = '123456'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -44,13 +48,6 @@ serve(async (req) => {
   try {
     const { action, phone, code, verification_id } = await req.json()
 
-    if (!BIRD_API_KEY) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'BIRD_API_KEY not configured' }),
-        { status: 500, headers: corsHeaders }
-      )
-    }
-
     const supabaseAdmin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
 
     // ============================================
@@ -66,7 +63,7 @@ serve(async (req) => {
 
       const normalizedPhone = normalizePhone(phone)
 
-      // Rate limiting: max 3 SMS per phone in 10 minutes
+      // Rate limiting: max 5 per phone in 10 minutes
       const tenMinAgo = new Date(Date.now() - 10 * 60 * 1000).toISOString()
       const { data: recentAttempts } = await supabaseAdmin
         .from('phone_verifications')
@@ -74,7 +71,7 @@ serve(async (req) => {
         .eq('phone', normalizedPhone)
         .gte('created_at', tenMinAgo)
 
-      if (recentAttempts && recentAttempts.length >= 3) {
+      if (recentAttempts && recentAttempts.length >= 5) {
         return new Response(
           JSON.stringify({ 
             success: false, 
@@ -84,9 +81,9 @@ serve(async (req) => {
         )
       }
 
-      // Generate OTP
-      const otp = generateOTP()
-      const expiresAt = new Date(Date.now() + 5 * 60 * 1000) // 5 min expiry
+      // In DEV_MODE use fixed code, otherwise generate random
+      const otp = DEV_MODE ? DEV_OTP : generateOTP()
+      const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 min expiry
 
       // Store in database
       const { data: verification, error: dbError } = await supabaseAdmin
@@ -104,8 +101,23 @@ serve(async (req) => {
         throw new Error('Failed to create verification record')
       }
 
-      // Send SMS via Bird (MessageBird) REST API
-      const smsBody = `Votre code de vérification ChecksFleet : ${otp}\n\nCe code expire dans 5 minutes.`
+      // ── DEV MODE: skip real SMS ──
+      if (DEV_MODE) {
+        console.log(`[DEV MODE] OTP for ${normalizedPhone}: ${DEV_OTP} (verification_id: ${verification.id})`)
+        return new Response(
+          JSON.stringify({
+            success: true,
+            verification_id: verification.id,
+            phone: normalizedPhone,
+            message: 'Code de vérification envoyé (mode dev: utilisez 123456)',
+            dev_mode: true,
+          }),
+          { headers: corsHeaders }
+        )
+      }
+
+      // ── PRODUCTION: Send SMS via Bird (MessageBird) REST API ──
+      const smsBody = `Votre code de vérification ChecksFleet : ${otp}\n\nCe code expire dans 10 minutes.`
 
       const birdResponse = await fetch('https://rest.messagebird.com/messages', {
         method: 'POST',
