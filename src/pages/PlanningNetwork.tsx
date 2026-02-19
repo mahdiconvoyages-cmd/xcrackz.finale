@@ -418,13 +418,13 @@ export default function PlanningNetwork() {
 
       {/* ── Create Offer Modal ── */}
       {showCreateOffer && (
-        <CreateOfferModal userId={user?.id || ''} onClose={() => setShowCreateOffer(false)} onCreated={loadData} />
+        <CreateOfferModal userId={user?.id || ''} onClose={() => setShowCreateOffer(false)} onCreated={async () => { await loadData(); setActiveTab('matches'); }} />
       )}
       {showCreateRequest && (
         <CreateRequestModal
           userId={user?.id || ''}
           onClose={() => { setShowCreateRequest(false); setContactDriverData(null); }}
-          onCreated={loadData}
+          onCreated={async () => { await loadData(); setActiveTab('matches'); }}
           initialFrom={contactDriverData?.from}
           initialTo={contactDriverData?.to}
         />
@@ -1263,9 +1263,9 @@ function MatchesTab({ matches, userId, onRefresh, onRespond, onRate }: {
         <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <Zap className="w-10 h-10 text-purple-500" />
         </div>
-        <h3 className="text-xl font-bold mb-2" style={{ color: T.textPrimary }}>Aucun match</h3>
+        <h3 className="text-xl font-bold mb-2" style={{ color: T.textPrimary }}>Aucun match pour le moment</h3>
         <p className="text-sm max-w-md mx-auto" style={{ color: T.textSecondary }}>
-          Publiez une offre ou une demande, puis lancez le matching IA pour découvrir les trajets compatibles.
+          Le matching est automatique ! Publiez une place ou une demande de lift et les matchs apparaîtront ici dès qu'un trajet compatible est trouvé.
         </p>
       </div>
     );

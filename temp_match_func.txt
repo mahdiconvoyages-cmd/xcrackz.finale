@@ -1,0 +1,233 @@
+﻿
+
+DECLARE
+
+  v_req RECORD;
+
+  v_earth_radius CONSTANT DOUBLE PRECISION := 6371;
+
+BEGIN
+
+  SELECT * INTO v_req FROM ride_requests WHERE id = p_request_id;
+
+  IF v_req IS NULL THEN RETURN; END IF;
+
+
+
+  RETURN QUERY
+
+  WITH offers AS (
+
+    SELECT 
+
+      ro.*,
+
+      -- Distance entre le pickup du passager et l'origine de l'offre
+
+      v_earth_radius * 2 * asin(sqrt(
+
+        sin(radians(v_req.pickup_lat - ro.origin_lat) / 2) ^ 2 +
+
+        cos(radians(v_req.pickup_lat)) * cos(radians(ro.origin_lat)) *
+
+        sin(radians(v_req.pickup_lng - ro.origin_lng) / 2) ^ 2
+
+      )) AS dist_pickup_to_origin,
+
+      -- Distance entre le pickup du passager et la destination de l'offre
+
+      v_earth_radius * 2 * asin(sqrt(
+
+        sin(radians(v_req.pickup_lat - ro.destination_lat) / 2) ^ 2 +
+
+        cos(radians(v_req.pickup_lat)) * cos(radians(ro.destination_lat)) *
+
+        sin(radians(v_req.pickup_lng - ro.destination_lng) / 2) ^ 2
+
+      )) AS dist_pickup_to_dest,
+
+      -- Distance entre la destination du passager et la destination de l'offre
+
+      v_earth_radius * 2 * asin(sqrt(
+
+        sin(radians(v_req.destination_lat - ro.destination_lat) / 2) ^ 2 +
+
+        cos(radians(v_req.destination_lat)) * cos(radians(ro.destination_lat)) *
+
+        sin(radians(v_req.destination_lng - ro.destination_lng) / 2) ^ 2
+
+      )) AS dist_dest_to_dest,
+
+      -- Distance directe passager pickup → destination
+
+      v_earth_radius * 2 * asin(sqrt(
+
+        sin(radians(v_req.destination_lat - v_req.pickup_lat) / 2) ^ 2 +
+
+        cos(radians(v_req.pickup_lat)) * cos(radians(v_req.destination_lat)) *
+
+        sin(radians(v_req.destination_lng - v_req.pickup_lng) / 2) ^ 2
+
+      )) AS passenger_total_distance,
+
+      -- Distance trajet conducteur origin → dest
+
+      v_earth_radius * 2 * asin(sqrt(
+
+        sin(radians(ro.destination_lat - ro.origin_lat) / 2) ^ 2 +
+
+        cos(radians(ro.origin_lat)) * cos(radians(ro.destination_lat)) *
+
+        sin(radians(ro.destination_lng - ro.origin_lng) / 2) ^ 2
+
+      )) AS driver_route_distance
+
+    FROM ride_offers ro
+
+    WHERE ro.status IN ('active', 'en_route')
+
+      AND ro.user_id != v_req.user_id
+
+      AND ro.departure_date = v_req.needed_date
+
+      AND ro.origin_lat IS NOT NULL
+
+      AND ro.destination_lat IS NOT NULL
+
+      AND ro.seats_available > 0
+
+  )
+
+  SELECT
+
+    o.id AS offer_id,
+
+    o.user_id AS driver_id,
+
+    -- Ville de pickup (la plus proche entre origin et route)
+
+    CASE 
+
+      WHEN o.dist_pickup_to_origin < o.dist_pickup_to_dest THEN o.origin_city
+
+      ELSE o.destination_city
+
+    END AS pickup_city,
+
+    -- Ville de dropoff
+
+    CASE
+
+      WHEN o.dist_dest_to_dest < 30 THEN o.destination_city
+
+      ELSE o.destination_city
+
+    END AS dropoff_city,
+
+    -- Détour estimé = dist pickup passager par rapport à la route directe
+
+    LEAST(o.dist_pickup_to_origin, o.dist_pickup_to_dest) AS detour_km,
+
+    -- Distance couverte pour le passager
+
+    CASE 
+
+      WHEN o.dist_dest_to_dest < 30 THEN o.passenger_total_distance
+
+      ELSE GREATEST(0, o.passenger_total_distance - o.dist_dest_to_dest)
+
+    END AS distance_covered_km,
+
+    -- Score composite (0-100)
+
+    LEAST(100, (
+
+      -- Faible détour pour le conducteur (max 35 pts)
+
+      CASE 
+
+        WHEN LEAST(o.dist_pickup_to_origin, o.dist_pickup_to_dest) < 5 THEN 35
+
+        WHEN LEAST(o.dist_pickup_to_origin, o.dist_pickup_to_dest) < 10 THEN 28
+
+        WHEN LEAST(o.dist_pickup_to_origin, o.dist_pickup_to_dest) < 20 THEN 18
+
+        WHEN LEAST(o.dist_pickup_to_origin, o.dist_pickup_to_dest) < 30 THEN 10
+
+        ELSE 0
+
+      END +
+
+      -- Destination proche (max 35 pts)
+
+      CASE
+
+        WHEN o.dist_dest_to_dest < 5 THEN 35
+
+        WHEN o.dist_dest_to_dest < 15 THEN 28
+
+        WHEN o.dist_dest_to_dest < 30 THEN 18
+
+        WHEN o.dist_dest_to_dest < 50 THEN 10
+
+        ELSE 0
+
+      END +
+
+      -- Couverture du trajet passager (max 20 pts)
+
+      CASE
+
+        WHEN o.passenger_total_distance > 0 THEN
+
+          LEAST(20, (GREATEST(0, o.passenger_total_distance - o.dist_dest_to_dest) / o.passenger_total_distance * 20)::INTEGER)
+
+        ELSE 10
+
+      END +
+
+      -- Bonus même direction (max 10 pts)
+
+      CASE
+
+        WHEN o.dist_pickup_to_origin < 20 AND o.dist_dest_to_dest < 20 THEN 10
+
+        WHEN o.dist_pickup_to_dest < 20 THEN 5
+
+        ELSE 0
+
+      END
+
+    ))::INTEGER AS match_score,
+
+    -- Type de match
+
+    CASE
+
+      WHEN LEAST(o.dist_pickup_to_origin, o.dist_pickup_to_dest) < 5 THEN 'on_route'
+
+      WHEN LEAST(o.dist_pickup_to_origin, o.dist_pickup_to_dest) < o.max_detour_km THEN 'small_detour'
+
+      WHEN o.dist_dest_to_dest > 30 THEN 'partial'
+
+      ELSE 'on_route'
+
+    END AS match_type
+
+  FROM offers o
+
+  WHERE (
+
+    LEAST(o.dist_pickup_to_origin, o.dist_pickup_to_dest) < GREATEST(o.max_detour_km, v_req.max_detour_km)
+
+    OR o.dist_dest_to_dest < 50
+
+  )
+
+  ORDER BY match_score DESC
+
+  LIMIT 30;
+
+END;
+
+
