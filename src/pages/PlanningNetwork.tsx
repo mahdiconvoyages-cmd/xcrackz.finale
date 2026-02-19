@@ -9,7 +9,7 @@ import {
   Calendar, Navigation, Zap, Bell, Star, Truck, Car, User,
   MessageCircle, Send, ArrowRight, Eye, Trash2, RefreshCw,
   BarChart3, Share2, Target, Route, AlertCircle, ThumbsUp,
-  Phone, Mail, Award, TrendingUp, Footprints
+  Phone, Mail, Award, TrendingUp, Footprints, ChevronRight
 } from 'lucide-react';
 
 // ============================================================================
@@ -122,7 +122,7 @@ const VEHICLE_LABELS: Record<string, string> = {
 // ============================================================================
 export default function PlanningNetwork() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'map' | 'offers' | 'requests' | 'matches'>('map');
+  const [activeTab, setActiveTab] = useState<'explorer' | 'my_trips' | 'matches'>('explorer');
   const [myOffers, setMyOffers] = useState<RideOffer[]>([]);
   const [myRequests, setMyRequests] = useState<RideRequest[]>([]);
   const [allOffers, setAllOffers] = useState<RideOffer[]>([]);
@@ -260,10 +260,9 @@ export default function PlanningNetwork() {
   // TABS
   // ============================================================================
   const tabs = [
-    { id: 'map' as const, label: 'Carte Live', icon: MapPin, count: liveDrivers.length },
-    { id: 'offers' as const, label: 'Conducteurs', icon: Car, count: allOffers.length },
-    { id: 'requests' as const, label: 'Passagers', icon: Footprints, count: allRequests.length },
-    { id: 'matches' as const, label: 'Mes Matchs', icon: Zap, count: pendingCount },
+    { id: 'explorer' as const, label: 'Explorer', icon: Search, count: allOffers.length + allRequests.length },
+    { id: 'my_trips' as const, label: 'Mes Trajets', icon: User, count: myOffers.length + myRequests.length },
+    { id: 'matches' as const, label: 'Matchs & Chat', icon: Zap, count: pendingCount },
   ];
 
   // ============================================================================
@@ -282,13 +281,25 @@ export default function PlanningNetwork() {
               </div>
               <div>
                 <h1 className="text-2xl lg:text-3xl font-black">Réseau Planning</h1>
-                <p className="text-white/70 text-sm">Covoiturage intelligent entre convoyeurs</p>
+                <p className="text-white/70 text-sm">Covoiturage entre convoyeurs — simple et automatique</p>
               </div>
             </div>
-            <p className="text-white/80 text-sm lg:text-base max-w-2xl hidden lg:block">
-              Trouvez un convoyeur qui passe par votre ville pour monter avec lui, ou proposez vos places libres.
-              L'IA matche automatiquement les trajets compatibles en temps réel.
-            </p>
+            <div className="hidden lg:flex items-center gap-4 mt-1">
+              <div className="flex items-center gap-2 text-white/80 text-sm">
+                <span className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold">1</span>
+                Publiez une offre ou demande
+              </div>
+              <ChevronRight className="w-4 h-4 text-white/50" />
+              <div className="flex items-center gap-2 text-white/80 text-sm">
+                <span className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold">2</span>
+                L'IA matche automatiquement
+              </div>
+              <ChevronRight className="w-4 h-4 text-white/50" />
+              <div className="flex items-center gap-2 text-white/80 text-sm">
+                <span className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold">3</span>
+                Discutez et partez ensemble
+              </div>
+            </div>
           </div>
           <div className="flex items-center gap-2 lg:gap-3">
             <div className="relative">
@@ -361,47 +372,41 @@ export default function PlanningNetwork() {
         </div>
       ) : (
         <>
-          {activeTab === 'map' && (
-            <LiveMapTab
-              liveDrivers={liveDrivers}
-              allOffers={allOffers}
-              allRequests={allRequests}
-              userId={user?.id || ''}
-              searchFrom={searchFrom}
-              setSearchFrom={setSearchFrom}
-              searchTo={searchTo}
-              setSearchTo={setSearchTo}
-              selectedDriver={selectedDriver}
-              setSelectedDriver={setSelectedDriver}
-              onContactDriver={async (driver) => {
-                const fromGeo = driver.pickup_city ? await geocodeCity(driver.pickup_city) : [];
-                const toGeo = driver.delivery_city ? await geocodeCity(driver.delivery_city) : [];
-                setContactDriverData({
-                  from: fromGeo.length > 0 ? { city: fromGeo[0].city, lat: fromGeo[0].lat, lng: fromGeo[0].lng } : undefined,
-                  to: toGeo.length > 0 ? { city: toGeo[0].city, lat: toGeo[0].lat, lng: toGeo[0].lng } : undefined,
-                });
-                setShowCreateRequest(true);
-              }}
-            />
+          {activeTab === 'explorer' && (
+            <>
+              <LiveMapTab
+                liveDrivers={liveDrivers}
+                allOffers={allOffers}
+                allRequests={allRequests}
+                userId={user?.id || ''}
+                searchFrom={searchFrom}
+                setSearchFrom={setSearchFrom}
+                searchTo={searchTo}
+                setSearchTo={setSearchTo}
+                selectedDriver={selectedDriver}
+                setSelectedDriver={setSelectedDriver}
+                onContactDriver={async (driver) => {
+                  const fromGeo = driver.pickup_city ? await geocodeCity(driver.pickup_city) : [];
+                  const toGeo = driver.delivery_city ? await geocodeCity(driver.delivery_city) : [];
+                  setContactDriverData({
+                    from: fromGeo.length > 0 ? { city: fromGeo[0].city, lat: fromGeo[0].lat, lng: fromGeo[0].lng } : undefined,
+                    to: toGeo.length > 0 ? { city: toGeo[0].city, lat: toGeo[0].lat, lng: toGeo[0].lng } : undefined,
+                  });
+                  setShowCreateRequest(true);
+                }}
+              />
+              <CombinedTripsList allOffers={allOffers} allRequests={allRequests} userId={user?.id || ''} />
+            </>
           )}
-          {activeTab === 'offers' && (
-            <OffersTab
-              allOffers={allOffers}
+          {activeTab === 'my_trips' && (
+            <MyTripsTab
               myOffers={myOffers}
-              userId={user?.id || ''}
-              onRefresh={loadData}
-              onCreateNew={() => setShowCreateOffer(true)}
-              onToggleVisibility={toggleOfferVisibility}
-            />
-          )}
-          {activeTab === 'requests' && (
-            <RequestsTab
-              allRequests={allRequests}
               myRequests={myRequests}
               userId={user?.id || ''}
               onRefresh={loadData}
-              onRunMatching={runMatching}
-              onCreateNew={() => setShowCreateRequest(true)}
+              onCreateOffer={() => setShowCreateOffer(true)}
+              onCreateRequest={() => setShowCreateRequest(true)}
+              onToggleVisibility={toggleOfferVisibility}
             />
           )}
           {activeTab === 'matches' && (
@@ -994,105 +999,139 @@ function LiveMapTab({ liveDrivers, allOffers, allRequests, userId, searchFrom, s
 
 
 // ============================================================================
-// OFFERS TAB — Conducteurs avec places libres
+// COMBINED TRIPS LIST — All offers & requests from everyone (for Explorer tab)
 // ============================================================================
-function OffersTab({ allOffers, myOffers, userId, onRefresh, onCreateNew, onToggleVisibility }: {
-  allOffers: RideOffer[]; myOffers: RideOffer[]; userId: string;
-  onRefresh: () => void; onCreateNew: () => void;
-  onToggleVisibility: (id: string, currentStatus: string) => void;
+function CombinedTripsList({ allOffers, allRequests, userId }: {
+  allOffers: RideOffer[];
+  allRequests: RideRequest[];
+  userId: string;
 }) {
-  const handleDelete = async (id: string) => {
-    if (!confirm('Supprimer cette offre ?')) return;
-    await supabase.from('ride_offers').delete().eq('id', id);
-    onRefresh();
-  };
+  const [filter, setFilter] = useState<'all' | 'offers' | 'requests'>('all');
 
-  if (allOffers.length === 0) {
+  const othersOffers = allOffers.filter(o => o.user_id !== userId);
+  const othersRequests = allRequests.filter(r => r.user_id !== userId);
+  const filteredOffers = filter === 'requests' ? [] : othersOffers;
+  const filteredRequests = filter === 'offers' ? [] : othersRequests;
+  const totalCount = othersOffers.length + othersRequests.length;
+
+  if (totalCount === 0) {
     return (
-      <div className="bg-white rounded-2xl border p-12 text-center" style={{ borderColor: T.borderDefault }}>
-        <div className="w-20 h-20 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Car className="w-10 h-10 text-indigo-500" />
+      <div className="mt-4 bg-white rounded-2xl border p-8 text-center" style={{ borderColor: T.borderDefault }}>
+        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
+          <Search className="w-8 h-8 text-slate-400" />
         </div>
-        <h3 className="text-xl font-bold mb-2" style={{ color: T.textPrimary }}>Aucun conducteur disponible</h3>
-        <p className="text-sm mb-6 max-w-md mx-auto" style={{ color: T.textSecondary }}>
-          Soyez le premier à proposer une place dans votre véhicule !
+        <h3 className="text-lg font-bold mb-1" style={{ color: T.textPrimary }}>Aucun trajet disponible</h3>
+        <p className="text-sm" style={{ color: T.textSecondary }}>
+          Il n'y a pas encore de trajets publiés par d'autres convoyeurs. Soyez le premier !
         </p>
-        <button onClick={onCreateNew}
-          className="inline-flex items-center gap-2 bg-indigo-600 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition">
-          <Plus className="w-5 h-5" /> Proposer une place
-        </button>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      {allOffers.map(o => {
-        const isMine = o.user_id === userId;
+    <div className="mt-5 space-y-3">
+      {/* Section header + filter */}
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: T.textPrimary }}>
+          <Users className="w-5 h-5" style={{ color: T.primaryIndigo }} />
+          Trajets disponibles
+          <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">{totalCount}</span>
+        </h3>
+        <div className="flex gap-2">
+          {([
+            { key: 'all' as const, label: 'Tous', count: totalCount },
+            { key: 'offers' as const, label: '🚗 Places dispo', count: othersOffers.length },
+            { key: 'requests' as const, label: '🚶 Cherchent un lift', count: othersRequests.length },
+          ]).map(f => (
+            <button key={f.key} onClick={() => setFilter(f.key)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
+                filter === f.key ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
+              }`}>
+              {f.label} ({f.count})
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Offer cards */}
+      {filteredOffers.map(o => {
         const driverName = o.profile ? `${o.profile.first_name || ''} ${o.profile.last_name || ''}`.trim() : '';
         return (
-          <div key={o.id} className={`bg-white rounded-2xl p-4 lg:p-5 transition hover:shadow-md ${isMine ? 'ring-2 ring-indigo-200' : ''}`}
-            style={{ border: `1px solid ${T.borderDefault}` }}>
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-2 flex-wrap">
-                  {isMine && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">Mon offre</span>}
-                  {!isMine && driverName && (
-                    <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: T.textPrimary }}>
-                      <User className="w-3 h-3" style={{ color: T.primaryIndigo }} />
-                      {driverName}
-                      {o.profile?.company_name && <span className="text-[10px] font-normal" style={{ color: T.textTertiary }}> · {o.profile.company_name}</span>}
-                    </span>
-                  )}
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                    o.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
-                    o.status === 'en_route' ? 'bg-blue-100 text-blue-700' :
-                    o.status === 'paused' ? 'bg-amber-100 text-amber-700' :
-                    'bg-slate-100 text-slate-600'
-                  }`}>
-                    {o.status === 'active' ? 'Disponible' : o.status === 'en_route' ? 'En route' : o.status === 'paused' ? '⏸ En pause' : o.status}
+          <div key={`offer-${o.id}`} className="bg-white rounded-2xl p-4 transition hover:shadow-md" style={{ border: `1px solid ${T.borderDefault}` }}>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">🚗 Place disponible</span>
+                {driverName && (
+                  <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: T.textPrimary }}>
+                    <User className="w-3 h-3" style={{ color: T.primaryIndigo }} />
+                    {driverName}
+                    {o.profile?.company_name && <span className="text-[10px] font-normal" style={{ color: T.textTertiary }}> · {o.profile.company_name}</span>}
                   </span>
-                  {o.seats_available > 0 && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${T.accentAmber}15`, color: T.accentAmber }}>
-                      🪑 {o.seats_available} place{o.seats_available > 1 ? 's' : ''}
-                    </span>
-                  )}
-                </div>
-                {/* Route */}
-                <div className="flex items-center gap-2 text-sm mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentGreen }} />
-                  <span className="font-semibold" style={{ color: T.textPrimary }}>{o.origin_city}</span>
-                  <ArrowRight className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
-                  <span className="font-semibold" style={{ color: T.textPrimary }}>{o.destination_city}</span>
-                </div>
-                {/* Details */}
-                <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: T.textSecondary }}>
-                  <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />
-                    {new Date(o.departure_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                )}
+                {o.seats_available > 0 && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${T.accentAmber}15`, color: T.accentAmber }}>
+                    🪑 {o.seats_available} place{o.seats_available > 1 ? 's' : ''}
                   </span>
-                  {o.departure_time && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {o.departure_time.slice(0,5)}</span>}
-                  <span className="flex items-center gap-1"><Truck className="w-3 h-3" /> {VEHICLE_LABELS[o.vehicle_type] || o.vehicle_type}</span>
-                  <span className="flex items-center gap-1"><Navigation className="w-3 h-3" /> ±{o.max_detour_km}km détour</span>
-                </div>
-                {o.needs_return && o.return_to_city && (
-                  <div className="mt-2 text-xs font-medium flex items-center gap-1" style={{ color: T.primaryPurple }}>
-                    <RefreshCw className="w-3 h-3" /> Cherche aussi un retour → {o.return_to_city}
-                  </div>
                 )}
               </div>
-              {isMine && (
-                <div className="flex items-center gap-2">
-                  <button onClick={() => onToggleVisibility(o.id, o.status)}
-                    className={`p-2 rounded-lg transition ${o.status === 'paused' ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}
-                    title={o.status === 'paused' ? 'Réactiver' : 'Mettre en pause'}>
-                    {o.status === 'paused' ? <Eye className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-                  </button>
-                  <button onClick={() => handleDelete(o.id)} className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition" title="Supprimer">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
+              <div className="flex items-center gap-2 text-sm mb-2">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentGreen }} />
+                <span className="font-semibold" style={{ color: T.textPrimary }}>{o.origin_city}</span>
+                <ArrowRight className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
+                <span className="font-semibold" style={{ color: T.textPrimary }}>{o.destination_city}</span>
+              </div>
+              <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: T.textSecondary }}>
+                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />
+                  {new Date(o.departure_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                </span>
+                {o.departure_time && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {o.departure_time.slice(0,5)}</span>}
+                <span className="flex items-center gap-1"><Truck className="w-3 h-3" /> {VEHICLE_LABELS[o.vehicle_type] || o.vehicle_type}</span>
+                <span className="flex items-center gap-1"><Navigation className="w-3 h-3" /> ±{o.max_detour_km}km détour</span>
+              </div>
+              {o.needs_return && o.return_to_city && (
+                <div className="mt-2 text-xs font-medium flex items-center gap-1" style={{ color: T.primaryPurple }}>
+                  <RefreshCw className="w-3 h-3" /> Cherche aussi un retour → {o.return_to_city}
                 </div>
               )}
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Request cards */}
+      {filteredRequests.map(r => {
+        const requesterName = r.profile ? `${r.profile.first_name || ''} ${r.profile.last_name || ''}`.trim() : '';
+        return (
+          <div key={`req-${r.id}`} className="bg-white rounded-2xl p-4 transition hover:shadow-md" style={{ border: `1px solid ${T.borderDefault}` }}>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 mb-2 flex-wrap">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">🚶 Cherche un lift</span>
+                {requesterName && (
+                  <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: T.textPrimary }}>
+                    <User className="w-3 h-3" style={{ color: T.accentAmber }} />
+                    {requesterName}
+                    {r.profile?.company_name && <span className="text-[10px] font-normal" style={{ color: T.textTertiary }}> · {r.profile.company_name}</span>}
+                  </span>
+                )}
+                {r.accept_partial && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">Partiel OK</span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 text-sm mb-2">
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentAmber }} />
+                <span className="font-semibold" style={{ color: T.textPrimary }}>{r.pickup_city}</span>
+                <ArrowRight className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
+                <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
+                <span className="font-semibold" style={{ color: T.textPrimary }}>{r.destination_city}</span>
+              </div>
+              <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: T.textSecondary }}>
+                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />
+                  {new Date(r.needed_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                </span>
+                {r.time_window_start && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {r.time_window_start.slice(0,5)} - {r.time_window_end?.slice(0,5) || '?'}</span>}
+                <span className="flex items-center gap-1"><Navigation className="w-3 h-3" /> ±{r.max_detour_km}km accepté</span>
+              </div>
             </div>
           </div>
         );
@@ -1103,99 +1142,216 @@ function OffersTab({ allOffers, myOffers, userId, onRefresh, onCreateNew, onTogg
 
 
 // ============================================================================
-// REQUESTS TAB — Piétons qui cherchent un lift
+// MY TRIPS TAB — My offers + My requests unified
 // ============================================================================
-function RequestsTab({ allRequests, myRequests, userId, onRefresh, onRunMatching, onCreateNew }: {
-  allRequests: RideRequest[]; myRequests: RideRequest[]; userId: string;
-  onRefresh: () => void; onRunMatching: (id: string) => void; onCreateNew: () => void;
+function MyTripsTab({ myOffers, myRequests, userId, onRefresh, onCreateOffer, onCreateRequest, onToggleVisibility }: {
+  myOffers: RideOffer[];
+  myRequests: RideRequest[];
+  userId: string;
+  onRefresh: () => void;
+  onCreateOffer: () => void;
+  onCreateRequest: () => void;
+  onToggleVisibility: (id: string, currentStatus: string) => void;
 }) {
-  const handleDelete = async (id: string) => {
+  const handleDeleteOffer = async (id: string) => {
+    if (!confirm('Supprimer cette offre ?')) return;
+    await supabase.from('ride_offers').delete().eq('id', id);
+    onRefresh();
+  };
+
+  const handleDeleteRequest = async (id: string) => {
     if (!confirm('Supprimer cette demande ?')) return;
     await supabase.from('ride_requests').delete().eq('id', id);
     onRefresh();
   };
 
-  const REQUEST_TYPE_LABELS: Record<string, string> = {
-    return: '↩️ Retour base', pickup_point: '📍 Aller au point d\'enlèvement', custom: '🎯 Personnalisé',
-  };
-
-  if (allRequests.length === 0) {
+  // Show onboarding when user has no activity
+  if (myOffers.length === 0 && myRequests.length === 0) {
     return (
-      <div className="bg-white rounded-2xl border p-12 text-center" style={{ borderColor: T.borderDefault }}>
-        <div className="w-20 h-20 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-4">
-          <Footprints className="w-10 h-10 text-amber-500" />
+      <div className="space-y-4">
+        {/* How it works */}
+        <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 border border-indigo-100">
+          <h3 className="text-lg font-bold mb-4" style={{ color: T.textPrimary }}>
+            🚀 Comment ça marche ?
+          </h3>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {[
+              { step: '1', title: 'Publiez votre trajet', desc: 'Proposez une place libre ou cherchez un lift vers votre destination', icon: Plus, color: T.primaryIndigo },
+              { step: '2', title: 'Matching automatique', desc: 'Notre IA trouve les trajets compatibles et crée les matchs pour vous', icon: Zap, color: T.accentAmber },
+              { step: '3', title: 'Partez ensemble', desc: 'Discutez avec votre coéquipier et coordonnez le départ', icon: MessageCircle, color: T.accentGreen },
+            ].map((s, i) => (
+              <div key={i} className="bg-white rounded-xl p-4 text-center shadow-sm">
+                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{ backgroundColor: `${s.color}15` }}>
+                  <s.icon className="w-6 h-6" style={{ color: s.color }} />
+                </div>
+                <div className="text-sm font-bold mb-1" style={{ color: T.textPrimary }}>{s.title}</div>
+                <div className="text-xs" style={{ color: T.textSecondary }}>{s.desc}</div>
+              </div>
+            ))}
+          </div>
         </div>
-        <h3 className="text-xl font-bold mb-2" style={{ color: T.textPrimary }}>Aucune demande de lift</h3>
-        <p className="text-sm mb-6 max-w-md mx-auto" style={{ color: T.textSecondary }}>
-          Publiez votre demande pour que les conducteurs vous trouvent !
-        </p>
-        <button onClick={onCreateNew}
-          className="inline-flex items-center gap-2 bg-amber-500 text-white px-6 py-3 rounded-xl font-bold hover:shadow-lg transition">
-          <Plus className="w-5 h-5" /> Je cherche un lift
-        </button>
+
+        {/* Empty state with CTAs */}
+        <div className="bg-white rounded-2xl border p-8 text-center" style={{ borderColor: T.borderDefault }}>
+          <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <Car className="w-8 h-8 text-indigo-500" />
+          </div>
+          <h3 className="text-lg font-bold mb-2" style={{ color: T.textPrimary }}>Vous n'avez pas encore de trajet</h3>
+          <p className="text-sm mb-6 max-w-md mx-auto" style={{ color: T.textSecondary }}>
+            Commencez par publier une offre de place ou une demande de lift. Le matching se fait automatiquement !
+          </p>
+          <div className="flex items-center justify-center gap-3 flex-wrap">
+            <button onClick={onCreateOffer}
+              className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:shadow-lg transition">
+              <Car className="w-4 h-4" /> J'ai une place libre
+            </button>
+            <button onClick={onCreateRequest}
+              className="flex items-center gap-2 bg-amber-500 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:shadow-lg transition">
+              <Footprints className="w-4 h-4" /> Je cherche un lift
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-3">
-      {allRequests.map(r => {
-        const isMine = r.user_id === userId;
-        const requesterName = r.profile ? `${r.profile.first_name || ''} ${r.profile.last_name || ''}`.trim() : '';
-        return (
-          <div key={r.id} className={`bg-white rounded-2xl p-4 lg:p-5 transition hover:shadow-md ${isMine ? 'ring-2 ring-amber-200' : ''}`}
-            style={{ border: `1px solid ${T.borderDefault}` }}>
-            <div className="flex items-start justify-between gap-4 flex-wrap">
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-3 mb-2 flex-wrap">
-                  {isMine && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">Ma demande</span>}
-                  {!isMine && requesterName && (
-                    <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: T.textPrimary }}>
-                      <User className="w-3 h-3" style={{ color: T.accentAmber }} />
-                      {requesterName}
-                      {r.profile?.company_name && <span className="text-[10px] font-normal" style={{ color: T.textTertiary }}> · {r.profile.company_name}</span>}
-                    </span>
-                  )}
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600">
-                    {REQUEST_TYPE_LABELS[r.request_type] || r.request_type}
-                  </span>
-                  {r.accept_partial && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">Partiel OK</span>
-                  )}
-                </div>
-                <div className="flex items-center gap-2 text-sm mb-2">
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentAmber }} />
-                  <span className="font-semibold" style={{ color: T.textPrimary }}>{r.pickup_city}</span>
-                  <ArrowRight className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
-                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
-                  <span className="font-semibold" style={{ color: T.textPrimary }}>{r.destination_city}</span>
-                </div>
-                <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: T.textSecondary }}>
-                  <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />
-                    {new Date(r.needed_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                  </span>
-                  {r.time_window_start && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {r.time_window_start.slice(0,5)} - {r.time_window_end?.slice(0,5) || '?'}</span>}
-                  <span className="flex items-center gap-1"><Navigation className="w-3 h-3" /> ±{r.max_detour_km}km accepté</span>
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {isMine && (
-                  <>
-                    <button onClick={() => onRunMatching(r.id)}
-                      className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-bold text-white transition hover:shadow-lg"
-                      style={{ background: `linear-gradient(135deg, ${T.accentAmber}, ${T.deepOrange})` }}>
-                      <Zap className="w-3.5 h-3.5" /> Matcher
+    <div className="space-y-6">
+      {/* ── Mes offres de places ── */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-bold flex items-center gap-2" style={{ color: T.textPrimary }}>
+            <Car className="w-4 h-4" style={{ color: T.primaryIndigo }} />
+            Mes offres de places
+            <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">{myOffers.length}</span>
+          </h3>
+          <button onClick={onCreateOffer}
+            className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition">
+            <Plus className="w-3.5 h-3.5" /> Nouvelle offre
+          </button>
+        </div>
+        {myOffers.length === 0 ? (
+          <div className="bg-slate-50 rounded-xl p-4 text-center">
+            <p className="text-sm" style={{ color: T.textSecondary }}>Aucune offre de place publiée</p>
+            <button onClick={onCreateOffer} className="mt-2 text-sm font-semibold text-indigo-600 hover:underline">
+              Proposer une place →
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {myOffers.map(o => (
+              <div key={o.id} className="bg-white rounded-2xl p-4 ring-2 ring-indigo-200" style={{ border: `1px solid ${T.borderDefault}` }}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        o.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
+                        o.status === 'en_route' ? 'bg-blue-100 text-blue-700' :
+                        o.status === 'paused' ? 'bg-amber-100 text-amber-700' :
+                        'bg-slate-100 text-slate-600'
+                      }`}>
+                        {o.status === 'active' ? '● Disponible' : o.status === 'en_route' ? '● En route' : o.status === 'paused' ? '⏸ En pause' : o.status}
+                      </span>
+                      {o.seats_available > 0 && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${T.accentAmber}15`, color: T.accentAmber }}>
+                          🪑 {o.seats_available} place{o.seats_available > 1 ? 's' : ''}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm mb-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentGreen }} />
+                      <span className="font-semibold" style={{ color: T.textPrimary }}>{o.origin_city}</span>
+                      <ArrowRight className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
+                      <span className="font-semibold" style={{ color: T.textPrimary }}>{o.destination_city}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: T.textSecondary }}>
+                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />
+                        {new Date(o.departure_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                      </span>
+                      {o.departure_time && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {o.departure_time.slice(0,5)}</span>}
+                      <span className="flex items-center gap-1"><Truck className="w-3 h-3" /> {VEHICLE_LABELS[o.vehicle_type] || o.vehicle_type}</span>
+                      <span className="flex items-center gap-1"><Navigation className="w-3 h-3" /> ±{o.max_detour_km}km détour</span>
+                    </div>
+                    {o.needs_return && o.return_to_city && (
+                      <div className="mt-2 text-xs font-medium flex items-center gap-1" style={{ color: T.primaryPurple }}>
+                        <RefreshCw className="w-3 h-3" /> Cherche aussi un retour → {o.return_to_city}
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <button onClick={() => onToggleVisibility(o.id, o.status)}
+                      className={`p-2 rounded-lg transition ${o.status === 'paused' ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}
+                      title={o.status === 'paused' ? 'Réactiver' : 'Mettre en pause'}>
+                      {o.status === 'paused' ? <Eye className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
                     </button>
-                    <button onClick={() => handleDelete(r.id)} className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">
+                    <button onClick={() => handleDeleteOffer(o.id)} className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition" title="Supprimer">
                       <Trash2 className="w-4 h-4" />
                     </button>
-                  </>
-                )}
+                  </div>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
-        );
-      })}
+        )}
+      </div>
+
+      {/* ── Mes demandes de lift ── */}
+      <div>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-base font-bold flex items-center gap-2" style={{ color: T.textPrimary }}>
+            <Footprints className="w-4 h-4" style={{ color: T.accentAmber }} />
+            Mes demandes de lift
+            <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">{myRequests.length}</span>
+          </h3>
+          <button onClick={onCreateRequest}
+            className="flex items-center gap-1.5 text-xs font-bold text-amber-600 hover:text-amber-800 transition">
+            <Plus className="w-3.5 h-3.5" /> Nouvelle demande
+          </button>
+        </div>
+        {myRequests.length === 0 ? (
+          <div className="bg-slate-50 rounded-xl p-4 text-center">
+            <p className="text-sm" style={{ color: T.textSecondary }}>Aucune demande de lift publiée</p>
+            <button onClick={onCreateRequest} className="mt-2 text-sm font-semibold text-amber-600 hover:underline">
+              Chercher un lift →
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {myRequests.map(r => (
+              <div key={r.id} className="bg-white rounded-2xl p-4 ring-2 ring-amber-200" style={{ border: `1px solid ${T.borderDefault}` }}>
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">● Actif</span>
+                      {r.accept_partial && (
+                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">Partiel OK</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2 text-sm mb-2">
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentAmber }} />
+                      <span className="font-semibold" style={{ color: T.textPrimary }}>{r.pickup_city}</span>
+                      <ArrowRight className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
+                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
+                      <span className="font-semibold" style={{ color: T.textPrimary }}>{r.destination_city}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: T.textSecondary }}>
+                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />
+                        {new Date(r.needed_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
+                      </span>
+                      {r.time_window_start && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {r.time_window_start.slice(0,5)} - {r.time_window_end?.slice(0,5) || '?'}</span>}
+                      <span className="flex items-center gap-1"><Navigation className="w-3 h-3" /> ±{r.max_detour_km}km accepté</span>
+                    </div>
+                  </div>
+                  <button onClick={() => handleDeleteRequest(r.id)} className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition" title="Supprimer">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
