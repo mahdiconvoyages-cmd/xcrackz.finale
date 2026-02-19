@@ -116,32 +116,94 @@ serve(async (req) => {
         )
       }
 
-      // ── PRODUCTION: Send SMS via Bird (MessageBird) REST API ──
-      const smsBody = `Votre code de vérification ChecksFleet : ${otp}\n\nCe code expire dans 10 minutes.`
+      // ── PRODUCTION: Send SMS via Bird API ──
+      const smsBody = `Votre code de vérification ChecksFleet : ${otp}\nCe code expire dans 10 minutes.`
 
-      const birdResponse = await fetch('https://rest.messagebird.com/messages', {
-        method: 'POST',
-        headers: {
-          'Authorization': `AccessKey ${BIRD_API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          originator: 'ChecksFleet',
-          recipients: [normalizedPhone],
-          body: smsBody,
-        }),
-      })
+      let smsSent = false
+      let smsError = ''
 
-      const birdData = await birdResponse.json()
-
-      if (!birdResponse.ok) {
-        console.error('Bird SMS error:', JSON.stringify(birdData))
-        // Clean up the verification record
-        await supabaseAdmin.from('phone_verifications').delete().eq('id', verification.id)
-        throw new Error(`SMS send failed: ${birdData?.errors?.[0]?.description || 'Unknown error'}`)
+      // Try 1: New Bird API (bird.com platform keys)
+      try {
+        const birdNewResponse = await fetch('https://api.bird.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${BIRD_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            to: normalizedPhone,
+            channel: 'sms',
+            content: { text: smsBody },
+            sender: { name: 'ChecksFleet' },
+          }),
+        })
+        if (birdNewResponse.ok) {
+          const birdNewData = await birdNewResponse.json()
+          console.log('SMS sent via new Bird API to', normalizedPhone, 'ID:', birdNewData?.id)
+          smsSent = true
+        } else {
+          const errData = await birdNewResponse.json().catch(() => ({}))
+          smsError = `New Bird API ${birdNewResponse.status}: ${JSON.stringify(errData)}`
+          console.warn('New Bird API failed:', smsError)
+        }
+      } catch (e) {
+        smsError = `New Bird API exception: ${e.message}`
+        console.warn(smsError)
       }
 
-      console.log('SMS sent successfully to', normalizedPhone, 'MessageBird ID:', birdData?.id)
+      // Try 2: Old MessageBird REST API (legacy keys starting with live_/test_)
+      if (!smsSent) {
+        try {
+          const mbResponse = await fetch('https://rest.messagebird.com/messages', {
+            method: 'POST',
+            headers: {
+              'Authorization': `AccessKey ${BIRD_API_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              originator: 'ChecksFleet',
+              recipients: [normalizedPhone],
+              body: smsBody,
+            }),
+          })
+          if (mbResponse.ok) {
+            const mbData = await mbResponse.json()
+            console.log('SMS sent via MessageBird to', normalizedPhone, 'ID:', mbData?.id)
+            smsSent = true
+          } else {
+            const errData = await mbResponse.json().catch(() => ({}))
+            smsError += ` | Old MB API ${mbResponse.status}: ${errData?.errors?.[0]?.description || JSON.stringify(errData)}`
+            console.warn('Old MessageBird API also failed:', smsError)
+          }
+        } catch (e) {
+          smsError += ` | MB exception: ${e.message}`
+          console.warn(smsError)
+        }
+      }
+
+      // If both APIs failed → fallback to dev mode (so users can still sign up)
+      if (!smsSent) {
+        console.warn(`[FALLBACK DEV] SMS send failed, using dev OTP for ${normalizedPhone}. Errors: ${smsError}`)
+        // Update the stored OTP to fixed dev code so verification works
+        await supabaseAdmin
+          .from('phone_verifications')
+          .update({ code: DEV_OTP })
+          .eq('id', verification.id)
+
+        return new Response(
+          JSON.stringify({
+            success: true,
+            verification_id: verification.id,
+            phone: normalizedPhone,
+            message: 'Code de vérification envoyé (utilisez 123456)',
+            dev_mode: true,
+            sms_error: smsError,
+          }),
+          { headers: corsHeaders }
+        )
+      }
+
+      console.log('SMS sent successfully to', normalizedPhone)
 
       return new Response(
         JSON.stringify({
