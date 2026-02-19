@@ -3,7 +3,7 @@ import { ReactNode, useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { 
   BarChart3, Users, CreditCard, MapPin, MessageCircle, Smartphone, 
-  Shield, ChevronLeft, Menu, Activity, Bell
+  Shield, ChevronLeft, Menu, Activity, Bell, Package
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
@@ -14,6 +14,7 @@ interface AdminLayoutProps {
 const NAV_ITEMS = [
   { path: '/admin', label: 'Dashboard', icon: BarChart3, exact: true },
   { path: '/admin/users', label: 'Utilisateurs', icon: Users },
+  { path: '/admin/subscriptions', label: 'Abonnements', icon: Package },
   { path: '/admin/tracking', label: 'Missions GPS', icon: MapPin },
   { path: '/admin/support', label: 'Support', icon: MessageCircle },
   { path: '/admin/apk', label: 'Versions APK', icon: Smartphone },

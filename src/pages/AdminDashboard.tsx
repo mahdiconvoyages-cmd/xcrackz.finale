@@ -1,6 +1,6 @@
 // @ts-nocheck
 import { useEffect, useState } from 'react';
-import { Users, Truck, DollarSign, CreditCard, TrendingUp, Package, ShoppingCart, UserCheck, Activity, Zap, Clock, ArrowRight } from 'lucide-react';
+import { Users, Truck, DollarSign, CreditCard, TrendingUp, Package, ShoppingCart, UserCheck, Activity, Zap, Clock, ArrowRight, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 
@@ -33,6 +33,7 @@ export default function AdminDashboard() {
   const [recentTransactions, setRecentTransactions] = useState<Transaction[]>([]);
   const [recentUsers, setRecentUsers] = useState<any[]>([]);
   const [planDistribution, setPlanDistribution] = useState<{ plan: string; count: number }[]>([]);
+  const [subAlerts, setSubAlerts] = useState<{ expiringIn7: number; overdue: number; totalActive: number }>({ expiringIn7: 0, overdue: 0, totalActive: 0 });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -120,11 +121,20 @@ export default function AdminDashboard() {
   const loadPlanDistribution = async () => {
     const { data } = await supabase
       .from('subscriptions')
-      .select('plan')
+      .select('plan, status, current_period_end')
       .eq('status', 'active');
     const counts: Record<string, number> = {};
-    (data || []).forEach(s => { counts[s.plan] = (counts[s.plan] || 0) + 1; });
+    let expiringIn7 = 0, overdue = 0;
+    (data || []).forEach(s => {
+      counts[s.plan] = (counts[s.plan] || 0) + 1;
+      if (s.current_period_end) {
+        const daysLeft = Math.ceil((new Date(s.current_period_end).getTime() - Date.now()) / 86400000);
+        if (daysLeft < 0) overdue++;
+        else if (daysLeft <= 7) expiringIn7++;
+      }
+    });
     setPlanDistribution(Object.entries(counts).map(([plan, count]) => ({ plan, count })).sort((a, b) => b.count - a.count));
+    setSubAlerts({ expiringIn7, overdue, totalActive: (data || []).length });
   };
 
   const loadRecentUsers = async () => {
@@ -184,6 +194,58 @@ export default function AdminDashboard() {
         ))}
       </div>
 
+      {/* Subscription Alerts */}
+      {(subAlerts.expiringIn7 > 0 || subAlerts.overdue > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {subAlerts.overdue > 0 && (
+            <div className="bg-red-50 border border-red-200 rounded-2xl p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-red-500 rounded-xl"><AlertTriangle className="w-5 h-5 text-white" /></div>
+                <div>
+                  <p className="text-lg font-black text-red-700">{subAlerts.overdue} abonnement(s) dépassé(s)</p>
+                  <p className="text-xs text-red-500">Actifs mais date d'expiration passée — action requise</p>
+                </div>
+              </div>
+              <Link to="/admin/subscriptions" className="flex items-center gap-1 text-sm font-bold text-red-600 hover:text-red-800 bg-white px-4 py-2 rounded-xl border border-red-200 hover:shadow transition-all">
+                Gérer <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          )}
+          {subAlerts.expiringIn7 > 0 && (
+            <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="p-2.5 bg-amber-500 rounded-xl"><Clock className="w-5 h-5 text-white" /></div>
+                <div>
+                  <p className="text-lg font-black text-amber-700">{subAlerts.expiringIn7} expire(nt) sous 7 jours</p>
+                  <p className="text-xs text-amber-500">Abonnements actifs proches de l'expiration</p>
+                </div>
+              </div>
+              <Link to="/admin/subscriptions?tab=analytics" className="flex items-center gap-1 text-sm font-bold text-amber-600 hover:text-amber-800 bg-white px-4 py-2 rounded-xl border border-amber-200 hover:shadow transition-all">
+                Voir détails <ArrowRight className="w-4 h-4" />
+              </Link>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Quick Admin Links */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        {[
+          { label: 'Gestion utilisateurs', desc: `${statistics?.total_users || 0} utilisateurs`, icon: Users, to: '/admin/users', gradient: 'from-blue-500 to-indigo-500' },
+          { label: 'Abonnements', desc: `${subAlerts.totalActive} actifs`, icon: Package, to: '/admin/subscriptions', gradient: 'from-purple-500 to-pink-500' },
+          { label: 'Missions GPS', desc: `${statistics?.missions_in_progress || 0} en cours`, icon: Truck, to: '/admin/tracking', gradient: 'from-teal-500 to-green-500' },
+          { label: 'Support', desc: 'Conversations', icon: Activity, to: '/admin/support', gradient: 'from-orange-500 to-red-500' },
+        ].map(link => (
+          <Link key={link.to} to={link.to} className="bg-white rounded-2xl p-4 border border-slate-200 hover:shadow-lg hover:border-slate-300 transition-all group">
+            <div className={`p-2 bg-gradient-to-br ${link.gradient} rounded-lg w-fit shadow-sm mb-3 group-hover:scale-110 transition-transform`}>
+              <link.icon className="w-4 h-4 text-white" />
+            </div>
+            <p className="text-sm font-bold text-slate-900">{link.label}</p>
+            <p className="text-[11px] text-slate-500">{link.desc}</p>
+          </Link>
+        ))}
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Realtime */}
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
@@ -203,10 +265,15 @@ export default function AdminDashboard() {
 
         {/* Plan distribution */}
         <div className="bg-white rounded-2xl p-6 border border-slate-200 shadow-sm">
-          <h2 className="text-lg font-black text-slate-900 flex items-center gap-2 mb-5">
-            <Package className="w-5 h-5 text-purple-500" />
-            Abonnements actifs
-          </h2>
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-black text-slate-900 flex items-center gap-2">
+              <Package className="w-5 h-5 text-purple-500" />
+              Abonnements actifs
+            </h2>
+            <Link to="/admin/subscriptions" className="flex items-center gap-1 text-sm font-bold text-purple-600 hover:text-purple-700 transition">
+              Gérer <ArrowRight className="w-4 h-4" />
+            </Link>
+          </div>
           {planDistribution.length === 0 ? (
             <p className="text-slate-400 text-center py-8">Aucun abonnement actif</p>
           ) : (

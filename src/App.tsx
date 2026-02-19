@@ -61,6 +61,7 @@ const Shop = lazyRetry(() => import('./pages/Shop'));
 const Support = lazyRetry(() => import('./pages/Support'));
 const Admin = lazyRetry(() => import('./pages/AdminDashboard'));
 const AdminUsers = lazyRetry(() => import('./pages/AdminUsers'));
+const AdminSubscriptions = lazyRetry(() => import('./pages/AdminSubscriptions'));
 const AdminTracking = lazyRetry(() => import('./pages/AdminTracking'));
 const AdminApk = lazyRetry(() => import('./pages/AdminApk'));
 const AdminSupport = lazyRetry(() => import('./pages/AdminSupport'));
@@ -391,6 +392,17 @@ function AppContent() {
               <AdminRoute>
                 <AdminLayout>
                   <AdminUsers />
+                </AdminLayout>
+              </AdminRoute>
+            }
+          />
+
+          <Route
+            path="/admin/subscriptions"
+            element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminSubscriptions />
                 </AdminLayout>
               </AdminRoute>
             }
