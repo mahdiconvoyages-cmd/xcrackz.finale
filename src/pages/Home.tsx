@@ -3,9 +3,7 @@ import { Link } from 'react-router-dom';
 import { motion, useScroll, useTransform, type Variants } from 'framer-motion';
 import {
   FileText,
-  Car,
   Shield,
-  Zap,
   ArrowRight,
   Check,
   Smartphone,

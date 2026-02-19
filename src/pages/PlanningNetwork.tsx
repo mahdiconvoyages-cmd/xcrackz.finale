@@ -416,18 +416,18 @@ export default function PlanningNetwork() {
         </>
       )}
 
-          userId={user?.id || ''}
-          onClose={() => { setShowCreateRequest(false); setContactDriverData(null); }}
-          onCreated={loadData}
-          initialFrom={contactDriverData?.from}
-          initialTo={contactDriverData?.to}
-       
       {/* ── Create Offer Modal ── */}
       {showCreateOffer && (
         <CreateOfferModal userId={user?.id || ''} onClose={() => setShowCreateOffer(false)} onCreated={loadData} />
       )}
       {showCreateRequest && (
-        <CreateRequestModal userId={user?.id || ''} onClose={() => setShowCreateRequest(false)} onCreated={loadData} />
+        <CreateRequestModal
+          userId={user?.id || ''}
+          onClose={() => { setShowCreateRequest(false); setContactDriverData(null); }}
+          onCreated={loadData}
+          initialFrom={contactDriverData?.from}
+          initialTo={contactDriverData?.to}
+        />
       )}
     </div>
   );
