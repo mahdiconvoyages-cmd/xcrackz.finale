@@ -72,14 +72,19 @@ export function useSubscription(): SubscriptionStatus {
       const now = new Date();
       let expiresAt = subscription?.current_period_end ? new Date(subscription.current_period_end) : null;
       
-      // For new users with no current_period_end, calculate 30 days from account creation
-      if (!expiresAt && subscription?.status === 'active' && user) {
-        const createdAt = new Date(user.created_at);
-        expiresAt = new Date(createdAt.getTime() + 30 * 24 * 60 * 60 * 1000);
-      }
+      // Si current_period_end est NULL, l'abonnement n'a pas de date d'expiration fixe
+      // (plan free ou abonnement sans période définie) — actif tant qu'il y a des crédits
+      const isExpiredByDate = expiresAt ? expiresAt <= now : false;
       
-      const hasActiveSubscription = subscription?.status === 'active' && expiresAt ? expiresAt > now : 
-        (subscription?.status === 'active' && creditsBalance > 0);
+      // Si l'abonnement est expiré par date mais status encore 'active', corriger en DB
+      if (isExpiredByDate && subscription?.status === 'active' && user) {
+        // Mettre à jour le statut en 'expired' et réinitialiser les crédits
+        await supabase.from('subscriptions').update({ status: 'expired', updated_at: new Date().toISOString() }).eq('user_id', user.id).eq('status', 'active');
+        await supabase.from('profiles').update({ credits: 0, updated_at: new Date().toISOString() }).eq('id', user.id);
+        console.log('⏰ Abonnement expiré détecté — crédits remis à 0');
+      }
+
+      const hasActiveSubscription = subscription?.status === 'active' && !isExpiredByDate && creditsBalance > 0;
 
       let daysRemaining: number | null = null;
       let timeRemainingText: string | null = null;

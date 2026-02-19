@@ -177,12 +177,19 @@ export default function DashboardPremium() {
       };
 
       if (subscription) {
-        // For new users with no current_period_end, calculate 30 days from account creation
+        // Utiliser current_period_end tel quel — pas de fallback artificiel
         let endDate = subscription.current_period_end ? new Date(subscription.current_period_end) : null;
-        if (!endDate && user.created_at) {
-          endDate = new Date(new Date(user.created_at).getTime() + 30 * 24 * 60 * 60 * 1000);
+        const daysRemaining = endDate ? Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : -1;
+        const isExpiredByDate = endDate ? endDate <= now : false;
+        
+        // Si l'abonnement est expiré par date mais status encore 'active', corriger
+        if (isExpiredByDate && subscription.status === 'active') {
+          await supabase.from('subscriptions').update({ status: 'expired', updated_at: now.toISOString() }).eq('user_id', user.id).eq('status', 'active');
+          await supabase.from('profiles').update({ credits: 0, updated_at: now.toISOString() }).eq('id', user.id);
+          console.log('⏰ Abonnement expiré détecté — crédits remis à 0');
+          creditData = { ...creditData, credits: 0, isExpired: true, hasActiveSubscription: false };
+          setCreditInfo(creditData);
         }
-        const daysRemaining = endDate ? Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 30;
         
         // Calcul temps restant précis
         let timeRemainingText = '';
@@ -201,18 +208,34 @@ export default function DashboardPremium() {
           }
         }
 
-        const hoursRemaining = endDate ? Math.max(0, Math.floor((endDate.getTime() - now.getTime()) / (1000 * 60 * 60))) : 30 * 24;
-        creditData = {
-          credits: profile?.credits || 0,
-          plan: (subscription.plan || 'free').toUpperCase(),
-          daysRemaining,
-          hoursRemaining,
-          endDate,
-          hasActiveSubscription: true,
-          isExpiringSoon: daysRemaining > 0 && daysRemaining < 7,
-          isExpired: daysRemaining <= 0,
-          timeRemainingText,
-        };
+        const hoursRemaining = endDate ? Math.max(0, Math.floor((endDate.getTime() - now.getTime()) / (1000 * 60 * 60))) : 0;
+        
+        // Ne pas écraser si on a déjà détecté l'expiration
+        if (!isExpiredByDate) {
+          creditData = {
+            credits: profile?.credits || 0,
+            plan: (subscription.plan || 'free').toUpperCase(),
+            daysRemaining,
+            hoursRemaining,
+            endDate,
+            hasActiveSubscription: subscription.status === 'active' && (profile?.credits || 0) > 0,
+            isExpiringSoon: daysRemaining > 0 && daysRemaining < 7,
+            isExpired: false,
+            timeRemainingText,
+          };
+        } else {
+          creditData = {
+            credits: 0,
+            plan: (subscription.plan || 'free').toUpperCase(),
+            daysRemaining: 0,
+            hoursRemaining: 0,
+            endDate,
+            hasActiveSubscription: false,
+            isExpiringSoon: false,
+            isExpired: true,
+            timeRemainingText: '',
+          };
+        }
       }
       setCreditInfo(creditData);
 
