@@ -1586,6 +1586,7 @@ function CreateOfferModal({ userId, onClose, onCreated }: { userId: string; onCl
   const [returnCity, setReturnCity] = useState('');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     const t = setTimeout(async () => {
@@ -1606,8 +1607,9 @@ function CreateOfferModal({ userId, onClose, onCreated }: { userId: string; onCl
   const handleSubmit = async () => {
     if (!originGeo || !destGeo) return;
     setSaving(true);
+    setSubmitError('');
     try {
-      await supabase.from('ride_offers').insert({
+      const { error } = await supabase.from('ride_offers').insert({
         user_id: userId,
         origin_city: originGeo.city, origin_lat: originGeo.lat, origin_lng: originGeo.lng,
         destination_city: destGeo.city, destination_lat: destGeo.lat, destination_lng: destGeo.lng,
@@ -1616,9 +1618,10 @@ function CreateOfferModal({ userId, onClose, onCreated }: { userId: string; onCl
         needs_return: needsReturn, return_to_city: needsReturn ? returnCity : null,
         notes: notes || null, status: 'active',
       });
+      if (error) { setSubmitError(error.message); setSaving(false); return; }
       onCreated();
       onClose();
-    } catch (err) { console.error(err); }
+    } catch (err: any) { setSubmitError(err?.message || 'Erreur inconnue'); }
     setSaving(false);
   };
 
@@ -1747,6 +1750,13 @@ function CreateOfferModal({ userId, onClose, onCreated }: { userId: string; onCl
               style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
           </div>
 
+          {/* Error */}
+          {submitError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+              {submitError}
+            </div>
+          )}
+
           {/* Submit */}
           <button onClick={handleSubmit} disabled={!originGeo || !destGeo || saving}
             className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-white font-bold text-sm disabled:opacity-50 transition hover:shadow-lg"
@@ -1788,6 +1798,7 @@ function CreateRequestModal({ userId, onClose, onCreated, initialFrom, initialTo
   const [requestType, setRequestType] = useState('return');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
+  const [submitError, setSubmitError] = useState('');
 
   useEffect(() => {
     const t = setTimeout(async () => {
@@ -1808,19 +1819,20 @@ function CreateRequestModal({ userId, onClose, onCreated, initialFrom, initialTo
   const handleSubmit = async () => {
     if (!pickupGeo || !destGeo) return;
     setSaving(true);
+    setSubmitError('');
     try {
-      await supabase.from('ride_requests').insert({
+      const { error } = await supabase.from('ride_requests').insert({
         user_id: userId,
         pickup_city: pickupGeo.city, pickup_lat: pickupGeo.lat, pickup_lng: pickupGeo.lng,
         destination_city: destGeo.city, destination_lat: destGeo.lat, destination_lng: destGeo.lng,
         needed_date: date, time_window_start: timeStart, time_window_end: timeEnd,
         max_detour_km: detour, accept_partial: acceptPartial,
         request_type: requestType, notes: notes || null, status: 'active',
-      }).select('id').single();
-
+      });
+      if (error) { setSubmitError(error.message); setSaving(false); return; }
       onCreated();
       onClose();
-    } catch (err) { console.error(err); }
+    } catch (err: any) { setSubmitError(err?.message || 'Erreur inconnue'); }
     setSaving(false);
   };
 
@@ -1940,6 +1952,13 @@ function CreateRequestModal({ userId, onClose, onCreated, initialFrom, initialTo
               className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none resize-none"
               style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
           </div>
+
+          {/* Error */}
+          {submitError && (
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+              {submitError}
+            </div>
+          )}
 
           {/* Submit */}
           <button onClick={handleSubmit} disabled={!pickupGeo || !destGeo || saving}
