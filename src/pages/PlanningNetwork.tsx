@@ -1,20 +1,18 @@
 // @ts-nocheck
-// Réseau Planning V2 — Covoiturage Intelligent entre Convoyeurs
-// Carte live + Conducteur/Piéton + Matching IA route-based
+// Réseau Planning V3 — Covoiturage Convoyeurs — Refonte complète
+// 3 tabs: Publier / Matchs & Chat / Historique
+// Pas de carte, pas de browsing: publie → matching auto → discussion
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import {
-  MapPin, Clock, Users, Plus, X, Search, Check, ChevronRight,
-  Calendar, Navigation, Zap, Bell, Star, Truck, Car, User,
+  Clock, Plus, X, Check, ChevronRight, ChevronDown,
+  Calendar, Navigation, Zap, Bell, Star, Car, User,
   MessageCircle, Send, ArrowRight, Eye, Trash2, RefreshCw,
-  BarChart3, Share2, Target, Route, AlertCircle, ThumbsUp,
-  Phone, Mail, Award, TrendingUp, Footprints, ChevronRight
+  Share2, Route, Phone, Award, TrendingUp, Footprints,
+  History, MapPin, Truck
 } from 'lucide-react';
 
-// ============================================================================
-// THEME (PremiumTheme compatible)
-// ============================================================================
 const T = {
   primaryBlue: '#0066FF', primaryTeal: '#14B8A6', accentGreen: '#10B981',
   accentAmber: '#F59E0B', accentRed: '#EF4444', primaryPurple: '#8B5CF6',
@@ -23,9 +21,7 @@ const T = {
   fieldBg: '#F8FAFC', borderDefault: '#E2E8F0', cardBg: '#FFFFFF',
 };
 
-// ============================================================================
-// TYPES
-// ============================================================================
+// ── Types ──
 interface RideOffer {
   id: string; user_id: string; mission_id?: string;
   origin_city: string; origin_lat: number | null; origin_lng: number | null;
@@ -34,12 +30,9 @@ interface RideOffer {
   departure_date: string; departure_time: string | null; estimated_arrival_time: string | null;
   flexibility_minutes: number; max_detour_km: number; seats_available: number;
   vehicle_type: string; status: string; needs_return: boolean;
-  return_to_city: string | null;
-  notes: string | null; created_at: string;
-  // Joined
+  return_to_city: string | null; notes: string | null; created_at: string;
   profile?: { first_name: string; last_name: string; company_name: string; avatar_url: string; phone: string };
 }
-
 interface RideRequest {
   id: string; user_id: string; completed_mission_id?: string;
   pickup_city: string; pickup_lat: number | null; pickup_lng: number | null;
@@ -47,47 +40,27 @@ interface RideRequest {
   needed_date: string; time_window_start: string | null; time_window_end: string | null;
   flexibility_minutes: number; max_detour_km: number; accept_partial: boolean;
   request_type: string; status: string; notes: string | null; created_at: string;
-  // Joined
   profile?: { first_name: string; last_name: string; company_name: string; avatar_url: string; phone: string };
 }
-
 interface RideMatch {
   id: string; offer_id: string; request_id: string;
   driver_id: string; passenger_id: string;
   pickup_city: string | null; dropoff_city: string | null;
   detour_km: number; distance_covered_km: number;
   match_score: number; match_type: string; status: string;
-  rendezvous_time: string | null; rendezvous_address: string | null;
-  created_at: string;
-  // Joined
+  rendezvous_time: string | null; rendezvous_address: string | null; created_at: string;
   other_user?: { first_name: string; last_name: string; company_name: string; phone: string; email: string; avatar_url: string };
   offer?: RideOffer; request?: RideRequest;
 }
-
-interface LiveDriver {
-  mission_id: string; driver_id: string;
-  current_lat: number; current_lng: number;
-  speed: number; bearing: number; last_update: string;
-  reference: string; pickup_city: string; delivery_city: string;
-  vehicle_brand: string; vehicle_model: string; vehicle_type: string;
-  first_name: string; last_name: string; company_name: string;
-  offer_id: string | null; seats_available: number | null;
-  max_detour_km: number | null; route_cities: any[];
-  freshness: string;
-}
-
 interface ChatMessage {
   id: string; match_id: string; sender_id: string;
   content: string; is_read: boolean; created_at: string;
 }
-
 interface GeoSuggestion {
   label: string; city: string; postcode: string; lat: number; lng: number;
 }
 
-// ============================================================================
-// GEOCODING
-// ============================================================================
+// ── Geocoding ──
 async function geocodeCity(query: string): Promise<GeoSuggestion[]> {
   if (query.length < 2) return [];
   try {
@@ -97,70 +70,67 @@ async function geocodeCity(query: string): Promise<GeoSuggestion[]> {
       label: `${f.properties.label} (${f.properties.postcode})`,
       city: f.properties.city || f.properties.label,
       postcode: f.properties.postcode || '',
-      lat: f.geometry.coordinates[1],
-      lng: f.geometry.coordinates[0],
+      lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0],
     }));
   } catch { return []; }
 }
 
-// ============================================================================
-// CONSTANTS
-// ============================================================================
-const MATCH_TYPE_CFG: Record<string, { label: string; color: string; icon: any }> = {
-  on_route: { label: 'Sur la route', color: T.accentGreen, icon: Route },
-  small_detour: { label: 'Petit détour', color: T.primaryBlue, icon: Navigation },
-  partial: { label: 'Trajet partiel', color: T.accentAmber, icon: TrendingUp },
-  return_match: { label: 'Retour', color: T.primaryPurple, icon: RefreshCw },
-};
-
+// ── Helpers ──
 const VEHICLE_LABELS: Record<string, string> = {
-  car: 'Voiture', utility: 'Utilitaire', truck: 'Poids lourd', motorcycle: 'Moto', all: 'Tous',
+  car: '🚗 Voiture', utility: '🚐 Utilitaire', truck: '🚛 Poids lourd', motorcycle: '🏍️ Moto',
 };
 
-// ============================================================================
+function formatDateLabel(dateStr: string): string {
+  const d = new Date(dateStr + 'T00:00:00');
+  const today = new Date(); today.setHours(0,0,0,0);
+  const tomorrow = new Date(today); tomorrow.setDate(tomorrow.getDate() + 1);
+  if (d.getTime() === today.getTime()) return "Aujourd'hui";
+  if (d.getTime() === tomorrow.getTime()) return 'Demain';
+  return d.toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' });
+}
+
+function formatTime(t: string | null): string {
+  if (!t) return '';
+  return t.slice(0, 5).replace(':', 'h');
+}
+
+const MATCH_STATUS_CFG: Record<string, { label: string; color: string; bg: string }> = {
+  proposed: { label: '🔔 Nouveau match', color: '#F59E0B', bg: '#FFFBEB' },
+  accepted: { label: '✅ Accepté', color: '#10B981', bg: '#ECFDF5' },
+  in_transit: { label: '🚗 En route', color: '#6366F1', bg: '#EEF2FF' },
+  completed: { label: '🏁 Terminé', color: '#8B5CF6', bg: '#F5F3FF' },
+  declined: { label: '❌ Décliné', color: '#EF4444', bg: '#FEF2F2' },
+  cancelled: { label: '⛔ Annulé', color: '#94A3B8', bg: '#F8FAFC' },
+};
+
+// ══════════════════════════════════════════════════════════════════════════════
 // MAIN COMPONENT
-// ============================================================================
+// ══════════════════════════════════════════════════════════════════════════════
 export default function PlanningNetwork() {
   const { user } = useAuth();
-  const [activeTab, setActiveTab] = useState<'explorer' | 'my_trips' | 'matches'>('explorer');
+  const [activeTab, setActiveTab] = useState<'publish' | 'matches' | 'history'>('publish');
   const [myOffers, setMyOffers] = useState<RideOffer[]>([]);
   const [myRequests, setMyRequests] = useState<RideRequest[]>([]);
-  const [allOffers, setAllOffers] = useState<RideOffer[]>([]);
-  const [allRequests, setAllRequests] = useState<RideRequest[]>([]);
   const [matches, setMatches] = useState<RideMatch[]>([]);
-  const [liveDrivers, setLiveDrivers] = useState<LiveDriver[]>([]);
   const [loading, setLoading] = useState(true);
   const [showCreateOffer, setShowCreateOffer] = useState(false);
   const [showCreateRequest, setShowCreateRequest] = useState(false);
-  const [contactDriverData, setContactDriverData] = useState<{ from?: { city: string; lat: number; lng: number }; to?: { city: string; lat: number; lng: number } } | null>(null);
   const [pendingCount, setPendingCount] = useState(0);
+  const [historyMatches, setHistoryMatches] = useState<RideMatch[]>([]);
 
-  // Map state
-  const [searchFrom, setSearchFrom] = useState('');
-  const [searchTo, setSearchTo] = useState('');
-  const [selectedDriver, setSelectedDriver] = useState<LiveDriver | null>(null);
-
-  // ============================================================================
-  // DATA LOADING
-  // ============================================================================
+  // ── Data Loading ──
   const loadData = useCallback(async () => {
     if (!user) return;
     setLoading(true);
     try {
-      const [offersRes, requestsRes, allOffersRes, allRequestsRes, matchesRes] = await Promise.all([
+      const [offersRes, requestsRes, matchesRes] = await Promise.all([
         supabase.from('ride_offers').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('ride_requests').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('ride_offers').select('*, profile:profiles!ride_offers_user_id_profiles_fkey(first_name, last_name, company_name, avatar_url, phone)').in('status', ['active', 'en_route']).order('departure_date', { ascending: true }),
-        supabase.from('ride_requests').select('*, profile:profiles!ride_requests_user_id_profiles_fkey(first_name, last_name, company_name, avatar_url, phone)').eq('status', 'active').order('needed_date', { ascending: true }),
         supabase.from('ride_matches').select('*').or(`driver_id.eq.${user.id},passenger_id.eq.${user.id}`).order('match_score', { ascending: false }),
       ]);
-
       setMyOffers(offersRes.data || []);
       setMyRequests(requestsRes.data || []);
-      setAllOffers(allOffersRes.data || []);
-      setAllRequests(allRequestsRes.data || []);
 
-      // Enrich matches
       const rawMatches: RideMatch[] = matchesRes.data || [];
       const otherUserIds = [...new Set(rawMatches.map(m => m.driver_id === user.id ? m.passenger_id : m.driver_id))];
       if (otherUserIds.length > 0) {
@@ -171,15 +141,12 @@ export default function PlanningNetwork() {
           m.other_user = profileMap[otherId];
         });
       }
-      setMatches(rawMatches);
-      setPendingCount(rawMatches.filter(m => m.status === 'proposed').length);
 
-      // Load live drivers for map
-      try {
-        const { data: drivers } = await supabase.from('active_drivers_on_road').select('*');
-        setLiveDrivers(drivers || []);
-      } catch { setLiveDrivers([]); }
-
+      const active = rawMatches.filter(m => !['completed', 'cancelled', 'declined'].includes(m.status));
+      const history = rawMatches.filter(m => ['completed', 'cancelled', 'declined'].includes(m.status));
+      setMatches(active);
+      setHistoryMatches(history);
+      setPendingCount(active.filter(m => m.status === 'proposed').length);
     } catch (err) { console.error('Error loading data:', err); }
     setLoading(false);
   }, [user]);
@@ -189,64 +156,17 @@ export default function PlanningNetwork() {
   // Realtime
   useEffect(() => {
     if (!user) return;
-    const channel = supabase.channel('reseau-v2')
+    const channel = supabase.channel('reseau-v3')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_offers' }, () => loadData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_requests' }, () => loadData())
       .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_matches' }, () => loadData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'mission_tracking_live' }, async () => {
-        try {
-          const { data } = await supabase.from('active_drivers_on_road').select('*');
-          setLiveDrivers(data || []);
-        } catch {}
-      })
       .subscribe();
     return () => { supabase.removeChannel(channel); };
   }, [user, loadData]);
 
-  // ============================================================================
-  // ACTIONS
-  // ============================================================================
-  const runMatching = async (requestId: string) => {
-    if (!user) return;
-    try {
-      const { data, error } = await supabase.rpc('find_ride_matches_for_request', { p_request_id: requestId });
-      if (error) throw error;
-      for (const match of (data || [])) {
-        await supabase.from('ride_matches').upsert({
-          offer_id: match.offer_id,
-          request_id: requestId,
-          driver_id: match.driver_id,
-          passenger_id: user.id,
-          pickup_city: match.pickup_city,
-          dropoff_city: match.dropoff_city,
-          detour_km: match.detour_km,
-          distance_covered_km: match.distance_covered_km,
-          match_score: match.match_score,
-          match_type: match.match_type,
-          status: 'proposed',
-        }, { onConflict: 'offer_id,request_id' });
-      }
-      await loadData();
-    } catch (err) { console.error('Matching error:', err); }
-  };
-
-  const respondToMatch = async (matchId: string, response: 'accepted' | 'declined' | 'in_transit' | 'completed' | 'cancelled') => {
+  // ── Actions ──
+  const respondToMatch = async (matchId: string, response: string) => {
     await supabase.from('ride_matches').update({ status: response }).eq('id', matchId);
-    await loadData();
-  };
-
-  const rateRide = async (matchId: string, rating: number, badges: string[], comment: string) => {
-    const match = matches.find(m => m.id === matchId);
-    if (!match) return;
-    const isDriver = match.driver_id === user?.id;
-    await supabase.from('ride_ratings').upsert({
-      match_id: matchId,
-      rater_id: user?.id,
-      rated_id: isDriver ? match.passenger_id : match.driver_id,
-      rating,
-      badges,
-      comment: comment || null,
-    }, { onConflict: 'match_id,rater_id' });
     await loadData();
   };
 
@@ -256,18 +176,26 @@ export default function PlanningNetwork() {
     await loadData();
   };
 
-  // ============================================================================
-  // TABS
-  // ============================================================================
+  const rateRide = async (matchId: string, rating: number, badges: string[], comment: string) => {
+    const match = matches.find(m => m.id === matchId) || historyMatches.find(m => m.id === matchId);
+    if (!match) return;
+    const isDriver = match.driver_id === user?.id;
+    const { error } = await supabase.from('ride_ratings').upsert({
+      match_id: matchId, rater_id: user?.id,
+      rated_id: isDriver ? match.passenger_id : match.driver_id,
+      rating, badges, comment: comment || null,
+    }, { onConflict: 'match_id,rater_id' });
+    if (error) console.error('Rating error:', error);
+    await loadData();
+  };
+
+  // ── Tabs ──
   const tabs = [
-    { id: 'explorer' as const, label: 'Explorer', icon: Search, count: allOffers.length + allRequests.length },
-    { id: 'my_trips' as const, label: 'Mes Trajets', icon: User, count: myOffers.length + myRequests.length },
+    { id: 'publish' as const, label: 'Publier', icon: Plus, count: myOffers.length + myRequests.length },
     { id: 'matches' as const, label: 'Matchs & Chat', icon: Zap, count: pendingCount },
+    { id: 'history' as const, label: 'Historique', icon: History, count: historyMatches.length },
   ];
 
-  // ============================================================================
-  // RENDER
-  // ============================================================================
   return (
     <div className="min-h-screen pb-8">
       {/* ── Header ── */}
@@ -280,25 +208,22 @@ export default function PlanningNetwork() {
                 <Share2 className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-2xl lg:text-3xl font-black">Réseau Planning</h1>
-                <p className="text-white/70 text-sm">Covoiturage entre convoyeurs — simple et automatique</p>
+                <h1 className="text-2xl lg:text-3xl font-black">Réseau Covoiturage</h1>
+                <p className="text-white/70 text-sm">Publiez, matchez, voyagez ensemble</p>
               </div>
             </div>
-            <div className="hidden lg:flex items-center gap-4 mt-1">
-              <div className="flex items-center gap-2 text-white/80 text-sm">
-                <span className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold">1</span>
-                Publiez une offre ou demande
-              </div>
-              <ChevronRight className="w-4 h-4 text-white/50" />
-              <div className="flex items-center gap-2 text-white/80 text-sm">
-                <span className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold">2</span>
-                L'IA matche automatiquement
-              </div>
-              <ChevronRight className="w-4 h-4 text-white/50" />
-              <div className="flex items-center gap-2 text-white/80 text-sm">
-                <span className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold">3</span>
-                Discutez et partez ensemble
-              </div>
+            <div className="hidden lg:flex items-center gap-4 mt-2">
+              {[
+                { n: '1', t: 'Publiez votre trajet' },
+                { n: '2', t: 'Matching automatique' },
+                { n: '3', t: 'Discutez et partez' },
+              ].map((s, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  {i > 0 && <ChevronRight className="w-4 h-4 text-white/40" />}
+                  <span className="w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-bold">{s.n}</span>
+                  <span className="text-white/80 text-sm">{s.t}</span>
+                </div>
+              ))}
             </div>
           </div>
           <div className="flex items-center gap-2 lg:gap-3">
@@ -308,14 +233,14 @@ export default function PlanningNetwork() {
                 <Bell className="w-5 h-5" />
               </button>
               {pendingCount > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] font-bold flex items-center justify-center">{pendingCount}</span>
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full text-[10px] font-bold flex items-center justify-center animate-pulse">{pendingCount}</span>
               )}
             </div>
             <button onClick={() => setShowCreateOffer(true)}
               className="flex items-center gap-2 bg-white text-indigo-700 px-4 lg:px-5 py-2.5 lg:py-3 rounded-xl font-bold hover:bg-indigo-50 transition shadow-lg text-sm">
               <Car className="w-4 h-4" />
-              <span className="hidden sm:inline">J'ai une place</span>
-              <span className="sm:hidden">Place</span>
+              <span className="hidden sm:inline">Je conduis</span>
+              <span className="sm:hidden">Conduis</span>
             </button>
             <button onClick={() => setShowCreateRequest(true)}
               className="flex items-center gap-2 bg-white/20 backdrop-blur-sm text-white px-4 lg:px-5 py-2.5 lg:py-3 rounded-xl font-bold hover:bg-white/30 transition text-sm border border-white/30">
@@ -324,24 +249,6 @@ export default function PlanningNetwork() {
               <span className="sm:hidden">Lift</span>
             </button>
           </div>
-        </div>
-
-        {/* Quick stats */}
-        <div className="relative z-10 grid grid-cols-2 lg:grid-cols-4 gap-3 mt-5">
-          {[
-            { label: 'En route', value: liveDrivers.length, icon: Navigation, color: '#10B981' },
-            { label: 'Places dispo', value: allOffers.reduce((s, o) => s + (o.seats_available || 0), 0), icon: Car, color: '#0066FF' },
-            { label: 'Cherchent un lift', value: allRequests.length, icon: Footprints, color: '#F59E0B' },
-            { label: 'Matchs en cours', value: matches.filter(m => m.status === 'accepted').length, icon: Zap, color: '#8B5CF6' },
-          ].map((s, i) => (
-            <div key={i} className="bg-white/15 backdrop-blur-sm rounded-xl px-4 py-3">
-              <div className="flex items-center gap-2 text-white/70 text-xs mb-1">
-                <s.icon className="w-3.5 h-3.5" />
-                {s.label}
-              </div>
-              <div className="text-xl font-black">{s.value}</div>
-            </div>
-          ))}
         </div>
       </div>
 
@@ -358,7 +265,7 @@ export default function PlanningNetwork() {
             {tab.label}
             {tab.count > 0 && (
               <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${
-                activeTab === tab.id ? 'bg-white/20' : 'bg-indigo-100 text-indigo-700'
+                activeTab === tab.id ? 'bg-white/20' : tab.id === 'matches' && pendingCount > 0 ? 'bg-red-100 text-red-700' : 'bg-indigo-100 text-indigo-700'
               }`}>{tab.count}</span>
             )}
           </button>
@@ -372,34 +279,8 @@ export default function PlanningNetwork() {
         </div>
       ) : (
         <>
-          {activeTab === 'explorer' && (
-            <>
-              <LiveMapTab
-                liveDrivers={liveDrivers}
-                allOffers={allOffers}
-                allRequests={allRequests}
-                userId={user?.id || ''}
-                searchFrom={searchFrom}
-                setSearchFrom={setSearchFrom}
-                searchTo={searchTo}
-                setSearchTo={setSearchTo}
-                selectedDriver={selectedDriver}
-                setSelectedDriver={setSelectedDriver}
-                onContactDriver={async (driver) => {
-                  const fromGeo = driver.pickup_city ? await geocodeCity(driver.pickup_city) : [];
-                  const toGeo = driver.delivery_city ? await geocodeCity(driver.delivery_city) : [];
-                  setContactDriverData({
-                    from: fromGeo.length > 0 ? { city: fromGeo[0].city, lat: fromGeo[0].lat, lng: fromGeo[0].lng } : undefined,
-                    to: toGeo.length > 0 ? { city: toGeo[0].city, lat: toGeo[0].lat, lng: toGeo[0].lng } : undefined,
-                  });
-                  setShowCreateRequest(true);
-                }}
-              />
-              <CombinedTripsList allOffers={allOffers} allRequests={allRequests} userId={user?.id || ''} />
-            </>
-          )}
-          {activeTab === 'my_trips' && (
-            <MyTripsTab
+          {activeTab === 'publish' && (
+            <PublishTab
               myOffers={myOffers}
               myRequests={myRequests}
               userId={user?.id || ''}
@@ -407,6 +288,7 @@ export default function PlanningNetwork() {
               onCreateOffer={() => setShowCreateOffer(true)}
               onCreateRequest={() => setShowCreateRequest(true)}
               onToggleVisibility={toggleOfferVisibility}
+              onViewMatches={() => setActiveTab('matches')}
             />
           )}
           {activeTab === 'matches' && (
@@ -418,20 +300,29 @@ export default function PlanningNetwork() {
               onRate={rateRide}
             />
           )}
+          {activeTab === 'history' && (
+            <HistoryTab
+              historyMatches={historyMatches}
+              userId={user?.id || ''}
+              onRate={rateRide}
+            />
+          )}
         </>
       )}
 
       {/* ── Create Offer Modal ── */}
       {showCreateOffer && (
-        <CreateOfferModal userId={user?.id || ''} onClose={() => setShowCreateOffer(false)} onCreated={async () => { await loadData(); setActiveTab('matches'); }} />
+        <CreateOfferModal
+          userId={user?.id || ''}
+          onClose={() => setShowCreateOffer(false)}
+          onCreated={async () => { await loadData(); setActiveTab('matches'); }}
+        />
       )}
       {showCreateRequest && (
         <CreateRequestModal
           userId={user?.id || ''}
-          onClose={() => { setShowCreateRequest(false); setContactDriverData(null); }}
+          onClose={() => setShowCreateRequest(false)}
           onCreated={async () => { await loadData(); setActiveTab('matches'); }}
-          initialFrom={contactDriverData?.from}
-          initialTo={contactDriverData?.to}
         />
       )}
     </div>
@@ -439,776 +330,71 @@ export default function PlanningNetwork() {
 }
 
 
-// ============================================================================
-// LIVE MAP TAB — Carte avec tous les convoyeurs en route
-// ============================================================================
-function LiveMapTab({ liveDrivers, allOffers, allRequests, userId, searchFrom, setSearchFrom, searchTo, setSearchTo, selectedDriver, setSelectedDriver, onContactDriver }: {
-  liveDrivers: LiveDriver[];
-  allOffers: RideOffer[];
-  allRequests: RideRequest[];
-  userId: string;
-  searchFrom: string; setSearchFrom: (v: string) => void;
-  searchTo: string; setSearchTo: (v: string) => void;
-  selectedDriver: LiveDriver | null; setSelectedDriver: (v: LiveDriver | null) => void;
-  onContactDriver: (d: LiveDriver) => void;
-}) {
-  const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<any>(null);
-  const markersRef = useRef<any[]>([]);
-  const routeLinesRef = useRef<any[]>([]);
-  const [mapReady, setMapReady] = useState(false);
-  const [fromSuggestions, setFromSuggestions] = useState<GeoSuggestion[]>([]);
-  const [toSuggestions, setToSuggestions] = useState<GeoSuggestion[]>([]);
-  const [showFromSug, setShowFromSug] = useState(false);
-  const [showToSug, setShowToSug] = useState(false);
-
-  // Search filter state
-  const [filterFromCoords, setFilterFromCoords] = useState<{ lat: number; lng: number; city: string } | null>(null);
-  const [filterToCoords, setFilterToCoords] = useState<{ lat: number; lng: number; city: string } | null>(null);
-  const [filterActive, setFilterActive] = useState(false);
-  const [filterResultCount, setFilterResultCount] = useState<number | null>(null);
-
-  // Haversine distance in km
-  const haversineKm = (lat1: number, lng1: number, lat2: number, lng2: number) => {
-    const R = 6371;
-    const dLat = (lat2 - lat1) * Math.PI / 180;
-    const dLng = (lng2 - lng1) * Math.PI / 180;
-    const a = Math.sin(dLat / 2) ** 2 + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLng / 2) ** 2;
-    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-  };
-
-  // Init map
-  useEffect(() => {
-    if (!mapContainerRef.current || mapRef.current) return;
-
-    const loadLeaflet = async () => {
-      if (!(window as any).L) {
-        const link = document.createElement('link');
-        link.rel = 'stylesheet';
-        link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-        document.head.appendChild(link);
-        await new Promise<void>((resolve) => {
-          const script = document.createElement('script');
-          script.src = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';
-          script.onload = () => resolve();
-          document.head.appendChild(script);
-        });
-      }
-
-      const L = (window as any).L;
-      if (!mapContainerRef.current) return;
-
-      const map = L.map(mapContainerRef.current, {
-        zoomControl: false,
-      }).setView([46.603354, 1.888334], 6);
-
-      L.control.zoom({ position: 'bottomright' }).addTo(map);
-
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-        attribution: '&copy; OSM',
-        maxZoom: 18,
-      }).addTo(map);
-
-      mapRef.current = map;
-      setMapReady(true);
-    };
-
-    loadLeaflet();
-    return () => {
-      if (mapRef.current) { mapRef.current.remove(); mapRef.current = null; }
-    };
-  }, []);
-
-  // Update markers
-  useEffect(() => {
-    if (!mapReady || !mapRef.current) return;
-    const L = (window as any).L;
-    const map = mapRef.current;
-
-    // Clear old markers & route lines
-    markersRef.current.forEach(m => map.removeLayer(m));
-    markersRef.current = [];
-    routeLinesRef.current.forEach(l => map.removeLayer(l));
-    routeLinesRef.current = [];
-
-    const RADIUS_KM = 60; // match within 60km of search city
-
-    // Filter logic for drivers
-    const filteredDrivers = filterActive ? liveDrivers.filter(d => {
-      let matchFrom = true, matchTo = true;
-      if (filterFromCoords) {
-        // Driver's pickup or current position near search origin
-        matchFrom = haversineKm(d.current_lat, d.current_lng, filterFromCoords.lat, filterFromCoords.lng) < RADIUS_KM
-          || (d.pickup_city?.toLowerCase().includes(filterFromCoords.city.toLowerCase()));
-      }
-      if (filterToCoords) {
-        // Driver's delivery city near search destination (use city name match as fallback)
-        matchTo = d.delivery_city?.toLowerCase().includes(filterToCoords.city.toLowerCase()) || false;
-      }
-      return matchFrom && matchTo;
-    }) : liveDrivers;
-
-    // Filter logic for requests
-    const filteredRequests = filterActive ? allRequests.filter(r => {
-      if (!r.pickup_lat || !r.pickup_lng) return false;
-      let matchFrom = true, matchTo = true;
-      if (filterFromCoords) {
-        matchFrom = haversineKm(r.pickup_lat, r.pickup_lng, filterFromCoords.lat, filterFromCoords.lng) < RADIUS_KM
-          || r.pickup_city?.toLowerCase().includes(filterFromCoords.city.toLowerCase());
-      }
-      if (filterToCoords) {
-        matchTo = r.destination_city?.toLowerCase().includes(filterToCoords.city.toLowerCase()) || false;
-      }
-      return matchFrom && matchTo;
-    }) : allRequests;
-
-    if (filterActive) {
-      setFilterResultCount(filteredDrivers.length + filteredRequests.filter(r => r.user_id !== userId).length);
-    } else {
-      setFilterResultCount(null);
-    }
-
-    // Add live driver markers
-    filteredDrivers.forEach(d => {
-      const isLive = d.freshness === 'live';
-      const hasSeats = d.seats_available && d.seats_available > 0;
-
-      const icon = L.divIcon({
-        className: 'custom-driver-marker',
-        html: `
-          <div style="position:relative;cursor:pointer;">
-            <div style="
-              width:40px;height:40px;border-radius:50%;
-              background:${isLive ? (hasSeats ? '#10B981' : '#0066FF') : '#94A3B8'};
-              border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.3);
-              display:flex;align-items:center;justify-content:center;
-              ${isLive ? 'animation:pulse 2s infinite;' : ''}
-            ">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                <path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C1.4 11.3 1 12.1 1 13v3c0 .6.4 1 1 1h2"/>
-                <circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/>
-              </svg>
-            </div>
-            ${hasSeats ? `<div style="
-              position:absolute;top:-5px;right:-5px;
-              width:20px;height:20px;border-radius:50%;
-              background:#F59E0B;color:white;font-size:11px;font-weight:800;
-              display:flex;align-items:center;justify-content:center;
-              border:2px solid white;
-            ">${d.seats_available}</div>` : ''}
-          </div>
-        `,
-        iconSize: [40, 40],
-        iconAnchor: [20, 20],
-      });
-
-      const marker = L.marker([d.current_lat, d.current_lng], { icon })
-        .addTo(map)
-        .on('click', () => setSelectedDriver(d));
-
-      const popup = `
-        <div style="min-width:200px;font-family:system-ui;">
-          <div style="font-weight:700;font-size:14px;margin-bottom:4px;">${d.first_name} ${d.last_name}</div>
-          ${d.company_name ? `<div style="font-size:11px;color:#64748B;">${d.company_name}</div>` : ''}
-          <div style="margin:8px 0;padding:6px 8px;background:#F8FAFC;border-radius:8px;font-size:12px;">
-            <span style="color:#10B981;">&#9679;</span> ${d.pickup_city || '?'} &rarr; <span style="color:#0066FF;">&#9679;</span> ${d.delivery_city || '?'}
-          </div>
-          <div style="font-size:11px;color:#64748B;">
-            ${d.vehicle_brand} ${d.vehicle_model} &middot; ${d.reference}
-          </div>
-          ${hasSeats ? `<div style="margin-top:6px;font-size:12px;color:#F59E0B;font-weight:600;">&#x1FA91; ${d.seats_available} place${d.seats_available > 1 ? 's' : ''} libre${d.seats_available > 1 ? 's' : ''}</div>` : ''}
-        </div>
-      `;
-      marker.bindPopup(popup);
-      markersRef.current.push(marker);
-    });
-
-    // Add request markers (piétons)
-    filteredRequests.forEach(r => {
-      if (!r.pickup_lat || !r.pickup_lng || r.user_id === userId) return;
-      const icon = L.divIcon({
-        className: 'custom-request-marker',
-        html: `
-          <div style="
-            width:32px;height:32px;border-radius:50%;
-            background:#F59E0B;border:2px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.2);
-            display:flex;align-items:center;justify-content:center;
-          ">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5">
-              <path d="M12 2a4 4 0 0 0-4 4c0 4 4 6 4 6s4-2 4-6a4 4 0 0 0-4-4z"/><circle cx="12" cy="6" r="1.5"/>
-              <path d="M12 15v7"/><path d="M9 19l3 3 3-3"/>
-            </svg>
-          </div>
-        `,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-      });
-
-      const marker = L.marker([r.pickup_lat, r.pickup_lng], { icon }).addTo(map);
-      marker.bindPopup(`
-        <div style="min-width:180px;font-family:system-ui;">
-          <div style="font-size:12px;color:#F59E0B;font-weight:700;margin-bottom:4px;">&#x1F6B6; Cherche un lift</div>
-          <div style="font-size:13px;font-weight:600;">${r.pickup_city} &rarr; ${r.destination_city}</div>
-          <div style="font-size:11px;color:#64748B;margin-top:4px;">
-            ${new Date(r.needed_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-            ${r.time_window_start ? ` &middot; ${r.time_window_start.slice(0,5)}` : ''}
-          </div>
-        </div>
-      `);
-      markersRef.current.push(marker);
-    });
-
-    // Draw search area circles when filter is active
-    if (filterActive) {
-      if (filterFromCoords) {
-        const circle = L.circle([filterFromCoords.lat, filterFromCoords.lng], {
-          radius: RADIUS_KM * 1000,
-          color: '#10B981',
-          fillColor: '#10B981',
-          fillOpacity: 0.08,
-          weight: 2,
-          dashArray: '8,6',
-        }).addTo(map);
-        routeLinesRef.current.push(circle);
-
-        const fromLabel = L.marker([filterFromCoords.lat, filterFromCoords.lng], {
-          icon: L.divIcon({
-            className: 'search-label',
-            html: `<div style="background:#10B981;color:white;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.2);">${filterFromCoords.city}</div>`,
-            iconSize: [0, 0],
-            iconAnchor: [0, -15],
-          }),
-        }).addTo(map);
-        routeLinesRef.current.push(fromLabel);
-      }
-      if (filterToCoords) {
-        const circle = L.circle([filterToCoords.lat, filterToCoords.lng], {
-          radius: RADIUS_KM * 1000,
-          color: '#0066FF',
-          fillColor: '#0066FF',
-          fillOpacity: 0.08,
-          weight: 2,
-          dashArray: '8,6',
-        }).addTo(map);
-        routeLinesRef.current.push(circle);
-
-        const toLabel = L.marker([filterToCoords.lat, filterToCoords.lng], {
-          icon: L.divIcon({
-            className: 'search-label',
-            html: `<div style="background:#0066FF;color:white;padding:4px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;box-shadow:0 2px 6px rgba(0,0,0,0.2);">${filterToCoords.city}</div>`,
-            iconSize: [0, 0],
-            iconAnchor: [0, -15],
-          }),
-        }).addTo(map);
-        routeLinesRef.current.push(toLabel);
-      }
-
-      // Draw dashed line between search cities
-      if (filterFromCoords && filterToCoords) {
-        const line = L.polyline(
-          [[filterFromCoords.lat, filterFromCoords.lng], [filterToCoords.lat, filterToCoords.lng]],
-          { color: '#6366F1', weight: 2, dashArray: '10,8', opacity: 0.5 }
-        ).addTo(map);
-        routeLinesRef.current.push(line);
-
-        // Fit map to show both cities
-        map.fitBounds([
-          [filterFromCoords.lat, filterFromCoords.lng],
-          [filterToCoords.lat, filterToCoords.lng],
-        ], { padding: [80, 80] });
-      }
-    }
-
-  }, [mapReady, liveDrivers, allRequests, userId, filterActive, filterFromCoords, filterToCoords]);
-
-  // Geocode search
-  useEffect(() => {
-    const t = setTimeout(async () => {
-      if (searchFrom.length >= 2) {
-        const s = await geocodeCity(searchFrom);
-        setFromSuggestions(s);
-        setShowFromSug(s.length > 0);
-      } else { setFromSuggestions([]); setShowFromSug(false); }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [searchFrom]);
-
-  useEffect(() => {
-    const t = setTimeout(async () => {
-      if (searchTo.length >= 2) {
-        const s = await geocodeCity(searchTo);
-        setToSuggestions(s);
-        setShowToSug(s.length > 0);
-      } else { setToSuggestions([]); setShowToSug(false); }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [searchTo]);
-
-  const handleSelectFrom = (s: GeoSuggestion) => {
-    setSearchFrom(s.city);
-    setShowFromSug(false);
-    setFilterFromCoords({ lat: s.lat, lng: s.lng, city: s.city });
-    if (mapRef.current) mapRef.current.setView([s.lat, s.lng], 10);
-  };
-
-  const handleSelectTo = (s: GeoSuggestion) => {
-    setSearchTo(s.city);
-    setShowToSug(false);
-    setFilterToCoords({ lat: s.lat, lng: s.lng, city: s.city });
-  };
-
-  const handleSearch = () => {
-    if (!filterFromCoords && !filterToCoords) return;
-    setFilterActive(true);
-  };
-
-  const handleClearFilter = () => {
-    setFilterActive(false);
-    setFilterResultCount(null);
-    setSearchFrom('');
-    setSearchTo('');
-    setFilterFromCoords(null);
-    setFilterToCoords(null);
-    if (mapRef.current) mapRef.current.setView([46.603354, 1.888334], 6);
-  };
-
-  return (
-    <div className="space-y-4">
-      {/* Search bar */}
-      <div className="bg-white rounded-2xl p-4 shadow-sm" style={{ border: `1px solid ${T.borderDefault}` }}>
-        <div className="flex flex-col lg:flex-row gap-3">
-          <div className="flex-1 relative">
-            <div className="flex items-center gap-2 px-4 py-3 rounded-xl" style={{ backgroundColor: T.fieldBg, border: `1px solid ${T.borderDefault}` }}>
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentGreen }} />
-              <input type="text" value={searchFrom} onChange={e => setSearchFrom(e.target.value)}
-                placeholder="Ville de départ..." className="flex-1 bg-transparent outline-none text-sm"
-                style={{ color: T.textPrimary }} onFocus={() => fromSuggestions.length > 0 && setShowFromSug(true)} />
-            </div>
-            {showFromSug && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border z-50 max-h-48 overflow-auto" style={{ borderColor: T.borderDefault }}>
-                {fromSuggestions.map((s, i) => (
-                  <button key={i} onClick={() => handleSelectFrom(s)}
-                    className="w-full text-left px-4 py-2.5 hover:bg-slate-50 text-sm flex items-center gap-2 transition">
-                    <MapPin className="w-3.5 h-3.5 shrink-0" style={{ color: T.textTertiary }} />
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="hidden lg:flex items-center">
-            <ArrowRight className="w-5 h-5" style={{ color: T.textTertiary }} />
-          </div>
-          <div className="flex-1 relative">
-            <div className="flex items-center gap-2 px-4 py-3 rounded-xl" style={{ backgroundColor: T.fieldBg, border: `1px solid ${T.borderDefault}` }}>
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
-              <input type="text" value={searchTo} onChange={e => setSearchTo(e.target.value)}
-                placeholder="Ville d'arrivée..." className="flex-1 bg-transparent outline-none text-sm"
-                style={{ color: T.textPrimary }} onFocus={() => toSuggestions.length > 0 && setShowToSug(true)} />
-            </div>
-            {showToSug && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border z-50 max-h-48 overflow-auto" style={{ borderColor: T.borderDefault }}>
-                {toSuggestions.map((s, i) => (
-                  <button key={i} onClick={() => handleSelectTo(s)}
-                    className="w-full text-left px-4 py-2.5 hover:bg-slate-50 text-sm flex items-center gap-2 transition">
-                    <MapPin className="w-3.5 h-3.5 shrink-0" style={{ color: T.textTertiary }} />
-                    {s.label}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <button onClick={handleSearch}
-            disabled={!filterFromCoords && !filterToCoords}
-            className={`px-5 py-3 text-white rounded-xl font-semibold text-sm transition flex items-center gap-2 ${
-              filterFromCoords || filterToCoords ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-300 cursor-not-allowed'
-            }`}>
-            <Search className="w-4 h-4" /> Rechercher
-          </button>
-          {filterActive && (
-            <button onClick={handleClearFilter}
-              className="px-4 py-3 bg-red-50 text-red-600 rounded-xl font-semibold text-sm hover:bg-red-100 transition flex items-center gap-2">
-              <X className="w-4 h-4" /> Effacer
-            </button>
-          )}
-        </div>
-        {/* Legend */}
-        <div className="flex flex-wrap gap-4 mt-3 text-xs" style={{ color: T.textTertiary }}>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-emerald-500 inline-block" style={{ boxShadow: '0 0 0 2px white, 0 0 0 3px #10B981' }} /> Conducteur (place dispo)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-blue-500 inline-block" /> Conducteur (complet)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-amber-500 inline-block" /> Piéton (cherche lift)
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="w-3 h-3 rounded-full bg-slate-400 inline-block" /> Hors ligne
-          </span>
-        </div>
-        {/* Filter result banner */}
-        {filterActive && filterResultCount !== null && (
-          <div className="flex items-center gap-3 mt-3 px-4 py-2.5 rounded-xl" style={{ backgroundColor: filterResultCount > 0 ? '#EEF2FF' : '#FEF2F2' }}>
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
-              filterResultCount > 0 ? 'bg-indigo-100 text-indigo-700' : 'bg-red-100 text-red-600'
-            }`}>
-              {filterResultCount}
-            </div>
-            <span className="text-sm font-medium" style={{ color: filterResultCount > 0 ? '#4338CA' : '#DC2626' }}>
-              {filterResultCount > 0
-                ? `${filterResultCount} résultat${filterResultCount > 1 ? 's' : ''} trouvé${filterResultCount > 1 ? 's' : ''} ${filterFromCoords ? 'depuis ' + filterFromCoords.city : ''} ${filterToCoords ? '→ ' + filterToCoords.city : ''}`
-                : `Aucun résultat ${filterFromCoords ? 'depuis ' + filterFromCoords.city : ''} ${filterToCoords ? '→ ' + filterToCoords.city : ''}`
-              }
-            </span>
-          </div>
-        )}
-      </div>
-      <div className="flex gap-4">
-        {/* Map */}
-        <div className="flex-1 rounded-2xl overflow-hidden shadow-lg" style={{ border: `1px solid ${T.borderDefault}` }}>
-          <div ref={mapContainerRef} style={{ height: '600px', width: '100%' }} />
-        </div>
-
-        {/* Sidebar — selected driver or nearby requests */}
-        {selectedDriver && (
-          <div className="hidden lg:block w-80 bg-white rounded-2xl shadow-lg overflow-hidden" style={{ border: `1px solid ${T.borderDefault}`, maxHeight: '600px' }}>
-            <div className="bg-gradient-to-r from-indigo-600 to-purple-600 p-4 text-white">
-              <div className="flex items-center justify-between mb-3">
-                <span className={`text-xs font-bold px-2 py-0.5 rounded-full ${
-                  selectedDriver.freshness === 'live' ? 'bg-emerald-400/30 text-emerald-100' : 'bg-white/20'
-                }`}>
-                  {selectedDriver.freshness === 'live' ? '● EN DIRECT' : '● ' + Math.round((Date.now() - new Date(selectedDriver.last_update).getTime()) / 60000) + 'min'}
-                </span>
-                <button onClick={() => setSelectedDriver(null)} className="p-1 hover:bg-white/20 rounded-lg transition">
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-lg font-bold">
-                  {selectedDriver.first_name?.[0]}{selectedDriver.last_name?.[0]}
-                </div>
-                <div>
-                  <div className="font-bold text-lg">{selectedDriver.first_name} {selectedDriver.last_name}</div>
-                  {selectedDriver.company_name && <div className="text-white/70 text-xs">{selectedDriver.company_name}</div>}
-                </div>
-              </div>
-            </div>
-            <div className="p-4 space-y-4 overflow-auto" style={{ maxHeight: '420px' }}>
-              {/* Route */}
-              <div>
-                <div className="text-xs font-semibold mb-2" style={{ color: T.textTertiary }}>TRAJET</div>
-                <div className="rounded-xl p-3" style={{ backgroundColor: T.fieldBg }}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentGreen }} />
-                    <span className="text-sm font-medium" style={{ color: T.textPrimary }}>{selectedDriver.pickup_city || 'Départ'}</span>
-                  </div>
-                  <div className="ml-[5px] w-px h-4" style={{ background: T.borderDefault }} />
-                  <div className="flex items-center gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
-                    <span className="text-sm font-medium" style={{ color: T.textPrimary }}>{selectedDriver.delivery_city || 'Arrivée'}</span>
-                  </div>
-                </div>
-              </div>
-              {/* Vehicle */}
-              <div>
-                <div className="text-xs font-semibold mb-2" style={{ color: T.textTertiary }}>VÉHICULE CONVOYÉ</div>
-                <div className="flex items-center gap-2">
-                  <Car className="w-4 h-4" style={{ color: T.primaryTeal }} />
-                  <span className="text-sm" style={{ color: T.textPrimary }}>{selectedDriver.vehicle_brand} {selectedDriver.vehicle_model}</span>
-                </div>
-                <div className="text-xs mt-1" style={{ color: T.textSecondary }}>Mission : {selectedDriver.reference}</div>
-              </div>
-              {/* Seats */}
-              {selectedDriver.seats_available && selectedDriver.seats_available > 0 && (
-                <div className="rounded-xl p-3 flex items-center gap-3" style={{ backgroundColor: `${T.accentAmber}10`, border: `1px solid ${T.accentAmber}30` }}>
-                  <div className="text-2xl">🪑</div>
-                  <div>
-                    <div className="text-sm font-bold" style={{ color: T.accentAmber }}>{selectedDriver.seats_available} place{selectedDriver.seats_available > 1 ? 's' : ''} libre{selectedDriver.seats_available > 1 ? 's' : ''}</div>
-                    <div className="text-xs" style={{ color: T.textSecondary }}>Détour max : {selectedDriver.max_detour_km || 15}km</div>
-                  </div>
-                </div>
-              )}
-              {/* Speed / info */}
-              <div className="grid grid-cols-2 gap-2">
-                {selectedDriver.speed != null && selectedDriver.speed > 0 && (
-                  <div className="rounded-lg p-2 text-center" style={{ backgroundColor: T.fieldBg }}>
-                    <div className="text-lg font-bold" style={{ color: T.primaryBlue }}>{Math.round(selectedDriver.speed * 3.6)}</div>
-                    <div className="text-[10px]" style={{ color: T.textTertiary }}>km/h</div>
-                  </div>
-                )}
-                <div className="rounded-lg p-2 text-center" style={{ backgroundColor: T.fieldBg }}>
-                  <div className="text-lg font-bold" style={{ color: T.accentGreen }}>
-                    {selectedDriver.freshness === 'live' ? 'LIVE' : Math.round((Date.now() - new Date(selectedDriver.last_update).getTime()) / 60000) + 'min'}
-                  </div>
-                  <div className="text-[10px]" style={{ color: T.textTertiary }}>Dernière position</div>
-                </div>
-              </div>
-              {/* Contact button */}
-              <button onClick={() => onContactDriver(selectedDriver)}
-                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-white font-bold text-sm transition hover:shadow-lg"
-                style={{ background: `linear-gradient(135deg, ${T.primaryIndigo}, ${T.primaryPurple})` }}>
-                <MessageCircle className="w-4 h-4" /> Contacter ce convoyeur
-              </button>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* Mobile selected driver card */}
-      {selectedDriver && (
-        <div className="lg:hidden bg-white rounded-2xl p-4 shadow-lg" style={{ border: `1px solid ${T.borderDefault}` }}>
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
-                {selectedDriver.first_name?.[0]}{selectedDriver.last_name?.[0]}
-              </div>
-              <div>
-                <div className="font-bold text-sm">{selectedDriver.first_name} {selectedDriver.last_name}</div>
-                <div className="text-xs" style={{ color: T.textSecondary }}>
-                  {selectedDriver.pickup_city} → {selectedDriver.delivery_city}
-                </div>
-              </div>
-            </div>
-            <button onClick={() => setSelectedDriver(null)} className="p-1.5 rounded-lg" style={{ backgroundColor: T.fieldBg }}>
-              <X className="w-4 h-4" style={{ color: T.textTertiary }} />
-            </button>
-          </div>
-          <div className="flex gap-2">
-            {selectedDriver.seats_available && selectedDriver.seats_available > 0 && (
-              <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: `${T.accentAmber}15`, color: T.accentAmber }}>
-                🪑 {selectedDriver.seats_available} place(s)
-              </span>
-            )}
-            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
-              selectedDriver.freshness === 'live' ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-100 text-slate-600'
-            }`}>
-              {selectedDriver.freshness === 'live' ? '● En direct' : '● Il y a ' + Math.round((Date.now() - new Date(selectedDriver.last_update).getTime()) / 60000) + 'min'}
-            </span>
-          </div>
-          <button onClick={() => onContactDriver(selectedDriver)}
-            className="w-full mt-3 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-white font-bold text-sm"
-            style={{ background: `linear-gradient(135deg, ${T.primaryIndigo}, ${T.primaryPurple})` }}>
-            <MessageCircle className="w-4 h-4" /> Contacter
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-
-// ============================================================================
-// COMBINED TRIPS LIST — All offers & requests from everyone (for Explorer tab)
-// ============================================================================
-function CombinedTripsList({ allOffers, allRequests, userId }: {
-  allOffers: RideOffer[];
-  allRequests: RideRequest[];
-  userId: string;
-}) {
-  const [filter, setFilter] = useState<'all' | 'offers' | 'requests'>('all');
-
-  const othersOffers = allOffers.filter(o => o.user_id !== userId);
-  const othersRequests = allRequests.filter(r => r.user_id !== userId);
-  const filteredOffers = filter === 'requests' ? [] : othersOffers;
-  const filteredRequests = filter === 'offers' ? [] : othersRequests;
-  const totalCount = othersOffers.length + othersRequests.length;
-
-  if (totalCount === 0) {
-    return (
-      <div className="mt-4 bg-white rounded-2xl border p-8 text-center" style={{ borderColor: T.borderDefault }}>
-        <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-3">
-          <Search className="w-8 h-8 text-slate-400" />
-        </div>
-        <h3 className="text-lg font-bold mb-1" style={{ color: T.textPrimary }}>Aucun trajet disponible</h3>
-        <p className="text-sm" style={{ color: T.textSecondary }}>
-          Il n'y a pas encore de trajets publiés par d'autres convoyeurs. Soyez le premier !
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <div className="mt-5 space-y-3">
-      {/* Section header + filter */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <h3 className="text-lg font-bold flex items-center gap-2" style={{ color: T.textPrimary }}>
-          <Users className="w-5 h-5" style={{ color: T.primaryIndigo }} />
-          Trajets disponibles
-          <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">{totalCount}</span>
-        </h3>
-        <div className="flex gap-2">
-          {([
-            { key: 'all' as const, label: 'Tous', count: totalCount },
-            { key: 'offers' as const, label: '🚗 Places dispo', count: othersOffers.length },
-            { key: 'requests' as const, label: '🚶 Cherchent un lift', count: othersRequests.length },
-          ]).map(f => (
-            <button key={f.key} onClick={() => setFilter(f.key)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                filter === f.key ? 'bg-indigo-600 text-white' : 'bg-white text-slate-600 border border-slate-200 hover:bg-slate-50'
-              }`}>
-              {f.label} ({f.count})
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Offer cards */}
-      {filteredOffers.map(o => {
-        const driverName = o.profile ? `${o.profile.first_name || ''} ${o.profile.last_name || ''}`.trim() : '';
-        return (
-          <div key={`offer-${o.id}`} className="bg-white rounded-2xl p-4 transition hover:shadow-md" style={{ border: `1px solid ${T.borderDefault}` }}>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">🚗 Place disponible</span>
-                {driverName && (
-                  <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: T.textPrimary }}>
-                    <User className="w-3 h-3" style={{ color: T.primaryIndigo }} />
-                    {driverName}
-                    {o.profile?.company_name && <span className="text-[10px] font-normal" style={{ color: T.textTertiary }}> · {o.profile.company_name}</span>}
-                  </span>
-                )}
-                {o.seats_available > 0 && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${T.accentAmber}15`, color: T.accentAmber }}>
-                    🪑 {o.seats_available} place{o.seats_available > 1 ? 's' : ''}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-sm mb-2">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentGreen }} />
-                <span className="font-semibold" style={{ color: T.textPrimary }}>{o.origin_city}</span>
-                <ArrowRight className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
-                <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
-                <span className="font-semibold" style={{ color: T.textPrimary }}>{o.destination_city}</span>
-              </div>
-              <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: T.textSecondary }}>
-                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />
-                  {new Date(o.departure_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                </span>
-                {o.departure_time && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {o.departure_time.slice(0,5)}</span>}
-                <span className="flex items-center gap-1"><Truck className="w-3 h-3" /> {VEHICLE_LABELS[o.vehicle_type] || o.vehicle_type}</span>
-                <span className="flex items-center gap-1"><Navigation className="w-3 h-3" /> ±{o.max_detour_km}km détour</span>
-              </div>
-              {o.needs_return && o.return_to_city && (
-                <div className="mt-2 text-xs font-medium flex items-center gap-1" style={{ color: T.primaryPurple }}>
-                  <RefreshCw className="w-3 h-3" /> Cherche aussi un retour → {o.return_to_city}
-                </div>
-              )}
-            </div>
-          </div>
-        );
-      })}
-
-      {/* Request cards */}
-      {filteredRequests.map(r => {
-        const requesterName = r.profile ? `${r.profile.first_name || ''} ${r.profile.last_name || ''}`.trim() : '';
-        return (
-          <div key={`req-${r.id}`} className="bg-white rounded-2xl p-4 transition hover:shadow-md" style={{ border: `1px solid ${T.borderDefault}` }}>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 mb-2 flex-wrap">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">🚶 Cherche un lift</span>
-                {requesterName && (
-                  <span className="text-xs font-semibold flex items-center gap-1.5" style={{ color: T.textPrimary }}>
-                    <User className="w-3 h-3" style={{ color: T.accentAmber }} />
-                    {requesterName}
-                    {r.profile?.company_name && <span className="text-[10px] font-normal" style={{ color: T.textTertiary }}> · {r.profile.company_name}</span>}
-                  </span>
-                )}
-                {r.accept_partial && (
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">Partiel OK</span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 text-sm mb-2">
-                <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentAmber }} />
-                <span className="font-semibold" style={{ color: T.textPrimary }}>{r.pickup_city}</span>
-                <ArrowRight className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
-                <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
-                <span className="font-semibold" style={{ color: T.textPrimary }}>{r.destination_city}</span>
-              </div>
-              <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: T.textSecondary }}>
-                <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />
-                  {new Date(r.needed_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                </span>
-                {r.time_window_start && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {r.time_window_start.slice(0,5)} - {r.time_window_end?.slice(0,5) || '?'}</span>}
-                <span className="flex items-center gap-1"><Navigation className="w-3 h-3" /> ±{r.max_detour_km}km accepté</span>
-              </div>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-
-// ============================================================================
-// MY TRIPS TAB — My offers + My requests unified
-// ============================================================================
-function MyTripsTab({ myOffers, myRequests, userId, onRefresh, onCreateOffer, onCreateRequest, onToggleVisibility }: {
-  myOffers: RideOffer[];
-  myRequests: RideRequest[];
-  userId: string;
-  onRefresh: () => void;
-  onCreateOffer: () => void;
-  onCreateRequest: () => void;
-  onToggleVisibility: (id: string, currentStatus: string) => void;
+// ══════════════════════════════════════════════════════════════════════════════
+// PUBLISH TAB — My offers + My requests
+// ══════════════════════════════════════════════════════════════════════════════
+function PublishTab({ myOffers, myRequests, userId, onRefresh, onCreateOffer, onCreateRequest, onToggleVisibility, onViewMatches }: {
+  myOffers: RideOffer[]; myRequests: RideRequest[]; userId: string;
+  onRefresh: () => void; onCreateOffer: () => void; onCreateRequest: () => void;
+  onToggleVisibility: (id: string, s: string) => void; onViewMatches: () => void;
 }) {
   const handleDeleteOffer = async (id: string) => {
     if (!confirm('Supprimer cette offre ?')) return;
     await supabase.from('ride_offers').delete().eq('id', id);
     onRefresh();
   };
-
   const handleDeleteRequest = async (id: string) => {
     if (!confirm('Supprimer cette demande ?')) return;
     await supabase.from('ride_requests').delete().eq('id', id);
     onRefresh();
   };
 
-  // Show onboarding when user has no activity
   if (myOffers.length === 0 && myRequests.length === 0) {
     return (
       <div className="space-y-4">
-        {/* How it works */}
         <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-6 border border-indigo-100">
-          <h3 className="text-lg font-bold mb-4" style={{ color: T.textPrimary }}>
-            🚀 Comment ça marche ?
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {[
-              { step: '1', title: 'Publiez votre trajet', desc: 'Proposez une place libre ou cherchez un lift vers votre destination', icon: Plus, color: T.primaryIndigo },
-              { step: '2', title: 'Matching automatique', desc: 'Notre IA trouve les trajets compatibles et crée les matchs pour vous', icon: Zap, color: T.accentAmber },
-              { step: '3', title: 'Partez ensemble', desc: 'Discutez avec votre coéquipier et coordonnez le départ', icon: MessageCircle, color: T.accentGreen },
-            ].map((s, i) => (
-              <div key={i} className="bg-white rounded-xl p-4 text-center shadow-sm">
-                <div className="w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-3" style={{ backgroundColor: `${s.color}15` }}>
-                  <s.icon className="w-6 h-6" style={{ color: s.color }} />
+          <h3 className="text-lg font-bold mb-4" style={{ color: T.textPrimary }}>🚀 Comment ça marche ?</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-indigo-100">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center">
+                  <Car className="w-5 h-5 text-indigo-600" />
                 </div>
-                <div className="text-sm font-bold mb-1" style={{ color: T.textPrimary }}>{s.title}</div>
-                <div className="text-xs" style={{ color: T.textSecondary }}>{s.desc}</div>
+                <div>
+                  <div className="text-sm font-bold" style={{ color: T.textPrimary }}>Je conduis</div>
+                  <div className="text-xs" style={{ color: T.textSecondary }}>J'ai des places libres</div>
+                </div>
               </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Empty state with CTAs */}
-        <div className="bg-white rounded-2xl border p-8 text-center" style={{ borderColor: T.borderDefault }}>
-          <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Car className="w-8 h-8 text-indigo-500" />
-          </div>
-          <h3 className="text-lg font-bold mb-2" style={{ color: T.textPrimary }}>Vous n'avez pas encore de trajet</h3>
-          <p className="text-sm mb-6 max-w-md mx-auto" style={{ color: T.textSecondary }}>
-            Commencez par publier une offre de place ou une demande de lift. Le matching se fait automatiquement !
-          </p>
-          <div className="flex items-center justify-center gap-3 flex-wrap">
-            <button onClick={onCreateOffer}
-              className="flex items-center gap-2 bg-indigo-600 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:shadow-lg transition">
-              <Car className="w-4 h-4" /> J'ai une place libre
-            </button>
-            <button onClick={onCreateRequest}
-              className="flex items-center gap-2 bg-amber-500 text-white px-5 py-2.5 rounded-xl font-bold text-sm hover:shadow-lg transition">
-              <Footprints className="w-4 h-4" /> Je cherche un lift
-            </button>
+              <ul className="text-xs space-y-1.5" style={{ color: T.textSecondary }}>
+                <li>• Indiquez votre trajet et vos villes de passage</li>
+                <li>• L'IA trouve les passagers sur votre route</li>
+                <li>• Cochez "retour" pour lancer automatiquement une demande de lift après livraison</li>
+              </ul>
+              <button onClick={onCreateOffer}
+                className="w-full mt-4 flex items-center justify-center gap-2 bg-indigo-600 text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:shadow-lg transition">
+                <Car className="w-4 h-4" /> Publier mon trajet conducteur
+              </button>
+            </div>
+            <div className="bg-white rounded-xl p-5 shadow-sm border border-amber-100">
+              <div className="flex items-center gap-3 mb-3">
+                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                  <Footprints className="w-5 h-5 text-amber-600" />
+                </div>
+                <div>
+                  <div className="text-sm font-bold" style={{ color: T.textPrimary }}>Je cherche un lift</div>
+                  <div className="text-xs" style={{ color: T.textSecondary }}>Un convoyeur passe par là ?</div>
+                </div>
+              </div>
+              <ul className="text-xs space-y-1.5" style={{ color: T.textSecondary }}>
+                <li>• Indiquez d'où vous partez et où aller</li>
+                <li>• Précisez votre disponibilité horaire</li>
+                <li>• Les conducteurs qui passent près de vous seront matchés</li>
+              </ul>
+              <button onClick={onCreateRequest}
+                className="w-full mt-4 flex items-center justify-center gap-2 bg-amber-500 text-white px-4 py-2.5 rounded-xl font-bold text-sm hover:shadow-lg transition">
+                <Footprints className="w-4 h-4" /> Publier ma demande de lift
+              </button>
+            </div>
           </div>
         </div>
       </div>
@@ -1217,80 +403,33 @@ function MyTripsTab({ myOffers, myRequests, userId, onRefresh, onCreateOffer, on
 
   return (
     <div className="space-y-6">
-      {/* ── Mes offres de places ── */}
+      {/* ── Mes trajets conducteur ── */}
       <div>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-base font-bold flex items-center gap-2" style={{ color: T.textPrimary }}>
             <Car className="w-4 h-4" style={{ color: T.primaryIndigo }} />
-            Mes offres de places
+            Mes trajets conducteur
             <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">{myOffers.length}</span>
           </h3>
           <button onClick={onCreateOffer}
             className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-800 transition">
-            <Plus className="w-3.5 h-3.5" /> Nouvelle offre
+            <Plus className="w-3.5 h-3.5" /> Nouveau trajet
           </button>
         </div>
         {myOffers.length === 0 ? (
           <div className="bg-slate-50 rounded-xl p-4 text-center">
-            <p className="text-sm" style={{ color: T.textSecondary }}>Aucune offre de place publiée</p>
+            <p className="text-sm" style={{ color: T.textSecondary }}>Aucun trajet publié</p>
             <button onClick={onCreateOffer} className="mt-2 text-sm font-semibold text-indigo-600 hover:underline">
-              Proposer une place →
+              Publier un trajet →
             </button>
           </div>
         ) : (
           <div className="space-y-3">
             {myOffers.map(o => (
-              <div key={o.id} className="bg-white rounded-2xl p-4 ring-2 ring-indigo-200" style={{ border: `1px solid ${T.borderDefault}` }}>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        o.status === 'active' ? 'bg-emerald-100 text-emerald-700' :
-                        o.status === 'en_route' ? 'bg-blue-100 text-blue-700' :
-                        o.status === 'paused' ? 'bg-amber-100 text-amber-700' :
-                        'bg-slate-100 text-slate-600'
-                      }`}>
-                        {o.status === 'active' ? '● Disponible' : o.status === 'en_route' ? '● En route' : o.status === 'paused' ? '⏸ En pause' : o.status}
-                      </span>
-                      {o.seats_available > 0 && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${T.accentAmber}15`, color: T.accentAmber }}>
-                          🪑 {o.seats_available} place{o.seats_available > 1 ? 's' : ''}
-                        </span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm mb-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentGreen }} />
-                      <span className="font-semibold" style={{ color: T.textPrimary }}>{o.origin_city}</span>
-                      <ArrowRight className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
-                      <span className="font-semibold" style={{ color: T.textPrimary }}>{o.destination_city}</span>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: T.textSecondary }}>
-                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />
-                        {new Date(o.departure_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                      </span>
-                      {o.departure_time && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {o.departure_time.slice(0,5)}</span>}
-                      <span className="flex items-center gap-1"><Truck className="w-3 h-3" /> {VEHICLE_LABELS[o.vehicle_type] || o.vehicle_type}</span>
-                      <span className="flex items-center gap-1"><Navigation className="w-3 h-3" /> ±{o.max_detour_km}km détour</span>
-                    </div>
-                    {o.needs_return && o.return_to_city && (
-                      <div className="mt-2 text-xs font-medium flex items-center gap-1" style={{ color: T.primaryPurple }}>
-                        <RefreshCw className="w-3 h-3" /> Cherche aussi un retour → {o.return_to_city}
-                      </div>
-                    )}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button onClick={() => onToggleVisibility(o.id, o.status)}
-                      className={`p-2 rounded-lg transition ${o.status === 'paused' ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}
-                      title={o.status === 'paused' ? 'Réactiver' : 'Mettre en pause'}>
-                      {o.status === 'paused' ? <Eye className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
-                    </button>
-                    <button onClick={() => handleDeleteOffer(o.id)} className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition" title="Supprimer">
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                </div>
-              </div>
+              <TripCard key={o.id} type="offer" item={o}
+                onDelete={() => handleDeleteOffer(o.id)}
+                onToggle={() => onToggleVisibility(o.id, o.status)}
+              />
             ))}
           </div>
         )}
@@ -1311,7 +450,7 @@ function MyTripsTab({ myOffers, myRequests, userId, onRefresh, onCreateOffer, on
         </div>
         {myRequests.length === 0 ? (
           <div className="bg-slate-50 rounded-xl p-4 text-center">
-            <p className="text-sm" style={{ color: T.textSecondary }}>Aucune demande de lift publiée</p>
+            <p className="text-sm" style={{ color: T.textSecondary }}>Aucune demande de lift</p>
             <button onClick={onCreateRequest} className="mt-2 text-sm font-semibold text-amber-600 hover:underline">
               Chercher un lift →
             </button>
@@ -1319,35 +458,9 @@ function MyTripsTab({ myOffers, myRequests, userId, onRefresh, onCreateOffer, on
         ) : (
           <div className="space-y-3">
             {myRequests.map(r => (
-              <div key={r.id} className="bg-white rounded-2xl p-4 ring-2 ring-amber-200" style={{ border: `1px solid ${T.borderDefault}` }}>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-2 flex-wrap">
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700">● Actif</span>
-                      {r.accept_partial && (
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-600">Partiel OK</span>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-2 text-sm mb-2">
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentAmber }} />
-                      <span className="font-semibold" style={{ color: T.textPrimary }}>{r.pickup_city}</span>
-                      <ArrowRight className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
-                      <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
-                      <span className="font-semibold" style={{ color: T.textPrimary }}>{r.destination_city}</span>
-                    </div>
-                    <div className="flex items-center gap-4 text-xs flex-wrap" style={{ color: T.textSecondary }}>
-                      <span className="flex items-center gap-1"><Calendar className="w-3 h-3" />
-                        {new Date(r.needed_date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
-                      </span>
-                      {r.time_window_start && <span className="flex items-center gap-1"><Clock className="w-3 h-3" /> {r.time_window_start.slice(0,5)} - {r.time_window_end?.slice(0,5) || '?'}</span>}
-                      <span className="flex items-center gap-1"><Navigation className="w-3 h-3" /> ±{r.max_detour_km}km accepté</span>
-                    </div>
-                  </div>
-                  <button onClick={() => handleDeleteRequest(r.id)} className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition" title="Supprimer">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
+              <TripCard key={r.id} type="request" item={r}
+                onDelete={() => handleDeleteRequest(r.id)}
+              />
             ))}
           </div>
         )}
@@ -1357,12 +470,136 @@ function MyTripsTab({ myOffers, myRequests, userId, onRefresh, onCreateOffer, on
 }
 
 
-// ============================================================================
-// MATCHES TAB
-// ============================================================================
+// ══════════════════════════════════════════════════════════════════════════════
+// TRIP CARD — Unified card for offers & requests
+// ══════════════════════════════════════════════════════════════════════════════
+function TripCard({ type, item, onDelete, onToggle }: {
+  type: 'offer' | 'request'; item: any;
+  onDelete: () => void; onToggle?: () => void;
+}) {
+  const isOffer = type === 'offer';
+  const origin = isOffer ? item.origin_city : item.pickup_city;
+  const dest = isOffer ? item.destination_city : item.destination_city;
+  const date = isOffer ? item.departure_date : item.needed_date;
+  const dateLabel = formatDateLabel(date);
+  const isToday = dateLabel === "Aujourd'hui";
+  const isTomorrow = dateLabel === 'Demain';
+
+  let timeStr = '';
+  if (isOffer) {
+    timeStr = item.departure_time ? formatTime(item.departure_time) : '';
+    if (item.estimated_arrival_time) timeStr += ` → ${formatTime(item.estimated_arrival_time)}`;
+  } else {
+    const s = formatTime(item.time_window_start);
+    const e = formatTime(item.time_window_end);
+    if (s && e) timeStr = `${s} — ${e}`;
+    else if (s) timeStr = `à partir de ${s}`;
+  }
+
+  const waypoints: string[] = Array.isArray(item.route_cities)
+    ? item.route_cities.map((c: any) => typeof c === 'string' ? c : c?.city || '').filter(Boolean)
+    : [];
+
+  return (
+    <div className={`bg-white rounded-2xl p-4 transition hover:shadow-md ring-2 ${isOffer ? 'ring-indigo-200' : 'ring-amber-200'}`}
+      style={{ border: `1px solid ${T.borderDefault}` }}>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 mb-2 flex-wrap">
+            <span className={`text-xs font-bold px-2.5 py-1 rounded-full ${
+              isToday ? 'bg-emerald-100 text-emerald-700' :
+              isTomorrow ? 'bg-blue-100 text-blue-700' :
+              'bg-slate-100 text-slate-600'
+            }`}>
+              <Calendar className="w-3 h-3 inline mr-1" />{dateLabel}
+            </span>
+            {timeStr && (
+              <span className="text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+                <Clock className="w-3 h-3 inline mr-1" />{timeStr}
+              </span>
+            )}
+            {isOffer && item.status === 'paused' && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">⏸ En pause</span>
+            )}
+            {isOffer && item.seats_available > 0 && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${T.accentAmber}15`, color: T.accentAmber }}>
+                🪑 {item.seats_available} place{item.seats_available > 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+
+          <div className="mb-2">
+            <div className="flex items-center gap-2 text-sm">
+              <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentGreen }} />
+              <span className="font-semibold" style={{ color: T.textPrimary }}>{origin}</span>
+              {waypoints.length === 0 && (
+                <>
+                  <ArrowRight className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
+                  <span className="font-semibold" style={{ color: T.textPrimary }}>{dest}</span>
+                </>
+              )}
+            </div>
+            {waypoints.length > 0 && (
+              <div className="ml-[5px] pl-3 border-l-2 border-dashed" style={{ borderColor: T.borderDefault }}>
+                {waypoints.map((wp, i) => (
+                  <div key={i} className="flex items-center gap-2 py-1 text-xs" style={{ color: T.textSecondary }}>
+                    <div className="w-1.5 h-1.5 rounded-full" style={{ background: T.accentAmber }} />
+                    <span>{wp}</span>
+                  </div>
+                ))}
+                <div className="flex items-center gap-2 text-sm pt-1">
+                  <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
+                  <span className="font-semibold" style={{ color: T.textPrimary }}>{dest}</span>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="flex items-center gap-3 text-xs flex-wrap" style={{ color: T.textSecondary }}>
+            {isOffer && item.vehicle_type && (
+              <span>{VEHICLE_LABELS[item.vehicle_type] || item.vehicle_type}</span>
+            )}
+            <span className="flex items-center gap-1">
+              <Navigation className="w-3 h-3" />
+              Flexible {item.max_detour_km || 15}km
+            </span>
+            {!isOffer && item.accept_partial && (
+              <span className="text-blue-600">Accepte un bout du trajet</span>
+            )}
+          </div>
+
+          {isOffer && item.needs_return && item.return_to_city && (
+            <div className="mt-2 text-xs font-medium flex items-center gap-1 px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: `${T.primaryPurple}08`, color: T.primaryPurple }}>
+              <RefreshCw className="w-3 h-3" /> Lift retour auto → {item.return_to_city}
+            </div>
+          )}
+        </div>
+
+        <div className="flex flex-col items-center gap-2">
+          {isOffer && onToggle && (
+            <button onClick={onToggle}
+              className={`p-2 rounded-lg transition ${item.status === 'paused' ? 'bg-emerald-50 text-emerald-600 hover:bg-emerald-100' : 'bg-amber-50 text-amber-600 hover:bg-amber-100'}`}
+              title={item.status === 'paused' ? 'Réactiver' : 'Mettre en pause'}>
+              {item.status === 'paused' ? <Eye className="w-4 h-4" /> : <Clock className="w-4 h-4" />}
+            </button>
+          )}
+          <button onClick={onDelete} className="p-2 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition" title="Supprimer">
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// MATCHES TAB — Active matches + Chat
+// ══════════════════════════════════════════════════════════════════════════════
 function MatchesTab({ matches, userId, onRefresh, onRespond, onRate }: {
   matches: RideMatch[]; userId: string; onRefresh: () => void;
-  onRespond: (id: string, status: 'accepted' | 'declined' | 'in_transit' | 'completed' | 'cancelled') => void;
+  onRespond: (id: string, status: string) => void;
   onRate: (matchId: string, rating: number, badges: string[], comment: string) => void;
 }) {
   const [chatMatchId, setChatMatchId] = useState<string | null>(null);
@@ -1370,17 +607,6 @@ function MatchesTab({ matches, userId, onRefresh, onRespond, onRate }: {
   const [newMessage, setNewMessage] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [ratingMatchId, setRatingMatchId] = useState<string | null>(null);
-  const [ratingStars, setRatingStars] = useState(5);
-  const [ratingBadges, setRatingBadges] = useState<string[]>([]);
-  const [ratingComment, setRatingComment] = useState('');
-
-  const BADGE_OPTIONS = [
-    { id: 'punctual', label: '⏰ Ponctuel', icon: '⏰' },
-    { id: 'friendly', label: '😊 Sympathique', icon: '😊' },
-    { id: 'safe_driver', label: '🛡️ Conduite sûre', icon: '🛡️' },
-    { id: 'clean_vehicle', label: '✨ Véhicule propre', icon: '✨' },
-    { id: 'good_communication', label: '💬 Bonne com.', icon: '💬' },
-  ];
 
   const loadChat = useCallback(async (matchId: string) => {
     const { data } = await supabase.from('ride_messages').select('*').eq('match_id', matchId).order('created_at', { ascending: true });
@@ -1419,9 +645,9 @@ function MatchesTab({ matches, userId, onRefresh, onRespond, onRate }: {
         <div className="w-20 h-20 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
           <Zap className="w-10 h-10 text-purple-500" />
         </div>
-        <h3 className="text-xl font-bold mb-2" style={{ color: T.textPrimary }}>Aucun match pour le moment</h3>
+        <h3 className="text-xl font-bold mb-2" style={{ color: T.textPrimary }}>Aucun match actif</h3>
         <p className="text-sm max-w-md mx-auto" style={{ color: T.textSecondary }}>
-          Le matching est automatique ! Publiez une place ou une demande de lift et les matchs apparaîtront ici dès qu'un trajet compatible est trouvé.
+          Publiez un trajet ou une demande de lift. Dès qu'un trajet compatible est trouvé, votre match apparaîtra ici avec la possibilité de discuter.
         </p>
       </div>
     );
@@ -1431,20 +657,14 @@ function MatchesTab({ matches, userId, onRefresh, onRespond, onRate }: {
 
   return (
     <div className="flex gap-4">
+      {/* Match list */}
       <div className={`space-y-3 ${chatMatchId ? 'w-1/2 hidden lg:block' : 'w-full'}`}>
         {matches.map(m => {
-          const cfg = MATCH_TYPE_CFG[m.match_type] || MATCH_TYPE_CFG.on_route;
-          const MatchIcon = cfg.icon;
           const isDriver = m.driver_id === userId;
-
+          const cfg = MATCH_STATUS_CFG[m.status] || MATCH_STATUS_CFG.proposed;
           return (
-            <div key={m.id} className={`bg-white rounded-2xl p-4 lg:p-5 transition hover:shadow-md ${
-              m.status === 'proposed' ? 'ring-2 ring-amber-200' :
-              m.status === 'accepted' ? 'ring-2 ring-emerald-200' : ''
-            } ${chatMatchId === m.id ? 'ring-2 ring-indigo-500' : ''}`}
+            <div key={m.id} className={`bg-white rounded-2xl p-4 transition hover:shadow-md ${chatMatchId === m.id ? 'ring-2 ring-indigo-500' : ''}`}
               style={{ border: `1px solid ${T.borderDefault}` }}>
-
-              {/* Other user */}
               {m.other_user && (
                 <div className="flex items-center gap-3 mb-3 pb-3" style={{ borderBottom: `1px solid ${T.borderDefault}` }}>
                   <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-500 to-purple-500 flex items-center justify-center text-white font-bold text-sm">
@@ -1456,74 +676,50 @@ function MatchesTab({ matches, userId, onRefresh, onRespond, onRate }: {
                     </div>
                     {m.other_user.company_name && <div className="text-xs truncate" style={{ color: T.textSecondary }}>{m.other_user.company_name}</div>}
                   </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{ backgroundColor: isDriver ? `${T.accentAmber}15` : `${T.primaryBlue}15`, color: isDriver ? T.accentAmber : T.primaryBlue }}>
-                      {isDriver ? '🚶 Passager' : '🚗 Conducteur'}
-                    </span>
-                  </div>
+                  <span className="text-xs font-medium px-2 py-0.5 rounded-full" style={{
+                    backgroundColor: isDriver ? `${T.accentAmber}15` : `${T.primaryBlue}15`,
+                    color: isDriver ? T.accentAmber : T.primaryBlue
+                  }}>
+                    {isDriver ? '🚶 Passager' : '🚗 Conducteur'}
+                  </span>
                 </div>
               )}
 
-              {/* Route info */}
-              <div className="flex items-center gap-2 text-sm mb-3">
+              <div className="flex items-center gap-2 text-sm mb-2">
                 {m.pickup_city && <span className="font-medium" style={{ color: T.textPrimary }}>{m.pickup_city}</span>}
                 <ArrowRight className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
                 {m.dropoff_city && <span className="font-medium" style={{ color: T.textPrimary }}>{m.dropoff_city}</span>}
               </div>
 
-              {/* Score & type */}
               <div className="flex items-center gap-3 mb-3 flex-wrap">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold" style={{ backgroundColor: `${cfg.color}15`, color: cfg.color }}>
-                  <MatchIcon className="w-3.5 h-3.5" /> {cfg.label}
-                </div>
+                <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: cfg.bg, color: cfg.color }}>
+                  {cfg.label}
+                </span>
                 <div className="flex items-center gap-1">
                   {[...Array(5)].map((_, i) => (
-                    <Star key={i} className={`w-3.5 h-3.5 ${i < Math.ceil(m.match_score / 20) ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />
+                    <Star key={i} className={`w-3 h-3 ${i < Math.ceil(m.match_score / 20) ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />
                   ))}
                   <span className="text-xs font-bold ml-1" style={{ color: T.textPrimary }}>{m.match_score}%</span>
                 </div>
               </div>
 
-              {/* Metrics */}
-              <div className="grid grid-cols-2 gap-2 text-xs mb-3">
-                <div className="flex items-center gap-1.5" style={{ color: T.textSecondary }}>
-                  <Navigation className="w-3 h-3" style={{ color: T.primaryBlue }} />
-                  Détour : <strong>{m.detour_km?.toFixed(1)} km</strong>
-                </div>
-                <div className="flex items-center gap-1.5" style={{ color: T.accentGreen }}>
-                  <TrendingUp className="w-3 h-3" />
-                  Couvert : <strong>{m.distance_covered_km?.toFixed(0)} km</strong>
-                </div>
-              </div>
-
-              {/* Status badges */}
-              {m.status === 'accepted' && (
-                <div className="text-xs font-bold px-3 py-1.5 rounded-lg mb-3 flex items-center gap-1.5" style={{ backgroundColor: `${T.accentGreen}10`, color: T.accentGreen }}>
-                  <Check className="w-3.5 h-3.5" /> Accepté — prêt à démarrer
-                </div>
-              )}
-              {m.status === 'in_transit' && (
-                <div className="text-xs font-bold px-3 py-1.5 rounded-lg mb-3 flex items-center gap-1.5 animate-pulse" style={{ backgroundColor: '#EEF2FF', color: T.primaryIndigo }}>
-                  <Navigation className="w-3.5 h-3.5" /> En cours de trajet...
-                </div>
-              )}
-              {m.status === 'completed' && (
-                <div className="text-xs font-bold px-3 py-1.5 rounded-lg mb-3 flex items-center gap-1.5" style={{ backgroundColor: `${T.primaryPurple}10`, color: T.primaryPurple }}>
-                  <Award className="w-3.5 h-3.5" /> Trajet terminé
-                </div>
-              )}
-              {m.status === 'declined' && (
-                <div className="text-xs font-bold px-3 py-1.5 rounded-lg mb-3" style={{ backgroundColor: `${T.accentRed}10`, color: T.accentRed }}>
-                  Décliné
-                </div>
-              )}
-              {m.status === 'cancelled' && (
-                <div className="text-xs font-bold px-3 py-1.5 rounded-lg mb-3" style={{ backgroundColor: `${T.accentAmber}10`, color: T.accentAmber }}>
-                  Annulé
+              {(m.detour_km != null || m.distance_covered_km != null) && (
+                <div className="flex gap-4 text-xs mb-3" style={{ color: T.textSecondary }}>
+                  {m.detour_km != null && (
+                    <span className="flex items-center gap-1">
+                      <Navigation className="w-3 h-3" style={{ color: T.primaryBlue }} />
+                      Détour: <strong>{m.detour_km.toFixed(1)}km</strong>
+                    </span>
+                  )}
+                  {m.distance_covered_km != null && (
+                    <span className="flex items-center gap-1" style={{ color: T.accentGreen }}>
+                      <TrendingUp className="w-3 h-3" />
+                      Couvert: <strong>{m.distance_covered_km.toFixed(0)}km</strong>
+                    </span>
+                  )}
                 </div>
               )}
 
-              {/* Actions */}
               <div className="flex items-center gap-2 flex-wrap pt-2" style={{ borderTop: `1px solid ${T.borderDefault}` }}>
                 {m.status === 'proposed' && (
                   <>
@@ -1541,10 +737,10 @@ function MatchesTab({ matches, userId, onRefresh, onRespond, onRate }: {
                 )}
                 {m.status === 'accepted' && (
                   <>
-                    {m.driver_id === userId && (
+                    {isDriver && (
                       <button onClick={() => onRespond(m.id, 'in_transit')}
-                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold text-white transition hover:shadow-lg bg-indigo-600 hover:bg-indigo-700">
-                        <Navigation className="w-4 h-4" /> Démarrer le trajet
+                        className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold text-white bg-indigo-600 hover:bg-indigo-700 transition hover:shadow-lg">
+                        <Navigation className="w-4 h-4" /> Démarrer
                       </button>
                     )}
                     <button onClick={() => setChatMatchId(chatMatchId === m.id ? null : m.id)}
@@ -1563,7 +759,7 @@ function MatchesTab({ matches, userId, onRefresh, onRespond, onRate }: {
                   <>
                     <button onClick={() => { onRespond(m.id, 'completed'); setRatingMatchId(m.id); }}
                       className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition hover:shadow-lg">
-                      <Check className="w-4 h-4" /> Terminer le trajet
+                      <Check className="w-4 h-4" /> Arrivé — Terminer
                     </button>
                     <button onClick={() => setChatMatchId(chatMatchId === m.id ? null : m.id)}
                       className={`flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold transition ${
@@ -1572,12 +768,6 @@ function MatchesTab({ matches, userId, onRefresh, onRespond, onRate }: {
                       <MessageCircle className="w-4 h-4" /> Discuter
                     </button>
                   </>
-                )}
-                {m.status === 'completed' && (
-                  <button onClick={() => setRatingMatchId(m.id)}
-                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 transition hover:shadow-lg">
-                    <Star className="w-4 h-4" /> Noter le trajet
-                  </button>
                 )}
               </div>
             </div>
@@ -1595,7 +785,7 @@ function MatchesTab({ matches, userId, onRefresh, onRespond, onRate }: {
               </div>
               <div className="min-w-0">
                 <div className="font-bold truncate">{chatMatch.other_user?.first_name} {chatMatch.other_user?.last_name}</div>
-                {chatMatch.other_user?.company_name && <div className="text-xs text-white/70 truncate">{chatMatch.other_user.company_name}</div>}
+                <div className="text-xs text-white/70 truncate">{chatMatch.pickup_city} → {chatMatch.dropoff_city}</div>
               </div>
             </div>
             <div className="flex items-center gap-2">
@@ -1610,22 +800,14 @@ function MatchesTab({ matches, userId, onRefresh, onRespond, onRate }: {
             </div>
           </div>
 
-          {/* Route context */}
-          <div className="bg-indigo-50 px-4 py-2 text-xs text-indigo-700 flex items-center gap-2 border-b border-indigo-100 shrink-0">
-            <Route className="w-3.5 h-3.5" />
-            <span className="font-medium">{chatMatch.pickup_city} → {chatMatch.dropoff_city}</span>
-            <span className="text-indigo-400">•</span>
-            <span>{chatMatch.match_score}% match</span>
-          </div>
-
-          {/* Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-slate-50">
             {chatMessages.length === 0 && (
               <div className="text-center py-12">
                 <div className="w-16 h-16 bg-indigo-100 rounded-full flex items-center justify-center mx-auto mb-3">
                   <MessageCircle className="w-8 h-8 text-indigo-400" />
                 </div>
-                <p className="text-sm" style={{ color: T.textSecondary }}>Coordonnez votre trajet ensemble</p>
+                <p className="text-sm font-medium" style={{ color: T.textPrimary }}>Organisez votre trajet ensemble</p>
+                <p className="text-xs mt-1" style={{ color: T.textSecondary }}>Lieu de rendez-vous, heure précise, etc.</p>
               </div>
             )}
             {chatMessages.map(msg => {
@@ -1647,7 +829,6 @@ function MatchesTab({ matches, userId, onRefresh, onRespond, onRate }: {
             <div ref={chatEndRef} />
           </div>
 
-          {/* Input */}
           <div className="p-3 border-t bg-white shrink-0" style={{ borderColor: T.borderDefault }}>
             <div className="flex items-center gap-2">
               <input type="text" value={newMessage} onChange={e => setNewMessage(e.target.value)}
@@ -1664,66 +845,183 @@ function MatchesTab({ matches, userId, onRefresh, onRespond, onRate }: {
         </div>
       )}
 
-      {/* Rating Modal */}
       {ratingMatchId && (
-        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={() => setRatingMatchId(null)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
-            <div className="text-center mb-5">
-              <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
-                <Star className="w-8 h-8 text-amber-500" />
-              </div>
-              <h3 className="text-lg font-bold" style={{ color: T.textPrimary }}>Noter ce trajet</h3>
-              <p className="text-sm mt-1" style={{ color: T.textSecondary }}>Votre avis aide la communauté</p>
-            </div>
-
-            {/* Stars */}
-            <div className="flex justify-center gap-2 mb-5">
-              {[1,2,3,4,5].map(n => (
-                <button key={n} onClick={() => setRatingStars(n)} className="transition hover:scale-110">
-                  <Star className={`w-10 h-10 ${n <= ratingStars ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />
-                </button>
-              ))}
-            </div>
-
-            {/* Badges */}
-            <div className="mb-4">
-              <p className="text-xs font-semibold mb-2" style={{ color: T.textSecondary }}>Points forts (optionnel)</p>
-              <div className="flex flex-wrap gap-2">
-                {BADGE_OPTIONS.map(b => (
-                  <button key={b.id}
-                    onClick={() => setRatingBadges(prev => prev.includes(b.id) ? prev.filter(x => x !== b.id) : [...prev, b.id])}
-                    className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
-                      ratingBadges.includes(b.id) ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                    }`}>
-                    {b.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* Comment */}
-            <textarea value={ratingComment} onChange={e => setRatingComment(e.target.value)}
-              placeholder="Un commentaire ? (optionnel)"
-              className="w-full px-4 py-3 rounded-xl border text-sm outline-none resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 mb-4"
-              style={{ borderColor: T.borderDefault }} rows={2} />
-
-            {/* Submit */}
-            <div className="flex gap-3">
-              <button onClick={() => setRatingMatchId(null)}
-                className="flex-1 py-2.5 rounded-xl text-sm font-semibold" style={{ backgroundColor: T.fieldBg, color: T.textSecondary }}>
-                Plus tard
-              </button>
-              <button onClick={() => { onRate(ratingMatchId, ratingStars, ratingBadges, ratingComment); setRatingMatchId(null); setRatingStars(5); setRatingBadges([]); setRatingComment(''); }}
-                className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 transition">
-                Envoyer ★
-              </button>
-            </div>
-          </div>
-        </div>
+        <RatingModal
+          matchId={ratingMatchId}
+          onClose={() => setRatingMatchId(null)}
+          onRate={onRate}
+        />
       )}
     </div>
   );
 }
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// HISTORY TAB — Past rides with ratings
+// ══════════════════════════════════════════════════════════════════════════════
+function HistoryTab({ historyMatches, userId, onRate }: {
+  historyMatches: RideMatch[]; userId: string;
+  onRate: (matchId: string, rating: number, badges: string[], comment: string) => void;
+}) {
+  const [ratingMatchId, setRatingMatchId] = useState<string | null>(null);
+
+  if (historyMatches.length === 0) {
+    return (
+      <div className="bg-white rounded-2xl border p-12 text-center" style={{ borderColor: T.borderDefault }}>
+        <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
+          <History className="w-10 h-10 text-slate-400" />
+        </div>
+        <h3 className="text-xl font-bold mb-2" style={{ color: T.textPrimary }}>Aucun historique</h3>
+        <p className="text-sm max-w-md mx-auto" style={{ color: T.textSecondary }}>
+          Vos trajets terminés, annulés ou déclinés apparaîtront ici.
+        </p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      {historyMatches.map(m => {
+        const isDriver = m.driver_id === userId;
+        const cfg = MATCH_STATUS_CFG[m.status] || MATCH_STATUS_CFG.completed;
+        return (
+          <div key={m.id} className="bg-white rounded-2xl p-4" style={{ border: `1px solid ${T.borderDefault}` }}>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-3">
+                {m.other_user && (
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-slate-400 to-slate-500 flex items-center justify-center text-white font-bold text-xs">
+                      {(m.other_user.first_name || '?')[0]}{(m.other_user.last_name || '?')[0]}
+                    </div>
+                    <div>
+                      <span className="text-sm font-semibold" style={{ color: T.textPrimary }}>
+                        {m.other_user.first_name} {m.other_user.last_name}
+                      </span>
+                      <span className="text-xs ml-2" style={{ color: T.textTertiary }}>
+                        {isDriver ? '(passager)' : '(conducteur)'}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+              <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: cfg.bg, color: cfg.color }}>
+                {cfg.label}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-sm mb-2">
+              <span className="font-medium" style={{ color: T.textPrimary }}>{m.pickup_city}</span>
+              <ArrowRight className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
+              <span className="font-medium" style={{ color: T.textPrimary }}>{m.dropoff_city}</span>
+              <span className="text-xs ml-auto" style={{ color: T.textTertiary }}>
+                {new Date(m.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-xs" style={{ color: T.textSecondary }}>
+              <span>Score: {m.match_score}%</span>
+              {m.distance_covered_km != null && <span>• {m.distance_covered_km.toFixed(0)}km couverts</span>}
+            </div>
+            {m.status === 'completed' && (
+              <div className="mt-3 pt-2" style={{ borderTop: `1px solid ${T.borderDefault}` }}>
+                <button onClick={() => setRatingMatchId(m.id)}
+                  className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 transition hover:shadow-lg">
+                  <Star className="w-4 h-4" /> Noter ce trajet
+                </button>
+              </div>
+            )}
+          </div>
+        );
+      })}
+
+      {ratingMatchId && (
+        <RatingModal
+          matchId={ratingMatchId}
+          onClose={() => setRatingMatchId(null)}
+          onRate={onRate}
+        />
+      )}
+    </div>
+  );
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// RATING MODAL
+// ══════════════════════════════════════════════════════════════════════════════
+function RatingModal({ matchId, onClose, onRate }: {
+  matchId: string; onClose: () => void;
+  onRate: (matchId: string, rating: number, badges: string[], comment: string) => void;
+}) {
+  const [stars, setStars] = useState(5);
+  const [badges, setBadges] = useState<string[]>([]);
+  const [comment, setComment] = useState('');
+
+  const BADGE_OPTIONS = [
+    { id: 'punctual', label: '⏰ Ponctuel' },
+    { id: 'friendly', label: '😊 Sympathique' },
+    { id: 'safe_driver', label: '🛡️ Conduite sûre' },
+    { id: 'clean_vehicle', label: '✨ Véhicule propre' },
+    { id: 'good_communication', label: '💬 Bonne com.' },
+  ];
+
+  return (
+    <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
+        <div className="text-center mb-5">
+          <div className="w-16 h-16 bg-amber-100 rounded-full flex items-center justify-center mx-auto mb-3">
+            <Star className="w-8 h-8 text-amber-500" />
+          </div>
+          <h3 className="text-lg font-bold" style={{ color: T.textPrimary }}>Noter ce trajet</h3>
+          <p className="text-sm mt-1" style={{ color: T.textSecondary }}>Votre avis aide la communauté</p>
+        </div>
+
+        <div className="flex justify-center gap-2 mb-5">
+          {[1,2,3,4,5].map(n => (
+            <button key={n} onClick={() => setStars(n)} className="transition hover:scale-110">
+              <Star className={`w-10 h-10 ${n <= stars ? 'text-amber-400 fill-amber-400' : 'text-slate-200'}`} />
+            </button>
+          ))}
+        </div>
+
+        <div className="mb-4">
+          <p className="text-xs font-semibold mb-2" style={{ color: T.textSecondary }}>Points forts (optionnel)</p>
+          <div className="flex flex-wrap gap-2">
+            {BADGE_OPTIONS.map(b => (
+              <button key={b.id}
+                onClick={() => setBadges(prev => prev.includes(b.id) ? prev.filter(x => x !== b.id) : [...prev, b.id])}
+                className={`px-3 py-1.5 rounded-full text-xs font-semibold transition ${
+                  badges.includes(b.id) ? 'bg-indigo-100 text-indigo-700 ring-2 ring-indigo-300' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
+                }`}>
+                {b.label}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <textarea value={comment} onChange={e => setComment(e.target.value)}
+          placeholder="Un commentaire ? (optionnel)"
+          className="w-full px-4 py-3 rounded-xl border text-sm outline-none resize-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 mb-4"
+          style={{ borderColor: T.borderDefault }} rows={2} />
+
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-2.5 rounded-xl text-sm font-semibold" style={{ backgroundColor: T.fieldBg, color: T.textSecondary }}>
+            Plus tard
+          </button>
+          <button onClick={() => { onRate(matchId, stars, badges, comment); onClose(); }}
+            className="flex-1 py-2.5 rounded-xl text-sm font-bold text-white bg-amber-500 hover:bg-amber-600 transition">
+            Envoyer ★
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CREATE OFFER MODAL — With waypoints + auto-return lift
+// ══════════════════════════════════════════════════════════════════════════════
 function CreateOfferModal({ userId, onClose, onCreated }: { userId: string; onClose: () => void; onCreated: () => void }) {
   const [originCity, setOriginCity] = useState('');
   const [destCity, setDestCity] = useState('');
@@ -1734,49 +1032,87 @@ function CreateOfferModal({ userId, onClose, onCreated }: { userId: string; onCl
   const [showOrigin, setShowOrigin] = useState(false);
   const [showDest, setShowDest] = useState(false);
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
-  const [time, setTime] = useState('08:00');
+  const [timeStart, setTimeStart] = useState('08:00');
+  const [timeEnd, setTimeEnd] = useState('10:00');
+  const [arrivalTime, setArrivalTime] = useState('');
   const [seats, setSeats] = useState(1);
   const [detour, setDetour] = useState(15);
   const [vehicleType, setVehicleType] = useState('car');
+  const [waypoints, setWaypoints] = useState<{ city: string; geo: GeoSuggestion | null }[]>([]);
+  const [wpInput, setWpInput] = useState('');
+  const [wpSugs, setWpSugs] = useState<GeoSuggestion[]>([]);
+  const [showWpSug, setShowWpSug] = useState(false);
   const [needsReturn, setNeedsReturn] = useState(false);
   const [returnCity, setReturnCity] = useState('');
+  const [returnGeo, setReturnGeo] = useState<GeoSuggestion | null>(null);
+  const [returnSugs, setReturnSugs] = useState<GeoSuggestion[]>([]);
+  const [showReturnSug, setShowReturnSug] = useState(false);
+  const [returnFromTime, setReturnFromTime] = useState('14:00');
+  const [returnToTime, setReturnToTime] = useState('20:00');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  useEffect(() => {
-    const t = setTimeout(async () => {
-      if (originCity.length >= 2 && !originGeo) { const s = await geocodeCity(originCity); setOriginSugs(s); setShowOrigin(s.length > 0); }
-      else { setOriginSugs([]); setShowOrigin(false); }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [originCity, originGeo]);
+  useEffect(() => { const t = setTimeout(async () => {
+    if (originCity.length >= 2 && !originGeo) { const s = await geocodeCity(originCity); setOriginSugs(s); setShowOrigin(s.length > 0); }
+    else { setOriginSugs([]); setShowOrigin(false); }
+  }, 300); return () => clearTimeout(t); }, [originCity, originGeo]);
 
-  useEffect(() => {
-    const t = setTimeout(async () => {
-      if (destCity.length >= 2 && !destGeo) { const s = await geocodeCity(destCity); setDestSugs(s); setShowDest(s.length > 0); }
-      else { setDestSugs([]); setShowDest(false); }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [destCity, destGeo]);
+  useEffect(() => { const t = setTimeout(async () => {
+    if (destCity.length >= 2 && !destGeo) { const s = await geocodeCity(destCity); setDestSugs(s); setShowDest(s.length > 0); }
+    else { setDestSugs([]); setShowDest(false); }
+  }, 300); return () => clearTimeout(t); }, [destCity, destGeo]);
+
+  useEffect(() => { const t = setTimeout(async () => {
+    if (wpInput.length >= 2) { const s = await geocodeCity(wpInput); setWpSugs(s); setShowWpSug(s.length > 0); }
+    else { setWpSugs([]); setShowWpSug(false); }
+  }, 300); return () => clearTimeout(t); }, [wpInput]);
+
+  useEffect(() => { const t = setTimeout(async () => {
+    if (returnCity.length >= 2 && !returnGeo) { const s = await geocodeCity(returnCity); setReturnSugs(s); setShowReturnSug(s.length > 0); }
+    else { setReturnSugs([]); setShowReturnSug(false); }
+  }, 300); return () => clearTimeout(t); }, [returnCity, returnGeo]);
+
+  const addWaypoint = (s: GeoSuggestion) => {
+    setWaypoints(prev => [...prev, { city: s.city, geo: s }]);
+    setWpInput(''); setShowWpSug(false);
+  };
+  const removeWaypoint = (i: number) => setWaypoints(prev => prev.filter((_, idx) => idx !== i));
 
   const handleSubmit = async () => {
     if (!originGeo || !destGeo) return;
-    setSaving(true);
-    setSubmitError('');
+    setSaving(true); setSubmitError('');
     try {
+      const routeCities = waypoints.map(w => ({ city: w.city, lat: w.geo?.lat, lng: w.geo?.lng }));
       const { error } = await supabase.from('ride_offers').insert({
         user_id: userId,
         origin_city: originGeo.city, origin_lat: originGeo.lat, origin_lng: originGeo.lng,
         destination_city: destGeo.city, destination_lat: destGeo.lat, destination_lng: destGeo.lng,
-        departure_date: date, departure_time: time,
+        route_cities: routeCities,
+        departure_date: date, departure_time: timeStart,
+        estimated_arrival_time: arrivalTime || null,
         seats_available: seats, max_detour_km: detour, vehicle_type: vehicleType,
-        needs_return: needsReturn, return_to_city: needsReturn ? returnCity : null,
+        needs_return: needsReturn, return_to_city: needsReturn && returnGeo ? returnGeo.city : null,
         notes: notes || null, status: 'active',
       });
       if (error) { setSubmitError(error.message); setSaving(false); return; }
-      onCreated();
-      onClose();
+
+      // Auto-create return lift request
+      if (needsReturn && returnGeo && destGeo) {
+        const { error: reqError } = await supabase.from('ride_requests').insert({
+          user_id: userId,
+          pickup_city: destGeo.city, pickup_lat: destGeo.lat, pickup_lng: destGeo.lng,
+          destination_city: returnGeo.city, destination_lat: returnGeo.lat, destination_lng: returnGeo.lng,
+          needed_date: date,
+          time_window_start: returnFromTime, time_window_end: returnToTime,
+          max_detour_km: detour, accept_partial: true,
+          request_type: 'return', status: 'active',
+          notes: `Retour automatique après livraison à ${destGeo.city}`,
+        });
+        if (reqError) console.error('Auto-return request error:', reqError);
+      }
+
+      onCreated(); onClose();
     } catch (err: any) { setSubmitError(err?.message || 'Erreur inconnue'); }
     setSaving(false);
   };
@@ -1789,135 +1125,172 @@ function CreateOfferModal({ userId, onClose, onCreated }: { userId: string; onCl
             <Car className="w-5 h-5" style={{ color: T.primaryBlue }} />
           </div>
           <div className="flex-1">
-            <h2 className="text-lg font-bold" style={{ color: T.textPrimary }}>Proposer une place</h2>
-            <p className="text-xs" style={{ color: T.textSecondary }}>J'ai un siège libre dans mon véhicule</p>
+            <h2 className="text-lg font-bold" style={{ color: T.textPrimary }}>Je conduis — Publier mon trajet</h2>
+            <p className="text-xs" style={{ color: T.textSecondary }}>Proposez vos places libres aux convoyeurs sur votre route</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-50"><X className="w-5 h-5" style={{ color: T.textSecondary }} /></button>
         </div>
 
         <div className="p-5 space-y-4">
-          {/* Origin */}
-          <div className="relative">
-            <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Ville de départ</label>
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }}>
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentGreen }} />
-              <input type="text" value={originCity} onChange={e => { setOriginCity(e.target.value); setOriginGeo(null); }}
-                placeholder="Ex: Paris, Lyon..." className="flex-1 bg-transparent outline-none text-sm" />
-              {originGeo && <Check className="w-4 h-4 text-emerald-500" />}
-            </div>
-            {showOrigin && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border z-50 max-h-40 overflow-auto" style={{ borderColor: T.borderDefault }}>
-                {originSugs.map((s, i) => (
-                  <button key={i} onClick={() => { setOriginGeo(s); setOriginCity(s.city); setShowOrigin(false); }}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm">{s.label}</button>
+          <CityInput label="Ville de départ" value={originCity} geo={originGeo} suggestions={originSugs} showSugs={showOrigin}
+            onChange={v => { setOriginCity(v); setOriginGeo(null); }}
+            onSelect={s => { setOriginGeo(s); setOriginCity(s.city); setShowOrigin(false); }}
+            onFocus={() => originSugs.length > 0 && setShowOrigin(true)}
+            dotColor={T.accentGreen} placeholder="Ex: Paris, Lyon..."
+          />
+
+          <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>
+              Villes de passage (optionnel)
+              <span className="font-normal text-[10px] ml-1">— améliorent le matching</span>
+            </label>
+            {waypoints.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2">
+                {waypoints.map((wp, i) => (
+                  <span key={i} className="flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                    <MapPin className="w-3 h-3" /> {wp.city}
+                    <button onClick={() => removeWaypoint(i)} className="ml-1 hover:text-red-600"><X className="w-3 h-3" /></button>
+                  </span>
                 ))}
               </div>
             )}
-          </div>
-
-          {/* Destination */}
-          <div className="relative">
-            <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Ville d'arrivée</label>
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }}>
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
-              <input type="text" value={destCity} onChange={e => { setDestCity(e.target.value); setDestGeo(null); }}
-                placeholder="Ex: Marseille, Bordeaux..." className="flex-1 bg-transparent outline-none text-sm" />
-              {destGeo && <Check className="w-4 h-4 text-emerald-500" />}
-            </div>
-            {showDest && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border z-50 max-h-40 overflow-auto" style={{ borderColor: T.borderDefault }}>
-                {destSugs.map((s, i) => (
-                  <button key={i} onClick={() => { setDestGeo(s); setDestCity(s.city); setShowDest(false); }}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm">{s.label}</button>
-                ))}
+            <div className="relative">
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }}>
+                <MapPin className="w-3.5 h-3.5" style={{ color: T.accentAmber }} />
+                <input type="text" value={wpInput} onChange={e => setWpInput(e.target.value)}
+                  placeholder="Ajouter une ville de passage..." className="flex-1 bg-transparent outline-none text-sm" />
               </div>
-            )}
-          </div>
-
-          {/* Date + Time */}
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Date</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
-            </div>
-            <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Heure départ</label>
-              <input type="time" value={time} onChange={e => setTime(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
+              {showWpSug && (
+                <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border z-50 max-h-40 overflow-auto" style={{ borderColor: T.borderDefault }}>
+                  {wpSugs.map((s, i) => (
+                    <button key={i} onClick={() => addWaypoint(s)}
+                      className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm flex items-center gap-2">
+                      <Plus className="w-3 h-3 text-amber-500" /> {s.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
 
-          {/* Seats + Detour */}
-          <div className="grid grid-cols-2 gap-3">
+          <CityInput label="Ville de livraison (arrivée)" value={destCity} geo={destGeo} suggestions={destSugs} showSugs={showDest}
+            onChange={v => { setDestCity(v); setDestGeo(null); }}
+            onSelect={s => { setDestGeo(s); setDestCity(s.city); setShowDest(false); }}
+            onFocus={() => destSugs.length > 0 && setShowDest(true)}
+            dotColor={T.primaryBlue} placeholder="Ex: Marseille, Bordeaux..."
+          />
+
+          <div>
+            <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Quand partez-vous ?</label>
+            <div className="grid grid-cols-4 gap-2">
+              <div>
+                <span className="text-[10px]" style={{ color: T.textTertiary }}>Date</span>
+                <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                  className="w-full px-2 py-2 rounded-lg border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
+              </div>
+              <div>
+                <span className="text-[10px]" style={{ color: T.textTertiary }}>Départ dès</span>
+                <input type="time" value={timeStart} onChange={e => setTimeStart(e.target.value)}
+                  className="w-full px-2 py-2 rounded-lg border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
+              </div>
+              <div>
+                <span className="text-[10px]" style={{ color: T.textTertiary }}>Au plus tard</span>
+                <input type="time" value={timeEnd} onChange={e => setTimeEnd(e.target.value)}
+                  className="w-full px-2 py-2 rounded-lg border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
+              </div>
+              <div>
+                <span className="text-[10px]" style={{ color: T.textTertiary }}>Arrivée ≈</span>
+                <input type="time" value={arrivalTime} onChange={e => setArrivalTime(e.target.value)}
+                  className="w-full px-2 py-2 rounded-lg border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-3 gap-3">
             <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Places libres</label>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Places</label>
               <select value={seats} onChange={e => setSeats(Number(e.target.value))}
                 className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }}>
-                {[1,2,3,4].map(n => <option key={n} value={n}>{n} place{n > 1 ? 's' : ''}</option>)}
+                {[1,2,3,4].map(n => <option key={n} value={n}>{n}</option>)}
               </select>
             </div>
             <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Détour max (km)</label>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Flexibilité</label>
               <select value={detour} onChange={e => setDetour(Number(e.target.value))}
                 className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }}>
                 {[5,10,15,20,30,50].map(n => <option key={n} value={n}>{n} km</option>)}
               </select>
             </div>
-          </div>
-
-          {/* Vehicle type */}
-          <div>
-            <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Type de véhicule</label>
-            <div className="flex gap-2 flex-wrap">
-              {Object.entries(VEHICLE_LABELS).filter(([k]) => k !== 'all').map(([key, label]) => (
-                <button key={key} onClick={() => setVehicleType(key)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition ${
-                    vehicleType === key ? 'bg-indigo-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                  }`}>{label}</button>
-              ))}
-            </div>
-          </div>
-
-          {/* Needs return */}
-          <div className="flex items-center gap-3 p-3 rounded-xl" style={{ backgroundColor: T.fieldBg }}>
-            <input type="checkbox" checked={needsReturn} onChange={e => setNeedsReturn(e.target.checked)}
-              className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500" />
             <div>
-              <div className="text-sm font-medium" style={{ color: T.textPrimary }}>J'ai aussi besoin d'un retour</div>
-              <div className="text-xs" style={{ color: T.textSecondary }}>Après ma livraison, je cherche un lift pour rentrer</div>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Véhicule</label>
+              <select value={vehicleType} onChange={e => setVehicleType(e.target.value)}
+                className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }}>
+                {Object.entries(VEHICLE_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+              </select>
             </div>
           </div>
-          {needsReturn && (
-            <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Ville de retour souhaitée</label>
-              <input type="text" value={returnCity} onChange={e => setReturnCity(e.target.value)}
-                placeholder="Ex: Paris..." className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none"
-                style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
-            </div>
-          )}
 
-          {/* Notes */}
+          <div className={`p-4 rounded-xl transition ${needsReturn ? 'bg-purple-50 border-2 border-purple-200' : 'bg-slate-50'}`}>
+            <label className="flex items-center gap-3 cursor-pointer">
+              <input type="checkbox" checked={needsReturn} onChange={e => setNeedsReturn(e.target.checked)}
+                className="w-5 h-5 rounded border-slate-300 text-purple-600 focus:ring-purple-500" />
+              <div>
+                <div className="text-sm font-bold" style={{ color: T.textPrimary }}>
+                  <RefreshCw className="w-4 h-4 inline mr-1" style={{ color: T.primaryPurple }} />
+                  J'ai besoin d'un retour après livraison
+                </div>
+                <div className="text-xs mt-0.5" style={{ color: T.textSecondary }}>
+                  Une demande de lift sera automatiquement créée depuis votre ville de livraison
+                </div>
+              </div>
+            </label>
+
+            {needsReturn && (
+              <div className="mt-3 space-y-3 pt-3" style={{ borderTop: `1px solid ${T.primaryPurple}30` }}>
+                <CityInput label="Retour vers quelle ville ?" value={returnCity} geo={returnGeo}
+                  suggestions={returnSugs} showSugs={showReturnSug}
+                  onChange={v => { setReturnCity(v); setReturnGeo(null); }}
+                  onSelect={s => { setReturnGeo(s); setReturnCity(s.city); setShowReturnSug(false); }}
+                  onFocus={() => returnSugs.length > 0 && setShowReturnSug(true)}
+                  dotColor={T.primaryPurple} placeholder="Ex: Paris, base..."
+                />
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Disponible dès</label>
+                    <input type="time" value={returnFromTime} onChange={e => setReturnFromTime(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
+                  </div>
+                  <div>
+                    <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Jusqu'à</label>
+                    <input type="time" value={returnToTime} onChange={e => setReturnToTime(e.target.value)}
+                      className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div>
             <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Notes (optionnel)</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
-              placeholder="Route prévue, préférences..."
+              placeholder="Infos utiles : autoroute ou nationale, pause prévue..."
               className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none resize-none"
               style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
           </div>
 
-          {/* Error */}
           {submitError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-              {submitError}
-            </div>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{submitError}</div>
           )}
 
-          {/* Submit */}
           <button onClick={handleSubmit} disabled={!originGeo || !destGeo || saving}
             className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-white font-bold text-sm disabled:opacity-50 transition hover:shadow-lg"
             style={{ background: `linear-gradient(135deg, ${T.primaryIndigo}, ${T.primaryPurple})` }}>
-            {saving ? 'Publication...' : <><Car className="w-4 h-4" /> Publier mon offre de place</>}
+            {saving ? 'Publication...' : (
+              <>
+                <Car className="w-4 h-4" />
+                Publier mon trajet{needsReturn ? ' + demande de retour' : ''}
+              </>
+            )}
           </button>
         </div>
       </div>
@@ -1926,22 +1299,16 @@ function CreateOfferModal({ userId, onClose, onCreated }: { userId: string; onCl
 }
 
 
-// ============================================================================
+// ══════════════════════════════════════════════════════════════════════════════
 // CREATE REQUEST MODAL
-// ============================================================================
-function CreateRequestModal({ userId, onClose, onCreated, initialFrom, initialTo }: {
+// ══════════════════════════════════════════════════════════════════════════════
+function CreateRequestModal({ userId, onClose, onCreated }: {
   userId: string; onClose: () => void; onCreated: () => void;
-  initialFrom?: { city: string; lat: number; lng: number };
-  initialTo?: { city: string; lat: number; lng: number };
 }) {
-  const [pickupCity, setPickupCity] = useState(initialFrom?.city || '');
-  const [destCity, setDestCity] = useState(initialTo?.city || '');
-  const [pickupGeo, setPickupGeo] = useState<GeoSuggestion | null>(
-    initialFrom ? { label: initialFrom.city, city: initialFrom.city, postcode: '', lat: initialFrom.lat, lng: initialFrom.lng } : null
-  );
-  const [destGeo, setDestGeo] = useState<GeoSuggestion | null>(
-    initialTo ? { label: initialTo.city, city: initialTo.city, postcode: '', lat: initialTo.lat, lng: initialTo.lng } : null
-  );
+  const [pickupCity, setPickupCity] = useState('');
+  const [destCity, setDestCity] = useState('');
+  const [pickupGeo, setPickupGeo] = useState<GeoSuggestion | null>(null);
+  const [destGeo, setDestGeo] = useState<GeoSuggestion | null>(null);
   const [pickupSugs, setPickupSugs] = useState<GeoSuggestion[]>([]);
   const [destSugs, setDestSugs] = useState<GeoSuggestion[]>([]);
   const [showPickup, setShowPickup] = useState(false);
@@ -1951,31 +1318,23 @@ function CreateRequestModal({ userId, onClose, onCreated, initialFrom, initialTo
   const [timeEnd, setTimeEnd] = useState('18:00');
   const [detour, setDetour] = useState(20);
   const [acceptPartial, setAcceptPartial] = useState(true);
-  const [requestType, setRequestType] = useState('return');
   const [notes, setNotes] = useState('');
   const [saving, setSaving] = useState(false);
   const [submitError, setSubmitError] = useState('');
 
-  useEffect(() => {
-    const t = setTimeout(async () => {
-      if (pickupCity.length >= 2 && !pickupGeo) { const s = await geocodeCity(pickupCity); setPickupSugs(s); setShowPickup(s.length > 0); }
-      else { setPickupSugs([]); setShowPickup(false); }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [pickupCity, pickupGeo]);
+  useEffect(() => { const t = setTimeout(async () => {
+    if (pickupCity.length >= 2 && !pickupGeo) { const s = await geocodeCity(pickupCity); setPickupSugs(s); setShowPickup(s.length > 0); }
+    else { setPickupSugs([]); setShowPickup(false); }
+  }, 300); return () => clearTimeout(t); }, [pickupCity, pickupGeo]);
 
-  useEffect(() => {
-    const t = setTimeout(async () => {
-      if (destCity.length >= 2 && !destGeo) { const s = await geocodeCity(destCity); setDestSugs(s); setShowDest(s.length > 0); }
-      else { setDestSugs([]); setShowDest(false); }
-    }, 300);
-    return () => clearTimeout(t);
-  }, [destCity, destGeo]);
+  useEffect(() => { const t = setTimeout(async () => {
+    if (destCity.length >= 2 && !destGeo) { const s = await geocodeCity(destCity); setDestSugs(s); setShowDest(s.length > 0); }
+    else { setDestSugs([]); setShowDest(false); }
+  }, 300); return () => clearTimeout(t); }, [destCity, destGeo]);
 
   const handleSubmit = async () => {
     if (!pickupGeo || !destGeo) return;
-    setSaving(true);
-    setSubmitError('');
+    setSaving(true); setSubmitError('');
     try {
       const { error } = await supabase.from('ride_requests').insert({
         user_id: userId,
@@ -1983,11 +1342,10 @@ function CreateRequestModal({ userId, onClose, onCreated, initialFrom, initialTo
         destination_city: destGeo.city, destination_lat: destGeo.lat, destination_lng: destGeo.lng,
         needed_date: date, time_window_start: timeStart, time_window_end: timeEnd,
         max_detour_km: detour, accept_partial: acceptPartial,
-        request_type: requestType, notes: notes || null, status: 'active',
+        request_type: 'custom', status: 'active', notes: notes || null,
       });
       if (error) { setSubmitError(error.message); setSaving(false); return; }
-      onCreated();
-      onClose();
+      onCreated(); onClose();
     } catch (err: any) { setSubmitError(err?.message || 'Erreur inconnue'); }
     setSaving(false);
   };
@@ -2001,93 +1359,50 @@ function CreateRequestModal({ userId, onClose, onCreated, initialFrom, initialTo
           </div>
           <div className="flex-1">
             <h2 className="text-lg font-bold" style={{ color: T.textPrimary }}>Je cherche un lift</h2>
-            <p className="text-xs" style={{ color: T.textSecondary }}>Trouvez un convoyeur qui va dans votre direction</p>
+            <p className="text-xs" style={{ color: T.textSecondary }}>Un convoyeur passe peut-être par votre chemin</p>
           </div>
           <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-50"><X className="w-5 h-5" style={{ color: T.textSecondary }} /></button>
         </div>
 
         <div className="p-5 space-y-4">
-          {/* Request type */}
+          <CityInput label="Où êtes-vous ?" value={pickupCity} geo={pickupGeo} suggestions={pickupSugs} showSugs={showPickup}
+            onChange={v => { setPickupCity(v); setPickupGeo(null); }}
+            onSelect={s => { setPickupGeo(s); setPickupCity(s.city); setShowPickup(false); }}
+            onFocus={() => pickupSugs.length > 0 && setShowPickup(true)}
+            dotColor={T.accentAmber} placeholder="Ville actuelle..."
+          />
+
+          <CityInput label="Où voulez-vous aller ?" value={destCity} geo={destGeo} suggestions={destSugs} showSugs={showDest}
+            onChange={v => { setDestCity(v); setDestGeo(null); }}
+            onSelect={s => { setDestGeo(s); setDestCity(s.city); setShowDest(false); }}
+            onFocus={() => destSugs.length > 0 && setShowDest(true)}
+            dotColor={T.primaryBlue} placeholder="Ville de destination..."
+          />
+
           <div>
-            <label className="text-xs font-semibold mb-2 block" style={{ color: T.textSecondary }}>Type de besoin</label>
-            <div className="flex gap-2 flex-wrap">
-              {[
-                { key: 'return', label: '↩️ Retour à ma base', desc: 'Après une livraison' },
-                { key: 'pickup_point', label: '📍 Aller au point d\'enlèvement', desc: 'Rejoindre ma prochaine mission' },
-                { key: 'custom', label: '🎯 Autre', desc: 'Trajet personnalisé' },
-              ].map(t => (
-                <button key={t.key} onClick={() => setRequestType(t.key)}
-                  className={`flex-1 min-w-[140px] p-3 rounded-xl text-left transition ${
-                    requestType === t.key ? 'bg-amber-50 border-2 border-amber-400' : 'bg-slate-50 border-2 border-transparent hover:bg-slate-100'
-                  }`}>
-                  <div className="text-sm font-semibold">{t.label}</div>
-                  <div className="text-[10px] mt-0.5" style={{ color: T.textTertiary }}>{t.desc}</div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Pickup */}
-          <div className="relative">
-            <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Où êtes-vous ?</label>
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }}>
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.accentAmber }} />
-              <input type="text" value={pickupCity} onChange={e => { setPickupCity(e.target.value); setPickupGeo(null); }}
-                placeholder="Ville actuelle..." className="flex-1 bg-transparent outline-none text-sm" />
-              {pickupGeo && <Check className="w-4 h-4 text-emerald-500" />}
-            </div>
-            {showPickup && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border z-50 max-h-40 overflow-auto" style={{ borderColor: T.borderDefault }}>
-                {pickupSugs.map((s, i) => (
-                  <button key={i} onClick={() => { setPickupGeo(s); setPickupCity(s.city); setShowPickup(false); }}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm">{s.label}</button>
-                ))}
+            <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Quand êtes-vous disponible ?</label>
+            <div className="grid grid-cols-3 gap-2">
+              <div>
+                <span className="text-[10px]" style={{ color: T.textTertiary }}>Date</span>
+                <input type="date" value={date} onChange={e => setDate(e.target.value)}
+                  className="w-full px-2 py-2 rounded-lg border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
               </div>
-            )}
-          </div>
-
-          {/* Destination */}
-          <div className="relative">
-            <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Où voulez-vous aller ?</label>
-            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }}>
-              <div className="w-2.5 h-2.5 rounded-full" style={{ background: T.primaryBlue }} />
-              <input type="text" value={destCity} onChange={e => { setDestCity(e.target.value); setDestGeo(null); }}
-                placeholder="Ville de destination..." className="flex-1 bg-transparent outline-none text-sm" />
-              {destGeo && <Check className="w-4 h-4 text-emerald-500" />}
-            </div>
-            {showDest && (
-              <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border z-50 max-h-40 overflow-auto" style={{ borderColor: T.borderDefault }}>
-                {destSugs.map((s, i) => (
-                  <button key={i} onClick={() => { setDestGeo(s); setDestCity(s.city); setShowDest(false); }}
-                    className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm">{s.label}</button>
-                ))}
+              <div>
+                <span className="text-[10px]" style={{ color: T.textTertiary }}>À partir de</span>
+                <input type="time" value={timeStart} onChange={e => setTimeStart(e.target.value)}
+                  className="w-full px-2 py-2 rounded-lg border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
               </div>
-            )}
-          </div>
-
-          {/* Date + Time window */}
-          <div className="grid grid-cols-3 gap-3">
-            <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Date</label>
-              <input type="date" value={date} onChange={e => setDate(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
-            </div>
-            <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Dès</label>
-              <input type="time" value={timeStart} onChange={e => setTimeStart(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
-            </div>
-            <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Jusqu'à</label>
-              <input type="time" value={timeEnd} onChange={e => setTimeEnd(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
+              <div>
+                <span className="text-[10px]" style={{ color: T.textTertiary }}>Jusqu'à</span>
+                <input type="time" value={timeEnd} onChange={e => setTimeEnd(e.target.value)}
+                  className="w-full px-2 py-2 rounded-lg border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
+              </div>
             </div>
           </div>
 
-          {/* Detour + partial */}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Détour accepté</label>
+              <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Flexibilité trajet</label>
               <select value={detour} onChange={e => setDetour(Number(e.target.value))}
                 className="w-full px-3 py-2.5 rounded-xl border text-sm outline-none" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }}>
                 {[5,10,15,20,30,50].map(n => <option key={n} value={n}>{n} km</option>)}
@@ -2096,11 +1411,10 @@ function CreateRequestModal({ userId, onClose, onCreated, initialFrom, initialTo
             <div className="flex items-center gap-2 pt-5">
               <input type="checkbox" checked={acceptPartial} onChange={e => setAcceptPartial(e.target.checked)}
                 className="w-4 h-4 rounded" />
-              <label className="text-sm" style={{ color: T.textPrimary }}>Trajet partiel OK</label>
+              <label className="text-sm" style={{ color: T.textPrimary }}>Accepte un bout du trajet</label>
             </div>
           </div>
 
-          {/* Notes */}
           <div>
             <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>Notes (optionnel)</label>
             <textarea value={notes} onChange={e => setNotes(e.target.value)} rows={2}
@@ -2109,14 +1423,10 @@ function CreateRequestModal({ userId, onClose, onCreated, initialFrom, initialTo
               style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }} />
           </div>
 
-          {/* Error */}
           {submitError && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-              {submitError}
-            </div>
+            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{submitError}</div>
           )}
 
-          {/* Submit */}
           <button onClick={handleSubmit} disabled={!pickupGeo || !destGeo || saving}
             className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-white font-bold text-sm disabled:opacity-50 transition hover:shadow-lg"
             style={{ background: `linear-gradient(135deg, ${T.accentAmber}, ${T.deepOrange})` }}>
@@ -2124,6 +1434,37 @@ function CreateRequestModal({ userId, onClose, onCreated, initialFrom, initialTo
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+
+// ══════════════════════════════════════════════════════════════════════════════
+// CITY INPUT — Reusable autocomplete
+// ══════════════════════════════════════════════════════════════════════════════
+function CityInput({ label, value, geo, suggestions, showSugs, onChange, onSelect, onFocus, dotColor, placeholder }: {
+  label: string; value: string; geo: GeoSuggestion | null;
+  suggestions: GeoSuggestion[]; showSugs: boolean;
+  onChange: (v: string) => void; onSelect: (s: GeoSuggestion) => void;
+  onFocus: () => void; dotColor: string; placeholder: string;
+}) {
+  return (
+    <div className="relative">
+      <label className="text-xs font-semibold mb-1 block" style={{ color: T.textSecondary }}>{label}</label>
+      <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl border" style={{ borderColor: T.borderDefault, backgroundColor: T.fieldBg }}>
+        <div className="w-2.5 h-2.5 rounded-full" style={{ background: dotColor }} />
+        <input type="text" value={value} onChange={e => onChange(e.target.value)} onFocus={onFocus}
+          placeholder={placeholder} className="flex-1 bg-transparent outline-none text-sm" />
+        {geo && <Check className="w-4 h-4 text-emerald-500" />}
+      </div>
+      {showSugs && (
+        <div className="absolute top-full left-0 right-0 mt-1 bg-white rounded-xl shadow-lg border z-50 max-h-40 overflow-auto" style={{ borderColor: T.borderDefault }}>
+          {suggestions.map((s, i) => (
+            <button key={i} onClick={() => onSelect(s)}
+              className="w-full text-left px-4 py-2 hover:bg-slate-50 text-sm">{s.label}</button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
