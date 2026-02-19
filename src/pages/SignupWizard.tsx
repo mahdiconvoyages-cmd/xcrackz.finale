@@ -63,13 +63,10 @@ export default function SignupWizard() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
 
-  /* -- Phone verification state -- */
-  const [phoneVerified, setPhoneVerified] = useState(false);
-  const [verificationId, setVerificationId] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [otpSending, setOtpSending] = useState(false);
-  const [otpTimer, setOtpTimer] = useState(0);
-  const otpTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  /* -- Phone uniqueness check state -- */
+  const [phoneChecked, setPhoneChecked] = useState(false);
+  const [phoneAvailable, setPhoneAvailable] = useState(true);
+  const [checkingPhone, setCheckingPhone] = useState(false);
 
   const [form, setForm] = useState<SignupData>({
     userType: '',
@@ -106,8 +103,33 @@ export default function SignupWizard() {
         }
         const phoneV = validationService.validatePhone(form.phone);
         if (!phoneV.isValid) { setError(phoneV.error || 'Telephone invalide'); return false; }
-        if (!phoneVerified) {
-          setError('Veuillez verifier votre numero de telephone par SMS'); return false;
+        // Check phone uniqueness
+        {
+          setCheckingPhone(true);
+          try {
+            let normalized = form.phone.replace(/[\s\-\.\(\)]/g, '');
+            if (normalized.startsWith('0') && normalized.length === 10) {
+              normalized = '+33' + normalized.substring(1);
+            }
+            if (!normalized.startsWith('+')) normalized = '+' + normalized;
+            const { data: existing } = await supabase
+              .from('profiles')
+              .select('id')
+              .or(`phone.eq.${normalized},phone.eq.${form.phone.trim()}`)
+              .limit(1);
+            if (existing && existing.length > 0) {
+              setPhoneChecked(true);
+              setPhoneAvailable(false);
+              setError('Ce numero appartient deja a un compte. Utilisez un autre numero ou connectez-vous.');
+              return false;
+            }
+            setPhoneChecked(true);
+            setPhoneAvailable(true);
+          } catch (e) {
+            console.error('Phone check error:', e);
+          } finally {
+            setCheckingPhone(false);
+          }
         }
         if (form.password.length < 6) { setError('Le mot de passe doit contenir au moins 6 caracteres'); return false; }
         if (form.password !== form.confirmPassword) { setError('Les mots de passe ne correspondent pas'); return false; }
@@ -149,68 +171,29 @@ export default function SignupWizard() {
     return supabase.storage.from('avatars').getPublicUrl(`${path}/${name}`).data.publicUrl;
   };
 
-  /* -- Phone OTP -- */
-  const startOtpTimer = () => {
-    setOtpTimer(60);
-    if (otpTimerRef.current) clearInterval(otpTimerRef.current);
-    otpTimerRef.current = setInterval(() => {
-      setOtpTimer(prev => {
-        if (prev <= 1) {
-          if (otpTimerRef.current) clearInterval(otpTimerRef.current);
-          return 0;
-        }
-        return prev - 1;
-      });
-    }, 1000);
-  };
-
-  const handleSendOtp = async () => {
-    setError('');
-    if (!form.phone || !form.phone.trim()) {
-      setError('Entrez votre numero de telephone');
-      return;
-    }
-    const phoneV = validationService.validatePhone(form.phone);
-    if (!phoneV.isValid) { setError(phoneV.error || 'Telephone invalide'); return; }
-
-    setOtpSending(true);
+  /* -- Phone uniqueness check -- */
+  const checkPhoneAvailability = async (phone: string) => {
+    if (!phone.trim()) return;
+    setCheckingPhone(true);
     try {
-      const res = await supabase.functions.invoke('verify-phone', {
-        body: { action: 'send', phone: form.phone },
-      });
-      if (res.error) throw new Error(res.error.message || 'Erreur envoi SMS');
-      const data = res.data as any;
-      if (!data?.success) throw new Error(data?.error || 'Erreur envoi SMS');
-      setVerificationId(data.verification_id);
-      startOtpTimer();
-    } catch (err: any) {
-      setError(err.message || 'Impossible d\'envoyer le SMS');
+      let normalized = phone.replace(/[\s\-\.\(\)]/g, '');
+      if (normalized.startsWith('0') && normalized.length === 10) {
+        normalized = '+33' + normalized.substring(1);
+      }
+      if (!normalized.startsWith('+')) normalized = '+' + normalized;
+      const { data: existing } = await supabase
+        .from('profiles')
+        .select('id')
+        .or(`phone.eq.${normalized},phone.eq.${phone.trim()}`)
+        .limit(1);
+      setPhoneChecked(true);
+      setPhoneAvailable(!existing || existing.length === 0);
+    } catch (e) {
+      console.error('Phone check error:', e);
+      setPhoneChecked(true);
+      setPhoneAvailable(true);
     } finally {
-      setOtpSending(false);
-    }
-  };
-
-  const handleVerifyOtp = async () => {
-    setError('');
-    if (!otpCode || otpCode.length !== 6) {
-      setError('Entrez le code a 6 chiffres recu par SMS');
-      return;
-    }
-    setOtpSending(true);
-    try {
-      const res = await supabase.functions.invoke('verify-phone', {
-        body: { action: 'verify', verification_id: verificationId, code: otpCode },
-      });
-      if (res.error) throw new Error(res.error.message || 'Erreur verification');
-      const data = res.data as any;
-      if (!data?.success) throw new Error(data?.error || 'Code incorrect');
-      setPhoneVerified(true);
-      if (otpTimerRef.current) clearInterval(otpTimerRef.current);
-      setOtpTimer(0);
-    } catch (err: any) {
-      setError(err.message || 'Code incorrect');
-    } finally {
-      setOtpSending(false);
+      setCheckingPhone(false);
     }
   };
 
@@ -232,7 +215,7 @@ export default function SignupWizard() {
           data: {
             full_name: form.fullName,
             phone: form.phone || null,
-            phone_verified: phoneVerified,
+            phone_verified: false,
             user_type: form.userType,
             avatar_url: avatarUrl || null,
             device_fingerprint: deviceFingerprint,
@@ -249,31 +232,21 @@ export default function SignupWizard() {
         userAgent: navigator.userAgent, stepReached: 4, success: true,
       });
 
-      // Welcome gift: 10 credits — ONLY if phone verified
-      if (authData?.user?.id && phoneVerified) {
+      // Welcome gift: 10 credits given after email verification (via SQL trigger)
+      // No credits at signup — they'll be added when email is confirmed
+      if (authData?.user?.id) {
         try {
           const end = new Date();
           end.setDate(end.getDate() + 30);
           await supabase.from('subscriptions').insert({
             user_id: authData.user.id, plan: 'free', status: 'active',
             start_date: new Date().toISOString(), end_date: end.toISOString(),
-            credits_remaining: 10, auto_renew: false,
+            credits_remaining: 0, auto_renew: false,
           });
-          await supabase.from('user_credits').upsert(
-            { user_id: authData.user.id, balance: 10, lifetime_earned: 10, lifetime_spent: 0 },
-            { onConflict: 'user_id' }
-          );
-          await supabase.from('credit_transactions').insert({
-            user_id: authData.user.id, amount: 10, transaction_type: 'addition',
-            description: 'Cadeau de bienvenue - 10 credits offerts (30 jours)',
-          });
-        } catch (e) { console.error('Erreur cadeau bienvenue:', e); }
+        } catch (e) { console.error('Erreur creation abonnement:', e); }
       }
 
-      const giftMsg = phoneVerified
-        ? 'Inscription reussie ! Verifiez votre email pour activer votre compte.\n\nCadeau de bienvenue : 10 credits offerts pendant 30 jours !'
-        : 'Inscription reussie ! Verifiez votre email pour activer votre compte.\n\nVerifiez votre telephone pour recevoir vos 10 credits de bienvenue.';
-      alert(giftMsg);
+      alert('Inscription reussie ! Verifiez votre email pour activer votre compte et recevoir vos 10 credits de bienvenue.');
       navigate('/login');
     } catch (err: any) {
       console.error(err);
@@ -440,96 +413,57 @@ export default function SignupWizard() {
             />
           </div>
 
-          {/* Phone + OTP Verification */}
+          {/* Phone (mandatory, uniqueness checked) */}
           <div>
             <label className="block text-sm font-medium mb-1.5" style={{ color: T.textPrimary }}>
               Telephone <span className="text-red-500">*</span>
             </label>
-            <div className="flex gap-2">
+            <div className="relative">
               <input
                 type="tel"
                 value={form.phone}
                 onChange={e => {
                   setForm(p => ({ ...p, phone: e.target.value }));
-                  setPhoneVerified(false);
-                  setVerificationId('');
-                  setOtpCode('');
+                  setPhoneChecked(false);
+                  setPhoneAvailable(true);
                 }}
+                onBlur={() => form.phone.trim() && checkPhoneAvailability(form.phone)}
                 placeholder="06 12 34 56 78"
-                className={inputCls + " flex-1"}
+                className={inputCls}
                 style={{
                   ...inputStyle,
-                  borderColor: phoneVerified ? '#10B981' : inputStyle.borderColor,
+                  borderColor: phoneChecked ? (phoneAvailable ? '#10B981' : '#EF4444') : inputStyle.borderColor,
                 }}
-                disabled={phoneVerified}
               />
-              {!phoneVerified && (
-                <button
-                  type="button"
-                  onClick={handleSendOtp}
-                  disabled={otpSending || otpTimer > 0 || !form.phone.trim()}
-                  className="px-4 py-2 rounded-xl text-sm font-semibold text-white transition-all disabled:opacity-40 whitespace-nowrap"
-                  style={{ backgroundColor: T.primaryTeal }}
-                >
-                  {otpSending ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : otpTimer > 0 ? (
-                    `${otpTimer}s`
-                  ) : verificationId ? (
-                    'Renvoyer'
-                  ) : (
-                    'Verifier'
-                  )}
-                </button>
+              {checkingPhone && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <div className="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+                </div>
+              )}
+              {phoneChecked && phoneAvailable && !checkingPhone && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                  </svg>
+                </div>
+              )}
+              {phoneChecked && !phoneAvailable && !checkingPhone && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </div>
               )}
             </div>
-            {phoneVerified && (
-              <div className="flex items-center gap-1.5 mt-1.5">
-                <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            {phoneChecked && !phoneAvailable && (
+              <div className="mt-2 rounded-xl p-3 flex items-start gap-2" style={{ backgroundColor: '#FEE2E2', border: '1px solid #FECACA' }}>
+                <svg className="w-4 h-4 flex-shrink-0 mt-0.5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
                 </svg>
-                <span className="text-xs font-medium text-emerald-600">Numero verifie</span>
+                <p className="text-xs text-red-700">Ce numero appartient deja a un compte. Utilisez un autre numero ou connectez-vous avec le compte existant.</p>
               </div>
             )}
           </div>
-
-          {/* OTP Input — visible when code sent but not yet verified */}
-          {verificationId && !phoneVerified && (
-            <div className="rounded-xl p-4" style={{ backgroundColor: '#F0FDFA', border: '1px solid #99F6E4' }}>
-              <p className="text-sm font-medium mb-2" style={{ color: T.textPrimary }}>
-                Code de verification envoye par SMS
-              </p>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={otpCode}
-                  onChange={e => setOtpCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                  placeholder="000000"
-                  className="flex-1 rounded-xl px-4 py-3 text-center text-lg font-bold tracking-[0.5em] outline-none border focus:border-[#14B8A6] focus:ring-2 focus:ring-[#14B8A6]/20"
-                  style={{ backgroundColor: '#fff', borderColor: T.borderDefault, color: T.textPrimary }}
-                  autoFocus
-                />
-                <button
-                  type="button"
-                  onClick={handleVerifyOtp}
-                  disabled={otpSending || otpCode.length !== 6}
-                  className="px-5 py-2 rounded-xl text-sm font-bold text-white transition-all disabled:opacity-40"
-                  style={{ backgroundColor: T.accentGreen }}
-                >
-                  {otpSending ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  ) : (
-                    'Valider'
-                  )}
-                </button>
-              </div>
-              <p className="text-xs mt-2" style={{ color: T.textTertiary }}>
-                Entrez le code a 6 chiffres recu par SMS
-              </p>
-            </div>
-          )}
 
           {/* Password */}
           <div>
@@ -651,31 +585,23 @@ export default function SignupWizard() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
                 <span className="text-sm" style={{ color: T.textPrimary }}>{form.phone}</span>
-                {phoneVerified && (
-                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full" style={{ backgroundColor: '#D1FAE5', color: '#065F46' }}>
-                    <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
-                    Verifie
-                  </span>
-                )}
               </div>
             )}
           </div>
         </div>
 
-        {/* Welcome gift */}
+        {/* Welcome gift — given after email verification */}
         <div className="rounded-2xl p-4 mb-6 flex items-center gap-3" style={{
-          backgroundColor: phoneVerified ? '#FEF3C7' : '#FEE2E2',
-          border: phoneVerified ? '1px solid #FCD34D' : '1px solid #FECACA',
+          backgroundColor: '#FEF3C7',
+          border: '1px solid #FCD34D',
         }}>
-          <span className="text-2xl">{phoneVerified ? '\u{1F381}' : '\u{1F512}'}</span>
+          <span className="text-2xl">\u{1F381}</span>
           <div>
-            <p className="text-sm font-bold" style={{ color: phoneVerified ? '#92400E' : '#991B1B' }}>
-              {phoneVerified ? 'Cadeau de bienvenue' : 'Pas de cadeau'}
+            <p className="text-sm font-bold" style={{ color: '#92400E' }}>
+              Cadeau de bienvenue
             </p>
-            <p className="text-xs" style={{ color: phoneVerified ? '#B45309' : '#DC2626' }}>
-              {phoneVerified
-                ? '10 credits offerts pendant 30 jours'
-                : 'Verifiez votre telephone pour recevoir 10 credits offerts'}
+            <p className="text-xs" style={{ color: '#B45309' }}>
+              10 credits offerts en validant votre email
             </p>
           </div>
         </div>

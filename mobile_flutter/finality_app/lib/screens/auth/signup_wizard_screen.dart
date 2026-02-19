@@ -29,14 +29,10 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   bool _isLoading = false;
   bool _obscurePassword = true;
 
-  // Phone OTP verification state
-  bool _phoneVerified = false;
-  String _verificationId = '';
-  String _otpCode = '';
-  bool _otpSending = false;
-  int _otpTimer = 0;
-  Timer? _otpTimerRef;
-  final _otpController = TextEditingController();
+  // Phone duplicate check state
+  bool _phoneChecked = false;
+  bool _phoneAvailable = true;
+  bool _checkingPhone = false;
 
   final Map<String, dynamic> _signupData = {
     'user_type': null, // 'company' or 'driver'
@@ -59,8 +55,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
 
   @override
   void dispose() {
-    _otpTimerRef?.cancel();
-    _otpController.dispose();
     _pageController.dispose();
     _fullNameController.dispose();
     _emailController.dispose();
@@ -97,83 +91,45 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   }
 
   // ==========================================
-  // PHONE OTP VERIFICATION
+  // PHONE UNIQUENESS CHECK
   // ==========================================
 
-  void _startOtpTimer() {
-    setState(() => _otpTimer = 60);
-    _otpTimerRef?.cancel();
-    _otpTimerRef = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) { timer.cancel(); return; }
-      setState(() {
-        if (_otpTimer <= 1) {
-          _otpTimer = 0;
-          timer.cancel();
-        } else {
-          _otpTimer--;
-        }
-      });
-    });
-  }
-
-  Future<void> _sendOtp() async {
+  Future<bool> _checkPhoneAvailability() async {
     final phone = _phoneController.text.trim();
-    if (phone.isEmpty) {
-      _showError('Entrez votre numero de telephone');
-      return;
-    }
-    setState(() => _otpSending = true);
-    try {
-      final res = await supabase.functions.invoke('verify-phone', body: {
-        'action': 'send',
-        'phone': phone,
-      });
-      final data = res.data as Map<String, dynamic>?;
-      if (data == null || data['success'] != true) {
-        throw Exception(data?['error'] ?? 'Erreur envoi SMS');
-      }
-      setState(() => _verificationId = data['verification_id'] ?? '');
-      _startOtpTimer();
-    } catch (e) {
-      _showError(e.toString().replaceAll('Exception: ', ''));
-    } finally {
-      if (mounted) setState(() => _otpSending = false);
-    }
-  }
+    if (phone.isEmpty) return false;
 
-  Future<void> _verifyOtp() async {
-    if (_otpCode.length != 6) {
-      _showError('Entrez le code a 6 chiffres recu par SMS');
-      return;
-    }
-    setState(() => _otpSending = true);
+    setState(() => _checkingPhone = true);
     try {
-      final res = await supabase.functions.invoke('verify-phone', body: {
-        'action': 'verify',
-        'verification_id': _verificationId,
-        'code': _otpCode,
-      });
-      final data = res.data as Map<String, dynamic>?;
-      if (data == null || data['success'] != true) {
-        throw Exception(data?['error'] ?? 'Code incorrect');
+      // Normalize phone to match DB format
+      String normalized = phone.replaceAll(RegExp(r'[\s\-\.\(\)]'), '');
+      if (normalized.startsWith('0') && normalized.length == 10) {
+        normalized = '+33${normalized.substring(1)}';
       }
+      if (!normalized.startsWith('+')) normalized = '+$normalized';
+
+      // Check both formats in profiles table
+      final res = await supabase
+          .from('profiles')
+          .select('id')
+          .or('phone.eq.$normalized,phone.eq.$phone')
+          .limit(1);
+
+      final available = (res as List).isEmpty;
       setState(() {
-        _phoneVerified = true;
-        _otpTimerRef?.cancel();
-        _otpTimer = 0;
+        _phoneChecked = true;
+        _phoneAvailable = available;
       });
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Numero de telephone verifie !'),
-            backgroundColor: Color(0xFF10B981),
-          ),
-        );
-      }
+      return available;
     } catch (e) {
-      _showError(e.toString().replaceAll('Exception: ', ''));
+      debugPrint('Phone check error: $e');
+      // If check fails, don't block — let signup continue
+      setState(() {
+        _phoneChecked = true;
+        _phoneAvailable = true;
+      });
+      return true;
     } finally {
-      if (mounted) setState(() => _otpSending = false);
+      if (mounted) setState(() => _checkingPhone = false);
     }
   }
 
@@ -396,7 +352,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
 
             const SizedBox(height: 16),
 
-            // Phone + OTP verification
+            // Phone (obligatoire, unicité vérifiée)
             TextFormField(
               controller: _phoneController,
               decoration: InputDecoration(
@@ -404,138 +360,57 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 prefixIcon: const Icon(Icons.phone),
                 hintText: '06 12 34 56 78',
-                suffixIcon: _phoneVerified
-                    ? const Icon(Icons.verified, color: Color(0xFF10B981))
-                    : null,
-                enabled: !_phoneVerified,
+                suffixIcon: _checkingPhone
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    : _phoneChecked && _phoneAvailable
+                        ? const Icon(Icons.check_circle, color: Color(0xFF10B981))
+                        : _phoneChecked && !_phoneAvailable
+                            ? const Icon(Icons.error, color: Colors.red)
+                            : null,
               ),
               keyboardType: TextInputType.phone,
               validator: (value) {
                 if (value == null || value.trim().isEmpty) {
                   return 'Le numero de telephone est requis';
                 }
+                if (_phoneChecked && !_phoneAvailable) {
+                  return 'Ce numero est deja utilise. Connectez-vous ou utilisez un autre numero.';
+                }
                 return null;
               },
               onChanged: (value) {
                 _signupData['phone'] = value;
-                if (_phoneVerified) {
-                  setState(() {
-                    _phoneVerified = false;
-                    _verificationId = '';
-                    _otpCode = '';
-                  });
-                }
+                setState(() {
+                  _phoneChecked = false;
+                  _phoneAvailable = true;
+                });
               },
             ),
 
-            if (!_phoneVerified) ...[
+            if (_phoneChecked && !_phoneAvailable) ...[
               const SizedBox(height: 8),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: _otpSending || _otpTimer > 0 || _phoneController.text.trim().isEmpty
-                      ? null
-                      : _sendOtp,
-                  icon: _otpSending
-                      ? const SizedBox(
-                          width: 18, height: 18,
-                          child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                        )
-                      : const Icon(Icons.sms, size: 18),
-                  label: Text(
-                    _otpSending
-                        ? 'Envoi...'
-                        : _otpTimer > 0
-                            ? 'Renvoyer dans ${_otpTimer}s'
-                            : _verificationId.isNotEmpty
-                                ? 'Renvoyer le code SMS'
-                                : 'Envoyer le code SMS',
-                    style: const TextStyle(fontWeight: FontWeight.bold),
-                  ),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF14B8A6),
-                    foregroundColor: Colors.white,
-                    padding: const EdgeInsets.all(12),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                  ),
-                ),
-              ),
-            ],
-
-            if (_verificationId.isNotEmpty && !_phoneVerified) ...[
-              const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.all(16),
+                padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: const Color(0xFFF0FDFA),
+                  color: Colors.red[50],
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: const Color(0xFF99F6E4)),
+                  border: Border.all(color: Colors.red[200]!),
                 ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                child: Row(
                   children: [
-                    const Text(
-                      'Code de verification envoye par SMS',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
-                    ),
-                    const SizedBox(height: 10),
-                    Row(
-                      children: [
-                        Expanded(
-                          child: TextFormField(
-                            controller: _otpController,
-                            decoration: InputDecoration(
-                              hintText: '000000',
-                              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                            ),
-                            keyboardType: TextInputType.number,
-                            textAlign: TextAlign.center,
-                            style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, letterSpacing: 8),
-                            maxLength: 6,
-                            buildCounter: (context, {required currentLength, required isFocused, maxLength}) => null,
-                            onChanged: (v) => setState(() => _otpCode = v.replaceAll(RegExp(r'\D'), '')),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        ElevatedButton(
-                          onPressed: _otpSending || _otpCode.length != 6 ? null : _verifyOtp,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF10B981),
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                          ),
-                          child: _otpSending
-                              ? const SizedBox(
-                                  width: 20, height: 20,
-                                  child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
-                                )
-                              : const Text('Valider', style: TextStyle(fontWeight: FontWeight.bold)),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Entrez le code a 6 chiffres recu par SMS',
-                      style: TextStyle(fontSize: 12, color: Colors.grey[600]),
+                    Icon(Icons.warning_amber, color: Colors.red[700], size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Ce numero appartient deja a un compte. Utilisez un autre numero ou connectez-vous avec le compte existant.',
+                        style: TextStyle(fontSize: 12, color: Colors.red[800]),
+                      ),
                     ),
                   ],
                 ),
-              ),
-            ],
-
-            if (_phoneVerified) ...[
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Color(0xFF10B981), size: 18),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Numero verifie',
-                    style: TextStyle(color: Colors.green[700], fontWeight: FontWeight.w600, fontSize: 13),
-                  ),
-                ],
               ),
             ],
 
@@ -584,13 +459,10 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
             ElevatedButton(
               onPressed: () async {
                 if (_credentialsFormKey.currentState!.validate()) {
-                  if (!_phoneVerified) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Veuillez verifier votre numero de telephone par SMS'),
-                        backgroundColor: Colors.red,
-                      ),
-                    );
+                  // Check phone uniqueness
+                  final phoneOk = await _checkPhoneAvailability();
+                  if (!phoneOk) {
+                    _credentialsFormKey.currentState!.validate(); // Re-validate to show error
                     return;
                   }
                   final emailAvailable = await _fraudService.isEmailAvailable(
@@ -734,22 +606,12 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
                   label: 'Email',
                   value: _signupData['email'] ?? '',
                 ),
-                if ((_signupData['phone'] as String?)?.isNotEmpty == true) ...[                  _SummaryItem(
+                if ((_signupData['phone'] as String?)?.isNotEmpty == true) ...[
+                  _SummaryItem(
                     icon: Icons.phone,
                     label: 'Telephone',
                     value: _signupData['phone'],
                   ),
-                  if (_phoneVerified)
-                    Padding(
-                      padding: const EdgeInsets.only(left: 32, bottom: 4),
-                      child: Row(
-                        children: [
-                          const Icon(Icons.verified, color: Color(0xFF10B981), size: 16),
-                          const SizedBox(width: 4),
-                          Text('Verifie par SMS', style: TextStyle(fontSize: 12, color: Colors.green[700], fontWeight: FontWeight.w600)),
-                        ],
-                      ),
-                    ),
                 ],
               ],
             ),
@@ -757,35 +619,33 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
 
           const SizedBox(height: 16),
 
-          // Welcome gift
+          // Welcome gift — given after email verification
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _phoneVerified ? Colors.amber[50] : Colors.red[50],
+              color: Colors.amber[50],
               borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: _phoneVerified ? Colors.amber[300]! : Colors.red[300]!),
+              border: Border.all(color: Colors.amber[300]!),
             ),
             child: Row(
               children: [
-                Text(_phoneVerified ? '🎁' : '🔒', style: const TextStyle(fontSize: 28)),
+                const Text('🎁', style: TextStyle(fontSize: 28)),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _phoneVerified ? 'Cadeau de bienvenue' : 'Pas de cadeau',
+                        'Cadeau de bienvenue',
                         style: TextStyle(
                           fontSize: 14,
                           fontWeight: FontWeight.bold,
-                          color: _phoneVerified ? Colors.amber[900] : Colors.red[900],
+                          color: Colors.amber[900],
                         ),
                       ),
                       Text(
-                        _phoneVerified
-                            ? '10 credits offerts pendant 30 jours'
-                            : 'Verifiez votre telephone pour recevoir 10 credits',
-                        style: TextStyle(fontSize: 12, color: _phoneVerified ? Colors.amber[800] : Colors.red[700]),
+                        '10 credits offerts en validant votre email',
+                        style: TextStyle(fontSize: 12, color: Colors.amber[800]),
                       ),
                     ],
                   ),
@@ -889,7 +749,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           'full_name': _signupData['full_name'],
           'user_type': _signupData['user_type'],
           'phone': _signupData['phone'] ?? '',
-          'phone_verified': _phoneVerified,
+          'phone_verified': false,
         },
       );
 
@@ -928,13 +788,13 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           'first_name': firstName,
           'last_name': lastName,
           'phone': phoneValue.isEmpty ? null : phoneValue,
-          'phone_verified': _phoneVerified,
+          'phone_verified': false,
           'avatar_url': avatarUrl,
           'user_type': _signupData['user_type'],
           'device_fingerprint': deviceFingerprint,
           'registration_ip': ipAddress,
           'app_role': _signupData['user_type'] == 'company' ? 'donneur_d_ordre' : 'convoyeur',
-          'credits': _phoneVerified ? 10 : 0,
+          'credits': 0,
         });
       } catch (profileErr) {
         // Profile upsert may fail (e.g. unique constraint on phone) but 
@@ -942,20 +802,8 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
         debugPrint('Profile upsert warning (non-blocking): $profileErr');
       }
 
-      // 4. Create welcome credits transaction (non-blocking) — ONLY if phone verified
-      if (_phoneVerified) {
-        try {
-          await supabase.from('credit_transactions').insert({
-            'user_id': userId,
-            'amount': 10,
-            'transaction_type': 'addition',
-            'description': 'Crédits de bienvenue - inscription (telephone verifie)',
-            'balance_after': 10,
-          });
-        } catch (creditErr) {
-          debugPrint('Credit transaction warning (non-blocking): $creditErr');
-        }
-      }
+      // 4. Credits de bienvenue donnés après validation email (via trigger SQL)
+      // Pas de crédits à l'inscription, ils seront ajoutés quand l'email est confirmé
 
       // 5. Log successful signup
       await _fraudService.logSignupAttempt(
@@ -969,12 +817,10 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(_phoneVerified
-                ? '🎉 Inscription reussie ! 10 credits offerts ! Verifiez votre email.'
-                : '✅ Inscription reussie ! Verifiez votre telephone pour recevoir vos 10 credits.'),
-            backgroundColor: const Color(0xFF10B981),
-            duration: const Duration(seconds: 4),
+          const SnackBar(
+            content: Text('✅ Inscription reussie ! Verifiez votre email pour recevoir vos 10 credits de bienvenue.'),
+            backgroundColor: Color(0xFF10B981),
+            duration: Duration(seconds: 4),
           ),
         );
         // Show verification message then go to login
