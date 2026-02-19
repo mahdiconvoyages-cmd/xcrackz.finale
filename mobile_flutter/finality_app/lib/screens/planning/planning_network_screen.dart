@@ -98,7 +98,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen>
         // 1: All active offers (not mine)
         _supabase
             .from('ride_offers')
-            .select('*, profiles!ride_offers_user_id_fkey(first_name, last_name, company_name, phone)')
+            .select('*, profiles!ride_offers_user_id_profiles_fkey(first_name, last_name, company_name, phone)')
             .neq('user_id', _userId)
             .inFilter('status', ['active', 'en_route'])
             .order('departure_date', ascending: true),
@@ -111,7 +111,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen>
         // 3: All active requests (not mine)
         _supabase
             .from('ride_requests')
-            .select('*, profiles!ride_requests_user_id_fkey(first_name, last_name, company_name, phone)')
+            .select('*, profiles!ride_requests_user_id_profiles_fkey(first_name, last_name, company_name, phone)')
             .neq('user_id', _userId)
             .eq('status', 'active')
             .order('needed_date', ascending: true),

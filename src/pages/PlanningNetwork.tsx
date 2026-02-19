@@ -150,8 +150,8 @@ export default function PlanningNetwork() {
       const [offersRes, requestsRes, allOffersRes, allRequestsRes, matchesRes] = await Promise.all([
         supabase.from('ride_offers').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
         supabase.from('ride_requests').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-        supabase.from('ride_offers').select('*, profile:profiles!ride_offers_user_id_fkey(first_name, last_name, company_name, avatar_url, phone)').in('status', ['active', 'en_route']).order('departure_date', { ascending: true }),
-        supabase.from('ride_requests').select('*, profile:profiles!ride_requests_user_id_fkey(first_name, last_name, company_name, avatar_url, phone)').eq('status', 'active').order('needed_date', { ascending: true }),
+        supabase.from('ride_offers').select('*, profile:profiles!ride_offers_user_id_profiles_fkey(first_name, last_name, company_name, avatar_url, phone)').in('status', ['active', 'en_route']).order('departure_date', { ascending: true }),
+        supabase.from('ride_requests').select('*, profile:profiles!ride_requests_user_id_profiles_fkey(first_name, last_name, company_name, avatar_url, phone)').eq('status', 'active').order('needed_date', { ascending: true }),
         supabase.from('ride_matches').select('*').or(`driver_id.eq.${user.id},passenger_id.eq.${user.id}`).order('match_score', { ascending: false }),
       ]);
 
