@@ -595,7 +595,7 @@ export default function SignupWizard() {
           backgroundColor: '#FEF3C7',
           border: '1px solid #FCD34D',
         }}>
-          <span className="text-2xl">\u{1F381}</span>
+          <span className="text-2xl">🎁</span>
           <div>
             <p className="text-sm font-bold" style={{ color: '#92400E' }}>
               Cadeau de bienvenue
