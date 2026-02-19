@@ -230,12 +230,20 @@ export default function AdminUsers() {
   const deleteUser = async (user: UserProfile) => {
     const me = (await supabase.auth.getUser()).data.user;
     if (me?.id === user.id) return alert('Vous ne pouvez pas supprimer votre propre compte.');
-    if (!confirm(`Supprimer définitivement ${user.email} ?\nCette action est irréversible.`)) return;
+    if (!confirm(`Supprimer définitivement ${user.email} ?\nCette action est irréversible. Toutes les données associées seront supprimées.`)) return;
     if (prompt('Tapez SUPPRIMER pour confirmer :') !== 'SUPPRIMER') return;
-    await supabase.from('profiles').delete().eq('id', user.id);
+
+    // Use RPC function that deletes profile (CASCADE) + auth.users
+    const { error } = await supabase.rpc('delete_user_completely', { target_user_id: user.id });
+    if (error) {
+      console.error('Erreur suppression:', error);
+      alert(`Erreur: ${error.message}`);
+      return;
+    }
     setDrawerOpen(false);
     setSelectedUser(null);
     loadUsers();
+    alert(`✅ Utilisateur ${user.email} supprimé définitivement.`);
   };
 
   const handleCreditAction = async () => {
