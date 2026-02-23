@@ -36,12 +36,14 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
 
   // ── Scan ─────────────────────────────────────────────────────
   Future<void> _scan() async {
-    // Demander la permission caméra sur iOS
-    final cameraStatus = await Permission.camera.request();
-    if (!cameraStatus.isGranted) {
+    // Vérifier le statut caméra (NE PAS appeler request() — conflit session iOS)
+    final cameraStatus = await Permission.camera.status;
+    if (cameraStatus.isDenied) {
+      // Première fois : iOS affichera sa propre dialog via CunningDocumentScanner
+      // On laisse le scanner gérer nativement
+    } else if (cameraStatus.isPermanentlyDenied) {
       if (mounted) {
-        _snack('Permission caméra refusée. Activez-la dans les Réglages.', PremiumTheme.accentRed);
-        if (cameraStatus.isPermanentlyDenied) openAppSettings();
+        _showCameraSettingsDialog();
       }
       return;
     }
@@ -51,14 +53,38 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
       if (pics != null && pics.isNotEmpty && mounted) {
         setState(() { _paths = pics; _idx = 0; _processing = false; });
       } else {
-        if (mounted) Navigator.pop(context);
+        if (mounted) setState(() => _processing = false);
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _processing = false);
-      _snack('Erreur scan: $e', PremiumTheme.accentRed);
-      Navigator.pop(context);
+      final errStr = e.toString();
+      if (errStr.contains('camera_access_denied') || errStr.contains('permission')) {
+        _showCameraSettingsDialog();
+      } else {
+        _snack('Impossible d\'ouvrir le scanner. Réessayez.', PremiumTheme.accentRed);
+      }
     }
+  }
+
+  void _showCameraSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Caméra non autorisée'),
+        content: const Text(
+          'L\'accès à la caméra est nécessaire pour scanner.\n\nActivez-le dans Réglages > ChecksFleet > Caméra.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          FilledButton(
+            onPressed: () { Navigator.pop(context); openAppSettings(); },
+            child: const Text('Réglages'),
+          ),
+        ],
+      ),
+    );
   }
 
   // ── Enhance ──────────────────────────────────────────────────

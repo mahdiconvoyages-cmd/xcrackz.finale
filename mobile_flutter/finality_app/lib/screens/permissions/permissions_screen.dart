@@ -1,4 +1,4 @@
-import 'dart:io';
+﻿import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -9,109 +9,92 @@ class PermissionsScreen extends StatefulWidget {
   State<PermissionsScreen> createState() => _PermissionsScreenState();
 }
 
-class _PermissionsScreenState extends State<PermissionsScreen> {
-  final Map<_PermDef, PermissionStatus> _statuses = {};
+class _PermissionsScreenState extends State<PermissionsScreen>
+    with WidgetsBindingObserver {
+  Map<String, PermissionStatus> _statuses = {};
   bool _loading = true;
-
-  // ── Définition des permissions requises ─────────────────────
-  static final List<_PermDef> _permissions = [
-    _PermDef(
-      permission: Permission.camera,
-      icon: Icons.camera_alt_rounded,
-      color: const Color(0xFF14B8A6),
-      title: 'Caméra',
-      description: 'Nécessaire pour scanner des documents et prendre des photos d\'inspection.',
-      required: true,
-    ),
-    _PermDef(
-      permission: Permission.locationWhenInUse,
-      icon: Icons.location_on_rounded,
-      color: const Color(0xFF6366F1),
-      title: 'Localisation (en cours d\'utilisation)',
-      description: 'Nécessaire pour le suivi GPS des missions de convoyage.',
-      required: true,
-    ),
-    _PermDef(
-      permission: Permission.locationAlways,
-      icon: Icons.my_location_rounded,
-      color: const Color(0xFF8B5CF6),
-      title: 'Localisation (arrière-plan)',
-      description: 'Permet le suivi GPS continu même quand l\'app est en arrière-plan.',
-      required: true,
-    ),
-    _PermDef(
-      permission: Permission.notification,
-      icon: Icons.notifications_rounded,
-      color: const Color(0xFFF59E0B),
-      title: 'Notifications',
-      description: 'Pour recevoir les alertes de missions, matchs planning et messages.',
-      required: true,
-    ),
-    _PermDef(
-      permission: Permission.photos,
-      icon: Icons.photo_library_rounded,
-      color: const Color(0xFF3B82F6),
-      title: 'Galerie photos',
-      description: 'Pour accéder à vos photos et les joindre aux inspections.',
-      required: false,
-    ),
-  ];
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _checkAll();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) _checkAll();
   }
 
   Future<void> _checkAll() async {
     setState(() => _loading = true);
-    for (final def in _permissions) {
-      // locationAlways n'existe pas sur iOS < 13 et crash sur some configs — guard
-      try {
-        final status = await def.permission.status;
-        _statuses[def] = status;
-      } catch (_) {
-        _statuses[def] = PermissionStatus.denied;
-      }
+    final camera = await Permission.camera.status;
+    final locationInUse = await Permission.locationWhenInUse.status;
+    final notifications = await Permission.notification.status;
+    final photos = Platform.isIOS
+        ? await Permission.photos.status
+        : await Permission.storage.status;
+    PermissionStatus locationAlways = PermissionStatus.denied;
+    try { locationAlways = await Permission.locationAlways.status; } catch (_) {}
+    if (mounted) {
+      setState(() {
+        _statuses = {
+          'camera': camera,
+          'locationInUse': locationInUse,
+          'locationAlways': locationAlways,
+          'notifications': notifications,
+          'photos': photos,
+        };
+        _loading = false;
+      });
     }
-    if (mounted) setState(() => _loading = false);
   }
 
-  Future<void> _requestPermission(_PermDef def) async {
-    PermissionStatus status;
+  Future<void> _requestCamera() async {
+    final s = await Permission.camera.request();
+    if (mounted) setState(() => _statuses['camera'] = s);
+  }
+
+  Future<void> _requestLocation() async {
+    final s = await Permission.locationWhenInUse.request();
+    if (mounted) setState(() => _statuses['locationInUse'] = s);
     try {
-      if (_statuses[def] == PermissionStatus.permanentlyDenied) {
-        // Ouvre les réglages système
-        await openAppSettings();
-        await Future.delayed(const Duration(seconds: 1));
-        status = await def.permission.status;
-      } else {
-        status = await def.permission.request();
-      }
-    } catch (_) {
-      status = PermissionStatus.denied;
-    }
-    if (mounted) setState(() => _statuses[def] = status);
+      final a = await Permission.locationAlways.status;
+      if (mounted) setState(() => _statuses['locationAlways'] = a);
+    } catch (_) {}
   }
 
-  Future<void> _requestAll() async {
-    for (final def in _permissions) {
-      final current = _statuses[def];
-      if (current == null || current.isDenied) {
-        await _requestPermission(def);
-      }
-    }
+  Future<void> _requestNotifications() async {
+    final s = await Permission.notification.request();
+    if (mounted) setState(() => _statuses['notifications'] = s);
   }
 
-  bool get _allGranted =>
-      _permissions.where((d) => d.required).every((d) => _statuses[d]?.isGranted == true);
+  Future<void> _requestPhotos() async {
+    final s = Platform.isIOS
+        ? await Permission.photos.request()
+        : await Permission.storage.request();
+    if (mounted) setState(() => _statuses['photos'] = s);
+  }
+
+  bool get _allCriticalGranted {
+    return (_statuses['camera']?.isGranted ?? false) &&
+        (_statuses['locationInUse']?.isGranted ?? false) &&
+        (_statuses['notifications']?.isGranted ?? false);
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFF8FAFC),
       appBar: AppBar(
-        title: const Text('Autorisations', style: TextStyle(fontWeight: FontWeight.bold)),
+        title: const Text('Autorisations',
+            style: TextStyle(fontWeight: FontWeight.bold, fontSize: 18)),
         backgroundColor: Colors.white,
         foregroundColor: const Color(0xFF1E293B),
         elevation: 0,
@@ -120,69 +103,127 @@ class _PermissionsScreenState extends State<PermissionsScreen> {
           preferredSize: const Size.fromHeight(1),
           child: Container(height: 1, color: const Color(0xFFE2E8F0)),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            tooltip: 'Rafraîchir',
+            onPressed: _checkAll,
+          ),
+        ],
       ),
       body: _loading
           ? const Center(child: CircularProgressIndicator())
-          : Column(
-              children: [
-                // Status banner
-                _StatusBanner(allGranted: _allGranted),
-
-                // Liste des permissions
-                Expanded(
-                  child: ListView.builder(
-                    padding: const EdgeInsets.all(16),
-                    itemCount: _permissions.length,
-                    itemBuilder: (context, index) {
-                      final def = _permissions[index];
-                      final status = _statuses[def] ?? PermissionStatus.denied;
-                      return _PermissionCard(
-                        def: def,
-                        status: status,
-                        onRequest: () => _requestPermission(def),
-                      );
-                    },
+          : RefreshIndicator(
+              onRefresh: _checkAll,
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: [
+                  _buildBanner(),
+                  const SizedBox(height: 16),
+                  _buildSectionTitle('Principales'),
+                  const SizedBox(height: 8),
+                  _buildPermCard(
+                    icon: Icons.camera_alt_rounded,
+                    color: const Color(0xFF14B8A6),
+                    title: 'Caméra',
+                    subtitle: 'Scanner et photos d\'inspection',
+                    status: _statuses['camera'] ?? PermissionStatus.denied,
+                    onTap: (_statuses['camera']?.isPermanentlyDenied == true)
+                        ? openAppSettings : _requestCamera,
                   ),
-                ),
-
-                // Bouton tout autoriser
-                if (!_allGranted)
-                  _RequestAllButton(onTap: _requestAll),
-              ],
+                  _buildPermCard(
+                    icon: Icons.location_on_rounded,
+                    color: const Color(0xFF6366F1),
+                    title: 'Localisation',
+                    subtitle: 'Suivi GPS des missions de convoyage',
+                    status: _statuses['locationInUse'] ?? PermissionStatus.denied,
+                    onTap: (_statuses['locationInUse']?.isPermanentlyDenied == true)
+                        ? openAppSettings : _requestLocation,
+                  ),
+                  _buildPermCard(
+                    icon: Icons.notifications_rounded,
+                    color: const Color(0xFFF59E0B),
+                    title: 'Notifications',
+                    subtitle: 'Alertes missions, planning et messages',
+                    status: _statuses['notifications'] ?? PermissionStatus.denied,
+                    onTap: (_statuses['notifications']?.isPermanentlyDenied == true)
+                        ? openAppSettings : _requestNotifications,
+                  ),
+                  const SizedBox(height: 16),
+                  _buildSectionTitle('Avancées'),
+                  const SizedBox(height: 8),
+                  _buildPermCard(
+                    icon: Icons.my_location_rounded,
+                    color: const Color(0xFF8B5CF6),
+                    title: 'Localisation arrière-plan',
+                    subtitle: Platform.isIOS
+                        ? 'Réglages > ChecksFleet > Localisation > Toujours'
+                        : 'GPS continu en arrière-plan',
+                    status: _statuses['locationAlways'] ?? PermissionStatus.denied,
+                    onTap: openAppSettings,
+                    viaSettings: true,
+                  ),
+                  _buildPermCard(
+                    icon: Icons.photo_library_rounded,
+                    color: const Color(0xFF3B82F6),
+                    title: 'Galerie photos',
+                    subtitle: 'Joindre des photos aux inspections',
+                    status: _statuses['photos'] ?? PermissionStatus.denied,
+                    onTap: (_statuses['photos']?.isPermanentlyDenied == true)
+                        ? openAppSettings : _requestPhotos,
+                    required: false,
+                  ),
+                  if (Platform.isIOS) ...[
+                    const SizedBox(height: 16),
+                    Container(
+                      padding: const EdgeInsets.all(14),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFF6366F1).withOpacity(0.06),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2)),
+                      ),
+                      child: const Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.info_outline_rounded, color: Color(0xFF6366F1), size: 18),
+                          SizedBox(width: 10),
+                          Expanded(
+                            child: Text(
+                              'La page se rafraîchit automatiquement quand vous revenez des Réglages. Tirez vers le bas pour actualiser.',
+                              style: TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.5),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                ],
+              ),
             ),
     );
   }
-}
 
-// ── Sub-widgets ───────────────────────────────────────────────────────────────
-
-class _StatusBanner extends StatelessWidget {
-  final bool allGranted;
-  const _StatusBanner({required this.allGranted});
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildBanner() {
     return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: allGranted
-            ? const Color(0xFF10B981).withValues(alpha: 0.08)
-            : const Color(0xFFF59E0B).withValues(alpha: 0.08),
+        color: _allCriticalGranted
+            ? const Color(0xFF10B981).withOpacity(0.08)
+            : const Color(0xFFF59E0B).withOpacity(0.08),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: allGranted
-              ? const Color(0xFF10B981).withValues(alpha: 0.3)
-              : const Color(0xFFF59E0B).withValues(alpha: 0.3),
+          color: _allCriticalGranted
+              ? const Color(0xFF10B981).withOpacity(0.3)
+              : const Color(0xFFF59E0B).withOpacity(0.3),
         ),
       ),
       child: Row(
         children: [
           Icon(
-            allGranted ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
-            color: allGranted ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
-            size: 28,
+            _allCriticalGranted ? Icons.check_circle_rounded : Icons.warning_amber_rounded,
+            color: _allCriticalGranted ? const Color(0xFF10B981) : const Color(0xFFF59E0B),
+            size: 24,
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -190,19 +231,19 @@ class _StatusBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  allGranted ? 'Tout est autorisé ✓' : 'Autorisations requises',
+                  _allCriticalGranted ? 'Tout est autorisé ✓' : 'Autorisations requises',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
-                    fontSize: 15,
-                    color: allGranted ? const Color(0xFF059669) : const Color(0xFFD97706),
+                    fontSize: 14,
+                    color: _allCriticalGranted ? const Color(0xFF059669) : const Color(0xFFD97706),
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  allGranted
+                  _allCriticalGranted
                       ? 'L\'app fonctionne de manière optimale.'
-                      : 'Certaines fonctionnalités sont limitées. Autorisez les accès requis.',
-                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      : 'Activez les accès requis pour utiliser toutes les fonctions.',
+                  style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
                 ),
               ],
             ),
@@ -211,40 +252,43 @@ class _StatusBanner extends StatelessWidget {
       ),
     );
   }
-}
 
-class _PermissionCard extends StatelessWidget {
-  final _PermDef def;
-  final PermissionStatus status;
-  final VoidCallback onRequest;
-
-  const _PermissionCard({
-    required this.def,
-    required this.status,
-    required this.onRequest,
-  });
-
-  String get _statusLabel {
-    if (status.isGranted || status.isLimited) return 'Autorisé';
-    if (status.isPermanentlyDenied) return 'Refusé définitivement';
-    return 'Non autorisé';
+  Widget _buildSectionTitle(String title) {
+    return Text(
+      title.toUpperCase(),
+      style: const TextStyle(
+        fontSize: 11, fontWeight: FontWeight.w700,
+        color: Color(0xFF94A3B8), letterSpacing: 0.8,
+      ),
+    );
   }
 
-  Color get _statusColor {
-    if (status.isGranted || status.isLimited) return const Color(0xFF10B981);
-    if (status.isPermanentlyDenied) return const Color(0xFFEF4444);
-    return const Color(0xFFF59E0B);
-  }
-
-  IconData get _statusIcon {
-    if (status.isGranted || status.isLimited) return Icons.check_circle_rounded;
-    if (status.isPermanentlyDenied) return Icons.cancel_rounded;
-    return Icons.radio_button_unchecked_rounded;
-  }
-
-  @override
-  Widget build(BuildContext context) {
+  Widget _buildPermCard({
+    required IconData icon,
+    required Color color,
+    required String title,
+    required String subtitle,
+    required PermissionStatus status,
+    required VoidCallback onTap,
+    bool required = true,
+    bool viaSettings = false,
+  }) {
     final granted = status.isGranted || status.isLimited;
+    final permDenied = status.isPermanentlyDenied;
+
+    final statusLabel = granted ? 'Autorisé'
+        : permDenied ? 'Refusé — ouvrir Réglages'
+        : 'Non autorisé';
+    final statusColor = granted ? const Color(0xFF10B981)
+        : permDenied ? const Color(0xFFEF4444)
+        : const Color(0xFFF59E0B);
+    final statusIcon = granted ? Icons.check_circle_rounded
+        : permDenied ? Icons.cancel_rounded
+        : Icons.radio_button_unchecked_rounded;
+
+    final btnLabel = granted ? ''
+        : (permDenied || viaSettings) ? 'Réglages'
+        : 'Autoriser';
 
     return Container(
       margin: const EdgeInsets.only(bottom: 10),
@@ -252,159 +296,65 @@ class _PermissionCard extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: granted
-              ? const Color(0xFF10B981).withValues(alpha: 0.2)
-              : const Color(0xFFE2E8F0),
+          color: granted ? const Color(0xFF10B981).withOpacity(0.25) : const Color(0xFFE2E8F0),
         ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: 0.04),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2))],
       ),
       child: Padding(
-        padding: const EdgeInsets.all(14),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
-            // Icône
             Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                color: def.color.withValues(alpha: 0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(def.icon, color: def.color, size: 22),
+              width: 42, height: 42,
+              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(11)),
+              child: Icon(icon, color: color, size: 21),
             ),
-            const SizedBox(width: 14),
-            // Texte
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          def.title,
-                          style: const TextStyle(
-                            fontWeight: FontWeight.w600,
-                            fontSize: 14,
-                            color: Color(0xFF1E293B),
-                          ),
-                        ),
+                  Row(children: [
+                    Text(title, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14, color: Color(0xFF1E293B))),
+                    if (!required) ...[
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                        decoration: BoxDecoration(color: const Color(0xFF94A3B8).withOpacity(0.15), borderRadius: BorderRadius.circular(5)),
+                        child: const Text('Optionnel', style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
                       ),
-                      if (def.required)
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFF6366F1).withValues(alpha: 0.1),
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: const Text(
-                            'Requis',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Color(0xFF6366F1),
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        ),
                     ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    def.description,
-                    style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
-                  ),
-                  const SizedBox(height: 8),
-                  // Status + bouton
-                  Row(
-                    children: [
-                      Icon(_statusIcon, color: _statusColor, size: 14),
-                      const SizedBox(width: 4),
-                      Text(
-                        _statusLabel,
-                        style: TextStyle(
-                          fontSize: 12,
-                          color: _statusColor,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                      const Spacer(),
-                      if (!granted)
-                        GestureDetector(
-                          onTap: onRequest,
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                            decoration: BoxDecoration(
-                              color: def.color,
-                              borderRadius: BorderRadius.circular(8),
-                            ),
-                            child: Text(
-                              status.isPermanentlyDenied ? 'Réglages' : 'Autoriser',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                              ),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
+                  ]),
+                  const SizedBox(height: 2),
+                  Text(subtitle, style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4)),
+                  const SizedBox(height: 5),
+                  Row(children: [
+                    Icon(statusIcon, color: statusColor, size: 13),
+                    const SizedBox(width: 4),
+                    Text(statusLabel, style: TextStyle(fontSize: 11, color: statusColor, fontWeight: FontWeight.w500)),
+                  ]),
                 ],
               ),
             ),
+            const SizedBox(width: 8),
+            if (!granted)
+              GestureDetector(
+                onTap: onTap,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(9)),
+                  child: Text(btnLabel, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600)),
+                ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.all(5),
+                decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.1), shape: BoxShape.circle),
+                child: const Icon(Icons.check_rounded, color: Color(0xFF10B981), size: 15),
+              ),
           ],
         ),
       ),
     );
   }
-}
-
-class _RequestAllButton extends StatelessWidget {
-  final VoidCallback onTap;
-  const _RequestAllButton({required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 8, 16, 24),
-      child: SizedBox(
-        width: double.infinity,
-        child: FilledButton.icon(
-          onPressed: onTap,
-          icon: const Icon(Icons.security_rounded),
-          label: const Text('Tout autoriser', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
-          style: FilledButton.styleFrom(
-            backgroundColor: const Color(0xFF6366F1),
-            padding: const EdgeInsets.symmetric(vertical: 16),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ── Data model ────────────────────────────────────────────────────────────────
-class _PermDef {
-  final Permission permission;
-  final IconData icon;
-  final Color color;
-  final String title;
-  final String description;
-  final bool required;
-
-  const _PermDef({
-    required this.permission,
-    required this.icon,
-    required this.color,
-    required this.title,
-    required this.description,
-    required this.required,
-  });
 }

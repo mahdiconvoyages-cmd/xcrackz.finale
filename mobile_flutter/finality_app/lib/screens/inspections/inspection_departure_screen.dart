@@ -522,7 +522,40 @@ class _InspectionDepartureScreenState
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final hasProgress = _currentStep > 0 ||
+        _dashboardPhoto != null ||
+        _photos.any((p) => p != null) ||
+        _kmController.text.isNotEmpty;
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (!hasProgress) { Navigator.pop(context); return; }
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('Quitter l\'inspection ?',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            content: const Text(
+                'Votre progression sera perdue. Voulez-vous vraiment quitter ?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Continuer'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Quitter'),
+              ),
+            ],
+          ),
+        );
+        if (confirm == true && context.mounted) Navigator.pop(context);
+      },
+      child: Scaffold(
       backgroundColor: PremiumTheme.lightBg,
       body: Column(
         children: [
@@ -542,7 +575,31 @@ class _InspectionDepartureScreenState
                       children: [
                         IconButton(
                           icon: const Icon(Icons.close, color: Colors.white, size: 22),
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () async {
+                            if (!hasProgress) { Navigator.pop(context); return; }
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                title: const Text('Quitter l\'inspection ?',
+                                    style: TextStyle(fontWeight: FontWeight.bold)),
+                                content: const Text(
+                                    'Votre progression sera perdue. Voulez-vous vraiment quitter ?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Continuer'),
+                                  ),
+                                  FilledButton(
+                                    style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text('Quitter'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true && context.mounted) Navigator.pop(context);
+                          },
                         ),
                         Expanded(
                           child: Text(
@@ -592,7 +649,8 @@ class _InspectionDepartureScreenState
           _buildNavigationButtons(),
         ],
       ),
-    );
+    ), // Scaffold
+    ); // PopScope
   }
 
   Widget _buildProgressIndicator() {

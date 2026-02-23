@@ -375,13 +375,10 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
   //  ACTIONS
   // ══════════════════════════════════════════════════════════════
   Future<void> _scanPage() async {
-    // Demander la permission caméra sur iOS
-    final cameraStatus = await Permission.camera.request();
-    if (!cameraStatus.isGranted) {
-      if (mounted) {
-        _snack('Permission caméra refusée. Activez-la dans les Réglages.', PremiumTheme.accentRed);
-        if (cameraStatus.isPermanentlyDenied) openAppSettings();
-      }
+    // Vérifier le statut caméra (NE PAS appeler request() — conflit session iOS)
+    final cameraStatus = await Permission.camera.status;
+    if (cameraStatus.isPermanentlyDenied) {
+      if (mounted) _showCameraSettingsDialog();
       return;
     }
     setState(() => _scanning = true);
@@ -399,14 +396,39 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
           _idx = _pages.length - 1;
           _scanning = false;
         });
-        _snack('Page ajoutee', PremiumTheme.primaryTeal);
+        _snack('Page ajoutée', PremiumTheme.primaryTeal);
       } else {
         if (mounted) setState(() => _scanning = false);
       }
     } catch (e) {
       if (mounted) setState(() => _scanning = false);
-      _snack(ErrorHelper.cleanError(e), PremiumTheme.accentRed);
+      final errStr = e.toString();
+      if (errStr.contains('camera_access_denied') || errStr.contains('permission')) {
+        _showCameraSettingsDialog();
+      } else {
+        _snack(ErrorHelper.cleanError(e), PremiumTheme.accentRed);
+      }
     }
+  }
+
+  void _showCameraSettingsDialog() {
+    showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Caméra non autorisée'),
+        content: const Text(
+          'L\'accès à la caméra est nécessaire pour scanner.\n\nActivez-le dans Réglages > ChecksFleet > Caméra.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Annuler')),
+          FilledButton(
+            onPressed: () { Navigator.pop(context); openAppSettings(); },
+            child: const Text('Réglages'),
+          ),
+        ],
+      ),
+    );
   }
 
   void _deletePage(int i) {
