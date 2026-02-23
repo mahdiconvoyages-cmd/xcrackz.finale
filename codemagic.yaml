@@ -13,7 +13,7 @@ workflows:
         BUNDLE_ID: "com.checksfleet.app"
         APPLE_TEAM_ID: "P35Y6M742T"
     integrations:
-      app_store_connect: ChecksFleet
+      app_store_connect: checksfleet
     scripts:
       - name: Get Flutter packages
         script: |
