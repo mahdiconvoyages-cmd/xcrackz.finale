@@ -39,10 +39,13 @@ workflows:
           # Generate a fresh RSA private key for certificate creation
           openssl genrsa -out /tmp/cert_private_key.pem 2048
           
+          # Read key content and pass it inline
+          CERT_KEY=$(cat /tmp/cert_private_key.pem)
+          
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
-            --certificate-key=/tmp/cert_private_key.pem
+            --certificate-key="$CERT_KEY"
           
           keychain add-certificates
           xcode-project use-profiles
