@@ -12,6 +12,7 @@ import '../screens/profile/profile_screen.dart';
 import '../screens/profile/billing_profile_screen.dart';
 import '../screens/debug/debug_tools_screen.dart';
 import '../screens/login_screen.dart';
+import '../screens/permissions/permissions_screen.dart';
 import '../widgets/billing_gate.dart';
 
 class AppDrawer extends StatelessWidget {
@@ -112,6 +113,12 @@ class AppDrawer extends StatelessWidget {
                     color: const Color(0xFF0066FF),
                     label: 'Profil Facturation',
                     onTap: () => _navigate(context, const BillingProfileScreen()),
+                  ),
+                  _NavItem(
+                    icon: Icons.security_rounded,
+                    color: const Color(0xFF10B981),
+                    label: 'Autorisations',
+                    onTap: () => _navigate(context, const PermissionsScreen()),
                   ),
                   if (kDebugMode) ...[
                     const SizedBox(height: 8),
