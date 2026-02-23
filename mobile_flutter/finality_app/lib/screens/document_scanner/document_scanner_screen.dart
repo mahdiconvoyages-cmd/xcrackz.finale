@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:image/image.dart' as img;
@@ -35,6 +36,15 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
 
   // ── Scan ─────────────────────────────────────────────────────
   Future<void> _scan() async {
+    // Demander la permission caméra sur iOS
+    final cameraStatus = await Permission.camera.request();
+    if (!cameraStatus.isGranted) {
+      if (mounted) {
+        _snack('Permission caméra refusée. Activez-la dans les Réglages.', PremiumTheme.accentRed);
+        if (cameraStatus.isPermanentlyDenied) openAppSettings();
+      }
+      return;
+    }
     setState(() => _processing = true);
     try {
       final pics = await CunningDocumentScanner.getPictures(noOfPages: 1);
