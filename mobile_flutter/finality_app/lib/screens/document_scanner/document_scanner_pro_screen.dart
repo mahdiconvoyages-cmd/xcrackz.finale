@@ -607,10 +607,10 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
     try {
       final files = _pages.map((p) => p.imageFile).toList();
       final pdf = await PdfService.generatePDFFromPages(files);
-      await SharePlus.instance.shareXFiles(
+      await Share.shareXFiles(
         [XFile(pdf.path)],
         text:
-            'Document scanne (${_pages.length} page${_pages.length > 1 ? 's' : ''})',
+            'Document scanné (${_pages.length} page${_pages.length > 1 ? 's' : ''})',
       );
       if (mounted) setState(() => _processing = false);
     } catch (e) {

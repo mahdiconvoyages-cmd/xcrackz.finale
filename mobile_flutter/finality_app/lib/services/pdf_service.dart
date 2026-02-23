@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
-import 'package:intl/intl.dart';
 
 /// Service for generating PDF documents from scanned pages
 class PdfService {
@@ -34,20 +33,8 @@ class PdfService {
       );
     }
     
-    // Add metadata
-    final now = DateTime.now();
-    final dateStr = DateFormat('yyyy-MM-dd HH:mm').format(now);
-    
-    pdf.info = pw.DocumentInfo(
-      title: title ?? 'Document scanné',
-      author: 'CHECKSFLEET',
-      subject: documentType ?? 'Document',
-      creator: 'Finality Scanner Pro',
-      producer: 'Flutter PDF',
-      creationDate: now,
-    );
-    
     // Save to temporary directory
+    final now = DateTime.now();
     final tempDir = await getTemporaryDirectory();
     final timestamp = now.millisecondsSinceEpoch;
     final fileName = 'scan_${timestamp}.pdf';
