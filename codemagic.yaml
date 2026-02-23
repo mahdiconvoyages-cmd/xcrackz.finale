@@ -47,13 +47,12 @@ workflows:
         script: |
           keychain initialize
           
-          # Generate a fresh RSA private key for certificate creation
-          openssl genrsa -out /tmp/cert_private_key.pem 2048
-          
+          # Utilise la clé privée persistante stockée dans les variables Codemagic
+          # (même clé = même certificat réutilisé à chaque build, pas de création inutile)
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
-            --certificate-key=@file:/tmp/cert_private_key.pem
+            --certificate-key=@env:CERT_PRIVATE_KEY
           
           keychain add-certificates
           xcode-project use-profiles
