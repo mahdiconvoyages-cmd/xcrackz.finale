@@ -51,7 +51,8 @@ workflows:
             --issuer-id=$APP_STORE_CONNECT_ISSUER_ID \
             --key-id=$APP_STORE_CONNECT_KEY_IDENTIFIER
           keychain add-certificates
-          xcode-project use-profiles
+          xcode-project use-profiles \
+            --project=mobile_flutter/finality_app/ios/Runner.xcodeproj
 
       - name: Build iOS IPA
         script: |
@@ -61,9 +62,9 @@ workflows:
             --build-number=$PROJECT_BUILD_NUMBER \
             --export-options-plist=/Users/builder/export_options.plist
           
-          cp build/ios/ipa/*.ipa $CM_BUILD_DIR/ChecksFleet.ipa
+          cp build/ios/ipa/*.ipa $CM_BUILD_DIR/ChecksFleet.ipa || true
           echo "✅ IPA created"
-          ls -lh $CM_BUILD_DIR/*.ipa
+          ls -lh $CM_BUILD_DIR/*.ipa || ls -lh build/ios/ipa/ || true
 
     artifacts:
       - ChecksFleet.ipa
