@@ -121,12 +121,16 @@ class MissionTrackingMonitor {
   }
 
   /// Vérifie et synchronise le tracking avec l'état actuel des missions
+  /// 
+  /// IMPORTANT: Ne démarre le tracking QUE pour les missions 'in_progress'.
+  /// Les missions 'pending' (en attente) n'ont PAS besoin de GPS.
   Future<void> syncTrackingState() async {
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) return;
 
-      // Chercher une mission en cours
+      // Chercher UNIQUEMENT une mission en cours (in_progress)
+      // Les missions 'pending' ne doivent PAS déclencher le GPS
       final response = await _supabase
           .from('missions')
           .select('id, status')
@@ -144,10 +148,15 @@ class MissionTrackingMonitor {
           logger.i('Tracking GPS synchronisé pour mission en cours: $missionId');
         }
       } else {
-        // Aucune mission en cours, arrêter le tracking si actif
+        // Aucune mission in_progress → arrêter le tracking si actif
+        // Cela nettoie aussi les services GPS restés actifs par erreur
         if (_gpsService.isTracking) {
           await _gpsService.stopTracking();
-          logger.i('Tracking GPS arrêté - Aucune mission en cours');
+          logger.i('Tracking GPS arrêté — aucune mission in_progress');
+        } else {
+          // Même si _isTracking est false, un service Android orphelin
+          // peut tourner (ex: app tuée et relancée). Nettoyage.
+          await _gpsService.forceStopIfRunning();
         }
       }
     } catch (e) {

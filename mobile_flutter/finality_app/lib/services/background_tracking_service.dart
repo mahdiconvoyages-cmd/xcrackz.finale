@@ -67,8 +67,8 @@ class BackgroundTrackingService {
         autoStart: false,
         isForegroundMode: true,
         notificationChannelId: _notificationChannelId,
-        initialNotificationTitle: 'ChecksFleet GPS',
-        initialNotificationContent: 'Suivi GPS en attente...',
+        initialNotificationTitle: 'ChecksFleet',
+        initialNotificationContent: 'Démarrage du suivi de mission...',
         foregroundServiceNotificationId: _notificationId,
         foregroundServiceTypes: [AndroidForegroundType.location],
       ),
@@ -145,8 +145,8 @@ class BackgroundTrackingService {
 
   /// Arrête le tracking GPS
   Future<void> stopTracking() async {
-    if (!_isTracking) return;
-
+    // Toujours essayer d'arrêter le service même si _isTracking est false
+    // pour nettoyer les services orphelins (ex: app tuée puis relancée)
     final isRunning = await _service.isRunning();
     if (isRunning) {
       _service.invoke('stopTracking');
@@ -159,6 +159,20 @@ class BackgroundTrackingService {
     _isTracking = false;
 
     logger.i('Tracking GPS arrêté');
+  }
+
+  /// Force l'arrêt du service GPS en arrière-plan (nettoyage orphelins)
+  /// Appelé au démarrage si aucune mission n'est in_progress
+  Future<void> forceStopIfRunning() async {
+    final isRunning = await _service.isRunning();
+    if (isRunning) {
+      logger.i('Service GPS orphelin détecté — arrêt forcé');
+      _service.invoke('stopTracking');
+      await Future.delayed(const Duration(milliseconds: 300));
+      _service.invoke('stopSelf');
+      _currentMissionId = null;
+      _isTracking = false;
+    }
   }
 
   /// Demande la permission "Always" (localisation en arrière-plan)
@@ -284,8 +298,8 @@ Future<void> _onStart(ServiceInstance service) async {
     // Mettre à jour la notification
     if (service is AndroidServiceInstance) {
       service.setForegroundNotificationInfo(
-        title: 'ChecksFleet - Suivi GPS actif',
-        content: 'Mission en cours de suivi...',
+        title: 'Mission en cours',
+        content: 'Suivi GPS actif — en route',
       );
     }
 
@@ -345,12 +359,15 @@ Future<void> _onStart(ServiceInstance service) async {
         'timestamp': DateTime.now().toUtc().toIso8601String(),
       });
 
-      // Mettre à jour la notification
+      // Mettre à jour la notification avec vitesse lisible
       if (service is AndroidServiceInstance) {
+        final speedKmh = (position.speed * 3.6).round(); // m/s → km/h
+        final content = speedKmh > 5
+            ? 'En route — $speedKmh km/h'
+            : 'Suivi GPS actif — véhicule à l\'arrêt';
         service.setForegroundNotificationInfo(
-          title: 'ChecksFleet - Suivi GPS actif',
-          content:
-              'Position: ${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)} | ${position.speed.toStringAsFixed(1)} m/s',
+          title: 'Mission en cours',
+          content: content,
         );
       }
     });
@@ -414,10 +431,11 @@ Future<void> _onStart(ServiceInstance service) async {
     currentMissionId = null;
     lastPosition = null;
 
+    // Supprimer la notification au lieu d'afficher "arrêté"
     if (service is AndroidServiceInstance) {
       service.setForegroundNotificationInfo(
-        title: 'ChecksFleet GPS',
-        content: 'Suivi GPS arrêté',
+        title: 'ChecksFleet',
+        content: 'Suivi terminé',
       );
     }
   });
