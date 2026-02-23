@@ -32,6 +32,16 @@ workflows:
           cd mobile_flutter/finality_app/ios
           pod install
 
+      - name: Remove alpha channel from app icons
+        script: |
+          ICON_DIR="mobile_flutter/finality_app/ios/Runner/Assets.xcassets/AppIcon.appiconset"
+          for icon in "$ICON_DIR"/*.png; do
+            sips -s format png --setProperty formatOptions 100 "$icon" --out "$icon"
+            # Remove alpha by converting to RGB
+            sips -s hasAlpha false "$icon" --out "$icon" 2>/dev/null || true
+          done
+          echo "✅ Alpha channel removed from all app icons"
+
       - name: Set up code signing
         script: |
           keychain initialize
