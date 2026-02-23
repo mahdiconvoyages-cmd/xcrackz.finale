@@ -7,8 +7,6 @@ workflows:
       flutter: 3.38.2
       xcode: latest
       cocoapods: default
-      groups:
-        - appstore_credentials
       vars:
         BUNDLE_ID: "com.checksfleet.app"
         APPLE_TEAM_ID: "P35Y6M742T"
@@ -36,20 +34,10 @@ workflows:
 
       - name: Set up code signing
         script: |
-          app-store-connect fetch-signing-files $BUNDLE_ID \
+          app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create
           keychain initialize
-          app-store-connect certificates list \
-            --type IOS_DISTRIBUTION \
-            --certificate-key=@env:APP_STORE_CONNECT_PRIVATE_KEY \
-            --issuer-id=$APP_STORE_CONNECT_ISSUER_ID \
-            --key-id=$APP_STORE_CONNECT_KEY_IDENTIFIER || \
-          app-store-connect certificates create \
-            --type IOS_DISTRIBUTION \
-            --certificate-key=@env:APP_STORE_CONNECT_PRIVATE_KEY \
-            --issuer-id=$APP_STORE_CONNECT_ISSUER_ID \
-            --key-id=$APP_STORE_CONNECT_KEY_IDENTIFIER
           keychain add-certificates
           xcode-project use-profiles \
             --project=mobile_flutter/finality_app/ios/Runner.xcodeproj
@@ -63,8 +51,8 @@ workflows:
             --export-options-plist=/Users/builder/export_options.plist
           
           cp build/ios/ipa/*.ipa $CM_BUILD_DIR/ChecksFleet.ipa || true
-          echo "✅ IPA created"
-          ls -lh $CM_BUILD_DIR/*.ipa || ls -lh build/ios/ipa/ || true
+          echo "Build complete"
+          ls -lh $CM_BUILD_DIR/*.ipa || ls -lh build/ios/ipa/ || echo "IPA not found"
 
     artifacts:
       - ChecksFleet.ipa
