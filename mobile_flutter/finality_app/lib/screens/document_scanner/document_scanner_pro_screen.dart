@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../utils/error_helper.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../services/image_filter_service.dart';
@@ -375,38 +375,38 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
   //  ACTIONS
   // ══════════════════════════════════════════════════════════════
   Future<void> _scanPage() async {
+    // 1. Vérifier la permission caméra AVANT d'ouvrir le scanner
+    final status = await Permission.camera.request();
+    if (!mounted) return;
+    if (!status.isGranted) {
+      _showCameraSettingsDialog();
+      return;
+    }
+
     setState(() => _scanning = true);
     try {
-      final picker = ImagePicker();
-      final xFile = await picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 95,
-      );
-      if (xFile != null) {
-        final page = ScannedPage(
-          id: DateTime.now().millisecondsSinceEpoch.toString(),
-          imageFile: File(xFile.path),
+      // Scanner natif : VisionKit (iOS) ou ML Kit (Android)
+      // Supporte multi-pages, encadrement automatique, prise auto
+      final images = await CunningDocumentScanner.getAllScannedImages();
+      if (!mounted) return;
+      if (images != null && images.isNotEmpty) {
+        final newPages = images.map((imgPath) => ScannedPage(
+          id: DateTime.now().millisecondsSinceEpoch.toString() + imgPath.hashCode.toString(),
+          imageFile: File(imgPath),
           order: _pages.length,
-        );
-        if (!mounted) return;
+        )).toList();
         setState(() {
-          _pages.add(page);
+          _pages.addAll(newPages);
           _idx = _pages.length - 1;
           _scanning = false;
         });
-        _snack('Page ajoutée', PremiumTheme.primaryTeal);
+        _snack('${images.length} page(s) ajoutée(s)', PremiumTheme.primaryTeal);
       } else {
-        if (mounted) setState(() => _scanning = false);
+        setState(() => _scanning = false);
       }
     } catch (e) {
       if (mounted) setState(() => _scanning = false);
-      final errStr = e.toString();
-      if (errStr.contains('camera_access_denied') || errStr.contains('permission') ||
-          errStr.contains('denied')) {
-        _showCameraSettingsDialog();
-      } else {
-        _snack(ErrorHelper.cleanError(e), PremiumTheme.accentRed);
-      }
+      _snack('Impossible d\'ouvrir le scanner. Réessayez.', PremiumTheme.accentRed);
     }
   }
 

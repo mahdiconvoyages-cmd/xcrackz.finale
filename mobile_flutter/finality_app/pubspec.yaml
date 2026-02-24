@@ -63,7 +63,8 @@ dependencies:
   path_provider: ^2.1.5
   printing: ^5.14.2
   
-  # Document Scanner (OCR only — image_picker used for camera)
+  # Document Scanner — auto-framing + auto-capture (VisionKit iOS / ML Kit Android)
+  cunning_document_scanner: ^1.4.0
   google_mlkit_text_recognition: ^0.15.0
   
   # Permissions

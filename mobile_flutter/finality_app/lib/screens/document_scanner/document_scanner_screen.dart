@@ -1,6 +1,6 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:image_picker/image_picker.dart';
+import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
@@ -36,28 +36,29 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
 
   // ── Scan ─────────────────────────────────────────────────────
   Future<void> _scan() async {
+    // 1. Vérifier la permission caméra AVANT d'ouvrir le scanner
+    final status = await Permission.camera.request();
+    if (!mounted) return;
+    if (!status.isGranted) {
+      _showCameraSettingsDialog();
+      return;
+    }
+
     setState(() => _processing = true);
     try {
-      final picker = ImagePicker();
-      final xFile = await picker.pickImage(
-        source: ImageSource.camera,
-        imageQuality: 95,
-      );
-      if (xFile != null && mounted) {
-        setState(() { _paths = [xFile.path]; _idx = 0; _processing = false; });
+      // Scanner natif : VisionKit (iOS) ou ML Kit (Android)
+      // Renvoie null ou liste vide si l'utilisateur annule — pas d'erreur
+      final images = await CunningDocumentScanner.getAllScannedImages();
+      if (!mounted) return;
+      if (images != null && images.isNotEmpty) {
+        setState(() { _paths = images; _idx = 0; _processing = false; });
       } else {
-        if (mounted) setState(() => _processing = false);
+        setState(() => _processing = false);
       }
     } catch (e) {
       if (!mounted) return;
       setState(() => _processing = false);
-      final errStr = e.toString();
-      if (errStr.contains('camera_access_denied') || errStr.contains('permission') ||
-          errStr.contains('denied')) {
-        _showCameraSettingsDialog();
-      } else {
-        _snack('Impossible d\'ouvrir le scanner. Réessayez.', PremiumTheme.accentRed);
-      }
+      _snack('Impossible d\'ouvrir le scanner. Réessayez.', PremiumTheme.accentRed);
     }
   }
 
