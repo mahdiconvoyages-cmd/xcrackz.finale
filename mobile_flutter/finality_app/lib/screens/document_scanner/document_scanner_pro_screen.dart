@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../utils/error_helper.dart';
-import 'package:cunning_document_scanner/cunning_document_scanner.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../services/image_filter_service.dart';
@@ -375,19 +375,17 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
   //  ACTIONS
   // ══════════════════════════════════════════════════════════════
   Future<void> _scanPage() async {
-    // Vérifier le statut caméra (NE PAS appeler request() — conflit session iOS)
-    final cameraStatus = await Permission.camera.status;
-    if (cameraStatus.isPermanentlyDenied) {
-      if (mounted) _showCameraSettingsDialog();
-      return;
-    }
     setState(() => _scanning = true);
     try {
-      final pics = await CunningDocumentScanner.getPictures(noOfPages: 1);
-      if (pics != null && pics.isNotEmpty) {
+      final picker = ImagePicker();
+      final xFile = await picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 95,
+      );
+      if (xFile != null) {
         final page = ScannedPage(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
-          imageFile: File(pics.first),
+          imageFile: File(xFile.path),
           order: _pages.length,
         );
         if (!mounted) return;
@@ -403,7 +401,8 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
     } catch (e) {
       if (mounted) setState(() => _scanning = false);
       final errStr = e.toString();
-      if (errStr.contains('camera_access_denied') || errStr.contains('permission')) {
+      if (errStr.contains('camera_access_denied') || errStr.contains('permission') ||
+          errStr.contains('denied')) {
         _showCameraSettingsDialog();
       } else {
         _snack(ErrorHelper.cleanError(e), PremiumTheme.accentRed);

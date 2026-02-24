@@ -198,6 +198,13 @@ class _CRMScreenState extends State<CRMScreen>
                 // Title row
                 Row(
                   children: [
+                    IconButton(
+                      icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                      onPressed: () => Navigator.pop(context),
+                      color: PremiumTheme.textPrimary,
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                    ),
                     Container(
                       width: 42,
                       height: 42,

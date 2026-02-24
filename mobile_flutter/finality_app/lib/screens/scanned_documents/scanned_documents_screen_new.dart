@@ -218,6 +218,13 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> {
                 children: [
                   Row(
                     children: [
+                      IconButton(
+                        icon: const Icon(Icons.arrow_back_ios_new_rounded, size: 20),
+                        onPressed: () => Navigator.pop(context),
+                        color: PremiumTheme.textPrimary,
+                        padding: EdgeInsets.zero,
+                        constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
+                      ),
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(

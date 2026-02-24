@@ -353,6 +353,10 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen>
             floating: false,
             pinned: true,
             backgroundColor: _kIndigo,
+            leading: IconButton(
+              icon: const Icon(Icons.arrow_back_ios_new_rounded, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
                 decoration: const BoxDecoration(

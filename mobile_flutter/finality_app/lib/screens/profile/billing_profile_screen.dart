@@ -148,7 +148,12 @@ class _BillingProfileScreenState extends State<BillingProfileScreen> {
   Widget build(BuildContext context) {
     if (_loading) {
       return Scaffold(
-        appBar: AppBar(title: const Text('Profil Facturation')),
+        appBar: AppBar(
+          title: const Text('Profil Facturation'),
+          backgroundColor: Colors.white,
+          foregroundColor: Colors.black87,
+          elevation: 0,
+        ),
         body: const Center(child: CircularProgressIndicator()),
       );
     }
@@ -163,7 +168,8 @@ class _BillingProfileScreenState extends State<BillingProfileScreen> {
           style: TextStyle(fontWeight: FontWeight.bold),
         ),
         elevation: 0,
-        backgroundColor: Colors.transparent,
+        backgroundColor: Colors.white,
+        foregroundColor: Colors.black87,
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(20),
