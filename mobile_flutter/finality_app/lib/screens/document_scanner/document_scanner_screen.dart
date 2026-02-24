@@ -38,7 +38,21 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
   Future<void> _scan() async {
     setState(() => _processing = true);
     try {
-      // VisionKit (iOS) / ML Kit (Android) gèrent la permission caméra nativement
+      // iOS : demander la permission caméra explicitement pour qu'elle
+      // apparaisse dans Réglages > App, avant d'ouvrir VisionKit
+      if (Platform.isIOS) {
+        final status = await Permission.camera.request();
+        if (!mounted) return;
+        if (status.isPermanentlyDenied) {
+          setState(() => _processing = false);
+          _showCameraSettingsDialog();
+          return;
+        }
+        if (status.isDenied) {
+          setState(() => _processing = false);
+          return;
+        }
+      }
       final images = await CunningDocumentScanner.getPictures();
       if (!mounted) return;
       if (images != null && images.isNotEmpty) {
