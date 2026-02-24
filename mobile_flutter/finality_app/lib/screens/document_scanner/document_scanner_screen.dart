@@ -38,18 +38,19 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
   Future<void> _scan() async {
     setState(() => _processing = true);
     try {
-      // iOS : demander la permission caméra explicitement pour qu'elle
-      // apparaisse dans Réglages > App, avant d'ouvrir VisionKit
+      // iOS : gérer la permission caméra correctement
+      // - undetermined → demander (popup système apparaît)
+      // - denied/permanentlyDenied → guider vers les Réglages
+      // - granted → ouvrir directement le scanner VisionKit
       if (Platform.isIOS) {
-        final status = await Permission.camera.request();
+        var status = await Permission.camera.status;
+        if (status.isUndetermined) {
+          status = await Permission.camera.request();
+        }
         if (!mounted) return;
-        if (status.isPermanentlyDenied) {
+        if (!status.isGranted) {
           setState(() => _processing = false);
           _showCameraSettingsDialog();
-          return;
-        }
-        if (status.isDenied) {
-          setState(() => _processing = false);
           return;
         }
       }
