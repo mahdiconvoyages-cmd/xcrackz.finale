@@ -375,18 +375,28 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
   //  ACTIONS
   // ══════════════════════════════════════════════════════════════
   Future<void> _scanPage() async {
-    // 1. Vérifier la permission caméra AVANT d'ouvrir le scanner
-    final status = await Permission.camera.request();
+    // 1. Vérifier le statut actuel SANS demander d'abord
+    var status = await Permission.camera.status;
+
+    if (status.isDenied) {
+      status = await Permission.camera.request();
+    }
+
     if (!mounted) return;
+
+    if (status.isPermanentlyDenied || status.isRestricted) {
+      _showCameraSettingsDialog();
+      return;
+    }
+
     if (!status.isGranted) {
       _showCameraSettingsDialog();
       return;
     }
 
+    // Permission OK — ouvrir le scanner
     setState(() => _scanning = true);
     try {
-      // Scanner natif : VisionKit (iOS) ou ML Kit (Android)
-      // Supporte multi-pages, encadrement automatique, prise auto
       final images = await CunningDocumentScanner.getPictures();
       if (!mounted) return;
       if (images != null && images.isNotEmpty) {
