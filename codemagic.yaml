@@ -64,9 +64,12 @@ workflows:
         script: |
           cd mobile_flutter/finality_app
           set -e
+          # Numéro de build unique basé sur le timestamp Unix (garanti différent à chaque build)
+          BUILD_NUMBER=$(date +%s)
+          echo "Build number: $BUILD_NUMBER"
           flutter build ipa --release \
             --build-name=3.8.1 \
-            --build-number=$CM_BUILD_NUMBER \
+            --build-number=$BUILD_NUMBER \
             --export-options-plist=/Users/builder/export_options.plist
           
           echo "== IPA build complete, locating artifact =="
