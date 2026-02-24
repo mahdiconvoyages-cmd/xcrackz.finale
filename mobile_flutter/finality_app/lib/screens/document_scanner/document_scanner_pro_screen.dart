@@ -2,8 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../utils/error_helper.dart';
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
+import 'package:edge_detection/edge_detection.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:path/path.dart' as path_lib;
 import 'package:share_plus/share_plus.dart';
 import '../../services/image_filter_service.dart';
 import '../../services/pdf_service.dart';
@@ -381,15 +384,16 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
       List<String>? images;
 
       if (Platform.isIOS) {
-        // iOS : image_picker déclenche la popup de permission caméra
-        // nativement via AVCaptureDevice (même méthode que les inspections)
-        final picker = ImagePicker();
-        final xFile = await picker.pickImage(
-          source: ImageSource.camera,
-          imageQuality: 95,
-          preferredCameraDevice: CameraDevice.rear,
+        // iOS : WeScan (edge_detection) — encadrement automatique temps réel
+        // Gère la permission caméra nativement via AVCaptureDevice
+        final dir = await getApplicationSupportDirectory();
+        final imgPath = path_lib.join(dir.path,
+            '${(DateTime.now().millisecondsSinceEpoch / 1000).round()}.jpeg');
+        final bool success = await EdgeDetection.detectEdge(
+          imgPath,
+          canUseGallery: false,
         );
-        if (xFile != null) images = [xFile.path];
+        if (success) images = [imgPath];
       } else {
         // Android : CunningDocumentScanner (ML Kit, encadrement automatique)
         images = await CunningDocumentScanner.getPictures();
