@@ -387,7 +387,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
     try {
       // Scanner natif : VisionKit (iOS) ou ML Kit (Android)
       // Supporte multi-pages, encadrement automatique, prise auto
-      final images = await CunningDocumentScanner.getAllScannedImages();
+      final images = await CunningDocumentScanner.getPictures();
       if (!mounted) return;
       if (images != null && images.isNotEmpty) {
         final newPages = images.map((imgPath) => ScannedPage(

@@ -48,7 +48,7 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
     try {
       // Scanner natif : VisionKit (iOS) ou ML Kit (Android)
       // Renvoie null ou liste vide si l'utilisateur annule — pas d'erreur
-      final images = await CunningDocumentScanner.getAllScannedImages();
+      final images = await CunningDocumentScanner.getPictures();
       if (!mounted) return;
       if (images != null && images.isNotEmpty) {
         setState(() { _paths = images; _idx = 0; _processing = false; });
