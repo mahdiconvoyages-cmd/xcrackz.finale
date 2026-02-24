@@ -63,14 +63,16 @@ workflows:
       - name: Build iOS IPA
         script: |
           cd mobile_flutter/finality_app
+          set -e
           flutter build ipa --release \
             --build-name=3.8.1 \
-            --build-number=$PROJECT_BUILD_NUMBER \
+            --build-number=$CM_BUILD_NUMBER \
             --export-options-plist=/Users/builder/export_options.plist
           
-          cp build/ios/ipa/*.ipa $CM_BUILD_DIR/ChecksFleet.ipa || true
-          echo "Build complete"
-          ls -lh $CM_BUILD_DIR/*.ipa || ls -lh build/ios/ipa/ || echo "IPA not found"
+          echo "== IPA build complete, locating artifact =="
+          ls -lh build/ios/ipa/ || echo "WARNING: build/ios/ipa/ not found"
+          cp build/ios/ipa/*.ipa $CM_BUILD_DIR/ChecksFleet.ipa
+          echo "✅ IPA copied to $CM_BUILD_DIR/ChecksFleet.ipa"
 
     artifacts:
       - ChecksFleet.ipa
