@@ -1,6 +1,7 @@
 import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
+import 'package:permission_handler/permission_handler.dart';
 import '../../theme/premium_theme.dart';
 
 /// QR Code Scanner — PremiumTheme Light Design
@@ -19,6 +20,7 @@ class _ScanQRScreenState extends State<ScanQRScreen>
   );
   bool _scanned = false;
   bool _torch = false;
+  bool _cameraPermissionDenied = false;
   late AnimationController _anim;
 
   @override
@@ -28,6 +30,15 @@ class _ScanQRScreenState extends State<ScanQRScreen>
       vsync: this,
       duration: const Duration(seconds: 2),
     )..repeat(reverse: true);
+    _checkCameraPermission();
+  }
+
+  Future<void> _checkCameraPermission() async {
+    final status = await Permission.camera.request();
+    if (!mounted) return;
+    if (status.isPermanentlyDenied) {
+      setState(() => _cameraPermissionDenied = true);
+    }
   }
 
   @override
@@ -51,6 +62,38 @@ class _ScanQRScreenState extends State<ScanQRScreen>
 
   @override
   Widget build(BuildContext context) {
+    if (_cameraPermissionDenied) {
+      return Scaffold(
+        backgroundColor: Colors.black,
+        body: SafeArea(
+          child: Center(
+            child: Padding(
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.no_photography_rounded, color: Colors.white54, size: 64),
+                  const SizedBox(height: 20),
+                  const Text('Caméra non autorisée',
+                      style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 12),
+                  const Text('Activez la caméra dans Réglages > ChecksFleet > Caméra',
+                      style: TextStyle(color: Colors.white60, fontSize: 14), textAlign: TextAlign.center),
+                  const SizedBox(height: 24),
+                  Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                    TextButton(onPressed: () => Navigator.pop(context),
+                        child: const Text('Annuler', style: TextStyle(color: Colors.white54))),
+                    const SizedBox(width: 16),
+                    FilledButton(onPressed: () { openAppSettings(); },
+                        child: const Text('Réglages')),
+                  ]),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+    }
     return Scaffold(
       backgroundColor: Colors.black,
       body: Stack(

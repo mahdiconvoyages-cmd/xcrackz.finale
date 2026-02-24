@@ -14,7 +14,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   final List<OnboardingPage> _pages = [
     OnboardingPage(
-      title: 'Bienvenue sur Finality',
+      title: 'Bienvenue sur ChecksFleet',
       description: 'La plateforme complète pour la gestion de vos convoyages et missions d\'inspection.',
       icon: Icons.directions_car,
       color: Colors.blue,
