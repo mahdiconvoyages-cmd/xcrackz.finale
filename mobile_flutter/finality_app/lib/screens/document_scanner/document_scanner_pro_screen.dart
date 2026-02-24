@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import '../../utils/error_helper.dart';
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../services/image_filter_service.dart';
@@ -377,9 +378,22 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
   Future<void> _scanPage() async {
     setState(() => _scanning = true);
     try {
-      // VisionKit gère la permission caméra nativement sur iOS :
-      // affiche la popup système au 1er appel, ouvre directement si déjà autorisé
-      final images = await CunningDocumentScanner.getPictures();
+      List<String>? images;
+
+      if (Platform.isIOS) {
+        // iOS : image_picker déclenche la popup de permission caméra
+        // nativement via AVCaptureDevice (même méthode que les inspections)
+        final picker = ImagePicker();
+        final xFile = await picker.pickImage(
+          source: ImageSource.camera,
+          imageQuality: 95,
+          preferredCameraDevice: CameraDevice.rear,
+        );
+        if (xFile != null) images = [xFile.path];
+      } else {
+        // Android : CunningDocumentScanner (ML Kit, encadrement automatique)
+        images = await CunningDocumentScanner.getPictures();
+      }
       if (!mounted) return;
       if (images != null && images.isNotEmpty) {
         final newPages = images.map((imgPath) => ScannedPage(
