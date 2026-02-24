@@ -1,5 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../../main.dart';
 import '../../utils/error_helper.dart';
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:edge_detection/edge_detection.dart';
@@ -582,25 +584,42 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
     if (_pages.isEmpty) return;
     setState(() { _processing = true; _sync = SyncStatus.syncing; });
     try {
+      final uid = supabase.auth.currentUser?.id;
       final files = _pages.map((p) => p.imageFile).toList();
       final pdf = await PdfService.generatePDFFromPages(files,
           title: 'Document scanne ${DateTime.now().toUtc().toIso8601String()}',
           documentType: 'Scan');
-      if (widget.inspectionId != null) {
-        if (mounted) setState(() => _progress = 0.0);
-        final name =
-            'inspection_${widget.inspectionId}_${DateTime.now().millisecondsSinceEpoch}.pdf';
-        await SupabaseService.uploadFile(pdf, 'scans/$name',
-            onProgress: (p) {
-          if (mounted) setState(() => _progress = p);
+
+      if (mounted) setState(() => _progress = 0.0);
+      final suffix = widget.inspectionId != null
+          ? 'inspection_${widget.inspectionId}'
+          : 'standalone';
+      final name = '${suffix}_${DateTime.now().millisecondsSinceEpoch}.pdf';
+
+      // Upload vers Supabase Storage (dans tous les cas)
+      final url = await SupabaseService.uploadFile(pdf, 'scans/$name',
+          onProgress: (p) {
+        if (mounted) setState(() => _progress = p);
+      });
+
+      // Enregistrer dans inspection_documents → visible dans "Documents scannés"
+      if (uid != null) {
+        await supabase.from('inspection_documents').insert({
+          'inspection_id': widget.inspectionId,
+          'document_type': 'scan_pro',
+          'document_title':
+              'Scan Pro ${DateFormat('dd/MM/yyyy HH:mm').format(DateTime.now())}',
+          'document_url': url,
+          'pages_count': _pages.length,
+          'user_id': uid,
         });
-        if (!mounted) return;
-        setState(() { _sync = SyncStatus.synced; _progress = null; });
-        _snack('PDF sauvegarde et synchronise', PremiumTheme.accentGreen);
-      } else {
-        if (mounted) setState(() => _sync = SyncStatus.synced);
-        _snack('PDF genere avec succes', PremiumTheme.primaryTeal);
       }
+
+      if (!mounted) return;
+      setState(() { _sync = SyncStatus.synced; _progress = null; });
+      _snack(
+          '${_pages.length} page(s) sauvegardée(s) dans "Documents scannés"',
+          PremiumTheme.accentGreen);
       widget.onDocumentScanned?.call(pdf.path);
       if (mounted) setState(() => _processing = false);
     } catch (e) {
