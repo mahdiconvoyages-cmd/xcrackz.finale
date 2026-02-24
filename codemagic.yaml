@@ -18,6 +18,12 @@ workflows:
           cd mobile_flutter/finality_app
           flutter pub get
       
+      - name: Generate app icons
+        script: |
+          cd mobile_flutter/finality_app
+          dart run flutter_launcher_icons
+          echo "✅ App icons generated from logo.png"
+
       - name: Create .env file
         script: |
           cd mobile_flutter/finality_app
