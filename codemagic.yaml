@@ -10,6 +10,9 @@ workflows:
       vars:
         BUNDLE_ID: "com.checksfleet.app"
         APPLE_TEAM_ID: "P35Y6M742T"
+      # CM_CERTIFICATE_PRIVATE_KEY must be set in Codemagic dashboard (Team > Global variables)
+      # Generate once with: openssl genrsa 2048 | base64
+      # and store the result as CM_CERTIFICATE_PRIVATE_KEY (secure, non-expanded)
     integrations:
       app_store_connect: checksfleet
     scripts:
@@ -52,12 +55,16 @@ workflows:
       - name: Set up code signing
         script: |
           keychain initialize
-          openssl genrsa -out /tmp/cert_private_key.pem 2048
+          # Decode the persistent private key stored in Codemagic dashboard env vars.
+          # This reuses the same Apple distribution certificate across all builds.
+          echo "$CM_CERTIFICATE_PRIVATE_KEY" | base64 --decode > /tmp/cert_private_key.pem
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
             --certificate-key=@file:/tmp/cert_private_key.pem
           keychain add-certificates
+          # xcode-project use-profiles sets CODE_SIGN_STYLE=Manual and
+          # exports CM_EXPORT_OPTIONS_PATH used by flutter build ipa below
           xcode-project use-profiles
 
       - name: Build iOS IPA
@@ -70,7 +77,7 @@ workflows:
           flutter build ipa --release \
             --build-name=3.8.1 \
             --build-number=$BUILD_NUMBER \
-            --export-options-plist=/Users/builder/export_options.plist
+            --export-options-plist=$CM_EXPORT_OPTIONS_PATH
           
           echo "== IPA build complete, locating artifact =="
           ls -lh build/ios/ipa/ || echo "WARNING: build/ios/ipa/ not found"
