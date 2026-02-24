@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
-import 'package:permission_handler/permission_handler.dart';
+import 'package:permission_handler/permission_handler.dart'; // pour openAppSettings()
 import 'package:path_provider/path_provider.dart';
 import 'package:path/path.dart' as path;
 import 'package:image/image.dart' as img;
@@ -38,22 +38,8 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
   Future<void> _scan() async {
     setState(() => _processing = true);
     try {
-      // iOS : gérer la permission caméra correctement
-      // - undetermined → demander (popup système apparaît)
-      // - denied/permanentlyDenied → guider vers les Réglages
-      // - granted → ouvrir directement le scanner VisionKit
-      if (Platform.isIOS) {
-        var status = await Permission.camera.status;
-        if (status.isUndetermined) {
-          status = await Permission.camera.request();
-        }
-        if (!mounted) return;
-        if (!status.isGranted) {
-          setState(() => _processing = false);
-          _showCameraSettingsDialog();
-          return;
-        }
-      }
+      // VisionKit gère la permission caméra nativement sur iOS :
+      // affiche la popup système au 1er appel, ouvre directement si déjà autorisé
       final images = await CunningDocumentScanner.getPictures();
       if (!mounted) return;
       if (images != null && images.isNotEmpty) {
