@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
@@ -32,6 +33,9 @@ class BackgroundTrackingService {
 
   String? _currentMissionId;
   bool _isTracking = false;
+
+  // iOS: direct position stream (flutter_background_service not supported on iOS)
+  StreamSubscription<Position>? _iosPositionStream;
 
   // Paramètres
   static const int _updateIntervalSeconds = 3;
@@ -105,54 +109,117 @@ class BackgroundTrackingService {
     _currentMissionId = missionId;
     _isTracking = true;
 
-    // Récupérer les infos Supabase pour le service isolé
-    final url = dotenv.env['SUPABASE_URL'] ?? '';
-    final key = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
-    final userId = _supabase.auth.currentUser?.id ?? '';
-    final accessToken = _supabase.auth.currentSession?.accessToken ?? '';
-    final refreshToken = _supabase.auth.currentSession?.refreshToken ?? '';
+    if (Platform.isIOS) {
+      // iOS : utiliser Geolocator directement dans l'isolate principal
+      // flutter_background_service ne supporte pas le GPS continu en background sur iOS
+      await _startIosTracking(missionId);
+      logger.i('${autoStart ? "Auto-" : ""}Tracking GPS démarré pour mission: $missionId (iOS direct stream)');
+    } else {
+      // Android : flutter_background_service (foreground service persistant)
+      final url = dotenv.env['SUPABASE_URL'] ?? '';
+      final key = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+      final userId = _supabase.auth.currentUser?.id ?? '';
+      final accessToken = _supabase.auth.currentSession?.accessToken ?? '';
+      final refreshToken = _supabase.auth.currentSession?.refreshToken ?? '';
 
-    // Démarrer le background service
-    final isRunning = await _service.isRunning();
-    if (!isRunning) {
-      await _service.startService();
-      // Attendre que le service soit prêt
-      await Future.delayed(const Duration(milliseconds: 500));
-    }
-
-    // Envoyer les paramètres au service
-    _service.invoke('startTracking', {
-      'missionId': missionId,
-      'supabaseUrl': url,
-      'supabaseKey': key,
-      'userId': userId,
-      'accessToken': accessToken,
-      'refreshToken': refreshToken,
-    });
-
-    // Écouter les mises à jour du service
-    _service.on('positionUpdate').listen((event) {
-      if (event != null) {
-        logger.d(
-            'Position: ${event['latitude']?.toStringAsFixed(6)}, ${event['longitude']?.toStringAsFixed(6)}');
+      final isRunning = await _service.isRunning();
+      if (!isRunning) {
+        await _service.startService();
+        await Future.delayed(const Duration(milliseconds: 500));
       }
-    });
 
-    logger.i(
-        '${autoStart ? "Auto-" : ""}Tracking GPS démarré pour mission: $missionId (background service)');
+      _service.invoke('startTracking', {
+        'missionId': missionId,
+        'supabaseUrl': url,
+        'supabaseKey': key,
+        'userId': userId,
+        'accessToken': accessToken,
+        'refreshToken': refreshToken,
+      });
+
+      _service.on('positionUpdate').listen((event) {
+        if (event != null) {
+          logger.d('Position: ${event['latitude']?.toStringAsFixed(6)}, ${event['longitude']?.toStringAsFixed(6)}');
+        }
+      });
+
+      logger.i('${autoStart ? "Auto-" : ""}Tracking GPS démarré pour mission: $missionId (Android background service)');
+    }
     return true;
+  }
+
+  /// Démarre le tracking GPS directement sur iOS (pas de background service)
+  Future<void> _startIosTracking(String missionId) async {
+    await _iosPositionStream?.cancel();
+    _iosPositionStream = null;
+
+    final userId = _supabase.auth.currentUser?.id ?? '';
+    Position? lastPosition;
+
+    const locationSettings = LocationSettings(
+      accuracy: LocationAccuracy.high,
+      distanceFilter: 5,
+    );
+
+    _iosPositionStream = Geolocator.getPositionStream(
+      locationSettings: locationSettings,
+    ).listen((Position position) async {
+      // Filtre mouvement minimal
+      if (lastPosition != null) {
+        final distance = Geolocator.distanceBetween(
+          lastPosition!.latitude,
+          lastPosition!.longitude,
+          position.latitude,
+          position.longitude,
+        );
+        if (distance < 5.0) return;
+      }
+      lastPosition = position;
+
+      try {
+        await _supabase.from('mission_tracking_live').upsert({
+          'mission_id': missionId,
+          'user_id': userId,
+          'latitude': position.latitude,
+          'longitude': position.longitude,
+          'accuracy': position.accuracy,
+          'altitude': position.altitude,
+          'bearing': position.heading,
+          'speed': position.speed,
+          'last_update': DateTime.now().toUtc().toIso8601String(),
+          'is_active': true,
+        }, onConflict: 'mission_id,user_id');
+        logger.d('iOS GPS: ${position.latitude.toStringAsFixed(6)}, ${position.longitude.toStringAsFixed(6)}');
+      } catch (e) {
+        logger.e('iOS GPS UPSERT error: $e');
+      }
+    }, onError: (e) {
+      logger.e('iOS GPS stream error: $e');
+    });
   }
 
   /// Arrête le tracking GPS
   Future<void> stopTracking() async {
-    // Toujours essayer d'arrêter le service même si _isTracking est false
-    // pour nettoyer les services orphelins (ex: app tuée puis relancée)
-    final isRunning = await _service.isRunning();
-    if (isRunning) {
-      _service.invoke('stopTracking');
-      // Petit délai pour laisser le service faire le ménage
-      await Future.delayed(const Duration(milliseconds: 300));
-      _service.invoke('stopSelf');
+    if (Platform.isIOS) {
+      await _iosPositionStream?.cancel();
+      _iosPositionStream = null;
+
+      // Marquer tracking inactif dans Supabase
+      if (_currentMissionId != null) {
+        try {
+          await _supabase.from('mission_tracking_live').update({
+            'is_active': false,
+          }).eq('mission_id', _currentMissionId!);
+        } catch (_) {}
+      }
+    } else {
+      // Toujours essayer d'arrêter le service même si _isTracking est false
+      final isRunning = await _service.isRunning();
+      if (isRunning) {
+        _service.invoke('stopTracking');
+        await Future.delayed(const Duration(milliseconds: 300));
+        _service.invoke('stopSelf');
+      }
     }
 
     _currentMissionId = null;
@@ -164,14 +231,24 @@ class BackgroundTrackingService {
   /// Force l'arrêt du service GPS en arrière-plan (nettoyage orphelins)
   /// Appelé au démarrage si aucune mission n'est in_progress
   Future<void> forceStopIfRunning() async {
-    final isRunning = await _service.isRunning();
-    if (isRunning) {
-      logger.i('Service GPS orphelin détecté — arrêt forcé');
-      _service.invoke('stopTracking');
-      await Future.delayed(const Duration(milliseconds: 300));
-      _service.invoke('stopSelf');
-      _currentMissionId = null;
-      _isTracking = false;
+    if (Platform.isIOS) {
+      if (_iosPositionStream != null) {
+        logger.i('iOS GPS stream orphelin détecté — arrêt forcé');
+        await _iosPositionStream?.cancel();
+        _iosPositionStream = null;
+        _currentMissionId = null;
+        _isTracking = false;
+      }
+    } else {
+      final isRunning = await _service.isRunning();
+      if (isRunning) {
+        logger.i('Service GPS orphelin détecté — arrêt forcé');
+        _service.invoke('stopTracking');
+        await Future.delayed(const Duration(milliseconds: 300));
+        _service.invoke('stopSelf');
+        _currentMissionId = null;
+        _isTracking = false;
+      }
     }
   }
 
