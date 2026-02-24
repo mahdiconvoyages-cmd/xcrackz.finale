@@ -14,7 +14,7 @@ import '../utils/logger.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'missions/missions_screen.dart';
 import 'missions/mission_create_screen_new.dart';
-import 'document_scanner/document_scanner_pro_screen.dart';
+import 'scanned_documents/scanned_documents_screen_new.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
@@ -73,9 +73,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     super.dispose();
   }
 
-  void _openScanner() {
+  void _openDocuments() {
     Navigator.push(context, MaterialPageRoute(
-      builder: (_) => const DocumentScannerProScreen(),
+      builder: (_) => const ScannedDocumentsScreenNew(),
     ));
   }
 
@@ -118,8 +118,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         selectedIndex: _currentIndex,
         onDestinationSelected: (i) {
           if (i == 2) {
-            // Scanner — push plein écran sans changer d'onglet
-            _openScanner();
+            // Documents scannés
+            _openDocuments();
           } else if (i == 3) {
             // Menu — ouvre le drawer
             _scaffoldKey.currentState?.openDrawer();
@@ -141,9 +141,9 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             label: l10n.missions,
           ),
           const NavigationDestination(
-            icon: Icon(Icons.document_scanner_outlined),
-            selectedIcon: Icon(Icons.document_scanner, color: Color(0xFF8B5CF6)),
-            label: 'Scanner',
+            icon: Icon(Icons.folder_copy_outlined),
+            selectedIcon: Icon(Icons.folder_copy, color: Color(0xFF8B5CF6)),
+            label: 'Documents',
           ),
           const NavigationDestination(
             icon: Icon(Icons.menu_rounded),
