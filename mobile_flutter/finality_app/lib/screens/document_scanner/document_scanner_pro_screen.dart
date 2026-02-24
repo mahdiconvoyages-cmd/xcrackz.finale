@@ -375,28 +375,9 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
   //  ACTIONS
   // ══════════════════════════════════════════════════════════════
   Future<void> _scanPage() async {
-    // 1. Vérifier le statut actuel SANS demander d'abord
-    var status = await Permission.camera.status;
-
-    if (status.isDenied) {
-      status = await Permission.camera.request();
-    }
-
-    if (!mounted) return;
-
-    if (status.isPermanentlyDenied || status.isRestricted) {
-      _showCameraSettingsDialog();
-      return;
-    }
-
-    if (!status.isGranted) {
-      _showCameraSettingsDialog();
-      return;
-    }
-
-    // Permission OK — ouvrir le scanner
     setState(() => _scanning = true);
     try {
+      // VisionKit (iOS) / ML Kit (Android) gèrent la permission caméra nativement
       final images = await CunningDocumentScanner.getPictures();
       if (!mounted) return;
       if (images != null && images.isNotEmpty) {
@@ -416,7 +397,12 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
       }
     } catch (e) {
       if (mounted) setState(() => _scanning = false);
-      _snack('Impossible d\'ouvrir le scanner. Réessayez.', PremiumTheme.accentRed);
+      final errStr = e.toString().toLowerCase();
+      if (errStr.contains('permission') || errStr.contains('denied') || errStr.contains('restricted')) {
+        _showCameraSettingsDialog();
+      } else {
+        _snack('Impossible d\'ouvrir le scanner. Réessayez.', PremiumTheme.accentRed);
+      }
     }
   }
 
