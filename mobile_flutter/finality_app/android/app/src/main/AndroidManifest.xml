@@ -32,6 +32,9 @@
     <!-- Notifications permission for Android 13+ -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Permission pour installer des APK (mise à jour OTA) -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+
     <!-- Advertising ID declaration for Android 13+ (required by Play Store) -->
     <uses-permission android:name="com.google.android.gms.permission.AD_ID" />
 
@@ -154,6 +157,10 @@
             <action android:name="android.intent.action.VIEW"/>
             <category android:name="android.intent.category.BROWSABLE"/>
             <data android:scheme="tel"/>
+        </intent>
+        <!-- Pour installer les APK de mise à jour -->
+        <intent>
+            <action android:name="android.intent.action.INSTALL_PACKAGE"/>
         </intent>
     </queries>
 </manifest>

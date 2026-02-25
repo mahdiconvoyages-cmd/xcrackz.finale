@@ -6,7 +6,7 @@ import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import '../config/api_config.dart';
 import '../utils/logger.dart';
 
 /// Notification channel for Android foreground service
@@ -117,8 +117,8 @@ class BackgroundTrackingService {
       logger.i('${autoStart ? "Auto-" : ""}Tracking GPS démarré pour mission: $missionId (iOS direct stream)');
     } else {
       // Android : flutter_background_service (foreground service persistant)
-      final url = dotenv.env['SUPABASE_URL'] ?? '';
-      final key = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+      final url = ApiConfig.supabaseUrl;
+      final key = ApiConfig.supabaseAnonKey;
       final userId = _supabase.auth.currentUser?.id ?? '';
       final accessToken = _supabase.auth.currentSession?.accessToken ?? '';
       final refreshToken = _supabase.auth.currentSession?.refreshToken ?? '';
