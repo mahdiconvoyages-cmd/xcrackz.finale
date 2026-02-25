@@ -12,6 +12,7 @@ import '../inspections/inspection_departure_screen.dart';
 import '../inspections/inspection_arrival_screen.dart';
 import '../../theme/premium_theme.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'mission_create_screen_new.dart';
 import '../planning/retour_lift_screen.dart';
 
@@ -1812,6 +1813,8 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         if (started && mounted) {
           setState(() => _isTrackingActive = true);
         }
+        // Publier automatiquement une offre de lift pour ce trajet
+        await _createAutoRideOffer();
       } else if (newStatus == 'completed') {
         await _trackingService.stopTracking();
         if (mounted) setState(() => _isTrackingActive = false);
@@ -1843,13 +1846,17 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
   // ==============================================
   //  POPUP RETOUR LIFT (après mission terminée)
   // ==============================================
-  void _showRetourLiftPopup() {
+  Future<void> _showRetourLiftPopup() async {
+    final prefs = await SharedPreferences.getInstance();
+    if ((prefs.getBool('lift_popup_disabled') ?? false) || !mounted) return;
     final deliveryCity = _mission?.deliveryCity ?? '';
+    bool neverAgain = false;
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (ctx) => Container(
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => Container(
         margin: const EdgeInsets.all(16),
         padding: const EdgeInsets.all(24),
         decoration: BoxDecoration(
@@ -1946,10 +1953,65 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
                 ),
               ],
             ),
+            const SizedBox(height: 4),
+            Row(
+              children: [
+                Transform.scale(
+                  scale: 0.85,
+                  child: Checkbox(
+                    value: neverAgain,
+                    activeColor: const Color(0xFF0D9488),
+                    onChanged: (v) {
+                      setLocal(() => neverAgain = v ?? false);
+                      if (v == true) prefs.setBool('lift_popup_disabled', true);
+                    },
+                  ),
+                ),
+                const Text('Ne plus afficher',
+                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+              ],
+            ),
           ],
         ),
       ),
+    ),
     );
+  }
+
+  // ==============================================
+  //  CRÉATION AUTO OFFRE DE LIFT (départ mission)
+  // ==============================================
+  Future<void> _createAutoRideOffer() async {
+    final m = _mission;
+    if (m == null) return;
+    final uid = Supabase.instance.client.auth.currentUser?.id;
+    if (uid == null) return;
+    final from = m.pickupCity;
+    final to   = m.deliveryCity;
+    if (from == null || from.isEmpty || to == null || to.isEmpty) return;
+    try {
+      // Ne pas créer en doublon
+      final existing = await Supabase.instance.client
+          .from('ride_offers')
+          .select('id')
+          .eq('mission_id', m.id)
+          .eq('user_id', uid)
+          .maybeSingle();
+      if (existing != null) return;
+      final depDate = m.pickupDate ?? DateTime.now();
+      await Supabase.instance.client.from('ride_offers').insert({
+        'user_id':          uid,
+        'mission_id':       m.id,
+        'origin_city':      from,
+        'destination_city': to,
+        'departure_date':   DateFormat('yyyy-MM-dd').format(depDate),
+        'departure_time':   DateFormat('HH:mm:ss').format(depDate),
+        'seats_available':  1,
+        'status':           'active',
+      });
+    } catch (_) {
+      // Silencieux — l'offre auto est un bonus, pas critique
+    }
   }
 
   // ==============================================

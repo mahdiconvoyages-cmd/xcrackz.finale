@@ -14,6 +14,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
+import '../../widgets/city_search_field.dart';
 
 // ── Couleurs ─────────────────────────────────────────────────────────────────
 
@@ -163,9 +164,10 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
     try {
       final dateStr = DateFormat('yyyy-MM-dd').format(_selectedDate);
       final to = _toCtrl.text.trim();
+      final fromKey = from.split(' ').first;
 
-      // Requête principale : offres actives pour cette date
-      var query = _supabase
+      // ── Requête principale : offres qui PARTENT de ma ville ───────────────
+      var q = _supabase
           .from('ride_offers')
           .select('''
             *,
@@ -178,22 +180,52 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
           .neq('user_id', _userId)
           .inFilter('status', ['active', 'en_route'])
           .eq('departure_date', dateStr)
-          .gt('seats_available', 0);
+          .gt('seats_available', 0)
+          .ilike('origin_city', '%$fromKey%');
 
-      // Filtre approximatif sur la ville d'origine
-      if (from.isNotEmpty) {
-        query = query.ilike('origin_city', '%${from.split(' ').first}%');
+      final mainData  = await q.order('departure_time', ascending: true);
+      List<Map<String, dynamic>> offers = List<Map<String, dynamic>>.from(mainData);
+
+      // ── Requête axe : offres qui ARRIVENT dans ma ville (passagers pris en route) ─
+      // Marquées 'axis:true' pour afficher "En passage"
+      if (from.length >= 3) {
+        try {
+          final axisData = await _supabase
+              .from('ride_offers')
+              .select('''
+                *,
+                profile:profiles!user_id(
+                  id, first_name, last_name, avatar_url,
+                  company_name
+                ),
+                ratings:ride_ratings(rating)
+              ''')
+              .neq('user_id', _userId)
+              .inFilter('status', ['active', 'en_route'])
+              .eq('departure_date', dateStr)
+              .gt('seats_available', 0)
+              .ilike('destination_city', '%$fromKey%')
+              .order('departure_time', ascending: true);
+
+          for (final o in axisData as List) {
+            final dup = offers.any((e) => e['id'] == o['id']);
+            if (!dup) {
+              offers.add(Map<String, dynamic>.from(o as Map)..['_is_axis'] = true);
+            }
+          }
+        } catch (_) {}
       }
 
-      final data = await query.order('departure_time', ascending: true);
-      List<Map<String, dynamic>> offers = List<Map<String, dynamic>>.from(data);
-
-      // Si on a une destination → filtrer par destination aussi (optionnel, on garde les partiels)
+      // ── Tri : offres vers la bonne destination en premier ─────────────────
       if (to.isNotEmpty) {
         offers.sort((a, b) {
-          final aMatch = (a['destination_city'] as String? ?? '').toLowerCase().contains(to.toLowerCase()) ? 0 : 1;
-          final bMatch = (b['destination_city'] as String? ?? '').toLowerCase().contains(to.toLowerCase()) ? 0 : 1;
-          return aMatch.compareTo(bMatch);
+          int score(Map m) {
+            final dest = (m['destination_city'] as String? ?? '').toLowerCase();
+            final isAxis = m['_is_axis'] == true;
+            if (dest.contains(to.toLowerCase())) return isAxis ? 1 : 0;
+            return isAxis ? 3 : 2;
+          }
+          return score(a).compareTo(score(b));
         });
       }
 
@@ -355,21 +387,21 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
           // Ligne Depuis → Vers
           Row(
             children: [
-              Expanded(child: _CityField(
+              Expanded(child: CitySearchField(
                 controller: _fromCtrl,
                 hint: 'Depuis…',
                 icon: Icons.my_location,
-                iconColor: _kTeal,
+                onSubmitted: _search,
               )),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
                 child: Icon(Icons.arrow_forward, color: _kGray, size: 20),
               ),
-              Expanded(child: _CityField(
+              Expanded(child: CitySearchField(
                 controller: _toCtrl,
                 hint: 'Vers (optionnel)',
                 icon: Icons.location_on_outlined,
-                iconColor: _kGray,
+                onSubmitted: _search,
               )),
             ],
           ),
@@ -759,6 +791,7 @@ class _OfferCard extends StatelessWidget {
     // Est-ce que la destination correspond ?
     final isDirectMatch = toCity.isNotEmpty &&
         dest.toLowerCase().contains(toCity.toLowerCase().split(' ').first.toLowerCase());
+    final isAxis = offer['_is_axis'] == true;
 
     const vehicleEmoji = {
       'car': '🚗', 'van': '🚐', 'truck': '🚛', 'suv': '🏎️', 'motorcycle': '🏍️',
@@ -798,6 +831,29 @@ class _OfferCard extends StatelessWidget {
                   SizedBox(width: 6),
                   Text('Trajet direct vers ta destination',
                       style: TextStyle(fontSize: 12, color: _kTeal, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          // Badge "En passage" pour les offres en axe
+          if (!isDirectMatch && isAxis)
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 5),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(16),
+                  topRight: Radius.circular(16),
+                ),
+                border: Border.all(color: const Color(0xFFFED7AA), width: 0),
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.alt_route, size: 14, color: Color(0xFFF59E0B)),
+                  SizedBox(width: 6),
+                  Text('En passage par ta ville — déviation possible',
+                      style: TextStyle(fontSize: 12, color: Color(0xFFD97706),
+                          fontWeight: FontWeight.w600)),
                 ],
               ),
             ),

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../widgets/city_search_field.dart';
 
 const _kTeal   = Color(0xFF0D9488);
 const _kDark   = Color(0xFF0F172A);
@@ -125,9 +126,17 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
           const Text('Publier une offre de lift',
               style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: _kDark)),
           const SizedBox(height: 16),
-          _field(_fromCtrl, 'Départ', Icons.trip_origin),
+          CitySearchField(
+            controller: _fromCtrl,
+            hint: 'Départ',
+            icon: Icons.trip_origin,
+          ),
           const SizedBox(height: 10),
-          _field(_toCtrl, 'Arrivée', Icons.location_on_outlined),
+          CitySearchField(
+            controller: _toCtrl,
+            hint: 'Arrivée',
+            icon: Icons.location_on_outlined,
+          ),
           const SizedBox(height: 10),
           Row(children: [
             Expanded(

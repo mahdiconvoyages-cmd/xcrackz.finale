@@ -21,6 +21,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'retour_lift_screen.dart';
 import '_offer_publish_sheet.dart';
 import '_match_chat_sheet.dart';
+import '../../services/lift_notification_service.dart';
 
 // ── Couleurs ──────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,7 @@ class PlanningNetworkScreen extends StatefulWidget {
 
 class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
   final _sb = Supabase.instance.client;
+  final _liftNotif = LiftNotificationService();
 
   List<Map<String, dynamic>> _myOffers   = [];
   List<Map<String, dynamic>> _myMatches  = [];
@@ -84,6 +86,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
     super.initState();
     _load();
     _subscribeRealtime();
+    _liftNotif.initialize();
   }
 
   RealtimeChannel? _channel;
@@ -163,13 +166,18 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
                     myUid: _uid,
                     onTap: () => _openChat(m),
                     onAccept: m['driver_id'] == _uid && m['status'] == 'proposed'
-                        ? () => _updateMatch(m['id'], 'accepted')
+                        ? () => _updateMatch(m['id'], 'accepted', match: m)
                         : null,
                     onDecline: m['driver_id'] == _uid && m['status'] == 'proposed'
-                        ? () => _updateMatch(m['id'], 'declined')
-                        : null,                    onCancelAccepted: m['driver_id'] == _uid && m['status'] == 'accepted'
+                        ? () => _updateMatch(m['id'], 'declined', match: m)
+                        : null,
+                    onCancelAccepted: m['driver_id'] == _uid && m['status'] == 'accepted'
                         ? () => _cancelAcceptedMatch(m)
-                        : null,                  )).toList()),
+                        : null,
+                    onMarkCompleted: m['status'] == 'accepted'
+                        ? () => _updateMatch(m['id'], 'completed', match: m)
+                        : null,
+                  )).toList()),
             ],
             if (_myOffers.isNotEmpty)
               _buildSection('Mes offres actives', Icons.directions_car, _kTeal,
@@ -354,8 +362,29 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
     );
   }
 
-  Future<void> _updateMatch(String matchId, String status) async {
+  Future<void> _updateMatch(String matchId, String status, {Map<String, dynamic>? match}) async {
     await _sb.from('ride_matches').update({'status': status}).eq('id', matchId);
+    // Notification push à l’autre partie
+    if (match != null) {
+      final passengerId = match['passenger_id'] as String?;
+      final driverId    = match['driver_id']    as String?;
+      final pickup      = match['pickup_city']  as String? ?? '';
+      final dropoff     = match['dropoff_city'] as String? ?? '';
+      if (status == 'accepted' && passengerId != null) {
+        await _liftNotif.sendPushToPassenger(
+            passengerUserId: passengerId, status: 'accepted',
+            pickupCity: pickup, dropoffCity: dropoff);
+      } else if (status == 'declined' && passengerId != null) {
+        await _liftNotif.sendPushToPassenger(
+            passengerUserId: passengerId, status: 'declined',
+            pickupCity: pickup, dropoffCity: dropoff);
+      }
+      // Notation quand le lift est marqué terminé
+      if (status == 'completed') {
+        final toRate = _uid == driverId ? passengerId : driverId;
+        if (toRate != null && mounted) await _rateMatch(matchId, toRate, pickup, dropoff);
+      }
+    }
     _load();
   }
 
@@ -398,6 +427,87 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
   Future<void> _cancelRequest(String requestId) async {
     await _sb.from('ride_requests').update({'status': 'cancelled'}).eq('id', requestId);
     _load();
+  }
+
+  // ── Notation post-lift ──────────────────────────────────────────────────────
+
+  Future<void> _rateMatch(
+      String matchId, String ratedUserId, String pickup, String dropoff) async {
+    int selectedRating = 5;
+    String? comment;
+    final ok = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+          title: const Text('\u2b50 Noté ce lift',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('$pickup \u2192 $dropoff',
+                  style: const TextStyle(fontSize: 13, color: Color(0xFF64748B))),
+              const SizedBox(height: 16),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: List.generate(5, (i) => GestureDetector(
+                  onTap: () => setLocal(() => selectedRating = i + 1),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Icon(
+                      i < selectedRating ? Icons.star_rounded : Icons.star_outline_rounded,
+                      color: const Color(0xFFF59E0B),
+                      size: 36,
+                    ),
+                  ),
+                )),
+              ),
+              const SizedBox(height: 14),
+              TextField(
+                onChanged: (v) => comment = v,
+                maxLines: 2,
+                decoration: InputDecoration(
+                  hintText: 'Un commentaire ? (optionnel)',
+                  hintStyle: const TextStyle(fontSize: 13),
+                  filled: true,
+                  fillColor: const Color(0xFFF8FAFC),
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                  enabledBorder: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: const BorderSide(color: Color(0xFFE2E8F0)),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Passer'),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              style: FilledButton.styleFrom(backgroundColor: _kTeal),
+              child: const Text('Envoyer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _sb.from('ride_ratings').insert({
+        'match_id':      matchId,
+        'rater_id':      _uid,
+        'rated_user_id': ratedUserId,
+        'rating':        selectedRating,
+        if (comment != null && comment!.isNotEmpty) 'comment': comment,
+      });
+    } catch (_) {}
   }
 
   /// Annulation d'un match déjà accepté par le conducteur → la demande du passager
@@ -454,6 +564,7 @@ class _MatchTile extends StatelessWidget {
   final VoidCallback? onAccept;
   final VoidCallback? onDecline;
   final VoidCallback? onCancelAccepted;
+  final VoidCallback? onMarkCompleted;
 
   const _MatchTile({
     required this.match,
@@ -462,6 +573,7 @@ class _MatchTile extends StatelessWidget {
     this.onAccept,
     this.onDecline,
     this.onCancelAccepted,
+    this.onMarkCompleted,
   });
 
   @override
@@ -543,6 +655,37 @@ class _MatchTile extends StatelessWidget {
                   ),
               ],
             ),
+            if (onCancelAccepted != null) ...[              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  onPressed: onCancelAccepted,
+                  icon: const Icon(Icons.cancel_outlined, size: 16),
+                  label: const Text('Annuler le lift'),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: _kRed,
+                    side: const BorderSide(color: _kRed),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+            if (onMarkCompleted != null) ...[              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onMarkCompleted,
+                  icon: const Icon(Icons.flag_rounded, size: 16),
+                  label: const Text('Marquer terminé'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: const Color(0xFF7C3AED),
+                    padding: const EdgeInsets.symmetric(vertical: 10),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
             if (onAccept != null || onDecline != null) ...[
               const SizedBox(height: 10),
               Row(
