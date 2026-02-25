@@ -503,7 +503,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
       await _sb.from('ride_ratings').insert({
         'match_id':      matchId,
         'rater_id':      _uid,
-        'rated_user_id': ratedUserId,
+        'rated_id':      ratedUserId,
         'rating':        selectedRating,
         if (comment != null && comment!.isNotEmpty) 'comment': comment,
       });
