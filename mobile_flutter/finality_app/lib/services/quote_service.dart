@@ -43,7 +43,7 @@ class QuoteService {
 
       var query = _supabase
           .from('quotes')
-          .select('*, quote_items(*)')
+          .select('*')
           .eq('user_id', userId);
 
       if (status != null && status != 'all') {
@@ -56,6 +56,18 @@ class QuoteService {
       
       final quotes = <Quote>[];
       for (final json in response as List) {
+        final quoteId = json['id'] as String?;
+        if (quoteId != null) {
+          try {
+            final items = await _supabase
+                .from('quote_items')
+                .select('*')
+                .eq('quote_id', quoteId);
+            json['quote_items'] = items;
+          } catch (_) {
+            json['quote_items'] = [];
+          }
+        }
         quotes.add(Quote.fromJson(json));
       }
       
