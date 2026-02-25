@@ -33,8 +33,7 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
 
   final _fromCtrl = TextEditingController();
   final _toCtrl   = TextEditingController();
-  final _timeCtrl = TextEditingController();
-
+  TimeOfDay _time = const TimeOfDay(hour: 8, minute: 0);
   DateTime? _date;
   int _seats = 1;
   bool _loading = false;
@@ -44,14 +43,12 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
     super.initState();
     _fromCtrl.text = widget.defaultFrom ?? '';
     _toCtrl.text   = widget.defaultTo ?? '';
-    _timeCtrl.text = '08:00';
   }
 
   @override
   void dispose() {
     _fromCtrl.dispose();
     _toCtrl.dispose();
-    _timeCtrl.dispose();
     super.dispose();
   }
 
@@ -64,6 +61,17 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
     );
     if (picked != null) setState(() => _date = picked);
   }
+
+  Future<void> _pickTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _time,
+    );
+    if (picked != null) setState(() => _time = picked);
+  }
+
+  String get _timeLabel =>
+      '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}';
 
   Future<void> _publish() async {
     if (_fromCtrl.text.trim().isEmpty || _toCtrl.text.trim().isEmpty || _date == null) {
@@ -79,7 +87,7 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
         'origin_city':      _fromCtrl.text.trim(),
         'destination_city': _toCtrl.text.trim(),
         'departure_date':   DateFormat('yyyy-MM-dd').format(_date!),
-        'departure_time':   '${_timeCtrl.text}:00',
+        'departure_time':   '$_timeLabel:00',
         'seats_available':  _seats,
         'status':           'active',
       });
@@ -153,7 +161,12 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
               ),
             ),
             const SizedBox(width: 10),
-            Expanded(child: _field(_timeCtrl, 'Heure', Icons.access_time)),
+            Expanded(
+              child: GestureDetector(
+                onTap: _pickTime,
+                child: _infoTile(Icons.access_time, _timeLabel),
+              ),
+            ),
           ]),
           const SizedBox(height: 10),
           Row(children: [
@@ -191,30 +204,6 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
                 : const Text('Publier', style: TextStyle(fontSize: 15)),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _field(TextEditingController ctrl, String hint, IconData icon) {
-    return TextField(
-      controller: ctrl,
-      decoration: InputDecoration(
-        hintText: hint,
-        prefixIcon: Icon(icon, size: 18, color: _kGray),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-        filled: true, fillColor: const Color(0xFFF8FAFC),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _kBorder),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _kBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _kTeal),
-        ),
       ),
     );
   }

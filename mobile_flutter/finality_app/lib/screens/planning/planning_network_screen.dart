@@ -106,6 +106,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
   @override
   void dispose() {
     _channel?.unsubscribe();
+    _liftNotif.dispose();
     super.dispose();
   }
 
@@ -806,9 +807,12 @@ class _OfferTile extends StatelessWidget {
               children: [
                 Row(
                   children: [
-                    Text('$origin → $dest',
-                        style: const TextStyle(
-                            fontWeight: FontWeight.bold, fontSize: 14, color: _kDark)),
+                    Flexible(
+                      child: Text('$origin → $dest',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14, color: _kDark),
+                          overflow: TextOverflow.ellipsis),
+                    ),
                     if (missionLinkage) ...[
                       const SizedBox(width: 6),
                       Container(

@@ -14,7 +14,9 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:http/http.dart' as http;
+import 'package:geolocator/geolocator.dart';
 import '../../widgets/city_search_field.dart';
+import '../../services/lift_notification_service.dart';
 
 // ── Couleurs ─────────────────────────────────────────────────────────────────
 
@@ -29,6 +31,12 @@ const _kBorder = Color(0xFFE2E8F0);
 const _kCard   = Color(0xFFFFFFFF);
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+
+/// Safe substring for time strings - returns "HH:mm" or empty
+String _safeTime(String? t) {
+  if (t == null || t.isEmpty) return '';
+  return t.length >= 5 ? t.substring(0, 5) : t;
+}
 
 String _timeAgo(String? iso) {
   if (iso == null) return '';
@@ -106,6 +114,7 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
   List<Map<String, dynamic>> _myMatches = [];
   bool _loading = false;
   bool _searched = false;
+  bool _geoLoading = false;
 
   // Date sélectionnée
   DateTime _selectedDate = DateTime.now();
@@ -115,6 +124,8 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
 
   String get _userId => _supabase.auth.currentUser?.id ?? '';
 
+  RealtimeChannel? _realtimeChannel;
+
   @override
   void initState() {
     super.initState();
@@ -122,18 +133,80 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
     _toCtrl   = TextEditingController(text: widget.toCity ?? '');
     _tab = TabController(length: 2, vsync: this);
     _loadMyMatches();
+    _subscribeRealtime();
     // Lancer la recherche automatiquement si les villes sont préfillées
     if ((widget.fromCity ?? '').isNotEmpty) {
       WidgetsBinding.instance.addPostFrameCallback((_) => _search());
     }
   }
 
+  /// Écoute les changements sur ride_matches pour rafraîchir automatiquement
+  void _subscribeRealtime() {
+    if (_userId.isEmpty) return;
+    _realtimeChannel = _supabase.channel('retour_lift_$_userId')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.all,
+        schema: 'public',
+        table: 'ride_matches',
+        filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'passenger_id',
+            value: _userId),
+        callback: (_) => _loadMyMatches(),
+      )
+      ..subscribe();
+  }
+
   @override
   void dispose() {
+    _realtimeChannel?.unsubscribe();
     _fromCtrl.dispose();
     _toCtrl.dispose();
     _tab.dispose();
     super.dispose();
+  }
+
+  // ── Géolocalisation — remplir la ville de départ ──────────────────────────
+
+  Future<void> _useMyLocation() async {
+    setState(() => _geoLoading = true);
+    try {
+      LocationPermission perm = await Geolocator.checkPermission();
+      if (perm == LocationPermission.denied) {
+        perm = await Geolocator.requestPermission();
+      }
+      if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+        if (mounted) _showSnack('Active la localisation dans les réglages', isError: true);
+        return;
+      }
+      final pos = await Geolocator.getCurrentPosition(
+        locationSettings: const LocationSettings(
+          accuracy: LocationAccuracy.medium,
+          timeLimit: Duration(seconds: 10),
+        ),
+      );
+      // Reverse geocoding via api-adresse.data.gouv.fr
+      final res = await http.get(Uri.parse(
+          'https://api-adresse.data.gouv.fr/reverse/?lon=${pos.longitude}&lat=${pos.latitude}&type=municipality&limit=1'));
+      if (res.statusCode == 200) {
+        final data = jsonDecode(res.body) as Map;
+        final features = (data['features'] as List?) ?? [];
+        if (features.isNotEmpty) {
+          final city = features.first['properties']?['city'] as String? ?? '';
+          if (city.isNotEmpty && mounted) {
+            _fromCtrl.text = city;
+            _showSnack('📍 Position détectée : $city');
+            _search();
+            return;
+          }
+        }
+      }
+      if (mounted) _showSnack('Ville non trouvée pour ta position', isError: true);
+    } catch (e) {
+      if (mounted) _showSnack('Erreur GPS: $e', isError: true);
+    } finally {
+      if (mounted) setState(() => _geoLoading = false);
+    }
   }
 
   // ── Chargement des matchs en cours ───────────────────────────────────────
@@ -241,6 +314,21 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
   // ── Demander un lift ──────────────────────────────────────────────────────
 
   Future<void> _requestLift(Map<String, dynamic> offer) async {
+    // ── Empêcher les demandes en double sur la même offre ──
+    try {
+      final existing = await _supabase
+          .from('ride_matches')
+          .select('id')
+          .eq('offer_id', offer['id'])
+          .eq('passenger_id', _userId)
+          .inFilter('status', ['proposed', 'accepted', 'in_transit'])
+          .maybeSingle();
+      if (existing != null) {
+        if (mounted) _showSnack('Tu as déjà une demande en cours pour ce lift', isError: true);
+        return;
+      }
+    } catch (_) {}
+
     final confirmed = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
@@ -277,6 +365,17 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
             : _toCtrl.text.trim(),
         'status': 'proposed',
       });
+
+      // Envoyer notification push au conducteur
+      try {
+        await LiftNotificationService().sendPushToDriver(
+          driverUserId: offer['user_id'] as String,
+          pickupCity: _fromCtrl.text.trim(),
+          dropoffCity: _toCtrl.text.trim().isEmpty
+              ? (offer['destination_city'] as String? ?? '')
+              : _toCtrl.text.trim(),
+        );
+      } catch (_) {}
 
       await _loadMyMatches();
       if (mounted) {
@@ -405,6 +504,27 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
               )),
             ],
           ),
+          // Bouton GPS rapide
+          if (_fromCtrl.text.isEmpty)
+            Padding(
+              padding: const EdgeInsets.only(top: 8),
+              child: GestureDetector(
+                onTap: _geoLoading ? null : _useMyLocation,
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (_geoLoading)
+                      const SizedBox(width: 14, height: 14,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: _kTeal))
+                    else
+                      const Icon(Icons.gps_fixed, size: 14, color: _kTeal),
+                    const SizedBox(width: 6),
+                    const Text('Utiliser ma position actuelle',
+                        style: TextStyle(fontSize: 13, color: _kTeal, fontWeight: FontWeight.w500)),
+                  ],
+                ),
+              ),
+            ),
           const SizedBox(height: 10),
           // Ligne date + bouton recherche
           Row(
@@ -519,7 +639,7 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
       color: _kTeal,
       onRefresh: _search,
       child: ListView.builder(
-        padding: const EdgeInsets.all(12),
+        padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + MediaQuery.of(context).padding.bottom),
         itemCount: _offers.length,
         itemBuilder: (_, i) => _OfferCard(
           offer: _offers[i],
@@ -541,7 +661,7 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
       );
     }
     return ListView.builder(
-      padding: const EdgeInsets.all(12),
+      padding: EdgeInsets.fromLTRB(12, 12, 12, 12 + MediaQuery.of(context).padding.bottom),
       itemCount: _myMatches.length,
       itemBuilder: (_, i) => _MatchCard(
         match: _myMatches[i],
@@ -607,49 +727,6 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
 }
 
 // ── Widgets utilitaires ──────────────────────────────────────────────────────
-
-class _CityField extends StatelessWidget {
-  final TextEditingController controller;
-  final String hint;
-  final IconData icon;
-  final Color iconColor;
-
-  const _CityField({
-    required this.controller,
-    required this.hint,
-    required this.icon,
-    required this.iconColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return TextField(
-      controller: controller,
-      textCapitalization: TextCapitalization.words,
-      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500),
-      decoration: InputDecoration(
-        hintText: hint,
-        hintStyle: const TextStyle(color: _kGray, fontSize: 13),
-        prefixIcon: Icon(icon, color: iconColor, size: 18),
-        filled: true,
-        fillColor: const Color(0xFFF8FAFC),
-        contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _kBorder),
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _kBorder),
-        ),
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: _kTeal, width: 1.5),
-        ),
-      ),
-    );
-  }
-}
 
 class _DateChip extends StatelessWidget {
   final DateTime date;
@@ -892,7 +969,7 @@ class _OfferCard extends StatelessWidget {
                         Text(vehicleEmoji[vehicleType] ?? '🚗',
                             style: const TextStyle(fontSize: 22)),
                         if (depTime.isNotEmpty)
-                          Text(depTime.substring(0, 5),
+                          Text(_safeTime(depTime),
                               style: const TextStyle(
                                   fontSize: 14, fontWeight: FontWeight.bold, color: _kDark)),
                       ],
@@ -1038,7 +1115,7 @@ class _MatchCard extends StatelessWidget {
                     style: const TextStyle(fontSize: 12, color: _kGray)),
               if (depTime.isNotEmpty) ...[
                 const SizedBox(width: 6),
-                Text(depTime.substring(0, 5),
+                Text(_safeTime(depTime),
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: _kDark)),
               ],
             ],
@@ -1123,7 +1200,7 @@ class _RequestBottomSheet extends StatelessWidget {
 
     return Container(
       margin: const EdgeInsets.all(16),
-      padding: const EdgeInsets.all(24),
+      padding: EdgeInsets.fromLTRB(24, 24, 24, 24 + MediaQuery.of(context).padding.bottom),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(20),
@@ -1142,7 +1219,7 @@ class _RequestBottomSheet extends StatelessWidget {
                   children: [
                     Text('Demander un lift à $name',
                         style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _kDark)),
-                    Text('$origin → $dest${depTime.isNotEmpty ? " à ${depTime.substring(0, 5)}" : ""}',
+                    Text('$origin → $dest${depTime.isNotEmpty ? " à ${_safeTime(depTime)}" : ""}',
                         style: const TextStyle(fontSize: 13, color: _kGray)),
                   ],
                 ),

@@ -178,7 +178,7 @@ class _CitySearchFieldState extends State<CitySearchField> {
                               ],
                             ),
                           ),
-                          if (s.postalCode.isNotEmpty)
+                          if (s.postalCode.length >= 2)
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(

@@ -3,6 +3,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../../services/lift_notification_service.dart';
 
 const _kTeal   = Color(0xFF0D9488);
 const _kTealBg = Color(0xFFE6FFFA);
@@ -97,6 +98,20 @@ class _MatchChatSheetState extends State<MatchChatSheet> {
         'sender_id': widget.myUid,
         'content':   text,
       });
+      // Envoyer notification push au partenaire
+      try {
+        final driverId = widget.match['driver_id'] as String?;
+        final passengerId = widget.match['passenger_id'] as String?;
+        final partnerId = widget.myUid == driverId ? passengerId : driverId;
+        if (partnerId != null && partnerId.isNotEmpty) {
+          await _sb.functions.invoke('send-lift-notification', body: {
+            'to_user_id': partnerId,
+            'title': '💬 Message lift',
+            'body': text.length > 80 ? '${text.substring(0, 80)}…' : text,
+            'data': {'type': 'chat_message', 'match_id': _matchId},
+          });
+        }
+      } catch (_) {}
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -168,6 +183,7 @@ class _MatchChatSheetState extends State<MatchChatSheet> {
                         style: TextStyle(color: _kGray, fontSize: 15)))
                 : ListView.builder(
                     controller: _scrollCtrl,
+                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
                     padding: const EdgeInsets.all(12),
                     itemCount: _messages.length,
                     itemBuilder: (_, i) => _MessageBubble(
