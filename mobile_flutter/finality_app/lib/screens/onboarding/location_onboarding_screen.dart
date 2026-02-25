@@ -42,7 +42,7 @@ class _LocationOnboardingScreenState extends State<LocationOnboardingScreen> {
       color: Color(0xFF6366F1),
       title: 'Localisation en temps réel',
       description:
-          'Pour que le Réseau Planning fonctionne parfaitement, nous avons besoin de votre position GPS.\n\n'
+          'Pour que l\'Entraide Convoyeurs fonctionne parfaitement, nous avons besoin de votre position GPS.\n\n'
           'Cela permet de :\n'
           '• Calculer les ETA vers chaque ville\n'
           '• Matcher vos trajets avec d\'autres convoyeurs\n'

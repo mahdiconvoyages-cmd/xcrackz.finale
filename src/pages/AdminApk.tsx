@@ -1,14 +1,15 @@
 // @ts-nocheck
 import { useEffect, useState } from 'react';
-import { Download, Upload, Trash2, CheckCircle, XCircle, Smartphone } from 'lucide-react';
+import { Download, Upload, Trash2, CheckCircle, XCircle, Smartphone, Bell, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function AdminApk() {
   const [versions, setVersions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [uploading, setUploading] = useState(false);
+  const [notifying, setNotifying] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ version: '', code: '', file: null as File | null, notes: '', mandatory: false });
+  const [form, setForm] = useState({ version: '', code: '', file: null as File | null, notes: '', mandatory: false, sendNotification: true });
 
   useEffect(() => { loadVersions(); }, []);
 
@@ -43,10 +44,19 @@ export default function AdminApk() {
       });
       if (insertError) throw insertError;
 
+      // Désactiver les anciennes versions automatiquement
+      await supabase.from('app_versions').update({ is_active: false }).neq('version_code', parseInt(form.code)).eq('platform', 'android');
+      await supabase.from('app_versions').update({ is_active: true }).eq('version_code', parseInt(form.code));
+
+      // Envoyer une notification push à tous les utilisateurs si coché
+      if (form.sendNotification) {
+        await sendUpdateNotification(form.version, form.notes || null);
+      }
+
       setShowModal(false);
-      setForm({ version: '', code: '', file: null, notes: '', mandatory: false });
+      setForm({ version: '', code: '', file: null, notes: '', mandatory: false, sendNotification: true });
       await loadVersions();
-      alert('✅ Version uploadée avec succès !');
+      alert('✅ Version uploadée avec succès !' + (form.sendNotification ? ' Notification envoyée à tous les utilisateurs.' : ''));
     } catch (err: any) {
       alert(`❌ Erreur: ${err.message}`);
     } finally { setUploading(false); }
@@ -66,6 +76,58 @@ export default function AdminApk() {
     }
     await supabase.from('app_versions').delete().eq('id', id);
     await loadVersions();
+  };
+
+  const sendUpdateNotification = async (versionName: string, notes: string | null) => {
+    try {
+      // Récupérer tous les utilisateurs avec un fcm_token
+      const { data: users } = await supabase
+        .from('profiles')
+        .select('id, fcm_token')
+        .not('fcm_token', 'is', null)
+        .neq('fcm_token', '');
+
+      if (!users || users.length === 0) {
+        console.log('Aucun utilisateur avec FCM token');
+        return;
+      }
+
+      // Envoyer la notification push via Edge Function
+      const title = '🆕 Nouvelle version disponible !';
+      const body = `ChecksFleet v${versionName} est disponible. ${notes || 'Mettez à jour pour profiter des dernières améliorations.'}`;
+
+      // Envoyer par batch à chaque utilisateur
+      const promises = users.map(u =>
+        supabase.functions.invoke('send-notification', {
+          body: {
+            userId: u.id,
+            type: 'app_update',
+            title,
+            message: body,
+            data: { type: 'app_update', version: versionName },
+            channel: 'updates',
+          },
+        }).catch(() => {}) // Ignorer les erreurs individuelles
+      );
+
+      await Promise.allSettled(promises);
+      console.log(`✅ Notifications envoyées à ${users.length} utilisateurs`);
+    } catch (err) {
+      console.error('Erreur envoi notifications:', err);
+    }
+  };
+
+  const handleNotifyAll = async (version: any) => {
+    if (!confirm(`Envoyer une notification push à tous les utilisateurs pour la version ${version.version_name} ?`)) return;
+    setNotifying(version.id);
+    try {
+      await sendUpdateNotification(version.version_name, version.release_notes);
+      alert(`✅ Notification envoyée pour la version ${version.version_name}`);
+    } catch (err: any) {
+      alert(`❌ Erreur: ${err.message}`);
+    } finally {
+      setNotifying(null);
+    }
   };
 
   if (loading) return <div className="flex items-center justify-center h-64"><div className="animate-spin rounded-full h-12 w-12 border-4 border-teal-500 border-t-transparent" /></div>;
@@ -129,6 +191,9 @@ export default function AdminApk() {
                         <a href={v.apk_url} target="_blank" rel="noopener noreferrer" className="p-1.5 bg-blue-50 text-blue-600 rounded-lg hover:bg-blue-100 transition" title="Télécharger">
                           <Download className="w-3.5 h-3.5" />
                         </a>
+                        <button onClick={() => handleNotifyAll(v)} disabled={notifying === v.id} className="p-1.5 bg-purple-50 text-purple-600 rounded-lg hover:bg-purple-100 transition disabled:opacity-50" title="Notifier tous les utilisateurs">
+                          {notifying === v.id ? <span className="w-3.5 h-3.5 block animate-spin rounded-full border-2 border-purple-400 border-t-transparent" /> : <Bell className="w-3.5 h-3.5" />}
+                        </button>
                         <button onClick={() => toggleStatus(v.id, v.is_active)} className={`p-1.5 rounded-lg transition ${v.is_active ? 'bg-orange-50 text-orange-600' : 'bg-green-50 text-green-600'}`} title={v.is_active ? 'Désactiver' : 'Activer'}>
                           {v.is_active ? <XCircle className="w-3.5 h-3.5" /> : <CheckCircle className="w-3.5 h-3.5" />}
                         </button>
@@ -151,7 +216,7 @@ export default function AdminApk() {
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-5">
               <h3 className="text-xl font-black text-slate-900">Nouvelle version APK</h3>
-              <button onClick={() => { setShowModal(false); setForm({ version: '', code: '', file: null, notes: '', mandatory: false }); }} className="p-1.5 hover:bg-slate-100 rounded-lg"><XCircle className="w-5 h-5 text-slate-500" /></button>
+              <button onClick={() => { setShowModal(false); setForm({ version: '', code: '', file: null, notes: '', mandatory: false, sendNotification: true }); }} className="p-1.5 hover:bg-slate-100 rounded-lg"><XCircle className="w-5 h-5 text-slate-500" /></button>
             </div>
             <div className="space-y-4">
               <div>
@@ -175,9 +240,16 @@ export default function AdminApk() {
                 <input type="checkbox" checked={form.mandatory} onChange={e => setForm(f => ({ ...f, mandatory: e.target.checked }))} className="w-4 h-4 rounded text-orange-600" />
                 <span className="text-sm font-semibold text-slate-700">Mise à jour obligatoire</span>
               </label>
+              <label className="flex items-center gap-2 p-3 bg-purple-50 border border-purple-200 rounded-xl cursor-pointer">
+                <input type="checkbox" checked={form.sendNotification} onChange={e => setForm(f => ({ ...f, sendNotification: e.target.checked }))} className="w-4 h-4 rounded text-purple-600" />
+                <div>
+                  <span className="text-sm font-semibold text-slate-700 flex items-center gap-1"><Bell className="w-3.5 h-3.5" /> Notifier les utilisateurs</span>
+                  <span className="text-xs text-slate-500">Envoyer une notification push à tous les utilisateurs de l'app</span>
+                </div>
+              </label>
             </div>
             <div className="flex gap-3 mt-6">
-              <button onClick={() => { setShowModal(false); setForm({ version: '', code: '', file: null, notes: '', mandatory: false }); }} className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition">Annuler</button>
+              <button onClick={() => { setShowModal(false); setForm({ version: '', code: '', file: null, notes: '', mandatory: false, sendNotification: true }); }} className="flex-1 px-4 py-2.5 bg-slate-100 text-slate-700 font-bold rounded-xl hover:bg-slate-200 transition">Annuler</button>
               <button onClick={handleUpload} disabled={uploading || !form.file || !form.version || !form.code} className="flex-1 px-4 py-2.5 bg-gradient-to-r from-teal-500 to-blue-500 text-white font-bold rounded-xl hover:shadow-lg transition disabled:opacity-50">
                 {uploading ? 'Upload...' : 'Uploader'}
               </button>

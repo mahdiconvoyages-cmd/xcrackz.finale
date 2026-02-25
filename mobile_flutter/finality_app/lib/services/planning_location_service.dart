@@ -45,8 +45,8 @@ class PlanningLocationService {
         .resolvePlatformSpecificImplementation<AndroidFlutterLocalNotificationsPlugin>()
         ?.createNotificationChannel(const AndroidNotificationChannel(
           'planning_notifications',
-          'Réseau Planning',
-          description: 'Notifications du réseau planning (matchs, messages)',
+          'Entraide Convoyeurs',
+          description: 'Notifications entraide convoyeurs (matchs, messages)',
           importance: Importance.high,
         ));
   }
@@ -155,7 +155,7 @@ class PlanningLocationService {
       const NotificationDetails(
         android: AndroidNotificationDetails(
           'planning_notifications',
-          'Réseau Planning',
+          'Entraide Convoyeurs',
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',

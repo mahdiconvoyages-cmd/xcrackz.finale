@@ -264,10 +264,10 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: const [
-                    Text('Réseau Lifts', style: TextStyle(
+                    Text('Entraide Convoyeurs', style: TextStyle(
                         color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                     SizedBox(height: 2),
-                    Text('Convoyeurs qui se rendent service',
+                    Text('Partagez vos trajets retour entre convoyeurs',
                         style: TextStyle(color: Colors.white70, fontSize: 13)),
                   ],
                 ),

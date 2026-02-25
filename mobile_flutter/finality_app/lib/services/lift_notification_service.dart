@@ -50,7 +50,7 @@ class LiftNotificationService {
           const AndroidNotificationChannel(
             'lift_notifications',
             'Notifications Lift',
-            description: 'Matchs et messages du réseau de lifts',
+            description: 'Matchs et messages de l\'entraide convoyeurs',
             importance: Importance.high,
           ),
         );

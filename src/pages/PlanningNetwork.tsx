@@ -208,7 +208,7 @@ export default function PlanningNetwork() {
                 <Share2 className="w-6 h-6" />
               </div>
               <div>
-                <h1 className="text-2xl lg:text-3xl font-black">Réseau Covoiturage</h1>
+                <h1 className="text-2xl lg:text-3xl font-black">Entraide Convoyeurs</h1>
                 <p className="text-white/70 text-sm">Publiez, matchez, voyagez ensemble</p>
               </div>
             </div>

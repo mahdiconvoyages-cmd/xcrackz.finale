@@ -7,6 +7,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../main.dart' show navigatorKey;
 import '../screens/missions/mission_detail_screen.dart';
+import '../services/update_service.dart';
+import '../widgets/update_dialog.dart';
 import '../utils/logger.dart';
 
 /// Background message handler (must be top-level function)
@@ -86,6 +88,20 @@ class FCMService {
               AndroidFlutterLocalNotificationsPlugin>()
           ?.createNotificationChannel(channel);
 
+      // Create update notification channel
+      const updateChannel = AndroidNotificationChannel(
+        'app_updates',
+        'Mises à jour',
+        description: 'Notifications de nouvelles versions disponibles',
+        importance: Importance.high,
+        playSound: true,
+      );
+
+      await _localNotifications
+          .resolvePlatformSpecificImplementation<
+              AndroidFlutterLocalNotificationsPlugin>()
+          ?.createNotificationChannel(updateChannel);
+
       // Handle foreground messages
       _onMessageSub = FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
@@ -147,20 +163,28 @@ class FCMService {
     final notification = message.notification;
     if (notification == null) return;
 
+    // Déterminer le channel approprié
+    final isUpdateNotif = message.data['type'] == 'app_update' ||
+                          message.data['channel'] == 'updates';
+    final channelId = isUpdateNotif ? 'app_updates' : 'checksfleet_notifications';
+    final channelName = isUpdateNotif ? 'Mises à jour' : 'ChecksFleet Notifications';
+
     _localNotifications.show(
       notification.hashCode,
       notification.title ?? 'ChecksFleet',
       notification.body ?? '',
-      const NotificationDetails(
+      NotificationDetails(
         android: AndroidNotificationDetails(
-          'checksfleet_notifications',
-          'ChecksFleet Notifications',
-          channelDescription: 'Notifications de l\'application ChecksFleet',
+          channelId,
+          channelName,
+          channelDescription: isUpdateNotif
+              ? 'Notifications de nouvelles versions disponibles'
+              : 'Notifications de l\'application ChecksFleet',
           importance: Importance.high,
           priority: Priority.high,
           icon: '@mipmap/ic_launcher',
         ),
-        iOS: DarwinNotificationDetails(
+        iOS: const DarwinNotificationDetails(
           presentAlert: true,
           presentBadge: true,
           presentSound: true,
@@ -192,6 +216,14 @@ class FCMService {
     final context = navigatorKey.currentContext;
     if (context == null) return;
 
+    final type = data['type'] as String?;
+
+    // Handle app update notification — trigger update check
+    if (type == 'app_update') {
+      _handleAppUpdateNotification(context);
+      return;
+    }
+
     final missionId = data['mission_id'] as String?;
     if (missionId != null && missionId.isNotEmpty) {
       Navigator.of(context).push(
@@ -199,6 +231,20 @@ class FCMService {
           builder: (_) => MissionDetailScreen(missionId: missionId),
         ),
       );
+    }
+  }
+
+  /// Handle app update notification — check for update and show dialog
+  Future<void> _handleAppUpdateNotification(BuildContext context) async {
+    try {
+      final update = await UpdateService.instance.checkForUpdate();
+      if (update != null) {
+        if (context.mounted) {
+          await UpdateDialog.show(context, update);
+        }
+      }
+    } catch (e) {
+      logger.e('FCM: Erreur handling app_update: $e');
     }
   }
 

@@ -93,11 +93,11 @@ class AppDrawer extends StatelessWidget {
                     onTap: () => _navigate(context, const ScannedDocumentsScreenNew()),
                   ),
                   const SizedBox(height: 8),
-                  _SectionLabel('RÉSEAU'),
+                  _SectionLabel('ENTRAIDE'),
                   _NavItem(
                     icon: Icons.people_alt_rounded,
                     color: const Color(0xFFEC4899),
-                    label: 'Réseau Planning',
+                    label: 'Entraide Convoyeurs',
                     onTap: () => _navigate(context, const PlanningNetworkScreen()),
                   ),
                   const SizedBox(height: 8),
