@@ -148,6 +148,10 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         _assignedDriverName = driverName;
         _activeLiftOffer = liftOffer;
         _liftMatchCount = matchCount;
+        // Auto-load existing public tracking link from DB
+        if (mission.publicTrackingLink != null && mission.publicTrackingLink!.isNotEmpty) {
+          _publicTrackingLink = mission.publicTrackingLink;
+        }
       });
 
       // AUTO-START: Demarrer le tracking automatiquement si mission en cours
@@ -252,6 +256,11 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
                   // Notes
                   if (_mission!.notes != null && _mission!.notes!.isNotEmpty) ...[
                     _buildNotesCard(),
+                    const SizedBox(height: 16),
+                  ],
+                  // Partage lien de suivi client
+                  if (_mission!.status == 'in_progress' || _publicTrackingLink != null) ...[
+                    _buildClientTrackingShareCard(),
                     const SizedBox(height: 16),
                   ],
                   // Tracking GPS
@@ -2439,6 +2448,280 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
     }
   }
 
+  // ── Partage tracking au client ──
+
+  Widget _buildClientTrackingShareCard() {
+    final hasLink = _publicTrackingLink != null;
+    final clientName = _mission?.clientName;
+    final clientPhone = _mission?.clientPhone;
+    final clientEmail = _mission?.clientEmail;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: PremiumTheme.cardBg,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: hasLink ? PremiumTheme.primaryBlue.withOpacity(0.4) : const Color(0xFFE5E7EB),
+        ),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Header
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: PremiumTheme.primaryBlue.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Icon(Icons.share_location, color: PremiumTheme.primaryBlue, size: 24),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Suivi en temps reel',
+                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: PremiumTheme.textPrimary),
+                    ),
+                    Text(
+                      hasLink ? 'Lien pret a envoyer au client' : 'Generez un lien pour votre client',
+                      style: const TextStyle(color: PremiumTheme.textTertiary, fontSize: 12),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+
+          const SizedBox(height: 16),
+
+          // Link display or generate button
+          if (!hasLink) ...[  
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isGeneratingLink ? null : _generateAndShowLink,
+                icon: _isGeneratingLink
+                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.link, size: 18),
+                label: Text(_isGeneratingLink ? 'Generation...' : 'Generer le lien de suivi'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: PremiumTheme.primaryBlue,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ),
+          ] else ...[
+            // Show link
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF8FAFC),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: const Color(0xFFE2E8F0)),
+              ),
+              child: Row(
+                children: [
+                  const Icon(Icons.link, size: 16, color: PremiumTheme.primaryBlue),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      _publicTrackingLink!,
+                      style: const TextStyle(fontSize: 11, color: PremiumTheme.textSecondary),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: _copyLinkToClipboard,
+                    icon: const Icon(Icons.copy, size: 16, color: PremiumTheme.primaryBlue),
+                    tooltip: 'Copier',
+                    constraints: const BoxConstraints(),
+                    padding: EdgeInsets.zero,
+                  ),
+                ],
+              ),
+            ),
+
+            const SizedBox(height: 16),
+
+            // Client info
+            if (clientName != null && clientName.isNotEmpty) ...[
+              Text(
+                'Envoyer a $clientName',
+                style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: PremiumTheme.textPrimary),
+              ),
+              const SizedBox(height: 10),
+            ] else ...[
+              const Text(
+                'Envoyer au client',
+                style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: PremiumTheme.textPrimary),
+              ),
+              const SizedBox(height: 10),
+            ],
+
+            // Action buttons row
+            Row(
+              children: [
+                // SMS
+                Expanded(
+                  child: _ShareButton(
+                    icon: Icons.sms,
+                    label: 'SMS',
+                    color: const Color(0xFF10B981),
+                    onTap: clientPhone != null && clientPhone.isNotEmpty
+                        ? () => _sendTrackingViaSMS(clientPhone)
+                        : () => _sendTrackingViaSMS(null),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // WhatsApp
+                Expanded(
+                  child: _ShareButton(
+                    icon: Icons.chat,
+                    label: 'WhatsApp',
+                    color: const Color(0xFF25D366),
+                    onTap: () => _sendTrackingViaWhatsApp(clientPhone),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Email
+                Expanded(
+                  child: _ShareButton(
+                    icon: Icons.email,
+                    label: 'Email',
+                    color: const Color(0xFF3B82F6),
+                    onTap: clientEmail != null && clientEmail.isNotEmpty
+                        ? () => _sendTrackingViaEmail(clientEmail)
+                        : () => _sendTrackingViaEmail(null),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                // Share generic
+                Expanded(
+                  child: _ShareButton(
+                    icon: Icons.share,
+                    label: 'Autre',
+                    color: const Color(0xFF8B5CF6),
+                    onTap: _shareTrackingLink,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  bool _isGeneratingLink = false;
+
+  Future<void> _generateAndShowLink() async {
+    setState(() => _isGeneratingLink = true);
+    try {
+      final link = await _missionService.generatePublicTrackingLink(_mission!.id);
+      if (link != null && mounted) {
+        setState(() {
+          _publicTrackingLink = link;
+          _isGeneratingLink = false;
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(children: [
+              Icon(Icons.check_circle, color: Colors.white, size: 20),
+              SizedBox(width: 8),
+              Text('Lien de suivi genere !'),
+            ]),
+            backgroundColor: PremiumTheme.accentGreen,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _isGeneratingLink = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur: ${ErrorHelper.cleanError(e)}'),
+          backgroundColor: PremiumTheme.accentRed,
+        ),
+      );
+    }
+  }
+
+  String _buildTrackingMessage() {
+    final ref = _mission?.reference ?? '';
+    return 'Bonjour,\n\n'
+        'Suivez la livraison de votre vehicule en temps reel :\n\n'
+        '${ref.isNotEmpty ? "Mission : $ref\n" : ""}'
+        '$_publicTrackingLink\n\n'
+        'ChecksFleet';
+  }
+
+  Future<void> _sendTrackingViaSMS(String? phone) async {
+    final message = _buildTrackingMessage();
+    final encodedMessage = Uri.encodeComponent(message);
+    final uri = phone != null && phone.isNotEmpty
+        ? Uri.parse('sms:$phone?body=$encodedMessage')
+        : Uri.parse('sms:?body=$encodedMessage');
+    try {
+      await launchUrl(uri);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible d\'ouvrir les SMS'), backgroundColor: Colors.orange),
+      );
+    }
+  }
+
+  Future<void> _sendTrackingViaWhatsApp(String? phone) async {
+    final message = _buildTrackingMessage();
+    final encodedMessage = Uri.encodeComponent(message);
+    final Uri uri;
+    if (phone != null && phone.isNotEmpty) {
+      // Nettoyer le numero (enlever espaces, tirets, etc.)
+      final cleanPhone = phone.replaceAll(RegExp(r'[^\d+]'), '');
+      uri = Uri.parse('https://wa.me/$cleanPhone?text=$encodedMessage');
+    } else {
+      uri = Uri.parse('https://wa.me/?text=$encodedMessage');
+    }
+    try {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('WhatsApp non disponible'), backgroundColor: Colors.orange),
+      );
+    }
+  }
+
+  Future<void> _sendTrackingViaEmail(String? email) async {
+    final ref = _mission?.reference ?? 'votre vehicule';
+    final subject = Uri.encodeComponent('Suivi en temps reel - Mission $ref');
+    final body = Uri.encodeComponent(_buildTrackingMessage());
+    final uri = email != null && email.isNotEmpty
+        ? Uri.parse('mailto:$email?subject=$subject&body=$body')
+        : Uri.parse('mailto:?subject=$subject&body=$body');
+    try {
+      await launchUrl(uri);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Impossible d\'ouvrir l\'email'), backgroundColor: Colors.orange),
+      );
+    }
+  }
+
   Future<void> _copyLinkToClipboard() async {
     if (_publicTrackingLink == null) return;
     await Clipboard.setData(ClipboardData(text: _publicTrackingLink!));
@@ -2454,11 +2737,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
 
   Future<void> _shareTrackingLink() async {
     if (_publicTrackingLink == null) return;
-    final message = 'Suivi de votre livraison en temps reel\n\n'
-        'Mission: ${_mission!.reference}\n'
-        'Suivez votre commande en direct:\n\n'
-        '$_publicTrackingLink\n\n'
-        'ChecksFleet';
+    final message = _buildTrackingMessage();
     try {
       await Share.share(message, subject: 'Suivi GPS - Mission ${_mission!.reference}');
     } catch (e) {
@@ -2467,5 +2746,54 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         SnackBar(content: Text('Erreur partage: ${ErrorHelper.cleanError(e)}'), backgroundColor: PremiumTheme.accentRed),
       );
     }
+  }
+}
+
+// ══════════════════════════════════════════════════════════════════
+//  Share Button Widget
+// ══════════════════════════════════════════════════════════════════
+
+class _ShareButton extends StatelessWidget {
+  final IconData icon;
+  final String label;
+  final Color color;
+  final VoidCallback onTap;
+
+  const _ShareButton({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(vertical: 10),
+        decoration: BoxDecoration(
+          color: color.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: color.withOpacity(0.3)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 20),
+            const SizedBox(height: 4),
+            Text(
+              label,
+              style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }

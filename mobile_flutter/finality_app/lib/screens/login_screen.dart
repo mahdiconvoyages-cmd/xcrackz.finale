@@ -2,6 +2,7 @@
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../main.dart';
 import 'home_screen.dart';
 import 'auth/signup_wizard_screen.dart';
@@ -17,6 +18,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
   final _formKey = GlobalKey<FormState>();
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _secureStorage = const FlutterSecureStorage();
 
   bool _isLoading = false;
   bool _obscurePassword = true;
@@ -47,18 +49,24 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
 
     _animationController.forward();
-    _loadRememberedEmail();
+    _loadRememberedCredentials();
   }
 
-  Future<void> _loadRememberedEmail() async {
+  Future<void> _loadRememberedCredentials() async {
     final prefs = await SharedPreferences.getInstance();
     final remembered = prefs.getBool('remember_me') ?? false;
-    final savedEmail = prefs.getString('saved_email') ?? '';
-    if (remembered && savedEmail.isNotEmpty) {
-      setState(() {
-        _rememberMe = true;
-        _emailController.text = savedEmail;
-      });
+    if (remembered) {
+      final savedEmail = await _secureStorage.read(key: 'saved_email') ?? '';
+      final savedPassword = await _secureStorage.read(key: 'saved_password') ?? '';
+      if (savedEmail.isNotEmpty) {
+        setState(() {
+          _rememberMe = true;
+          _emailController.text = savedEmail;
+          if (savedPassword.isNotEmpty) {
+            _passwordController.text = savedPassword;
+          }
+        });
+      }
     }
   }
 
@@ -84,14 +92,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         password: _passwordController.text,
       );
 
-      // Save or clear remembered email
+      // Save or clear remembered credentials (secure storage)
       final prefs = await SharedPreferences.getInstance();
       if (_rememberMe) {
         await prefs.setBool('remember_me', true);
-        await prefs.setString('saved_email', _emailController.text.trim());
+        await _secureStorage.write(key: 'saved_email', value: _emailController.text.trim());
+        await _secureStorage.write(key: 'saved_password', value: _passwordController.text);
       } else {
         await prefs.remove('remember_me');
-        await prefs.remove('saved_email');
+        await _secureStorage.delete(key: 'saved_email');
+        await _secureStorage.delete(key: 'saved_password');
       }
 
       if (mounted) {
