@@ -2,7 +2,7 @@ import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import FloatingParticles from './FloatingParticles';
 import SupportChat from './SupportChat';
-import { LayoutDashboard, Users, Settings, LogOut, Menu, X, CircleUser as UserCircle, MapPin, ShoppingBag, Shield, Building2, MessageCircle, Smartphone, Camera, FileText, Share2 } from 'lucide-react';
+import { LayoutDashboard, Users, Settings, LogOut, Menu, X, CircleUser as UserCircle, MapPin, ShoppingBag, Shield, Building2, MessageCircle, Smartphone, Camera, FileText } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdmin } from '../hooks/useAdmin';
 import { useState, useEffect } from 'react';
@@ -152,7 +152,6 @@ export default function Layout({ children }: LayoutProps) {
     { path: '/tracking', icon: MapPin, label: 'Tracking', color: 'text-green-400', hoverColor: 'group-hover:text-green-300' },
     { path: '/scanner', icon: Camera, label: 'Scanner Documents', color: 'text-orange-400', hoverColor: 'group-hover:text-orange-300' },
     { path: '/crm', icon: Building2, label: 'CRM & Commercial', color: 'text-indigo-400', hoverColor: 'group-hover:text-indigo-300' },
-    { path: '/planning-network', icon: Share2, label: 'Réseau Planning', color: 'text-pink-400', hoverColor: 'group-hover:text-pink-300' },
     { path: '/billing-profile', icon: FileText, label: 'Profil Facturation', color: 'text-violet-400', hoverColor: 'group-hover:text-violet-300' },
     { path: '/shop', icon: ShoppingBag, label: 'Abonnements', color: 'text-emerald-400', hoverColor: 'group-hover:text-emerald-300' },
   ];

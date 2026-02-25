@@ -84,7 +84,6 @@ const ScannerHomePage = lazyRetry(() => import('./pages/ScannerHomePage'));
 const ProfessionalScannerPage = lazyRetry(() => import('./pages/ProfessionalScannerPage'));
 const MyDocuments = lazyRetry(() => import('./pages/MyDocuments'));
 const BillingProfile = lazyRetry(() => import('./pages/BillingProfile'));
-const PlanningNetwork = lazyRetry(() => import('./pages/PlanningNetwork'));
 
 function AppContent() {
   return (
@@ -283,16 +282,6 @@ function AppContent() {
             }
           />
 
-          <Route
-            path="/planning-network"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <PlanningNetwork />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
 
           <Route
             path="/billing"
