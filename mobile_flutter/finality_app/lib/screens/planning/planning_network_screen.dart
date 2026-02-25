@@ -15,6 +15,7 @@
 // ===========================================================================
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -150,6 +151,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final bottomPad = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       backgroundColor: _kScaffold,
       body: RefreshIndicator(
@@ -158,8 +160,15 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
         child: CustomScrollView(
           slivers: [
             _buildAppBar(),
-            SliverToBoxAdapter(child: _buildCTA()),
-            if (_myMatches.isNotEmpty) ...[
+            if (_loading)
+              const SliverToBoxAdapter(
+                child: Padding(
+                  padding: EdgeInsets.only(top: 40),
+                  child: Center(child: CircularProgressIndicator(color: _kTeal)),
+                ),
+              ),
+            if (!_loading) SliverToBoxAdapter(child: _buildCTA()),
+            if (!_loading && _myMatches.isNotEmpty) ...[
               _buildSection('Matchs en cours', Icons.handshake_outlined, _kBlue,
                   _myMatches.map((m) => _MatchTile(
                     match: m,
@@ -179,13 +188,13 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
                         : null,
                   )).toList()),
             ],
-            if (_myOffers.isNotEmpty)
+            if (!_loading && _myOffers.isNotEmpty)
               _buildSection('Mes offres actives', Icons.directions_car, _kTeal,
                   _myOffers.map((o) => _OfferTile(
                     offer: o,
                     onCancel: () => _cancelOffer(o['id']),
                   )).toList()),
-            if (_myRequests.isNotEmpty)
+            if (!_loading && _myRequests.isNotEmpty)
               _buildSection('Mes demandes de lift', Icons.hail, _kAmber,
                   _myRequests.map((r) => _RequestTile(
                     request: r,
@@ -197,16 +206,21 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
                 hasScrollBody: false,
                 child: _EmptyHub(onSearch: () => _openLiftSearch()),
               ),
-            const SliverToBoxAdapter(child: SizedBox(height: 24)),
+            // Extra padding so last item is not hidden behind FAB + Samsung nav bar
+            SliverToBoxAdapter(child: SizedBox(height: 80 + bottomPad)),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _publishOffer,
-        backgroundColor: _kTeal,
-        icon: const Icon(Icons.add),
-        label: const Text('Publier une offre'),
+      floatingActionButton: Padding(
+        padding: EdgeInsets.only(bottom: bottomPad > 0 ? bottomPad - 8 : 0),
+        child: FloatingActionButton.extended(
+          onPressed: _publishOffer,
+          backgroundColor: _kTeal,
+          icon: const Icon(Icons.add),
+          label: const Text('Publier une offre'),
+        ),
       ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 
@@ -363,6 +377,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
   }
 
   Future<void> _updateMatch(String matchId, String status, {Map<String, dynamic>? match}) async {
+    HapticFeedback.mediumImpact();
     await _sb.from('ride_matches').update({'status': status}).eq('id', matchId);
     // Notification push à l’autre partie
     if (match != null) {
@@ -389,6 +404,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
   }
 
   Future<void> _cancelOffer(String offerId) async {
+    HapticFeedback.mediumImpact();
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -425,6 +441,23 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
   }
 
   Future<void> _cancelRequest(String requestId) async {
+    HapticFeedback.lightImpact();
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Annuler cette demande ?'),
+        content: const Text('Tu ne recevras plus de propositions pour ce trajet.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Non')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: _kRed),
+            child: const Text('Annuler'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
     await _sb.from('ride_requests').update({'status': 'cancelled'}).eq('id', requestId);
     _load();
   }
@@ -649,9 +682,12 @@ class _MatchTile extends StatelessWidget {
                       overflow: TextOverflow.ellipsis),
                 ),
                 if (depDate != null || depTime.isNotEmpty)
-                  Text(
-                    '${_fmt(depDate)}${depTime.isNotEmpty ? " $depTime" : ""}',
-                    style: const TextStyle(fontSize: 12, color: _kGray),
+                  Flexible(
+                    child: Text(
+                      '${_fmt(depDate)}${depTime.isNotEmpty ? " $depTime" : ""}',
+                      style: const TextStyle(fontSize: 12, color: _kGray),
+                      overflow: TextOverflow.ellipsis,
+                    ),
                   ),
               ],
             ),

@@ -109,10 +109,11 @@ class _MatchChatSheetState extends State<MatchChatSheet> {
     final dest   = offer['destination_city'] as String? ?? '—';
     final isDriver = widget.match['driver_id'] == widget.myUid;
     final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final navPad = MediaQuery.of(context).padding.bottom;
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.82,
-      padding: EdgeInsets.only(bottom: bottom),
+      padding: EdgeInsets.only(bottom: bottom > 0 ? bottom : navPad),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),

@@ -104,9 +104,11 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
+    final keyboardBottom = MediaQuery.of(context).viewInsets.bottom;
+    final navPad = MediaQuery.of(context).padding.bottom;
+    final extraBottom = keyboardBottom > 0 ? keyboardBottom : navPad;
     return Container(
-      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + bottom),
+      padding: EdgeInsets.fromLTRB(20, 20, 20, 20 + extraBottom),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -157,14 +159,22 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
           Row(children: [
             _infoTile(Icons.event_seat, '$_seats place${_seats > 1 ? "s" : ""}'),
             const SizedBox(width: 8),
-            InkWell(
-              onTap: () => setState(() { if (_seats > 1) _seats--; }),
-              child: _circleBtn(Icons.remove),
+            SizedBox(
+              width: 44, height: 44,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(22),
+                onTap: () => setState(() { if (_seats > 1) _seats--; }),
+                child: _circleBtn(Icons.remove),
+              ),
             ),
             const SizedBox(width: 6),
-            InkWell(
-              onTap: () => setState(() { if (_seats < 4) _seats++; }),
-              child: _circleBtn(Icons.add),
+            SizedBox(
+              width: 44, height: 44,
+              child: InkWell(
+                borderRadius: BorderRadius.circular(22),
+                onTap: () => setState(() { if (_seats < 4) _seats++; }),
+                child: _circleBtn(Icons.add),
+              ),
             ),
           ]),
           const SizedBox(height: 20),
