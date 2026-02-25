@@ -15,6 +15,9 @@ class OfferPublishSheet extends StatefulWidget {
   final String userId;
   final String? defaultFrom;
   final String? defaultTo;
+  final DateTime? defaultDate;
+  final TimeOfDay? defaultTime;
+  final String? missionId;
 
   const OfferPublishSheet({
     super.key,
@@ -22,6 +25,9 @@ class OfferPublishSheet extends StatefulWidget {
     required this.userId,
     this.defaultFrom,
     this.defaultTo,
+    this.defaultDate,
+    this.defaultTime,
+    this.missionId,
   });
 
   @override
@@ -43,6 +49,8 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
     super.initState();
     _fromCtrl.text = widget.defaultFrom ?? '';
     _toCtrl.text   = widget.defaultTo ?? '';
+    if (widget.defaultDate != null) _date = widget.defaultDate;
+    if (widget.defaultTime != null) _time = widget.defaultTime!;
   }
 
   @override
@@ -90,6 +98,7 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
         'departure_time':   '$_timeLabel:00',
         'seats_available':  _seats,
         'status':           'active',
+        if (widget.missionId != null) 'mission_id': widget.missionId,
       });
       if (!mounted) return;
       Navigator.pop(context);

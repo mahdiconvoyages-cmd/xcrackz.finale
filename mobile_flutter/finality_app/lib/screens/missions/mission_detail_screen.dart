@@ -15,6 +15,7 @@ import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'mission_create_screen_new.dart';
 import '../planning/retour_lift_screen.dart';
+import '../planning/_offer_publish_sheet.dart';
 
 class MissionDetailScreen extends StatefulWidget {
   final String missionId;
@@ -41,6 +42,8 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
   bool _hasRestitutionDepartureInspection = false;
   bool _hasRestitutionArrivalInspection = false;
   String? _assignedDriverName;
+  Map<String, dynamic>? _activeLiftOffer;
+  int _liftMatchCount = 0;
 
   @override
   void initState() {
@@ -112,6 +115,28 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
       }
 
       if (!mounted) return;
+
+      // Charger l'offre de lift liée à cette mission
+      Map<String, dynamic>? liftOffer;
+      int matchCount = 0;
+      try {
+        liftOffer = await Supabase.instance.client
+            .from('ride_offers')
+            .select('id, seats_available, status')
+            .eq('mission_id', mission.id)
+            .eq('status', 'active')
+            .maybeSingle();
+        if (liftOffer != null) {
+          final matches = await Supabase.instance.client
+              .from('ride_matches')
+              .select('id')
+              .eq('offer_id', liftOffer['id'])
+              .inFilter('status', ['proposed', 'accepted', 'in_transit']);
+          matchCount = (matches as List).length;
+        }
+      } catch (_) {}
+
+      if (!mounted) return;
       setState(() {
         _mission = mission;
         _isLoading = false;
@@ -121,6 +146,8 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         _hasRestitutionDepartureInspection = restDepInsp != null;
         _hasRestitutionArrivalInspection = restArrInsp != null;
         _assignedDriverName = driverName;
+        _activeLiftOffer = liftOffer;
+        _liftMatchCount = matchCount;
       });
 
       // AUTO-START: Demarrer le tracking automatiquement si mission en cours
@@ -1233,7 +1260,9 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            if (_mission!.status == 'pending')
+            if (_mission!.status == 'pending') ...[
+              // ── Offre de lift depuis cette mission ──
+              _buildLiftOfferSection(),
               SizedBox(
                 width: double.infinity,
                 child: ElevatedButton.icon(
@@ -1248,8 +1277,10 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
                   ),
                 ),
               ),
+            ],
             if (_mission!.status == 'in_progress') ...[
-              // Bouton "Voir rapport départ" si inspection de départ effectuée
+              // ── Offre de lift depuis cette mission ──
+              _buildLiftOfferSection(),
               if (_hasDepartureInspection)
                 Padding(
                   padding: const EdgeInsets.only(bottom: 10),
@@ -1813,8 +1844,6 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         if (started && mounted) {
           setState(() => _isTrackingActive = true);
         }
-        // Publier automatiquement une offre de lift pour ce trajet
-        await _createAutoRideOffer();
       } else if (newStatus == 'completed') {
         await _trackingService.stopTracking();
         if (mounted) setState(() => _isTrackingActive = false);
@@ -1979,38 +2008,148 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
   }
 
   // ==============================================
-  //  CRÉATION AUTO OFFRE DE LIFT (départ mission)
+  //  OFFRE DE LIFT DEPUIS LA MISSION (manuel)
   // ==============================================
-  Future<void> _createAutoRideOffer() async {
+  Widget _buildLiftOfferSection() {
+    if (_activeLiftOffer != null) {
+      // Offre active — afficher le statut
+      final seats = (_activeLiftOffer!['seats_available'] as num?)?.toInt() ?? 1;
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 10),
+        child: Container(
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF0FDFA),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: PremiumTheme.primaryTeal.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.people_alt_rounded, color: PremiumTheme.primaryTeal, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '$seats place${seats > 1 ? 's' : ''} proposée${seats > 1 ? 's' : ''} 🚗',
+                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13, color: Color(0xFF0F172A)),
+                    ),
+                    if (_liftMatchCount > 0)
+                      Text(
+                        '$_liftMatchCount demande${_liftMatchCount > 1 ? 's' : ''} en cours',
+                        style: const TextStyle(fontSize: 12, color: Color(0xFF64748B)),
+                      ),
+                  ],
+                ),
+              ),
+              SizedBox(
+                height: 32,
+                child: TextButton(
+                  onPressed: _cancelLiftOffer,
+                  style: TextButton.styleFrom(
+                    foregroundColor: PremiumTheme.accentRed,
+                    padding: const EdgeInsets.symmetric(horizontal: 10),
+                  ),
+                  child: const Text('Annuler', style: TextStyle(fontSize: 12)),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    // Pas d'offre — proposer d'en créer une
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: SizedBox(
+        width: double.infinity,
+        child: OutlinedButton.icon(
+          onPressed: _openLiftOfferSheet,
+          icon: const Icon(Icons.people_alt_rounded, size: 18),
+          label: const Text('Proposer des places de lift',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: PremiumTheme.primaryTeal,
+            side: const BorderSide(color: PremiumTheme.primaryTeal),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _openLiftOfferSheet() {
     final m = _mission;
     if (m == null) return;
     final uid = Supabase.instance.client.auth.currentUser?.id;
     if (uid == null) return;
-    final from = m.pickupCity;
-    final to   = m.deliveryCity;
-    if (from == null || from.isEmpty || to == null || to.isEmpty) return;
+
+    final depDate = m.pickupDate;
+    TimeOfDay? depTime;
+    if (depDate != null) {
+      depTime = TimeOfDay(hour: depDate.hour, minute: depDate.minute);
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => OfferPublishSheet(
+        userId: uid,
+        missionId: m.id,
+        defaultFrom: m.pickupCity,
+        defaultTo: m.deliveryCity,
+        defaultDate: depDate,
+        defaultTime: depTime,
+        onPublished: () {
+          _loadMission();
+        },
+      ),
+    );
+  }
+
+  Future<void> _cancelLiftOffer() async {
+    if (_activeLiftOffer == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        title: const Text('Annuler l\'offre de lift ?'),
+        content: const Text('Les demandes en cours seront aussi annulées.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Non'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: PremiumTheme.accentRed),
+            child: const Text('Oui, annuler'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
     try {
-      // Ne pas créer en doublon
-      final existing = await Supabase.instance.client
+      await Supabase.instance.client
           .from('ride_offers')
-          .select('id')
-          .eq('mission_id', m.id)
-          .eq('user_id', uid)
-          .maybeSingle();
-      if (existing != null) return;
-      final depDate = m.pickupDate ?? DateTime.now();
-      await Supabase.instance.client.from('ride_offers').insert({
-        'user_id':          uid,
-        'mission_id':       m.id,
-        'origin_city':      from,
-        'destination_city': to,
-        'departure_date':   DateFormat('yyyy-MM-dd').format(depDate),
-        'departure_time':   DateFormat('HH:mm:ss').format(depDate),
-        'seats_available':  1,
-        'status':           'active',
-      });
-    } catch (_) {
-      // Silencieux — l'offre auto est un bonus, pas critique
+          .update({'status': 'cancelled'})
+          .eq('id', _activeLiftOffer!['id']);
+      _loadMission();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Offre de lift annulée'), backgroundColor: Color(0xFF64748B)),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur: $e')),
+        );
+      }
     }
   }
 
