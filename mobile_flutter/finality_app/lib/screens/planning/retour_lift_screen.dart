@@ -344,8 +344,8 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
 
     setState(() => _loading = true);
     try {
-      // Chercher ou créer une ride_request pour ce besoin
-      final requestData = await _supabase.from('ride_requests').upsert({
+      // Créer une ride_request pour ce besoin
+      final requestData = await _supabase.from('ride_requests').insert({
         'user_id': _userId,
         'completed_mission_id': widget.missionId,
         'pickup_city': _fromCtrl.text.trim(),
@@ -356,7 +356,7 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
         'status': 'active',
         'request_type': 'return',
         'notes': 'Retour depuis ${_fromCtrl.text.trim()}',
-      }, onConflict: 'user_id, needed_date, pickup_city').select().single();
+      }).select().single();
 
       // Créer le match
       await _supabase.from('ride_matches').insert({
