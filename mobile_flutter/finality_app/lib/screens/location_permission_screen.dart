@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/logger.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -162,7 +163,7 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen>
 
       if (mounted) Navigator.pop(context);
     } catch (e) {
-      debugPrint('Erreur permission localisation: $e');
+      logger.e('Erreur permission localisation: $e');
       if (mounted) setState(() => _requesting = false);
     }
   }

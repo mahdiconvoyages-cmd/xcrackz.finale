@@ -92,8 +92,7 @@ class InspectionTimelineView extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
-                  color: _getStatusColor(mission['status'] as String? ?? ''),
-                      .withValues(alpha: 0.2),
+                  color: _getStatusColor(mission['status'] as String? ?? '').withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Text(
@@ -354,7 +353,7 @@ class InspectionTimelineView extends StatelessWidget {
                 if (photosCount > 0)
                   Chip(
                     label: Text('$photosCount photo(s)'),
-                    icon: const Icon(Icons.photo),
+                    avatar: const Icon(Icons.photo, size: 18),
                     backgroundColor:
                         PremiumTheme.primaryTeal.withValues(alpha: 0.1),
                   ),
@@ -362,9 +361,9 @@ class InspectionTimelineView extends StatelessWidget {
                   const SizedBox(width: 8),
                   Chip(
                     label: Text('$damagesCount dégât(s)'),
-                    icon: const Icon(Icons.warning),
+                    avatar: const Icon(Icons.warning, size: 18),
                     backgroundColor:
-                        const Color(0xFFEF4444).withValues(alpha: 0.1),
+                        PremiumTheme.accentRed.withValues(alpha: 0.1),
                   ),
                 ],
               ],

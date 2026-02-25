@@ -14,6 +14,7 @@ import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
 import '../../l10n/app_localizations.dart';
 import '../../providers/locale_provider.dart';
+import '../../providers/theme_provider.dart';
 import '../../main.dart';
 import '../profile/support_chat_screen.dart';
 
@@ -327,8 +328,27 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 );
                 return;
               }
+
+              if (currentPasswordController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Veuillez entrer votre mot de passe actuel'),
+                    backgroundColor: Colors.red,
+                  ),
+                );
+                return;
+              }
               
               try {
+                // Verify current password first
+                final email = supabase.auth.currentUser?.email;
+                if (email == null) throw Exception('Utilisateur non connecté');
+                await supabase.auth.signInWithPassword(
+                  email: email,
+                  password: currentPasswordController.text,
+                );
+
+                // Current password verified, now update
                 await supabase.auth.updateUser(
                   UserAttributes(password: newPasswordController.text),
                 );
@@ -344,6 +364,16 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     ),
                     backgroundColor: PremiumTheme.accentGreen,
                     behavior: SnackBarBehavior.floating,
+                  ),
+                );
+              } on AuthException catch (e) {
+                final msg = e.message.contains('Invalid login')
+                    ? 'Mot de passe actuel incorrect'
+                    : 'Erreur: ${e.message}';
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text(msg),
+                    backgroundColor: Colors.red,
                   ),
                 );
               } catch (e) {
@@ -1101,11 +1131,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         icon: Icons.dark_mode,
                         title: 'Mode sombre',
                         subtitle: 'Thème sombre',
-                        value: _darkMode,
+                        value: ref.watch(themeModeProvider) == ThemeMode.dark,
                         color: PremiumTheme.primaryIndigo,
                         onChanged: (v) {
-                          setState(() => _darkMode = v);
-                          _saveBoolSetting('darkMode', v);
+                          ref.read(themeModeProvider.notifier).setThemeMode(
+                            v ? ThemeMode.dark : ThemeMode.light,
+                          );
                         },
                       ),
                       _buildDivider(),

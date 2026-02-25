@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../utils/logger.dart';
 import '../../utils/error_helper.dart';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
@@ -368,7 +369,7 @@ class _SignaturePadDialogState extends State<SignaturePadDialog> {
       if (!mounted) return;
       Navigator.pop(context, pngBytes);
     } catch (e) {
-      debugPrint('❌ Erreur signature: $e');
+      logger.e('Erreur signature: $e');
       if (!mounted) return;
       
       setState(() => _isSaving = false);

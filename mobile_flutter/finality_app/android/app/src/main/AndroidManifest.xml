@@ -88,23 +88,6 @@
                     android:scheme="https"
                     android:host="www.checksfleet.com"
                     android:pathPrefix="/mission"/>
-                <!-- App Links for xcrackz.com -->
-                <data
-                    android:scheme="https"
-                    android:host="xcrackz.com"
-                    android:pathPrefix="/trip"/>
-                <data
-                    android:scheme="https"
-                    android:host="xcrackz.com"
-                    android:pathPrefix="/mission"/>
-                <data
-                    android:scheme="https"
-                    android:host="www.xcrackz.com"
-                    android:pathPrefix="/trip"/>
-                <data
-                    android:scheme="https"
-                    android:host="www.xcrackz.com"
-                    android:pathPrefix="/mission"/>
             </intent-filter>
             
             <!-- Custom URL scheme fallback -->

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../../l10n/app_localizations.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -12,28 +13,28 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
   final PageController _pageController = PageController();
   int _currentPage = 0;
 
-  final List<OnboardingPage> _pages = [
+  List<OnboardingPage> _getPages(AppLocalizations l10n) => [
     OnboardingPage(
-      title: 'Bienvenue sur ChecksFleet',
-      description: 'La plateforme complète pour la gestion de vos convoyages et missions d\'inspection.',
+      title: l10n.onboardingWelcomeTitle,
+      description: l10n.onboardingWelcomeDesc,
       icon: Icons.directions_car,
       color: Colors.blue,
     ),
     OnboardingPage(
-      title: 'Gestion intelligente',
-      description: 'Trouvez des trajets, partagez les frais, communiquez en temps réel avec les conducteurs et passagers.',
+      title: l10n.onboardingSmartTitle,
+      description: l10n.onboardingSmartDesc,
       icon: Icons.people,
       color: Colors.green,
     ),
     OnboardingPage(
-      title: 'Missions & Inspections',
-      description: 'Gérez vos missions de convoyage, réalisez des inspections détaillées avec photos et documents.',
+      title: l10n.onboardingMissionsTitle,
+      description: l10n.onboardingMissionsDesc,
       icon: Icons.assignment,
       color: Colors.orange,
     ),
     OnboardingPage(
-      title: 'Suivi GPS en Temps Réel',
-      description: 'Suivez vos trajets en direct, partagez votre position et restez connecté pendant vos déplacements.',
+      title: l10n.onboardingGpsTitle,
+      description: l10n.onboardingGpsDesc,
       icon: Icons.location_on,
       color: Colors.red,
     ),
@@ -56,6 +57,8 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final l10n = AppLocalizations.of(context);
+    final pages = _getPages(l10n);
     return Scaffold(
       body: SafeArea(
         child: Column(
@@ -65,9 +68,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
               alignment: Alignment.topRight,
               child: TextButton(
                 onPressed: _completeOnboarding,
-                child: const Text(
-                  'Passer',
-                  style: TextStyle(
+                child: Text(
+                  l10n.onboardingSkip,
+                  style: const TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
@@ -82,9 +85,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                 onPageChanged: (index) {
                   setState(() => _currentPage = index);
                 },
-                itemCount: _pages.length,
+                itemCount: pages.length,
                 itemBuilder: (context, index) {
-                  return _buildPage(_pages[index]);
+                  return _buildPage(pages[index]);
                 },
               ),
             ),
@@ -93,7 +96,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: List.generate(
-                _pages.length,
+                pages.length,
                 (index) => _buildPageIndicator(index),
               ),
             ),
@@ -115,11 +118,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                           curve: Curves.easeInOut,
                         );
                       },
-                      child: const Row(
+                      child: Row(
                         children: [
-                          Icon(Icons.arrow_back, size: 20),
-                          SizedBox(width: 8),
-                          Text('Précédent'),
+                          const Icon(Icons.arrow_back, size: 20),
+                          const SizedBox(width: 8),
+                          Text(l10n.previous),
                         ],
                       ),
                     )
@@ -129,7 +132,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                   // Next/Finish button
                   FilledButton(
                     onPressed: () {
-                      if (_currentPage < _pages.length - 1) {
+                      if (_currentPage < pages.length - 1) {
                         _pageController.nextPage(
                           duration: const Duration(milliseconds: 300),
                           curve: Curves.easeInOut,
@@ -141,11 +144,11 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     child: Row(
                       children: [
                         Text(
-                          _currentPage < _pages.length - 1 ? 'Suivant' : 'Commencer',
+                          _currentPage < pages.length - 1 ? l10n.next : l10n.onboardingStart,
                         ),
                         const SizedBox(width: 8),
                         Icon(
-                          _currentPage < _pages.length - 1
+                          _currentPage < pages.length - 1
                               ? Icons.arrow_forward
                               : Icons.check,
                           size: 20,

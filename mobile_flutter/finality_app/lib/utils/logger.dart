@@ -8,13 +8,13 @@ class AppLogger {
   factory AppLogger() => _instance;
   AppLogger._internal();
 
-  late final Logger _logger;
+  Logger? _loggerInstance;
 
-  void init() {
-    _logger = Logger(
+  Logger get _logger {
+    _loggerInstance ??= Logger(
       printer: PrettyPrinter(
-        methodCount: 0, // Pas de stack trace par défaut
-        errorMethodCount: 5, // Stack trace sur erreurs
+        methodCount: 0,
+        errorMethodCount: 5,
         lineLength: 80,
         colors: true,
         printEmojis: true,
@@ -22,6 +22,13 @@ class AppLogger {
       ),
       level: kDebugMode ? Level.debug : Level.error,
     );
+    return _loggerInstance!;
+  }
+
+  /// Initialize logger (optional — auto-initializes on first use)
+  void init() {
+    // Trigger lazy initialization
+    _logger;
   }
 
   /// Log de debug (développement uniquement)

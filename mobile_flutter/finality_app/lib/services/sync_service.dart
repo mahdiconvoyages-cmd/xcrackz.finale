@@ -11,10 +11,19 @@ class SyncService {
   final Map<String, Timer?> _debounceTimers = {};
   static const _debounceDuration = Duration(milliseconds: 500);
 
+  /// Get the current user's ID or null if not authenticated
+  String? get _currentUserId => _supabase.auth.currentUser?.id;
+
   /// Synchroniser les missions en temps réel
   Stream<List<Map<String, dynamic>>> syncMissions() {
     const channelName = 'missions_sync';
     
+    final userId = _currentUserId;
+    if (userId == null) {
+      logger.w('syncMissions called without authenticated user');
+      return Stream.value([]);
+    }
+
     if (_controllers.containsKey(channelName)) {
       return _controllers[channelName]!.stream as Stream<List<Map<String, dynamic>>>;
     }
@@ -57,6 +66,12 @@ class SyncService {
   Stream<List<Map<String, dynamic>>> syncInspections() {
     const channelName = 'vehicle_inspections_sync';
     
+    final userId = _currentUserId;
+    if (userId == null) {
+      logger.w('syncInspections called without authenticated user');
+      return Stream.value([]);
+    }
+
     if (_controllers.containsKey(channelName)) {
       return _controllers[channelName]!.stream as Stream<List<Map<String, dynamic>>>;
     }
@@ -99,6 +114,12 @@ class SyncService {
   Stream<List<Map<String, dynamic>>> syncInvoices() {
     const channelName = 'invoices_sync';
     
+    final userId = _currentUserId;
+    if (userId == null) {
+      logger.w('syncInvoices called without authenticated user');
+      return Stream.value([]);
+    }
+
     if (_controllers.containsKey(channelName)) {
       return _controllers[channelName]!.stream as Stream<List<Map<String, dynamic>>>;
     }
@@ -138,6 +159,12 @@ class SyncService {
   Stream<List<Map<String, dynamic>>> syncQuotes() {
     const channelName = 'quotes_sync';
     
+    final userId = _currentUserId;
+    if (userId == null) {
+      logger.w('syncQuotes called without authenticated user');
+      return Stream.value([]);
+    }
+
     if (_controllers.containsKey(channelName)) {
       return _controllers[channelName]!.stream as Stream<List<Map<String, dynamic>>>;
     }
@@ -221,9 +248,12 @@ class SyncService {
 
   Future<List<Map<String, dynamic>>> _loadMissions() async {
     try {
+      final userId = _currentUserId;
+      if (userId == null) return [];
       final response = await _supabase
           .from('missions')
           .select()
+          .eq('user_id', userId)
           .order('created_at', ascending: false);
       return List<Map<String, dynamic>>.from(response as List);
     } catch (e) {
@@ -234,9 +264,12 @@ class SyncService {
 
   Future<List<Map<String, dynamic>>> _loadInspections() async {
     try {
+      final userId = _currentUserId;
+      if (userId == null) return [];
       final response = await _supabase
           .from('vehicle_inspections')
           .select()
+          .eq('user_id', userId)
           .order('created_at', ascending: false);
       return List<Map<String, dynamic>>.from(response as List);
     } catch (e) {
@@ -247,9 +280,12 @@ class SyncService {
 
   Future<List<Map<String, dynamic>>> _loadInvoices() async {
     try {
+      final userId = _currentUserId;
+      if (userId == null) return [];
       final response = await _supabase
           .from('invoices')
           .select()
+          .eq('user_id', userId)
           .order('created_at', ascending: false);
       return List<Map<String, dynamic>>.from(response as List);
     } catch (e) {
@@ -260,9 +296,12 @@ class SyncService {
 
   Future<List<Map<String, dynamic>>> _loadQuotes() async {
     try {
+      final userId = _currentUserId;
+      if (userId == null) return [];
       final response = await _supabase
           .from('quotes')
           .select()
+          .eq('user_id', userId)
           .order('created_at', ascending: false);
       return List<Map<String, dynamic>>.from(response as List);
     } catch (e) {

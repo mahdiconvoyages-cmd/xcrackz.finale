@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
+import '../l10n/app_localizations.dart';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -205,8 +206,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                             color: Colors.white.withValues(alpha: 0.1),
                           ),
                         ),
-                        child: const Text(
-                          'Inspections Véhicules Pro',
+                        child: Text(
+                          AppLocalizations.of(context).splashTagline,
                           style: TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: 15,
@@ -233,7 +234,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                       const SizedBox(height: 16),
                       
                       Text(
-                        'Chargement...',
+                        AppLocalizations.of(context).loading,
                         style: TextStyle(
                           color: Colors.white.withValues(alpha: 0.6),
                           fontSize: 13,

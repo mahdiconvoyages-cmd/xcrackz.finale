@@ -97,6 +97,19 @@ class AppLocalizations {
   String get forgotPassword => get('forgotPassword');
   String get register => get('register');
   String get welcomeBack => get('welcomeBack');
+
+  // Splash & Onboarding
+  String get splashTagline => get('splashTagline');
+  String get onboardingSkip => get('onboardingSkip');
+  String get onboardingStart => get('onboardingStart');
+  String get onboardingWelcomeTitle => get('onboardingWelcomeTitle');
+  String get onboardingWelcomeDesc => get('onboardingWelcomeDesc');
+  String get onboardingSmartTitle => get('onboardingSmartTitle');
+  String get onboardingSmartDesc => get('onboardingSmartDesc');
+  String get onboardingMissionsTitle => get('onboardingMissionsTitle');
+  String get onboardingMissionsDesc => get('onboardingMissionsDesc');
+  String get onboardingGpsTitle => get('onboardingGpsTitle');
+  String get onboardingGpsDesc => get('onboardingGpsDesc');
   
   // Dashboard
   String get credits => get('credits');
@@ -579,6 +592,19 @@ const Map<String, String> _frenchTranslations = {
   'basic': 'Basique',
   'pro': 'Pro',
   'enterprise': 'Entreprise',
+
+  // Splash & Onboarding
+  'splashTagline': 'Inspections Véhicules Pro',
+  'onboardingSkip': 'Passer',
+  'onboardingStart': 'Commencer',
+  'onboardingWelcomeTitle': 'Bienvenue sur ChecksFleet',
+  'onboardingWelcomeDesc': 'La plateforme complète pour la gestion de vos convoyages et missions d\'inspection.',
+  'onboardingSmartTitle': 'Gestion intelligente',
+  'onboardingSmartDesc': 'Trouvez des trajets, partagez les frais, communiquez en temps réel avec les conducteurs et passagers.',
+  'onboardingMissionsTitle': 'Missions & Inspections',
+  'onboardingMissionsDesc': 'Gérez vos missions de convoyage, réalisez des inspections détaillées avec photos et documents.',
+  'onboardingGpsTitle': 'Suivi GPS en Temps Réel',
+  'onboardingGpsDesc': 'Suivez vos trajets en direct, partagez votre position et restez connecté pendant vos déplacements.',
 };
 
 // ============ TRADUCTIONS ANGLAISES ============
@@ -840,6 +866,19 @@ const Map<String, String> _englishTranslations = {
   'basic': 'Basic',
   'pro': 'Pro',
   'enterprise': 'Enterprise',
+
+  // Splash & Onboarding
+  'splashTagline': 'Professional Vehicle Inspections',
+  'onboardingSkip': 'Skip',
+  'onboardingStart': 'Get Started',
+  'onboardingWelcomeTitle': 'Welcome to ChecksFleet',
+  'onboardingWelcomeDesc': 'The complete platform for managing your convoys and inspection missions.',
+  'onboardingSmartTitle': 'Smart Management',
+  'onboardingSmartDesc': 'Find rides, share costs, communicate in real time with drivers and passengers.',
+  'onboardingMissionsTitle': 'Missions & Inspections',
+  'onboardingMissionsDesc': 'Manage your convoy missions, perform detailed inspections with photos and documents.',
+  'onboardingGpsTitle': 'Real-Time GPS Tracking',
+  'onboardingGpsDesc': 'Track your trips live, share your location and stay connected during your travels.',
 };
 
 // ============ TRADUCTIONS ARABES ============
@@ -1101,6 +1140,19 @@ const Map<String, String> _arabicTranslations = {
   'basic': 'أساسي',
   'pro': 'احترافي',
   'enterprise': 'مؤسسة',
+
+  // Splash & Onboarding
+  'splashTagline': 'فحوصات المركبات الاحترافية',
+  'onboardingSkip': 'تخطي',
+  'onboardingStart': 'ابدأ',
+  'onboardingWelcomeTitle': 'مرحبًا بك في ChecksFleet',
+  'onboardingWelcomeDesc': 'المنصة الشاملة لإدارة عمليات النقل ومهام التفتيش.',
+  'onboardingSmartTitle': 'إدارة ذكية',
+  'onboardingSmartDesc': 'ابحث عن رحلات، شارك التكاليف، تواصل في الوقت الفعلي مع السائقين والركاب.',
+  'onboardingMissionsTitle': 'المهام والتفتيش',
+  'onboardingMissionsDesc': 'أدر مهام النقل، قم بإجراء عمليات تفتيش مفصلة بالصور والمستندات.',
+  'onboardingGpsTitle': 'تتبع GPS في الوقت الفعلي',
+  'onboardingGpsDesc': 'تابع رحلاتك مباشرة، شارك موقعك وابق على اتصال أثناء تنقلاتك.',
 };
 
 // ============ TRADUCTIONS ESPAGNOLES ============
@@ -1362,6 +1414,19 @@ const Map<String, String> _spanishTranslations = {
   'basic': 'Básico',
   'pro': 'Pro',
   'enterprise': 'Empresa',
+
+  // Splash & Onboarding
+  'splashTagline': 'Inspecciones de Vehículos Pro',
+  'onboardingSkip': 'Saltar',
+  'onboardingStart': 'Comenzar',
+  'onboardingWelcomeTitle': 'Bienvenido a ChecksFleet',
+  'onboardingWelcomeDesc': 'La plataforma completa para la gestión de tus convoyes y misiones de inspección.',
+  'onboardingSmartTitle': 'Gestión inteligente',
+  'onboardingSmartDesc': 'Encuentra viajes, comparte costos, comunícate en tiempo real con conductores y pasajeros.',
+  'onboardingMissionsTitle': 'Misiones e Inspecciones',
+  'onboardingMissionsDesc': 'Gestiona tus misiones de convoy, realiza inspecciones detalladas con fotos y documentos.',
+  'onboardingGpsTitle': 'Seguimiento GPS en Tiempo Real',
+  'onboardingGpsDesc': 'Sigue tus viajes en directo, comparte tu ubicación y mantente conectado durante tus desplazamientos.',
 };
 
 // ============ DELEGATE ============

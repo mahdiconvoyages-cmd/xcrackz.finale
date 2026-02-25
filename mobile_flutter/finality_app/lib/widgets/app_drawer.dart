@@ -2,6 +2,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import '../theme/premium_theme.dart';
 import '../screens/dashboard/dashboard_screen.dart';
 import '../screens/missions/missions_screen.dart';
 import '../screens/missions/mission_create_screen_new.dart';
@@ -304,18 +305,30 @@ class _LogoutItem extends StatelessWidget {
   }
 }
 
-class _Footer extends StatelessWidget {
+class _Footer extends StatefulWidget {
+  @override
+  State<_Footer> createState() => _FooterState();
+}
+
+class _FooterState extends State<_Footer> {
+  static String? _cachedVersion;
+
+  @override
+  void initState() {
+    super.initState();
+    if (_cachedVersion == null) {
+      PackageInfo.fromPlatform().then((info) {
+        if (mounted) setState(() => _cachedVersion = info.version);
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<PackageInfo>(
-      future: PackageInfo.fromPlatform(),
-      builder: (_, snapshot) {
-        final version = snapshot.data?.version ?? '';
-        return Padding(
-          padding: const EdgeInsets.symmetric(vertical: 16),
-          child: Text(version.isNotEmpty ? 'ChecksFleet v$version' : 'ChecksFleet', style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 11, fontWeight: FontWeight.w500)),
-        );
-      },
+    final version = _cachedVersion ?? '';
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      child: Text(version.isNotEmpty ? 'ChecksFleet v$version' : 'ChecksFleet', style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 11, fontWeight: FontWeight.w500)),
     );
   }
 }

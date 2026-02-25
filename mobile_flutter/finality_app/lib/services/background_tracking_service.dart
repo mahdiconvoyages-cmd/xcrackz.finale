@@ -213,7 +213,7 @@ class BackgroundTrackingService {
             'is_active': false,
           }).eq('mission_id', _currentMissionId!);
         } catch (e) {
-          debugPrint('Erreur désactivation tracking: $e');
+          logger.e('Erreur désactivation tracking: $e');
         }
       }
     } else {
@@ -430,7 +430,7 @@ Future<void> _onStart(ServiceInstance service) async {
           'is_active': true,
         }, onConflict: 'mission_id,user_id');
       } catch (e) {
-        print('[BackgroundTracking] Upsert error: $e');
+        logger.e('[BackgroundTracking] Upsert error: $e');
       }
 
       // Envoyer la position à l'UI
@@ -474,7 +474,7 @@ Future<void> _onStart(ServiceInstance service) async {
             'recorded_at': DateTime.now().toUtc().toIso8601String(),
           });
         } catch (e) {
-          print('[BackgroundTracking] History snapshot error: $e');
+          logger.e('[BackgroundTracking] History snapshot error: $e');
         }
       },
     );
@@ -494,7 +494,7 @@ Future<void> _onStart(ServiceInstance service) async {
           'is_active': false,
         }).eq('mission_id', currentMissionId!);
       } catch (e) {
-        print('[BackgroundTracking] Stop deactivation error: $e');
+        logger.e('[BackgroundTracking] Stop deactivation error: $e');
       }
 
       // Dernier snapshot
@@ -512,7 +512,7 @@ Future<void> _onStart(ServiceInstance service) async {
             'recorded_at': DateTime.now().toUtc().toIso8601String(),
           });
         } catch (e) {
-          print('[BackgroundTracking] Final snapshot error: $e');
+          logger.e('[BackgroundTracking] Final snapshot error: $e');
         }
       }
     }

@@ -85,7 +85,7 @@ class NotificationService {
     }
 
     _initialized = true;
-    AppLogger.info('NotificationService initialisé');
+    logger.i('NotificationService initialisé');
   }
 
   // ─── Notifications par catégorie ──────────────────────────────────
@@ -159,7 +159,7 @@ class NotificationService {
     //   'platform': Platform.isIOS ? 'ios' : 'android',
     //   'updated_at': DateTime.now().toIso8601String(),
     // });
-    AppLogger.info('Push token enregistré (placeholder): ${token.substring(0, 10)}...');
+    logger.i('Push token enregistré (placeholder): ${token.substring(0, 10)}...');
   }
 
   // ─── Helpers ──────────────────────────────────────────────────────
@@ -209,11 +209,11 @@ class NotificationService {
     // Routage basé sur le payload
     if (payload.startsWith('chat:')) {
       final conversationId = payload.substring(5);
-      AppLogger.info('Navigation vers conversation: $conversationId');
+      logger.i('Navigation vers conversation: $conversationId');
       // Chat screen navigation — will be implemented when chat screen exists
     } else if (payload.startsWith('mission:')) {
       final missionId = payload.substring(8);
-      AppLogger.info('Navigation vers mission: $missionId');
+      logger.i('Navigation vers mission: $missionId');
       Navigator.of(ctx).push(
         MaterialPageRoute(
           builder: (_) => MissionDetailScreen(missionId: missionId),

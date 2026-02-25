@@ -11,6 +11,7 @@ import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/subscription/subscription_screen.dart';
 import 'providers/locale_provider.dart';
+import 'providers/theme_provider.dart';
 import 'services/sync_service.dart';
 import 'services/offline_service.dart';
 import 'services/background_tracking_service.dart';
@@ -154,6 +155,9 @@ class CHECKSFLEETApp extends ConsumerWidget {
       locale = const Locale('fr');
     }
 
+    // Theme mode
+    final themeMode = ref.watch(themeModeProvider);
+
     // Build the app with OfflineSyncManager wrapping all screens
     return MaterialApp(
       title: 'CHECKSFLEET',
@@ -161,7 +165,7 @@ class CHECKSFLEETApp extends ConsumerWidget {
       navigatorKey: navigatorKey,
       theme: PremiumTheme.lightTheme,
       darkTheme: PremiumTheme.darkTheme,
-      themeMode: ThemeMode.light,
+      themeMode: themeMode,
       locale: locale,
       supportedLocales: AppLocalizations.supportedLocales,
       localizationsDelegates: const [

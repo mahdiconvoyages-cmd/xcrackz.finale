@@ -57,14 +57,12 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     final remembered = prefs.getBool('remember_me') ?? false;
     if (remembered) {
       final savedEmail = await _secureStorage.read(key: 'saved_email') ?? '';
-      final savedPassword = await _secureStorage.read(key: 'saved_password') ?? '';
+      // Migration: remove any previously stored password
+      await _secureStorage.delete(key: 'saved_password');
       if (savedEmail.isNotEmpty) {
         setState(() {
           _rememberMe = true;
           _emailController.text = savedEmail;
-          if (savedPassword.isNotEmpty) {
-            _passwordController.text = savedPassword;
-          }
         });
       }
     }
@@ -92,17 +90,17 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         password: _passwordController.text,
       );
 
-      // Save or clear remembered credentials (secure storage)
+      // Save or clear remembered email only (never store password)
       final prefs = await SharedPreferences.getInstance();
       if (_rememberMe) {
         await prefs.setBool('remember_me', true);
         await _secureStorage.write(key: 'saved_email', value: _emailController.text.trim());
-        await _secureStorage.write(key: 'saved_password', value: _passwordController.text);
       } else {
         await prefs.remove('remember_me');
         await _secureStorage.delete(key: 'saved_email');
-        await _secureStorage.delete(key: 'saved_password');
       }
+      // Clean up any legacy stored password
+      await _secureStorage.delete(key: 'saved_password');
 
       if (mounted) {
         HapticFeedback.lightImpact();

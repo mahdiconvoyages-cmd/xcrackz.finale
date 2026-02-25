@@ -34,8 +34,7 @@ class _TrackingListScreenState extends State<TrackingListScreen> {
       var query = _supabase
           .from('missions')
           .select('*')
-          .eq('user_id', userId)
-          .order('created_at', ascending: false);
+          .eq('user_id', userId);
 
       // Appliquer filtres
       if (_filter == 'active') {
@@ -44,7 +43,7 @@ class _TrackingListScreenState extends State<TrackingListScreen> {
         query = query.eq('status', 'completed');
       }
 
-      final response = await query;
+      final response = await query.order('created_at', ascending: false);
       
       // Récupérer les données GPS pour toutes les missions en une seule requête batch
       final missionIds = (response as List).map((m) => m['id'] as String).toList();
