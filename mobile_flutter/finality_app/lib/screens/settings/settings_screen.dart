@@ -831,22 +831,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                       ),
                       _buildDivider(),
                       _buildActionTile(
-                        icon: Icons.phonelink_lock,
-                        title: 'Authentification 2FA',
-                        subtitle: 'Sécurité renforcée',
-                        color: PremiumTheme.primaryBlue,
-                        trailing: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: PremiumTheme.accentAmber.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(8),
-                          ),
-                          child: Text('Bientôt', style: TextStyle(color: PremiumTheme.accentAmber, fontSize: 11, fontWeight: FontWeight.bold)),
-                        ),
-                        onTap: () {},
-                      ),
-                      _buildDivider(),
-                      _buildActionTile(
                         icon: Icons.devices,
                         title: 'Sessions actives',
                         subtitle: 'Gérer vos appareils connectés',
