@@ -187,8 +187,14 @@ export default function Profile() {
     try {
       // Supprimer l'ancien avatar s'il existe
       if (profile.avatar_url) {
-        const oldPath = profile.avatar_url.split('/').slice(-2).join('/');
-        await supabase.storage.from('avatars').remove([oldPath]);
+        try {
+          const url = new URL(profile.avatar_url);
+          const segments = url.pathname.split('/').filter(Boolean);
+          const oldPath = segments.slice(-2).join('/');
+          await supabase.storage.from('avatars').remove([oldPath]);
+        } catch (e) {
+          console.warn('Could not parse old avatar URL for deletion:', e);
+        }
       }
 
       // Compress avatar before upload

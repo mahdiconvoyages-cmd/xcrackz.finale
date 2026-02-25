@@ -6,6 +6,7 @@ import {
   AlertTriangle, CheckCircle, BarChart3, DollarSign, Activity, Eye
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { showToast } from '../components/Toast';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface SubscriptionRow {
@@ -164,7 +165,7 @@ export default function AdminSubscriptions() {
     const expired = subscriptions.filter(s =>
       s.status === 'active' && s.current_period_end && new Date(s.current_period_end) < new Date()
     );
-    if (expired.length === 0) return alert('Aucun abonnement actif expiré à traiter.');
+    if (expired.length === 0) return showToast('info', 'Aucun à traiter', 'Aucun abonnement actif expiré à traiter.');
     if (!confirm(`Expirer ${expired.length} abonnement(s) dont la date est passée et remettre leurs crédits à 0 ?`)) return;
 
     for (const sub of expired) {
@@ -181,7 +182,7 @@ export default function AdminSubscriptions() {
       }
     }
     await loadSubscriptions();
-    alert(`✅ ${expired.length} abonnement(s) expirés avec succès.`);
+    showToast('success', 'Abonnements expirés', `${expired.length} abonnement(s) expirés avec succès.`);
   };
 
   const handleQuickCancel = async (sub: SubscriptionRow) => {
@@ -210,7 +211,7 @@ export default function AdminSubscriptions() {
     const days = prompt('Réactiver pour combien de jours ?', '30');
     if (!days) return;
     const d = parseInt(days);
-    if (isNaN(d) || d <= 0) return alert('Durée invalide');
+    if (isNaN(d) || d <= 0) return showToast('warning', 'Durée invalide');
     const end = new Date(); end.setDate(end.getDate() + d);
     await supabase.from('subscriptions').update({
       status: 'active',

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Plus, Search, Building2, Mail, Phone, MapPin, Edit2, Trash2, FileText, Euro, TrendingUp, Calendar, Clock, Loader2, CheckCircle2, AlertCircle, Sparkles, DollarSign, Settings } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { showToast } from '../components/Toast';
 import { searchBySiret, formatSiret, isValidSiret, formatInseeAddress } from '../services/inseeService';
 import { PricingGrid, getClientPricingGrid } from '../services/pricingGridService';
 import PricingGridModal from '../components/PricingGridModal';
@@ -124,10 +125,12 @@ export default function Clients() {
   };
 
   const filterClients = () => {
+    const q = searchQuery.toLowerCase();
     const filtered = clients.filter(client =>
-      client.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      client.siret?.toLowerCase().includes(searchQuery.toLowerCase())
+      (client.name || '').toLowerCase().includes(q) ||
+      (client.email || '').toLowerCase().includes(q) ||
+      (client.phone || '').toLowerCase().includes(q) ||
+      (client.siret || '').toLowerCase().includes(q)
     );
     setFilteredClients(filtered);
   };
@@ -163,7 +166,7 @@ export default function Clients() {
     e.preventDefault();
     
     if (!formData.name || !formData.email) {
-      alert('Le nom et l\'email sont obligatoires');
+      showToast('warning', 'Champs requis', 'Le nom et l\'email sont obligatoires');
       return;
     }
 
@@ -180,9 +183,9 @@ export default function Clients() {
 
       if (error) {
         console.error('Error updating client:', error);
-        alert('Erreur lors de la mise à jour du client');
+        showToast('error', 'Erreur', 'Erreur lors de la mise à jour du client');
       } else {
-        alert('✅ Client mis à jour avec succès');
+        showToast('success', 'Client mis à jour', 'Les informations du client ont été sauvegardées');
         resetForm();
         loadClients();
       }
@@ -193,9 +196,9 @@ export default function Clients() {
 
       if (error) {
         console.error('Error creating client:', error);
-        alert('Erreur lors de la création du client');
+        showToast('error', 'Erreur', 'Erreur lors de la création du client');
       } else {
-        alert('✅ Client créé avec succès');
+        showToast('success', 'Client créé', 'Le client a été ajouté avec succès');
         resetForm();
         loadClients();
       }
@@ -224,9 +227,9 @@ export default function Clients() {
 
     if (error) {
       console.error('Error deleting client:', error);
-      alert('Erreur lors de la suppression du client');
+      showToast('error', 'Erreur', 'Erreur lors de la suppression du client');
     } else {
-      alert('✅ Client supprimé avec succès');
+      showToast('success', 'Client supprimé', 'Le client a été supprimé avec succès');
       loadClients();
     }
   };

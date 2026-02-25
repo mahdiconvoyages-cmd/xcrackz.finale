@@ -116,6 +116,7 @@ function DocumentViewer({ url, title, onClose }: { url: string; title: string; o
             src={`${url}#toolbar=1&navpanes=0`}
             className="w-full h-full min-h-[70vh] rounded-lg border-0 bg-white"
             title={title}
+            onError={() => console.warn('Failed to load PDF:', url)}
           />
         ) : (
           <img
@@ -125,6 +126,7 @@ function DocumentViewer({ url, title, onClose }: { url: string; title: string; o
             style={{ transform: `scale(${zoom})`, transformOrigin: 'center', transition: 'transform 0.15s' }}
             className="max-w-full max-h-full object-contain rounded-lg shadow-2xl cursor-zoom-in select-none"
             onClick={() => setZoom(z => z === 1 ? 2 : 1)}
+            onError={(e) => { (e.target as HTMLImageElement).src = ''; (e.target as HTMLImageElement).alt = 'Image non disponible'; }}
           />
         )}
       </div>
@@ -279,6 +281,7 @@ export default function MyDocuments() {
     const { data, error } = await supabase
       .from('inspection_documents')
       .select('*')
+      .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(200);
     if (error) throw error;
@@ -300,14 +303,23 @@ export default function MyDocuments() {
       const level1 = await listStorage(base);
       const collected: RawFileItem[] = [];
       const exts = ['.jpg', '.jpeg', '.png', '.pdf'];
+      const directories: string[] = [];
       for (const item of level1) {
         if (exts.some(e => item.name.endsWith(e))) {
           collected.push({ path: `${base}/${item.name}`, name: item.name });
         } else {
-          const level2 = await listStorage(`${base}/${item.name}`);
-          for (const f of level2) {
+          directories.push(item.name);
+        }
+      }
+      // Parallelize sub-directory listing
+      if (directories.length > 0) {
+        const subResults = await Promise.all(
+          directories.map(dir => listStorage(`${base}/${dir}`).then(files => ({ dir, files })))
+        );
+        for (const { dir, files } of subResults) {
+          for (const f of files) {
             if (exts.some(e => f.name.endsWith(e))) {
-              collected.push({ path: `${base}/${item.name}/${f.name}`, name: f.name, context: item.name });
+              collected.push({ path: `${base}/${dir}/${f.name}`, name: f.name, context: dir });
             }
           }
         }

@@ -13,6 +13,7 @@ import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { Link, useNavigate } from 'react-router-dom';
 import { generateMissionPDF } from '../services/missionPdfGenerator';
+import { showToast } from '../components/Toast';
 import JoinMissionModal from '../components/JoinMissionModal';
 import ShareCodeModal from '../components/ShareCodeModal';
 import { useMissionsSync, useInspectionsSync } from '../hooks/useRealtimeSync';
@@ -176,26 +177,26 @@ export default function TeamMissions() {
     if (!confirm('Êtes-vous sûr de vouloir terminer cette mission ?')) return;
     try {
       const { error } = await supabase.from('missions').update({ status: 'completed', updated_at: new Date().toISOString() }).eq('id', mission.id);
-      if (error) throw error; await loadMissions(); alert('✅ Mission terminée avec succès !');
-    } catch (e) { console.error(e); alert('❌ Erreur lors de la mise à jour'); }
+      if (error) throw error; await loadMissions(); showToast('success', 'Mission terminée', 'La mission a été marquée comme terminée');
+    } catch (e) { console.error(e); showToast('error', 'Erreur', 'Erreur lors de la mise à jour'); }
   };
 
   const handleCreateInvoice = (mission: Mission) => navigate('/billing', { state: { fromMission: mission } });
 
   const handleDeleteMission = async (missionId: string) => {
     if (!confirm('Êtes-vous sûr de vouloir supprimer cette mission ?')) return;
-    try { const { error } = await supabase.from('missions').delete().eq('id', missionId); if (error) throw error; await loadMissions(); alert('✅ Mission supprimée');
-    } catch (e) { console.error(e); alert('❌ Erreur lors de la suppression'); }
+    try { const { error } = await supabase.from('missions').delete().eq('id', missionId); if (error) throw error; await loadMissions(); showToast('success', 'Mission supprimée', 'La mission a été supprimée');
+    } catch (e) { console.error(e); showToast('error', 'Erreur', 'Erreur lors de la suppression'); }
   };
 
   const handleArchiveMission = async (missionId: string, archive: boolean) => {
-    try { const { error } = await supabase.from('missions').update({ archived: archive }).eq('id', missionId); if (error) throw error; await loadMissions(); alert(archive ? '✅ Mission archivée' : '✅ Mission restaurée');
-    } catch (e) { console.error(e); alert('❌ Erreur'); }
+    try { const { error } = await supabase.from('missions').update({ archived: archive }).eq('id', missionId); if (error) throw error; await loadMissions(); showToast('success', archive ? 'Mission archivée' : 'Mission restaurée');
+    } catch (e) { console.error(e); showToast('error', 'Erreur', 'Erreur lors de l\'archivage'); }
   };
 
   const handleChangeDriver = async (mission: Mission) => {
-    try { const { error } = await supabase.from('missions').update({ assigned_user_id: null, driver_id: null }).eq('id', mission.id); if (error) throw error; await loadMissions(); alert('✅ Chauffeur retiré.');
-    } catch (e) { console.error(e); alert('❌ Erreur'); }
+    try { const { error } = await supabase.from('missions').update({ assigned_user_id: null, driver_id: null }).eq('id', mission.id); if (error) throw error; await loadMissions(); showToast('success', 'Chauffeur retiré');
+    } catch (e) { console.error(e); showToast('error', 'Erreur', 'Erreur lors du retrait du chauffeur'); }
   };
 
   const handleViewReport = async (missionId: string) => {
@@ -208,10 +209,10 @@ export default function TeamMissions() {
       if (error) throw error;
       if (data?.length > 0 && data[0].share_token) window.open(`/rapport-inspection/${data[0].share_token}`, '_blank');
       else throw new Error('Token non trouvé');
-    } catch (e) { console.error(e); alert('❌ Erreur rapport'); }
+    } catch (e) { console.error(e); showToast('error', 'Erreur', 'Erreur lors de l\'ouverture du rapport'); }
   };
 
-  const handleCopyShareCode = (code: string) => { navigator.clipboard.writeText(code); alert('✅ Code copié !'); };
+  const handleCopyShareCode = (code: string) => { navigator.clipboard.writeText(code); showToast('success', 'Code copié', 'Le code de partage a été copié'); };
 
   const getVehicleTypeLabel = (t?: string) => { switch (t) { case 'VL': return 'VL'; case 'VU': return 'VU'; case 'PL': return 'PL'; default: return t || 'VL'; } };
 

@@ -3,6 +3,7 @@ import { useParams, useNavigate, Link } from 'react-router-dom';
 import { MapPin, Clock, Share2, Gauge, TrendingUp, Activity, Copy, Check, ArrowLeft, User, Phone, Route } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { showToast } from '../components/Toast';
 import LeafletTracking from '../components/LeafletTracking';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -250,7 +251,7 @@ export default function MissionTracking() {
       setTimeout(() => setCopied(false), 3000);
     } catch (err: any) {
       console.error('Share error:', err);
-      alert(err.message || 'Erreur lors de la génération du lien');
+      showToast('error', 'Erreur', err.message || 'Erreur lors de la génération du lien');
     } finally {
       setGeneratingLink(false);
     }

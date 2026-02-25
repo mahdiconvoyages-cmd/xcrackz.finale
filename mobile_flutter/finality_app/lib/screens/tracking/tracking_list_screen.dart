@@ -112,9 +112,41 @@ class _TrackingListScreenState extends State<TrackingListScreen> {
                               mission: _trackedMissions[index],
                               gpsService: _gpsService,
                               onTap: () {
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Suivi GPS actif - Position envoyée en temps réel')),
-                                );
+                                final mission = _trackedMissions[index];
+                                final gps = mission['last_gps'];
+                                if (gps != null) {
+                                  showModalBottomSheet(
+                                    context: context,
+                                    shape: const RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                                    ),
+                                    builder: (_) => Padding(
+                                      padding: const EdgeInsets.all(20),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        crossAxisAlignment: CrossAxisAlignment.start,
+                                        children: [
+                                          Text(
+                                            mission['reference'] ?? 'Mission',
+                                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                                          ),
+                                          const SizedBox(height: 12),
+                                          Text('Latitude: ${gps['latitude']}'),
+                                          Text('Longitude: ${gps['longitude']}'),
+                                          if (gps['speed'] != null) Text('Vitesse: ${(gps['speed'] as num).toStringAsFixed(1)} km/h'),
+                                          if (gps['timestamp'] != null) Text('Dernière MAJ: ${gps['timestamp']}'),
+                                          const SizedBox(height: 16),
+                                          const Text('Suivi GPS actif — Position envoyée en temps réel',
+                                            style: TextStyle(color: Colors.green, fontWeight: FontWeight.w500)),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                } else {
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(content: Text('Aucune donnée GPS disponible pour cette mission')),
+                                  );
+                                }
                               },
                             );
                           },

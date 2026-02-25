@@ -130,14 +130,7 @@ export default function Support() {
       if (error) throw error;
       setMessages(data || []);
 
-      // Simuler admin en train d'écrire
-      const lastMessage = data?.[data.length - 1];
-      if (lastMessage?.sender_type === 'user') {
-        setTimeout(() => {
-          setIsTyping(true);
-          setTimeout(() => setIsTyping(false), 2000);
-        }, 1000);
-      }
+      // Typing indicator is now driven by realtime presence, not simulated
     } catch (error) {
       console.error('Error loading messages:', error);
     }
@@ -155,13 +148,8 @@ export default function Support() {
           filter: `conversation_id=eq.${conversationId}`,
         },
         async (payload) => {
-          const { data: profileData } = await supabase
-            .from('profiles')
-            .select('full_name, email')
-            .eq('id', payload.new.sender_id)
-            .single();
-
-          setMessages((prev) => [...prev, { ...payload.new, profiles: profileData } as Message]);
+          // Use the payload directly instead of N+1 profile fetch per message
+          setMessages((prev) => [...prev, payload.new as Message]);
         }
       )
       .subscribe();
@@ -194,7 +182,7 @@ export default function Support() {
 
   const createConversation = async () => {
     if (!user || !newConvForm.subject.trim() || !newConvForm.message.trim()) {
-      alert('Veuillez remplir tous les champs obligatoires');
+      console.warn('Champs obligatoires manquants pour la création de conversation');
       return;
     }
 
@@ -246,11 +234,11 @@ export default function Support() {
         console.log('✅ Message initial ajouté');
       }
 
-      // Message de bienvenue automatique
+      // Message de bienvenue automatique (sender_id = '00000000-0000-0000-0000-000000000000' for system bot)
       await supabase.from('support_messages').insert([
         {
           conversation_id: (convData as any).id,
-          sender_id: user.id,
+          sender_id: '00000000-0000-0000-0000-000000000000',
           sender_type: 'bot',
           is_automated: true,
           message: `Bonjour ! 👋\n\nMerci d'avoir contacté notre support. Nous avons bien reçu votre demande concernant "${newConvForm.subject}".\n\nUn agent va prendre en charge votre demande dans les plus brefs délais. En attendant, n'hésitez pas à ajouter plus de détails pour nous aider à mieux vous assister.`,
@@ -266,7 +254,6 @@ export default function Support() {
       await loadConversations();
     } catch (error) {
       console.error('Error creating conversation:', error);
-      alert('Erreur lors de la création de la conversation');
     } finally {
       setLoading(false);
     }
@@ -331,7 +318,6 @@ export default function Support() {
       }
     } catch (error) {
       console.error('Error sending message:', error);
-      alert('Erreur lors de l\'envoi du message');
       setNewMessage(messageText); // Restore message on error
     } finally {
       setLoading(false);
@@ -630,7 +616,7 @@ export default function Support() {
                 </div>
 
                 {/* Messages */}
-                <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-br from-slate-50/50 to-blue-50/30">
+                <div role="log" aria-live="polite" aria-label="Messages de support" className="flex-1 overflow-y-auto p-4 space-y-4 bg-gradient-to-br from-slate-50/50 to-blue-50/30">
                   {messages.map((msg) => (
                     <div
                       key={msg.id}
@@ -719,7 +705,7 @@ export default function Support() {
                       placeholder="Tapez votre message..."
                       value={newMessage}
                       onChange={(e) => setNewMessage(e.target.value)}
-                      onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
+                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                       disabled={loading || currentConversation.status === 'closed'}
                       className="flex-1 px-4 py-3 border-2 border-slate-300 rounded-xl focus:ring-2 focus:ring-teal-500 focus:border-teal-500 font-medium disabled:bg-slate-100"
                     />

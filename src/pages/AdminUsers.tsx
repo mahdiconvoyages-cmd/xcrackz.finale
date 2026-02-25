@@ -7,6 +7,7 @@ import {
   Calendar, MapPin, Zap, Edit3, Hash, BadgeCheck
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { showToast } from '../components/Toast';
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 interface UserProfile {
@@ -217,7 +218,7 @@ export default function AdminUsers() {
   // ─── Handlers ──────────────────────────────────────────────────────────────
   const toggleAdmin = async (user: UserProfile) => {
     const me = (await supabase.auth.getUser()).data.user;
-    if (me?.id === user.id) return alert('Vous ne pouvez pas modifier votre propre rôle admin.');
+    if (me?.id === user.id) return showToast('warning', 'Action impossible', 'Vous ne pouvez pas modifier votre propre rôle admin.');
     await supabase.from('profiles').update({ is_admin: !user.is_admin }).eq('id', user.id);
     loadUsers();
   };
@@ -229,7 +230,7 @@ export default function AdminUsers() {
 
   const deleteUser = async (user: UserProfile) => {
     const me = (await supabase.auth.getUser()).data.user;
-    if (me?.id === user.id) return alert('Vous ne pouvez pas supprimer votre propre compte.');
+    if (me?.id === user.id) return showToast('warning', 'Action impossible', 'Vous ne pouvez pas supprimer votre propre compte.');
     if (!confirm(`Supprimer définitivement ${user.email} ?\nCette action est irréversible. Toutes les données associées seront supprimées.`)) return;
     if (prompt('Tapez SUPPRIMER pour confirmer :') !== 'SUPPRIMER') return;
 
@@ -237,19 +238,19 @@ export default function AdminUsers() {
     const { error } = await supabase.rpc('delete_user_completely', { target_user_id: user.id });
     if (error) {
       console.error('Erreur suppression:', error);
-      alert(`Erreur: ${error.message}`);
+      showToast('error', 'Erreur', error.message);
       return;
     }
     setDrawerOpen(false);
     setSelectedUser(null);
     loadUsers();
-    alert(`✅ Utilisateur ${user.email} supprimé définitivement.`);
+    showToast('success', 'Utilisateur supprimé', `${user.email} supprimé définitivement.`);
   };
 
   const handleCreditAction = async () => {
     if (!creditModal) return;
     const amount = parseInt(creditAmount);
-    if (isNaN(amount) || amount <= 0) return alert('Montant invalide');
+    if (isNaN(amount) || amount <= 0) return showToast('warning', 'Montant invalide');
 
     const { user, mode } = creditModal;
     const newBalance = mode === 'add' ? user.credits + amount : Math.max(0, user.credits - amount);

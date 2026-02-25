@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { showToast } from '../components/Toast';
 
 interface Message {
   id: string;
@@ -273,10 +274,10 @@ export default function AdminSupport() {
       if (error) throw error;
 
       await loadQuoteRequests();
-      alert('Statut mis à jour avec succès !');
+      showToast('success', 'Statut mis à jour');
     } catch (error) {
       console.error('Error updating quote status:', error);
-      alert('Erreur lors de la mise à jour');
+      showToast('error', 'Erreur', 'Erreur lors de la mise à jour');
     }
   };
 

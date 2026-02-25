@@ -135,18 +135,23 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   }
 
   Future<void> _calculateCacheSize() async {
-    // Estimation basique de la taille du cache
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final keys = prefs.getKeys();
-      int estimatedSize = keys.length * 100; // Estimation
-      
-      if (estimatedSize > 1024 * 1024) {
-        _cacheSize = '${(estimatedSize / (1024 * 1024)).toStringAsFixed(1)} MB';
-      } else if (estimatedSize > 1024) {
-        _cacheSize = '${(estimatedSize / 1024).toStringAsFixed(1)} KB';
+      final tempDir = await getTemporaryDirectory();
+      int totalSize = 0;
+      await for (final entity in tempDir.list(recursive: true, followLinks: false)) {
+        if (entity is File) {
+          try {
+            totalSize += await entity.length();
+          } catch (_) {}
+        }
+      }
+
+      if (totalSize > 1024 * 1024) {
+        _cacheSize = '${(totalSize / (1024 * 1024)).toStringAsFixed(1)} MB';
+      } else if (totalSize > 1024) {
+        _cacheSize = '${(totalSize / 1024).toStringAsFixed(1)} KB';
       } else {
-        _cacheSize = '$estimatedSize B';
+        _cacheSize = '$totalSize B';
       }
     } catch (e) {
       _cacheSize = '0 MB';

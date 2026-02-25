@@ -4,6 +4,7 @@ import { User, Building, Save, Shield, Download, Trash2, Crown, Calendar } from 
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useSubscription } from '../hooks/useSubscription';
+import { showToast } from '../components/Toast';
 import { gdprService } from '../services/gdprService';
 import { useNavigate } from 'react-router-dom';
 
@@ -93,10 +94,10 @@ export default function Settings() {
     setLoading(true);
     try {
       await gdprService.exportUserData(user.id);
-      alert('Vos données ont été exportées avec succès');
+      showToast('success', 'Export réussi', 'Vos données ont été exportées avec succès');
     } catch (error) {
       console.error('Error exporting data:', error);
-      alert('Erreur lors de l\'export des données');
+      showToast('error', 'Erreur', 'Erreur lors de l\'export des données');
     } finally {
       setLoading(false);
     }
@@ -116,10 +117,10 @@ export default function Settings() {
     setLoading(true);
     try {
       await gdprService.requestAccountDeletion(user.id, reason || undefined);
-      alert('Votre demande de suppression a été enregistrée. Vous recevrez un email de confirmation.');
+      showToast('info', 'Demande enregistrée', 'Votre demande de suppression a été enregistrée. Vous recevrez un email de confirmation.');
     } catch (error) {
       console.error('Error requesting deletion:', error);
-      alert('Erreur lors de la demande de suppression');
+      showToast('error', 'Erreur', 'Erreur lors de la demande de suppression');
     } finally {
       setLoading(false);
     }
@@ -240,7 +241,7 @@ export default function Settings() {
                 type="email"
                 value={user?.email || ''}
                 disabled
-                className="w-full bg-slate-50 border border-slate-200 border border-slate-200 rounded-lg px-4 py-3 text-slate-600 cursor-not-allowed"
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-4 py-3 text-slate-600 cursor-not-allowed"
               />
             </div>
 

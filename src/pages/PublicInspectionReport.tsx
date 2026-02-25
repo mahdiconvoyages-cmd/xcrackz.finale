@@ -90,7 +90,7 @@ export default function PublicInspectionReport() {
       document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
     } catch (err: any) {
-      alert('Erreur lors du téléchargement: ' + err.message);
+      console.error('Download error:', err);
     } finally {
       setDownloading(false);
     }

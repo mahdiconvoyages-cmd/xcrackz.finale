@@ -7,6 +7,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { showToast } from '../components/Toast';
 import { vehicleTypes } from '../utils/vehicleDefaults';
 
 export default function MissionEdit() {
@@ -53,7 +54,7 @@ export default function MissionEdit() {
       
       // Vérifier que l'utilisateur est le propriétaire de la mission
       if (data.user_id !== user.id) {
-        alert('❌ Vous n\'êtes pas autorisé à modifier cette mission');
+        showToast('error', 'Non autorisé', 'Vous n\'êtes pas autorisé à modifier cette mission');
         navigate('/team-missions');
         return;
       }
@@ -78,7 +79,7 @@ export default function MissionEdit() {
       });
     } catch (error) {
       console.error('Error loading mission:', error);
-      alert('❌ Erreur lors du chargement de la mission');
+      showToast('error', 'Erreur', 'Erreur lors du chargement de la mission');
       navigate('/team-missions');
     } finally {
       setLoading(false);
@@ -89,7 +90,7 @@ export default function MissionEdit() {
     e.preventDefault();
     
     if (!formData.pickup_address || !formData.delivery_address) {
-      alert('❌ Veuillez remplir les adresses de départ et d\'arrivée');
+      showToast('warning', 'Champs requis', 'Veuillez remplir les adresses de départ et d\'arrivée');
       return;
     }
 
@@ -121,11 +122,11 @@ export default function MissionEdit() {
 
       if (error) throw error;
 
-      alert('✅ Mission mise à jour avec succès !');
+      showToast('success', 'Mission mise à jour', 'La mission a été mise à jour avec succès');
       navigate('/team-missions');
     } catch (error) {
       console.error('Error updating mission:', error);
-      alert('❌ Erreur lors de la mise à jour de la mission');
+      showToast('error', 'Erreur', 'Erreur lors de la mise à jour de la mission');
     } finally {
       setSaving(false);
     }

@@ -133,17 +133,18 @@ export default function PlanningNetwork() {
 
       const rawMatches: RideMatch[] = matchesRes.data || [];
       const otherUserIds = [...new Set(rawMatches.map(m => m.driver_id === user.id ? m.passenger_id : m.driver_id))];
+      let enrichedMatches = rawMatches;
       if (otherUserIds.length > 0) {
         const { data: profiles } = await supabase.from('profiles').select('id, first_name, last_name, company_name, phone, email, avatar_url').in('id', otherUserIds);
         const profileMap = Object.fromEntries((profiles || []).map((p: any) => [p.id, p]));
-        rawMatches.forEach(m => {
+        enrichedMatches = rawMatches.map(m => {
           const otherId = m.driver_id === user.id ? m.passenger_id : m.driver_id;
-          m.other_user = profileMap[otherId];
+          return { ...m, other_user: profileMap[otherId] };
         });
       }
 
-      const active = rawMatches.filter(m => !['completed', 'cancelled', 'declined'].includes(m.status));
-      const history = rawMatches.filter(m => ['completed', 'cancelled', 'declined'].includes(m.status));
+      const active = enrichedMatches.filter(m => !['completed', 'cancelled', 'declined'].includes(m.status));
+      const history = enrichedMatches.filter(m => ['completed', 'cancelled', 'declined'].includes(m.status));
       setMatches(active);
       setHistoryMatches(history);
       setPendingCount(active.filter(m => m.status === 'proposed').length);
@@ -153,15 +154,20 @@ export default function PlanningNetwork() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  // Realtime
+  // Realtime with debounce to avoid hammering loadData on rapid changes
   useEffect(() => {
     if (!user) return;
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+    const debouncedLoad = () => {
+      if (debounceTimer) clearTimeout(debounceTimer);
+      debounceTimer = setTimeout(() => loadData(), 500);
+    };
     const channel = supabase.channel('reseau-v3')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_offers' }, () => loadData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_requests' }, () => loadData())
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_matches' }, () => loadData())
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_offers' }, debouncedLoad)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_requests' }, debouncedLoad)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'ride_matches' }, debouncedLoad)
       .subscribe();
-    return () => { supabase.removeChannel(channel); };
+    return () => { if (debounceTimer) clearTimeout(debounceTimer); supabase.removeChannel(channel); };
   }, [user, loadData]);
 
   // ── Actions ──

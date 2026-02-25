@@ -7,6 +7,7 @@ import { ArrowLeft, Save, X, ChevronRight, ChevronLeft, MapPin, Search, Car, Upl
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import { useCredits } from '../hooks/useCredits';
+import { showToast } from '../components/Toast';
 import BuyCreditModal from '../components/BuyCreditModal';
 
 /* ── PremiumTheme tokens (identique Flutter premium_theme.dart) ── */
@@ -270,7 +271,7 @@ export default function MissionCreate() {
 
       const { error: ie } = await supabase.from('missions').insert(ins);
       if (ie) throw ie;
-      alert(`✅ Mission créée ! ${requiredCredits} crédit${requiredCredits > 1 ? 's' : ''} déduit${requiredCredits > 1 ? 's' : ''}.`);
+      showToast('success', 'Mission créée', `${requiredCredits} crédit${requiredCredits > 1 ? 's' : ''} déduit${requiredCredits > 1 ? 's' : ''}.`);
       navigate('/team-missions');
     } catch (err: any) {
       console.error(err); setError(err.message || 'Erreur lors de la création');

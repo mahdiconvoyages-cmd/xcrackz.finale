@@ -30,6 +30,7 @@ import {
   Share2,
   FileDown
 } from 'lucide-react';
+import { showToast } from '../components/Toast';
 import {
   loadOpenCV,
   detectDocumentCorners,
@@ -146,7 +147,7 @@ export default function ProfessionalScannerPage() {
       setStep('crop');
     } catch (error) {
       console.error('Erreur traitement image:', error);
-      alert('Erreur lors du traitement de l\'image');
+      showToast('error', 'Erreur', 'Erreur lors du traitement de l\'image');
     } finally {
       setIsProcessing(false);
     }
@@ -171,7 +172,7 @@ export default function ProfessionalScannerPage() {
       setStep('edit');
     } catch (error) {
       console.error('Erreur recadrage:', error);
-      alert('Erreur lors du recadrage');
+      showToast('error', 'Erreur', 'Erreur lors du recadrage');
     } finally {
       setIsProcessing(false);
     }
@@ -197,7 +198,7 @@ export default function ProfessionalScannerPage() {
       setProcessedImage(filtered);
     } catch (error) {
       console.error('Erreur application filtre:', error);
-      alert('Erreur lors de l\'application du filtre');
+      showToast('error', 'Erreur', 'Erreur lors de l\'application du filtre');
       // Revenir à l'image non filtrée en cas d'erreur
       setProcessedImage(croppedImage);
     } finally {
@@ -332,10 +333,10 @@ export default function ProfessionalScannerPage() {
       pdf.addImage(processedImage, 'JPEG', x, y, finalWidth, finalHeight, undefined, 'FAST');
       pdf.save(`scan_${Date.now()}.pdf`);
 
-      alert('✅ PDF exporté avec succès !');
+      showToast('success', 'PDF exporté', 'Le fichier PDF a été téléchargé');
     } catch (error) {
       console.error('Erreur export PDF:', error);
-      alert('❌ Erreur lors de l\'export PDF');
+      showToast('error', 'Erreur', 'Erreur lors de l\'export PDF');
     } finally {
       setIsProcessing(false);
     }
@@ -359,12 +360,12 @@ export default function ProfessionalScannerPage() {
       } else {
         // Fallback : télécharger le fichier
         downloadImage();
-        alert('ℹ️ Le partage n\'est pas disponible. Le fichier a été téléchargé.');
+        showToast('info', 'Téléchargé', 'Le partage n\'est pas disponible. Le fichier a été téléchargé.');
       }
     } catch (error) {
       console.error('Erreur partage:', error);
       if ((error as Error).name !== 'AbortError') {
-        alert('❌ Erreur lors du partage');
+        showToast('error', 'Erreur', 'Erreur lors du partage');
       }
     }
   };

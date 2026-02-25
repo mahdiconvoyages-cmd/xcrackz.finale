@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Navigation, Gauge, Clock, MapPin, Activity, TrendingUp, Users, Share2, Check, Link2, Eye, Truck } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { showToast } from '../components/Toast';
 import LeafletTracking from '../components/LeafletTracking';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -309,7 +310,7 @@ export default function TrackingCommand() {
       setTimeout(() => setCopied(false), 3000);
     } catch (error: any) {
       console.error('Error generating public link:', error);
-      alert(error.message || 'Erreur lors de la génération du lien');
+      showToast('error', 'Erreur', error.message || 'Erreur lors de la génération du lien');
     } finally {
       setGeneratingLink(false);
     }

@@ -246,8 +246,7 @@ export default function SignupWizard() {
         } catch (e) { console.error('Erreur creation abonnement:', e); }
       }
 
-      alert('Inscription reussie ! Verifiez votre email pour activer votre compte et recevoir vos 10 credits de bienvenue.');
-      navigate('/login');
+      navigate('/login', { state: { signupSuccess: true } });
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Erreur lors de l'inscription");

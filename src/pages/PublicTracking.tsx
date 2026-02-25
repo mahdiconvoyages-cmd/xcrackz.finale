@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { MapPin, Navigation, Eye, Share2, Clock, Truck, Activity, Search, Calendar, Route as RouteIcon, Maximize2, Package, AlertCircle, CheckCircle, XCircle, PlayCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { showToast } from '../components/Toast';
 import LeafletTracking from '../components/LeafletTracking';
 import type { RealtimeChannel } from '@supabase/supabase-js';
 
@@ -233,7 +234,7 @@ export default function PublicTracking() {
   const copyTrackingLink = (mission: Mission) => {
     const trackingUrl = `${window.location.origin}/missions/${mission.id}/tracking`;
     navigator.clipboard.writeText(trackingUrl);
-    alert('✅ Lien de tracking copié !');
+    showToast('success', 'Lien copié', 'Le lien de tracking a été copié dans le presse-papier');
   };
 
   if (loading) {

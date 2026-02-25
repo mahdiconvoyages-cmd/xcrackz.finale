@@ -1,5 +1,7 @@
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'routing_service.dart';
@@ -20,8 +22,13 @@ class PlanningLocationService {
   StreamSubscription<Position>? _positionSub;
   RealtimeChannel? _notifChannel;
   Position? _lastPosition;
+  Position? _lastUploadedPosition;
   bool _isActive = false;
+  bool _disposed = false;
   Timer? _locationUploadTimer;
+
+  /// Minimum distance (meters) from last uploaded position to trigger a new upload.
+  static const double _minUploadDistanceMeters = 50.0;
 
   String get _userId => _supabase.auth.currentUser?.id ?? '';
 
@@ -50,37 +57,72 @@ class PlanningLocationService {
         ));
   }
 
-  /// Démarre le tracking de position pour le planning network
-  Future<void> startTracking() async {
-    if (_isActive || _userId.isEmpty) return;
+  /// Reads GPS settings from SharedPreferences (set by SettingsScreen).
+  Future<({LocationAccuracy accuracy, int intervalSeconds})> _readSettings() async {
+    final prefs = await SharedPreferences.getInstance();
+    final accuracyStr = prefs.getString('gpsAccuracy') ?? 'high';
+    final interval = prefs.getInt('gpsUpdateInterval') ?? 30;
+    final batterySaver = prefs.getBool('batterySaverMode') ?? false;
+
+    LocationAccuracy accuracy;
+    switch (accuracyStr) {
+      case 'low':
+        accuracy = LocationAccuracy.low;
+        break;
+      case 'balanced':
+        accuracy = LocationAccuracy.medium;
+        break;
+      default:
+        accuracy = LocationAccuracy.high;
+    }
+
+    final effectiveInterval = batterySaver ? (interval * 2).clamp(30, 600) : interval;
+    return (accuracy: accuracy, intervalSeconds: effectiveInterval);
+  }
+
+  /// Démarre le tracking de position pour le planning network.
+  /// Returns true on success, false if permission denied or user not logged in.
+  Future<bool> startTracking() async {
+    if (_disposed) return false;
+    if (_isActive || _userId.isEmpty) return false;
 
     // Vérifier les permissions
     final perm = await Geolocator.checkPermission();
-    if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) return;
+    if (perm == LocationPermission.denied || perm == LocationPermission.deniedForever) {
+      debugPrint('PlanningLocationService: location permission denied ($perm)');
+      return false;
+    }
 
+    final settings = await _readSettings();
     _isActive = true;
 
     // Position initiale
     try {
-      _lastPosition = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      _lastPosition = await Geolocator.getCurrentPosition(desiredAccuracy: settings.accuracy);
       _uploadLocation();
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('PlanningLocationService: initial position error: $e');
+    }
 
     // Stream de position
     _positionSub = Geolocator.getPositionStream(
-      locationSettings: const LocationSettings(
-        accuracy: LocationAccuracy.high,
+      locationSettings: LocationSettings(
+        accuracy: settings.accuracy,
         distanceFilter: 100, // Mise à jour tous les 100m de mouvement
       ),
     ).listen((position) {
       _lastPosition = position;
     });
 
-    // Upload toutes les 30 secondes (pas trop souvent pour économiser la batterie)
-    _locationUploadTimer = Timer.periodic(const Duration(seconds: 30), (_) => _uploadLocation());
+    // Upload at the configured interval
+    _locationUploadTimer = Timer.periodic(
+      Duration(seconds: settings.intervalSeconds),
+      (_) => _uploadLocation(),
+    );
 
     // Écouter les notifications en temps réel
     _startNotificationListener();
+    return true;
   }
 
   /// Arrête le tracking
@@ -94,15 +136,31 @@ class PlanningLocationService {
     _isActive = false;
   }
 
-  /// Upload la position vers Supabase
+  /// Upload la position vers Supabase.
+  /// Skips upload if user hasn't moved significantly since last upload.
   Future<void> _uploadLocation() async {
-    if (_lastPosition == null || _userId.isEmpty) return;
+    if (_disposed || _lastPosition == null || _userId.isEmpty) return;
+
+    // Skip if stationary (moved < 50m since last upload)
+    if (_lastUploadedPosition != null) {
+      final distance = Geolocator.distanceBetween(
+        _lastUploadedPosition!.latitude,
+        _lastUploadedPosition!.longitude,
+        _lastPosition!.latitude,
+        _lastPosition!.longitude,
+      );
+      if (distance < _minUploadDistanceMeters) return;
+    }
+
     try {
       await _supabase.rpc('update_user_location', params: {
         'p_lat': _lastPosition!.latitude,
         'p_lng': _lastPosition!.longitude,
       });
-    } catch (_) {}
+      _lastUploadedPosition = _lastPosition;
+    } catch (e) {
+      debugPrint('PlanningLocationService: upload location failed: $e');
+    }
   }
 
   /// Écoute les notifications en temps réel
@@ -206,6 +264,7 @@ class PlanningLocationService {
   }
 
   void dispose() {
+    _disposed = true;
     stopTracking();
   }
 }

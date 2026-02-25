@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react';
 import { Download, Upload, Trash2, CheckCircle, XCircle, Smartphone, Bell, Send } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import { showToast } from '../components/Toast';
 
 export default function AdminApk() {
   const [versions, setVersions] = useState<any[]>([]);
@@ -21,7 +22,7 @@ export default function AdminApk() {
   };
 
   const handleUpload = async () => {
-    if (!form.file || !form.version || !form.code) return alert('Remplir tous les champs obligatoires');
+    if (!form.file || !form.version || !form.code) return showToast('warning', 'Champs requis', 'Remplir tous les champs obligatoires');
     setUploading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -56,9 +57,9 @@ export default function AdminApk() {
       setShowModal(false);
       setForm({ version: '', code: '', file: null, notes: '', mandatory: false, sendNotification: true });
       await loadVersions();
-      alert('✅ Version uploadée avec succès !' + (form.sendNotification ? ' Notification envoyée à tous les utilisateurs.' : ''));
+      showToast('success', 'Version uploadée', form.sendNotification ? 'Notification envoyée à tous les utilisateurs.' : '');
     } catch (err: any) {
-      alert(`❌ Erreur: ${err.message}`);
+      showToast('error', 'Erreur', err.message);
     } finally { setUploading(false); }
   };
 
@@ -89,7 +90,7 @@ export default function AdminApk() {
 
       if (!users || users.length === 0) {
         console.log('Aucun utilisateur avec FCM token');
-        alert('⚠️ Aucun utilisateur avec un token de notification trouvé.');
+        showToast('warning', 'Aucun utilisateur', 'Aucun utilisateur avec un token de notification trouvé.');
         return;
       }
 
@@ -130,10 +131,10 @@ export default function AdminApk() {
 
       if (error) {
         console.error('Edge Function error:', error);
-        alert(`⚠️ Erreur envoi: ${error.message}`);
+        showToast('error', 'Erreur envoi', error.message);
       } else {
         console.log('Notification result:', result);
-        alert(`✅ Notification envoyée à ${result?.recipients || 0}/${users.length} utilisateurs`);
+        showToast('success', 'Notification envoyée', `${result?.recipients || 0}/${users.length} utilisateurs`);
       }
     } catch (err) {
       console.error('Erreur envoi notifications:', err);
@@ -146,7 +147,7 @@ export default function AdminApk() {
     try {
       await sendUpdateNotification(version.version_name, version.release_notes);
     } catch (err: any) {
-      alert(`❌ Erreur: ${err.message}`);
+      showToast('error', 'Erreur', err.message);
     } finally {
       setNotifying(null);
     }
