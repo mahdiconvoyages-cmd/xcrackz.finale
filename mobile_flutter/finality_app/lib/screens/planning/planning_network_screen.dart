@@ -123,11 +123,11 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
            .or('driver_id.eq.$_uid,passenger_id.eq.$_uid')
            .inFilter('status', ['proposed', 'accepted', 'in_transit'])
            .order('created_at', ascending: false),
-        // Mes demandes actives
+        // Mes demandes actives (incluant urgentes)
         _sb.from('ride_requests')
            .select('*')
            .eq('user_id', _uid)
-           .eq('status', 'active')
+           .inFilter('status', ['active', 'urgent'])
            .gte('needed_date', DateFormat('yyyy-MM-dd').format(DateTime.now()))
            .order('needed_date'),
       ]);
@@ -167,8 +167,9 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
                         : null,
                     onDecline: m['driver_id'] == _uid && m['status'] == 'proposed'
                         ? () => _updateMatch(m['id'], 'declined')
-                        : null,
-                  )).toList()),
+                        : null,                    onCancelAccepted: m['driver_id'] == _uid && m['status'] == 'accepted'
+                        ? () => _cancelAcceptedMatch(m)
+                        : null,                  )).toList()),
             ],
             if (_myOffers.isNotEmpty)
               _buildSection('Mes offres actives', Icons.directions_car, _kTeal,
@@ -363,6 +364,8 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Retirer l\'offre ?'),
+        content: const Text(
+          'Les passagers ayant un match accepté seront notifiés et leur demande passera en mode urgence.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Non')),
           FilledButton(
@@ -374,12 +377,58 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
       ),
     );
     if (ok != true) return;
+    // Passe les demandes des passagers ayant un match accepté en mode urgence
+    final affectedMatches = await _sb.from('ride_matches')
+        .select('request_id')
+        .eq('offer_id', offerId)
+        .eq('status', 'accepted');
+    for (final m in affectedMatches) {
+      final requestId = m['request_id'] as String?;
+      if (requestId != null) {
+        await _sb.from('ride_requests')
+            .update({'status': 'urgent'})
+            .eq('id', requestId);
+      }
+    }
+    await _sb.from('ride_matches').update({'status': 'cancelled'}).eq('offer_id', offerId);
     await _sb.from('ride_offers').update({'status': 'cancelled'}).eq('id', offerId);
     _load();
   }
 
   Future<void> _cancelRequest(String requestId) async {
     await _sb.from('ride_requests').update({'status': 'cancelled'}).eq('id', requestId);
+    _load();
+  }
+
+  /// Annulation d'un match déjà accepté par le conducteur → la demande du passager
+  /// repasse en mode urgence (prioritaire dans la recherche)
+  Future<void> _cancelAcceptedMatch(Map<String, dynamic> match) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Annuler ce lift ?'),
+        content: const Text(
+          'La demande du passager passera en 🔴 mode urgence — elle apparaîtra en tête de liste pour les autres conducteurs.'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Garder')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: FilledButton.styleFrom(backgroundColor: _kRed),
+            child: const Text('Annuler le lift'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    final requestId = match['request_id'] as String?;
+    if (requestId != null) {
+      await _sb.from('ride_requests')
+          .update({'status': 'urgent'})
+          .eq('id', requestId);
+    }
+    await _sb.from('ride_matches')
+        .update({'status': 'cancelled'})
+        .eq('id', match['id']);
     _load();
   }
 
@@ -404,6 +453,7 @@ class _MatchTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onAccept;
   final VoidCallback? onDecline;
+  final VoidCallback? onCancelAccepted;
 
   const _MatchTile({
     required this.match,
@@ -411,6 +461,7 @@ class _MatchTile extends StatelessWidget {
     required this.onTap,
     this.onAccept,
     this.onDecline,
+    this.onCancelAccepted,
   });
 
   @override
@@ -626,6 +677,7 @@ class _RequestTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final isUrgent = request['status'] == 'urgent';
     final pickup  = request['pickup_city']     as String? ?? '—';
     final dest    = request['destination_city'] as String? ?? '—';
     final date    = request['needed_date']     as String?;
@@ -634,36 +686,65 @@ class _RequestTile extends StatelessWidget {
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: isUrgent ? const Color(0xFFFFF7ED) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _kBorder),
+        border: Border.all(color: isUrgent ? const Color(0xFFFB923C) : _kBorder, width: isUrgent ? 1.5 : 1),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(10),
             decoration: BoxDecoration(
-              color: const Color(0xFFFEF3C7),
+              color: isUrgent ? const Color(0xFFFED7AA) : const Color(0xFFFEF3C7),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: const Icon(Icons.hail, color: _kAmber, size: 22),
+            child: Icon(isUrgent ? Icons.priority_high : Icons.hail,
+                color: isUrgent ? _kRed : _kAmber, size: 22),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('$pickup → $dest',
-                    style: const TextStyle(
-                        fontWeight: FontWeight.bold, fontSize: 14, color: _kDark)),
+                Row(
+                  children: [
+                    if (isUrgent)
+                      Container(
+                        margin: const EdgeInsets.only(right: 6),
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: _kRed,
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: const Text('URGENT',
+                            style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold,
+                                color: Colors.white, letterSpacing: 0.5)),
+                      ),
+                    Flexible(
+                      child: Text('$pickup → $dest',
+                          style: const TextStyle(
+                              fontWeight: FontWeight.bold, fontSize: 14, color: _kDark),
+                          overflow: TextOverflow.ellipsis),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 3),
-                Text(_fmt(date), style: const TextStyle(fontSize: 12, color: _kGray)),
+                Text(
+                  isUrgent ? '⚠️ Lift annulé — ${_fmt(date)}' : _fmt(date),
+                  style: TextStyle(
+                      fontSize: 12,
+                      color: isUrgent ? const Color(0xFFC2410C) : _kGray,
+                      fontWeight: isUrgent ? FontWeight.w600 : FontWeight.normal),
+                ),
               ],
             ),
           ),
           TextButton(
             onPressed: onSearch,
-            child: const Text('Chercher', style: TextStyle(color: _kTeal, fontSize: 13)),
+            child: Text('Chercher',
+                style: TextStyle(
+                    color: isUrgent ? _kRed : _kTeal, fontSize: 13,
+                    fontWeight: isUrgent ? FontWeight.bold : FontWeight.normal)),
           ),
           IconButton(
             onPressed: onCancel,
