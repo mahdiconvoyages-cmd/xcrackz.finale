@@ -43,15 +43,17 @@ void main() {
     try { logger.init(); } catch (_) {}
 
     // dotenv — optional, only works if .env exists (dev mode)
+    bool dotenvLoaded = false;
     try {
       await dotenv.load(fileName: ".env");
+      dotenvLoaded = true;
     } catch (_) {
       // .env not bundled in release — will use ApiConfig fallback values
     }
 
     // Supabase — use .env first, fall back to compiled config
-    final url = dotenv.env['SUPABASE_URL'] ?? ApiConfig.supabaseUrl;
-    final key = dotenv.env['SUPABASE_ANON_KEY'] ?? ApiConfig.supabaseAnonKey;
+    final url = dotenvLoaded ? (dotenv.env['SUPABASE_URL'] ?? ApiConfig.supabaseUrl) : ApiConfig.supabaseUrl;
+    final key = dotenvLoaded ? (dotenv.env['SUPABASE_ANON_KEY'] ?? ApiConfig.supabaseAnonKey) : ApiConfig.supabaseAnonKey;
 
     if (url.isNotEmpty && key.isNotEmpty) {
       try {

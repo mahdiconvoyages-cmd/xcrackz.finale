@@ -59,13 +59,27 @@ android {
         release {
             // Use release signing config if available, otherwise debug
             signingConfig = keystorePropertiesFile.exists() ? signingConfigs.release : signingConfigs.debug
-            // Disable R8 minification - Flutter handles its own optimization via Dart AOT
-            // R8 can strip native plugin classes (sqflite, supabase, etc.) causing crashes
-            minifyEnabled false
-            shrinkResources false
+            // Enable R8 shrinking for smaller APK
+            minifyEnabled true
+            shrinkResources true
+            proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
+            // Split APK by CPU architecture — ~60-80MB each instead of ~240MB
+            ndk {
+                debugSymbolLevel 'SYMBOL_TABLE'
+            }
         }
         debug {
             signingConfig = signingConfigs.debug
+        }
+    }
+
+    // Split APK per ABI — produces separate APKs for each architecture
+    splits {
+        abi {
+            enable true
+            reset()
+            include "armeabi-v7a", "arm64-v8a", "x86_64"
+            universalApk true  // Also build a universal APK as fallback
         }
     }
 }
