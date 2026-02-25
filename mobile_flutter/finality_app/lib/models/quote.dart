@@ -195,6 +195,13 @@ class Quote {
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || other is Quote && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class QuoteItem {

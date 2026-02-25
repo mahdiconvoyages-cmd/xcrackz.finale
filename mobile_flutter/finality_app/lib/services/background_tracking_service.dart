@@ -36,6 +36,7 @@ class BackgroundTrackingService {
 
   // iOS: direct position stream (flutter_background_service not supported on iOS)
   StreamSubscription<Position>? _iosPositionStream;
+  StreamSubscription<Map<String, dynamic>?>? _positionUpdateSub;
 
   // Paramètres
   static const int _updateIntervalSeconds = 3;
@@ -137,7 +138,8 @@ class BackgroundTrackingService {
         'refreshToken': refreshToken,
       });
 
-      _service.on('positionUpdate').listen((event) {
+      _positionUpdateSub?.cancel();
+      _positionUpdateSub = _service.on('positionUpdate').listen((event) {
         if (event != null) {
           logger.d('Position: ${event['latitude']?.toStringAsFixed(6)}, ${event['longitude']?.toStringAsFixed(6)}');
         }

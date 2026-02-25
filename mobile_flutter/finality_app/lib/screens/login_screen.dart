@@ -1,6 +1,7 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 import 'home_screen.dart';
 import 'auth/signup_wizard_screen.dart';
@@ -46,6 +47,19 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     );
 
     _animationController.forward();
+    _loadRememberedEmail();
+  }
+
+  Future<void> _loadRememberedEmail() async {
+    final prefs = await SharedPreferences.getInstance();
+    final remembered = prefs.getBool('remember_me') ?? false;
+    final savedEmail = prefs.getString('saved_email') ?? '';
+    if (remembered && savedEmail.isNotEmpty) {
+      setState(() {
+        _rememberMe = true;
+        _emailController.text = savedEmail;
+      });
+    }
   }
 
   @override
@@ -69,6 +83,16 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
         email: _emailController.text.trim(),
         password: _passwordController.text,
       );
+
+      // Save or clear remembered email
+      final prefs = await SharedPreferences.getInstance();
+      if (_rememberMe) {
+        await prefs.setBool('remember_me', true);
+        await prefs.setString('saved_email', _emailController.text.trim());
+      } else {
+        await prefs.remove('remember_me');
+        await prefs.remove('saved_email');
+      }
 
       if (mounted) {
         HapticFeedback.lightImpact();
@@ -267,7 +291,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
                 if (value == null || value.isEmpty) {
                   return 'Veuillez entrer votre email';
                 }
-                if (!value.contains('@')) {
+                final emailRegex = RegExp(r'^[\w\-\.]+@([\w\-]+\.)+[\w\-]{2,}$');
+                if (!emailRegex.hasMatch(value.trim())) {
                   return 'Email invalide';
                 }
                 return null;

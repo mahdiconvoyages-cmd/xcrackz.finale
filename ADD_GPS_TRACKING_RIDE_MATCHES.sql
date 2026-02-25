@@ -16,7 +16,11 @@ ALTER TABLE ride_matches ADD COLUMN IF NOT EXISTS started_at timestamptz;
 ALTER TABLE ride_matches ADD COLUMN IF NOT EXISTS completed_at timestamptz;
 
 -- Enable Realtime on ride_matches for live tracking
-ALTER PUBLICATION supabase_realtime ADD TABLE ride_matches;
+-- (skip if already member of supabase_realtime)
+DO $$ BEGIN
+  ALTER PUBLICATION supabase_realtime ADD TABLE ride_matches;
+EXCEPTION WHEN duplicate_object THEN NULL;
+END $$;
 
 -- Index pour les matchs in_transit actifs
 CREATE INDEX IF NOT EXISTS idx_ride_matches_in_transit 

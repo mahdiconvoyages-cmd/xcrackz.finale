@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:async';
 import '../l10n/app_localizations.dart';
 import '../providers/credits_provider.dart';
@@ -30,14 +31,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final MissionTrackingMonitor _trackingMonitor = MissionTrackingMonitor();
   StreamSubscription<Uri>? _linkSubscription;
 
-  final List<Widget> _screens = const [
-    DashboardScreen(),
-    MissionsScreen(),
-  ];
+  late final List<Widget> _screens;
+
+  void _navigateToMissions() {
+    setState(() => _currentIndex = 1);
+  }
 
   @override
   void initState() {
     super.initState();
+    _screens = [
+      DashboardScreen(onNavigateToMissions: _navigateToMissions),
+      const MissionsScreen(),
+    ];
     WidgetsBinding.instance.addPostFrameCallback((_) {
       ref.read(creditsProvider.notifier).initialize();
       ref.read(subscriptionProvider.notifier).initialize();
@@ -88,7 +94,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
-    return Scaffold(
+    return PopScope(
+      canPop: _currentIndex == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          setState(() => _currentIndex = 0);
+        }
+      },
+      child: Scaffold(
       key: _scaffoldKey,
       drawer: const AppDrawer(),
       body: Column(
@@ -151,6 +164,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             label: 'Menu',
           ),
         ],
+      ),
       ),
     );
   }

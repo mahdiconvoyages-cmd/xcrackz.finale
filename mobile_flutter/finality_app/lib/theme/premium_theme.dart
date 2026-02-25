@@ -297,9 +297,13 @@ class PremiumTheme {
   // THEME DATA - THÈME CLAIR MODERNE
   // ============================================
   
-  static ThemeData get lightTheme => darkTheme;
+  static ThemeData get lightTheme => _baseTheme;
 
-  static ThemeData darkTheme = ThemeData(
+  /// Dark theme — same as light for now (app is light-only)
+  /// Override here when dark mode is designed
+  static ThemeData get darkTheme => _baseTheme;
+
+  static final ThemeData _baseTheme = ThemeData(
     useMaterial3: true,
     brightness: Brightness.light,
     scaffoldBackgroundColor: lightBg,

@@ -33,7 +33,9 @@ class UserSubscription {
     // Support both 'expires_at' and 'current_period_end' column names
     final expiresAtValue = json['expires_at'] ?? json['current_period_end'];
     final startDateValue = json['start_date'] ?? json['current_period_start'];
-    final cancelledAtValue = json['cancelled_at'] ?? json['cancel_at_period_end'];
+    final cancelledAtValue = json['cancelled_at'];
+    // cancel_at_period_end is a bool, not a date — don't use as DateTime fallback
+    final cancelAtPeriodEnd = json['cancel_at_period_end'];
     
     return UserSubscription(
       id: json['id'] as String?,
@@ -49,7 +51,7 @@ class UserSubscription {
       cancelledAt: cancelledAtValue != null && cancelledAtValue is String
           ? DateTime.parse(cancelledAtValue)
           : null,
-      autoRenew: json['auto_renew'] as bool? ?? !(json['cancel_at_period_end'] as bool? ?? false),
+      autoRenew: json['auto_renew'] as bool? ?? !(cancelAtPeriodEnd is bool ? cancelAtPeriodEnd : false),
       creditsPerMonth: json['credits_per_month'] as int?,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
@@ -141,4 +143,11 @@ class UserSubscription {
         return plan;
     }
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || other is UserSubscription && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }

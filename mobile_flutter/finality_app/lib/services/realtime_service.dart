@@ -135,6 +135,11 @@ class RealtimeService {
           event: PostgresChangeEvent.insert,
           schema: 'public',
           table: 'vehicle_inspections',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
           callback: (payload) {
             logger.i('REALTIME: Inspection inserted: ${payload.newRecord['id']}');
             onInsert(payload.newRecord);
@@ -144,6 +149,11 @@ class RealtimeService {
           event: PostgresChangeEvent.update,
           schema: 'public',
           table: 'vehicle_inspections',
+          filter: PostgresChangeFilter(
+            type: PostgresChangeFilterType.eq,
+            column: 'user_id',
+            value: userId,
+          ),
           callback: (payload) {
             logger.i('REALTIME: Inspection updated: ${payload.newRecord['id']}');
             onUpdate(payload.newRecord);

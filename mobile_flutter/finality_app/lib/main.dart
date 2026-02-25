@@ -9,6 +9,7 @@ import 'screens/splash_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/home_screen.dart';
+import 'screens/subscription/subscription_screen.dart';
 import 'providers/locale_provider.dart';
 import 'services/sync_service.dart';
 import 'services/offline_service.dart';
@@ -28,6 +29,9 @@ String? startupError;
 
 /// Global connectivity service (singleton)
 final connectivityService = ConnectivityService();
+
+/// Global navigator key for services to navigate
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() {
   // Wrap absolutely everything in try-catch
@@ -151,6 +155,7 @@ class CHECKSFLEETApp extends ConsumerWidget {
     return MaterialApp(
       title: 'CHECKSFLEET',
       debugShowCheckedModeBanner: false,
+      navigatorKey: navigatorKey,
       theme: PremiumTheme.lightTheme,
       darkTheme: PremiumTheme.darkTheme,
       themeMode: ThemeMode.light,
@@ -174,8 +179,13 @@ class CHECKSFLEETApp extends ConsumerWidget {
         '/': (context) => const SplashScreen(),
         '/onboarding': (context) => const OnboardingScreen(),
         '/login': (context) => const LoginScreen(),
-        '/home': (context) => const HomeScreen(),
-        '/subscription': (context) => const HomeScreen(),
+        '/home': (context) {
+          // Auth guard — redirect to login if no session
+          final user = Supabase.instance.client.auth.currentUser;
+          if (user == null) return const LoginScreen();
+          return const HomeScreen();
+        },
+        '/subscription': (context) => const SubscriptionScreen(),
       },
     );
   }

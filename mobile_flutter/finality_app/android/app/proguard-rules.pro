@@ -37,7 +37,7 @@
 -keep class * implements com.google.gson.JsonDeserializer
 
 # Keep model classes (adjust package names to match your project)
--keep class com.finality.app.models.** { *; }
+-keep class com.checksfleet.app.models.** { *; }
 
 # Kotlin
 -keep class kotlin.** { *; }

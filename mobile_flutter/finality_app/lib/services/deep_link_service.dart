@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:app_links/app_links.dart';
 import 'dart:async';
 import '../screens/missions/mission_detail_screen.dart';
 import '../utils/logger.dart';
@@ -9,21 +9,27 @@ class DeepLinkService {
   factory DeepLinkService() => _instance;
   DeepLinkService._internal();
 
+  final _appLinks = AppLinks();
   final StreamController<Uri> _linkStreamController = StreamController<Uri>.broadcast();
   Stream<Uri> get linkStream => _linkStreamController.stream;
+  StreamSubscription<Uri>? _sub;
 
   void initialize() {
-    // Deep links are handled via Android intent filters / iOS universal links
-    // No native MethodChannel needed — use Flutter's built-in mechanism
     _getInitialLink();
+    // Listen to incoming links
+    _sub = _appLinks.uriLinkStream.listen((uri) {
+      logger.d('Deep link received: $uri');
+      _linkStreamController.add(uri);
+    }, onError: (e) {
+      logger.e('Deep link stream error: $e');
+    });
   }
 
   Future<void> _getInitialLink() async {
     try {
-      // Use ServicesBinding to get the initial URI if available
-      final initialUri = Uri.base;
-      if (initialUri.pathSegments.isNotEmpty) {
-        logger.d('Initial URI detected: $initialUri');
+      final initialUri = await _appLinks.getInitialLink();
+      if (initialUri != null) {
+        logger.d('Initial deep link: $initialUri');
         _linkStreamController.add(initialUri);
       }
     } catch (e) {
@@ -107,6 +113,7 @@ class DeepLinkService {
   }
 
   void dispose() {
+    _sub?.cancel();
     _linkStreamController.close();
   }
 }

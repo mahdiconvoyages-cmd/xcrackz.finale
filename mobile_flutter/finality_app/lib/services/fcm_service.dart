@@ -1,8 +1,12 @@
 import 'dart:convert';
+import 'dart:async';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
+import '../main.dart' show navigatorKey;
+import '../screens/missions/mission_detail_screen.dart';
 import '../utils/logger.dart';
 
 /// Background message handler (must be top-level function)
@@ -24,6 +28,9 @@ class FCMService {
       FlutterLocalNotificationsPlugin();
 
   bool _initialized = false;
+  StreamSubscription<RemoteMessage>? _onMessageSub;
+  StreamSubscription<RemoteMessage>? _onMessageOpenedSub;
+  StreamSubscription<String>? _onTokenRefreshSub;
 
   /// Initialise FCM et les notifications locales
   Future<void> initialize() async {
@@ -80,10 +87,10 @@ class FCMService {
           ?.createNotificationChannel(channel);
 
       // Handle foreground messages
-      FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
+      _onMessageSub = FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
 
       // Handle message opened app
-      FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
+      _onMessageOpenedSub = FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
 
       // Check if app was opened from notification
       final initialMessage = await _messaging.getInitialMessage();
@@ -95,7 +102,7 @@ class FCMService {
       await _saveToken();
 
       // Listen for token refresh
-      _messaging.onTokenRefresh.listen((token) => _saveTokenToSupabase(token));
+      _onTokenRefreshSub = _messaging.onTokenRefresh.listen((token) => _saveTokenToSupabase(token));
 
       _initialized = true;
       logger.i('FCM: Initialisé avec succès');
@@ -166,13 +173,33 @@ class FCMService {
   /// Gère le tap sur une notification (app ouverte depuis notification)
   void _handleMessageOpenedApp(RemoteMessage message) {
     logger.i('FCM notification tapped: ${message.data}');
-    // Navigation handling can be added here
+    _navigateFromPayload(message.data);
   }
 
   /// Callback quand l'utilisateur tape sur une notification locale
   void _onNotificationTapped(NotificationResponse response) {
     logger.i('Notification tapped: ${response.payload}');
-    // Navigation handling can be added here
+    if (response.payload != null) {
+      try {
+        final data = jsonDecode(response.payload!) as Map<String, dynamic>;
+        _navigateFromPayload(data);
+      } catch (_) {}
+    }
+  }
+
+  /// Navigate based on notification payload data
+  void _navigateFromPayload(Map<String, dynamic> data) {
+    final context = navigatorKey.currentContext;
+    if (context == null) return;
+
+    final missionId = data['mission_id'] as String?;
+    if (missionId != null && missionId.isNotEmpty) {
+      Navigator.of(context).push(
+        MaterialPageRoute(
+          builder: (_) => MissionDetailScreen(missionId: missionId),
+        ),
+      );
+    }
   }
 
   /// Met à jour le token après login
@@ -194,5 +221,12 @@ class FCMService {
     } catch (e) {
       logger.e('FCM: Erreur suppression token: $e');
     }
+  }
+
+  /// Libère les listeners
+  void dispose() {
+    _onMessageSub?.cancel();
+    _onMessageOpenedSub?.cancel();
+    _onTokenRefreshSub?.cancel();
   }
 }

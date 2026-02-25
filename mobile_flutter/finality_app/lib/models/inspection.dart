@@ -136,4 +136,73 @@ class VehicleInspection {
       'updated_at': updatedAt.toIso8601String(),
     };
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || other is VehicleInspection && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  VehicleInspection copyWith({
+    String? id,
+    String? missionId,
+    String? inspectorId,
+    String? inspectionType,
+    Map<String, dynamic>? vehicleInfo,
+    String? overallCondition,
+    int? fuelLevel,
+    int? fuelLevelPercentage,
+    int? mileageKm,
+    int? odometerKm,
+    int? mileageKmStart,
+    int? mileageKmEnd,
+    List<Map<String, dynamic>>? damages,
+    String? notes,
+    String? inspectorSignature,
+    String? driverSignature,
+    String? clientSignature,
+    String? clientSignatureUrl,
+    String? clientName,
+    String? driverName,
+    double? latitude,
+    double? longitude,
+    String? locationAddress,
+    String? status,
+    DateTime? completedAt,
+    DateTime? startedAt,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return VehicleInspection(
+      id: id ?? this.id,
+      missionId: missionId ?? this.missionId,
+      inspectorId: inspectorId ?? this.inspectorId,
+      inspectionType: inspectionType ?? this.inspectionType,
+      vehicleInfo: vehicleInfo ?? this.vehicleInfo,
+      overallCondition: overallCondition ?? this.overallCondition,
+      fuelLevel: fuelLevel ?? this.fuelLevel,
+      fuelLevelPercentage: fuelLevelPercentage ?? this.fuelLevelPercentage,
+      mileageKm: mileageKm ?? this.mileageKm,
+      odometerKm: odometerKm ?? this.odometerKm,
+      mileageKmStart: mileageKmStart ?? this.mileageKmStart,
+      mileageKmEnd: mileageKmEnd ?? this.mileageKmEnd,
+      damages: damages ?? this.damages,
+      notes: notes ?? this.notes,
+      inspectorSignature: inspectorSignature ?? this.inspectorSignature,
+      driverSignature: driverSignature ?? this.driverSignature,
+      clientSignature: clientSignature ?? this.clientSignature,
+      clientSignatureUrl: clientSignatureUrl ?? this.clientSignatureUrl,
+      clientName: clientName ?? this.clientName,
+      driverName: driverName ?? this.driverName,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      locationAddress: locationAddress ?? this.locationAddress,
+      status: status ?? this.status,
+      completedAt: completedAt ?? this.completedAt,
+      startedAt: startedAt ?? this.startedAt,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }

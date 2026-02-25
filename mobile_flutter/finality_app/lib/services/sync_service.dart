@@ -8,6 +8,8 @@ class SyncService {
   SupabaseClient get _supabase => Supabase.instance.client;
   final Map<String, RealtimeChannel> _channels = {};
   final Map<String, StreamController> _controllers = {};
+  final Map<String, Timer?> _debounceTimers = {};
+  static const _debounceDuration = Duration(milliseconds: 500);
 
   /// Synchroniser les missions en temps réel
   Stream<List<Map<String, dynamic>>> syncMissions() {
@@ -36,10 +38,13 @@ class SyncService {
           schema: 'public',
           table: 'missions',
           callback: (payload) async {
-            final missions = await _loadMissions();
-            if (!controller.isClosed) {
-              controller.add(missions);
-            }
+            _debounceTimers[channelName]?.cancel();
+            _debounceTimers[channelName] = Timer(_debounceDuration, () async {
+              final missions = await _loadMissions();
+              if (!controller.isClosed) {
+                controller.add(missions);
+              }
+            });
           },
         )
         .subscribe();
@@ -75,10 +80,13 @@ class SyncService {
           schema: 'public',
           table: 'vehicle_inspections',
           callback: (payload) async {
-            final inspections = await _loadInspections();
-            if (!controller.isClosed) {
-              controller.add(inspections);
-            }
+            _debounceTimers[channelName]?.cancel();
+            _debounceTimers[channelName] = Timer(_debounceDuration, () async {
+              final inspections = await _loadInspections();
+              if (!controller.isClosed) {
+                controller.add(inspections);
+              }
+            });
           },
         )
         .subscribe();
@@ -278,8 +286,10 @@ class SyncService {
   }
 
   /// Nettoyer tous les canaux de synchronisation
-  void dispose() {
-    for (var channel in _channels.values) {
+  void dispose() {      for (var timer in _debounceTimers.values) {
+        timer?.cancel();
+      }
+      _debounceTimers.clear();    for (var channel in _channels.values) {
       _supabase.removeChannel(channel);
     }
     for (var controller in _controllers.values) {

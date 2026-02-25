@@ -146,4 +146,59 @@ class CompanyInfo {
       bankBic: '',
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || other is CompanyInfo && siret == other.siret;
+
+  @override
+  int get hashCode => siret.hashCode;
+
+  CompanyInfo copyWith({
+    String? companyName,
+    String? legalForm,
+    String? address,
+    String? postalCode,
+    String? city,
+    String? country,
+    String? siret,
+    String? siren,
+    String? rcs,
+    String? tvaNumber,
+    String? email,
+    String? phone,
+    String? website,
+    String? capital,
+    bool? isMicroEntrepreneur,
+    String? bankName,
+    String? bankIban,
+    String? bankBic,
+    int? defaultPaymentDays,
+    double? latePaymentPenaltyRate,
+    double? recoveryFee,
+  }) {
+    return CompanyInfo(
+      companyName: companyName ?? this.companyName,
+      legalForm: legalForm ?? this.legalForm,
+      address: address ?? this.address,
+      postalCode: postalCode ?? this.postalCode,
+      city: city ?? this.city,
+      country: country ?? this.country,
+      siret: siret ?? this.siret,
+      siren: siren ?? this.siren,
+      rcs: rcs ?? this.rcs,
+      tvaNumber: tvaNumber ?? this.tvaNumber,
+      email: email ?? this.email,
+      phone: phone ?? this.phone,
+      website: website ?? this.website,
+      capital: capital ?? this.capital,
+      isMicroEntrepreneur: isMicroEntrepreneur ?? this.isMicroEntrepreneur,
+      bankName: bankName ?? this.bankName,
+      bankIban: bankIban ?? this.bankIban,
+      bankBic: bankBic ?? this.bankBic,
+      defaultPaymentDays: defaultPaymentDays ?? this.defaultPaymentDays,
+      latePaymentPenaltyRate: latePaymentPenaltyRate ?? this.latePaymentPenaltyRate,
+      recoveryFee: recoveryFee ?? this.recoveryFee,
+    );
+  }
 }

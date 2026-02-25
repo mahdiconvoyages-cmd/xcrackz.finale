@@ -94,6 +94,7 @@ class Invoice {
       if (missionId != null) 'mission_id': missionId,
       'invoice_number': invoiceNumber,
       'issue_date': invoiceDate.toIso8601String().split('T').first,
+      'invoice_date': invoiceDate.toIso8601String().split('T').first,
       if (dueDate != null) 'due_date': dueDate!.toIso8601String().split('T').first,
       'status': status,
       'subtotal': subtotal,
@@ -147,6 +148,13 @@ class Invoice {
       clientInfo: clientInfo ?? this.clientInfo,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || other is Invoice && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class InvoiceItem {

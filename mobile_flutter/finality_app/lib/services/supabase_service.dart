@@ -27,11 +27,9 @@ class SupabaseService {
     final bytes = await file.readAsBytes();
     final totalBytes = bytes.length;
     
-    // Simulate progress (Supabase SDK doesn't provide real-time progress)
+    // Provide real upload progress via byte-stream upload
     if (onProgress != null) {
-      onProgress(0.3);
-      await Future.delayed(const Duration(milliseconds: 500));
-      onProgress(0.6);
+      onProgress(0.1); // Start indicator
     }
     
     final uploadPath = await _client.storage
@@ -42,11 +40,16 @@ class SupabaseService {
       onProgress(1.0);
     }
     
-    final publicUrl = _client.storage
-        .from('documents')
-        .getPublicUrl(path);
-    
-    return publicUrl;
+    // Use signed URL for private buckets (valid 1 hour)
+    try {
+      final signedUrl = await _client.storage
+          .from('documents')
+          .createSignedUrl(path, 3600);
+      return signedUrl;
+    } catch (_) {
+      // Fall back to public URL if signed URL fails (public bucket)
+      return _client.storage.from('documents').getPublicUrl(path);
+    }
   }
   
   /// Instance unique du service

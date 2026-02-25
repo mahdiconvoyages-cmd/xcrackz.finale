@@ -65,6 +65,17 @@
 	</array>
 	<key>FirebaseAppDelegateProxyEnabled</key>
 	<false/>
+	<key>ITSAppUsesNonExemptEncryption</key>
+	<false/>
+	<key>LSApplicationQueriesSchemes</key>
+	<array>
+		<string>tel</string>
+		<string>mailto</string>
+		<string>https</string>
+		<string>maps</string>
+		<string>comgooglemaps</string>
+		<string>waze</string>
+	</array>
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>

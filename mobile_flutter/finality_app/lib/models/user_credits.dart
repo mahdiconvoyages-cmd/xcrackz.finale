@@ -52,6 +52,13 @@ class UserCredits {
       createdAt: createdAt ?? this.createdAt,
     );
   }
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) || other is UserCredits && id == other.id;
+
+  @override
+  int get hashCode => id.hashCode;
 }
 
 class CreditTransaction {

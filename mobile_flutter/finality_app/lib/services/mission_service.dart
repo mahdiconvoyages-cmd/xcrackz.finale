@@ -3,14 +3,15 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/mission.dart';
 import 'background_tracking_service.dart';
 import 'offline_service.dart';
-import 'connectivity_service.dart';
+import '../main.dart' show connectivityService;
 import '../utils/logger.dart';
 
 class MissionService {
   final SupabaseClient _supabase = Supabase.instance.client;
   final BackgroundTrackingService _gpsService = BackgroundTrackingService();
   final OfflineService _offlineService = OfflineService();
-  final ConnectivityService _connectivityService = ConnectivityService();
+  /// Use the global ConnectivityService singleton instead of creating a new one
+  get _connectivityService => connectivityService;
   
   bool _isInitialized = false;
   

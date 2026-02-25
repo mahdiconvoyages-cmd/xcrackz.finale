@@ -6,9 +6,12 @@ import '../../services/realtime_service.dart';
 import '../profile/profile_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
+import '../missions/mission_create_screen_new.dart';
+import '../crm/crm_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
-  const DashboardScreen({super.key});
+  final VoidCallback? onNavigateToMissions;
+  const DashboardScreen({super.key, this.onNavigateToMissions});
 
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
@@ -84,26 +87,31 @@ class _DashboardScreenState extends State<DashboardScreen>
       final currentUser = supabase.auth.currentUser;
       _isEmailVerified = currentUser?.emailConfirmedAt != null;
 
-      // Load profile
-      final profile = await supabase
-          .from('profiles')
-          .select('first_name, last_name, credits')
-          .eq('id', userId)
-          .maybeSingle();
+      // Load profile, subscription and stats in parallel
+      final results = await Future.wait<dynamic>([
+        supabase
+            .from('profiles')
+            .select('first_name, last_name, credits')
+            .eq('id', userId)
+            .maybeSingle(),
+        supabase
+            .from('subscriptions')
+            .select('plan, status, current_period_end, auto_renew')
+            .eq('user_id', userId)
+            .eq('status', 'active')
+            .maybeSingle(),
+        supabase.rpc('get_dashboard_stats', params: {'p_user_id': userId}),
+      ]);
+
+      final profile = results[0] as Map<String, dynamic>?;
+      final subscription = results[1] as Map<String, dynamic>?;
+      final statsRes = results[2];
 
       if (profile != null) {
         _firstName = profile['first_name'] ?? '';
         _lastName = profile['last_name'] ?? '';
         _credits = profile['credits'] ?? 0;
       }
-
-      // Load subscription from subscriptions table
-      final subscription = await supabase
-          .from('subscriptions')
-          .select('plan, status, current_period_end, auto_renew')
-          .eq('user_id', userId)
-          .eq('status', 'active')
-          .maybeSingle();
 
       if (subscription != null) {
         _plan = (subscription['plan'] ?? 'free').toString().toUpperCase();
@@ -130,8 +138,7 @@ class _DashboardScreenState extends State<DashboardScreen>
         _daysRemaining = 30;
       }
 
-      // Load stats via server-side RPC (single query replaces 2 queries + client-side aggregation)
-      final statsRes = await supabase.rpc('get_dashboard_stats', params: {'p_user_id': userId});
+      // Stats already loaded via Future.wait above
 
       if (statsRes != null) {
         _totalMissions = statsRes['total_missions'] ?? 0;
@@ -1076,7 +1083,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                 label: l10n.newMission,
                 gradient: [PremiumTheme.primaryTeal, PremiumTheme.primaryBlue],
                 onTap: () {
-                  // Navigate to create mission
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => const MissionCreateScreenNew(),
+                  ));
                 },
               ),
             ),
@@ -1087,7 +1096,9 @@ class _DashboardScreenState extends State<DashboardScreen>
                 label: l10n.newContact,
                 gradient: [PremiumTheme.primaryIndigo, PremiumTheme.primaryPurple],
                 onTap: () {
-                  // Navigate to add contact
+                  Navigator.push(context, MaterialPageRoute(
+                    builder: (_) => const CRMScreen(),
+                  ));
                 },
               ),
             ),
@@ -1214,11 +1225,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                   TextButton(
                     onPressed: () {
-                      // Navigate to Missions tab (index 1) in HomeScreen
-                      final homeState = context.findAncestorStateOfType<State>();
-                      if (homeState != null && homeState.widget.runtimeType.toString() == 'HomeScreen') {
-                        // Use callback pattern - the parent HomeScreen handles tab switching
-                      }
+                      widget.onNavigateToMissions?.call();
                     },
                     child: Text(
                       l10n.seeAll,

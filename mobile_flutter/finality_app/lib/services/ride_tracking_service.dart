@@ -28,6 +28,10 @@ class RideTrackingService {
   Position? _lastPosition;
   bool _isTracking = false;
 
+  // Cached dropoff coordinates (static during a ride)
+  double? _cachedDropoffLat;
+  double? _cachedDropoffLng;
+
   String get _uid => _sb.auth.currentUser?.id ?? '';
   bool get isTracking => _isTracking;
   String? get activeMatchId => _activeMatchId;
@@ -49,6 +53,18 @@ class RideTrackingService {
 
     _activeMatchId = matchId;
     _isTracking = true;
+
+    // Cache dropoff coordinates (they don't change during a ride)
+    try {
+      final matchData = await _sb.from('ride_matches')
+          .select('dropoff_lat, dropoff_lng')
+          .eq('id', matchId)
+          .maybeSingle();
+      if (matchData != null) {
+        _cachedDropoffLat = (matchData['dropoff_lat'] as num?)?.toDouble();
+        _cachedDropoffLng = (matchData['dropoff_lng'] as num?)?.toDouble();
+      }
+    } catch (_) {}
 
     // Position initiale
     try {
@@ -90,6 +106,8 @@ class RideTrackingService {
     _isTracking = false;
     _activeMatchId = null;
     _lastPosition = null;
+    _cachedDropoffLat = null;
+    _cachedDropoffLng = null;
     logger.i('RideTracking: stopped');
   }
 
@@ -98,19 +116,10 @@ class RideTrackingService {
   Future<void> _uploadPosition() async {
     if (_lastPosition == null || _activeMatchId == null) return;
     try {
-      // Calculate ETA to dropoff
-      final match = await _sb.from('ride_matches')
-          .select('dropoff_lat, dropoff_lng')
-          .eq('id', _activeMatchId!)
-          .maybeSingle();
-      
+      // Use cached dropoff coords instead of querying DB every 15s
       int? eta;
-      if (match != null) {
-        final dropLat = (match['dropoff_lat'] as num?)?.toDouble();
-        final dropLng = (match['dropoff_lng'] as num?)?.toDouble();
-        if (dropLat != null && dropLng != null) {
-          eta = await _calculateETA(dropLat, dropLng);
-        }
+      if (_cachedDropoffLat != null && _cachedDropoffLng != null) {
+        eta = await _calculateETA(_cachedDropoffLat!, _cachedDropoffLng!);
       }
 
       await _sb.from('ride_matches').update({
