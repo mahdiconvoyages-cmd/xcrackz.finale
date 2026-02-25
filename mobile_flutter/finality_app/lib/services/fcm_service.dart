@@ -220,7 +220,7 @@ class FCMService {
 
     // Handle app update notification — trigger update check
     if (type == 'app_update') {
-      _handleAppUpdateNotification(context);
+      _handleAppUpdateNotification(context, data);
       return;
     }
 
@@ -235,13 +235,44 @@ class FCMService {
   }
 
   /// Handle app update notification — check for update and show dialog
-  Future<void> _handleAppUpdateNotification(BuildContext context) async {
+  /// Falls back to notification [data] if DB lookup fails
+  Future<void> _handleAppUpdateNotification(BuildContext context, Map<String, dynamic> data) async {
     try {
-      final update = await UpdateService.instance.checkForUpdate();
-      if (update != null) {
-        if (context.mounted) {
-          await UpdateDialog.show(context, update);
+      // Essayer d'abord via la DB (table app_versions)
+      AppUpdate? update = await UpdateService.instance.checkForUpdate();
+
+      // Fallback: construire l'AppUpdate depuis les données de la notification
+      if (update == null) {
+        final downloadUrl = data['download_url'] as String? ?? '';
+        final version = data['version'] as String? ?? '';
+        final buildNumber = int.tryParse(data['build_number']?.toString() ?? '') ?? 0;
+        final releaseNotes = data['release_notes'] as String?;
+
+        if (downloadUrl.isNotEmpty) {
+          update = AppUpdate(
+            version: version,
+            buildNumber: buildNumber,
+            downloadUrl: downloadUrl,
+            releaseNotes: releaseNotes,
+          );
+          logger.i('FCM: Using notification data fallback for update dialog');
         }
+      }
+
+      if (update != null && context.mounted) {
+        await UpdateDialog.show(context, update);
+      } else if (context.mounted) {
+        // Dernier recours: afficher un snackbar informatif
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Nouvelle version ${data['version'] ?? ''} disponible !'),
+            duration: const Duration(seconds: 5),
+            action: SnackBarAction(
+              label: 'OK',
+              onPressed: () {},
+            ),
+          ),
+        );
       }
     } catch (e) {
       logger.e('FCM: Erreur handling app_update: $e');

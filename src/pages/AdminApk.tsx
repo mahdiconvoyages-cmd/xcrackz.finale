@@ -102,13 +102,29 @@ export default function AdminApk() {
       // Passer les tokens directement pour éviter le problème de lookup DB
       const fcmTokens = users.map(u => ({ userId: u.id, token: u.fcm_token }));
 
+      // Chercher l'URL de téléchargement de cette version
+      const { data: versionRow } = await supabase
+        .from('app_versions')
+        .select('apk_url, version_code, release_notes')
+        .eq('version_name', versionName)
+        .eq('is_active', true)
+        .order('version_code', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
       const { data: result, error } = await supabase.functions.invoke('send-notification', {
         body: {
           fcmTokens,
           type: 'app_update',
           title,
           message: body,
-          data: { type: 'app_update', version: versionName },
+          data: {
+            type: 'app_update',
+            version: versionName,
+            download_url: versionRow?.apk_url || '',
+            build_number: String(versionRow?.version_code || ''),
+            release_notes: notes || '',
+          },
         },
       });
 
@@ -129,7 +145,6 @@ export default function AdminApk() {
     setNotifying(version.id);
     try {
       await sendUpdateNotification(version.version_name, version.release_notes);
-      alert(`✅ Notification envoyée pour la version ${version.version_name}`);
     } catch (err: any) {
       alert(`❌ Erreur: ${err.message}`);
     } finally {
