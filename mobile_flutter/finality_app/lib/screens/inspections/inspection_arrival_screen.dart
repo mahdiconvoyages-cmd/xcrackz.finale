@@ -9,7 +9,6 @@ import 'dart:convert';
 import '../../widgets/signature_pad_widget.dart';
 import '../../widgets/inspection_report_link_dialog.dart';
 import '../document_scanner/document_scanner_screen.dart';
-import 'inspection_departure_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
 
@@ -1053,21 +1052,18 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
     final String label;
     final IconData icon;
     final String? photoPath;
-    final String damage;
     final String? guideImage;
     
     if (isOptional) {
       label = 'Photo optionnelle ${index + 1}';
       icon = Icons.add_a_photo;
       photoPath = _optionalPhotos[index];
-      damage = _optionalPhotoDamages[index];
       guideImage = null;
     } else {
       final guide = _photoGuides[index];
       label = guide.label;
       icon = guide.icon;
       photoPath = _photos[index];
-      damage = _photoDamages[index];
       guideImage = guide.image;
     }
     

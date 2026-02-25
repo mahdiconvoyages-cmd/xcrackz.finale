@@ -9,7 +9,6 @@ import '../../models/client.dart';
 import '../../models/mission.dart';
 import '../../services/invoice_service.dart';
 import '../../services/insee_service.dart';
-import '../../widgets/siret_autocomplete_field.dart';
 import '../../widgets/client_selector.dart';
 import '../../theme/premium_theme.dart';
 

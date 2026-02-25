@@ -8,7 +8,6 @@ import 'dart:convert';
 import '../../widgets/signature_pad_widget.dart';
 import '../../widgets/inspection_report_link_dialog.dart';
 import '../document_scanner/document_scanner_screen.dart';
-import 'inspection_arrival_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
 
@@ -783,33 +782,6 @@ class _InspectionDepartureScreenState
     }
   }
 
-  Widget _buildOldProgressIndicator() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 24),
-      color: const Color(0xFF1F2937),
-      child: Row(
-        children: List.generate(
-          5,
-          (index) => Expanded(
-            child: Container(
-              height: 4,
-              margin: EdgeInsets.only(
-                left: index == 0 ? 0 : 4,
-                right: index == 4 ? 0 : 4,
-              ),
-              decoration: BoxDecoration(
-                color: index <= _currentStep
-                    ? const Color(0xFF14B8A6)
-                    : const Color(0xFF374151),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
   Widget _buildStepContent() {
     switch (_currentStep) {
       case 0:
@@ -1127,7 +1099,7 @@ class _InspectionDepartureScreenState
                 ),
                 child: hasPhoto
                     ? Image.file(
-                        File(photoPath!),
+                        File(photoPath),
                         fit: BoxFit.cover,
                       )
                     : !isOptional && _photoGuides[index].image != null

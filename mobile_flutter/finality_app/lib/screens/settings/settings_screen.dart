@@ -29,6 +29,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   // Permissions
   bool _locationPermissionGranted = true;
   bool _backgroundLocationGranted = false;
+  // ignore: unused_field
   bool _locationEnabled = true;
   
   // Notifications
@@ -40,6 +41,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   bool _vibrationEnabled = true;
   
   // Apparence
+  // ignore: unused_field
   bool _darkMode = true;
   String _fontSize = 'medium'; // small, medium, large
   String _displayMode = 'comfortable'; // compact, comfortable
@@ -711,15 +713,6 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _showPermissionDeniedDialog('Localisation en arrière-plan');
     } else if (status.isGranted) {
       _showSnackBar('Permission de localisation en arrière-plan accordée', isSuccess: true);
-    }
-  }
-
-  Future<void> _requestCameraPermission() async {
-    final status = await Permission.camera.request();
-    if (status.isPermanentlyDenied) {
-      _showPermissionDeniedDialog('Caméra');
-    } else if (status.isGranted) {
-      _showSnackBar('Permission caméra accordée', isSuccess: true);
     }
   }
 

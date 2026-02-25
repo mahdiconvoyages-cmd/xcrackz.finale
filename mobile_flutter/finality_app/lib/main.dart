@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart';
 import 'screens/splash_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/login_screen.dart';
@@ -12,7 +13,6 @@ import 'screens/home_screen.dart';
 import 'screens/subscription/subscription_screen.dart';
 import 'providers/locale_provider.dart';
 import 'providers/theme_provider.dart';
-import 'services/sync_service.dart';
 import 'services/offline_service.dart';
 import 'services/background_tracking_service.dart';
 import 'services/connectivity_service.dart';
@@ -52,9 +52,14 @@ void main() {
       // .env not bundled in release — will use ApiConfig fallback values
     }
 
-    // Supabase — use .env first, fall back to compiled config
-    final url = dotenvLoaded ? (dotenv.env['SUPABASE_URL'] ?? ApiConfig.supabaseUrl) : ApiConfig.supabaseUrl;
-    final key = dotenvLoaded ? (dotenv.env['SUPABASE_ANON_KEY'] ?? ApiConfig.supabaseAnonKey) : ApiConfig.supabaseAnonKey;
+    // Supabase — priority: dart-define > .env > compiled defaults
+    // dart-define values are already baked into ApiConfig via String.fromEnvironment
+    final url = dotenvLoaded && (dotenv.env['SUPABASE_URL'] ?? '').isNotEmpty
+        ? dotenv.env['SUPABASE_URL']!
+        : ApiConfig.supabaseUrl;
+    final key = dotenvLoaded && (dotenv.env['SUPABASE_ANON_KEY'] ?? '').isNotEmpty
+        ? dotenv.env['SUPABASE_ANON_KEY']!
+        : ApiConfig.supabaseAnonKey;
 
     if (url.isNotEmpty && key.isNotEmpty) {
       try {
@@ -67,9 +72,11 @@ void main() {
       startupError = 'Credentials manquants dans .env';
     }
 
-    // Firebase & FCM
+    // Firebase & FCM & Crashlytics
     try {
       await Firebase.initializeApp();
+      // Enable Crashlytics — records non-fatal + fatal errors
+      FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
       await FCMService().initialize();
     } catch (e) {
       logger.e('Firebase init error: $e');
@@ -85,12 +92,54 @@ void main() {
       await BackgroundTrackingService.initializeService();
     } catch (_) {}
 
-    // Error handler
-    FlutterError.onError = (d) => FlutterError.presentError(d);
+    // Error handler — premium error boundary + Crashlytics
+    FlutterError.onError = (details) {
+      logger.e('FlutterError: ${details.exceptionAsString()}');
+      FirebaseCrashlytics.instance.recordFlutterError(details);
+      FlutterError.presentError(details);
+    };
+
+    // Premium error widget for release mode — replaces red screen of death
+    ErrorWidget.builder = (FlutterErrorDetails details) {
+      return Material(
+        color: const Color(0xFFF8F9FA),
+        child: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(32),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: const BoxDecoration(
+                    color: Color(0xFFFEE2E2),
+                    shape: BoxShape.circle,
+                  ),
+                  child: const Icon(Icons.warning_amber_rounded, color: Color(0xFFEF4444), size: 48),
+                ),
+                const SizedBox(height: 24),
+                const Text(
+                  'Une erreur est survenue',
+                  style: TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: Color(0xFF1A1A1A)),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Essayez de revenir en arrière ou redémarrer l\'application.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 14, color: Color(0xFF6B7280)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    };
 
     runApp(const ProviderScope(child: CHECKSFLEETApp()));
   }, (error, stack) {
-    // Fatal crash — show red error screen
+    // Report fatal crash to Crashlytics
+    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    // Fatal crash — show error screen
     runApp(MaterialApp(
       home: Scaffold(
         backgroundColor: const Color(0xFF1a1a2e),

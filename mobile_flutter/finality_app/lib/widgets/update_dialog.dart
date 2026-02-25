@@ -2,7 +2,6 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/update_service.dart';
-import '../theme/premium_theme.dart';
 
 /// Dialog élégant de mise à jour de l'application
 class UpdateDialog extends StatefulWidget {
@@ -102,7 +101,6 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
 
       // Utiliser un Intent Android pour installer l'APK
       // Sur Android, ouvrir le fichier avec le package installer
-      final uri = Uri.parse(filePath);
       
       // Fallback: ouvrir l'URL de téléchargement dans le navigateur
       // Le navigateur gère le téléchargement + prompt d'installation

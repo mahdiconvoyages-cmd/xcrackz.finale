@@ -496,7 +496,7 @@ class _SubscriptionScreenState extends State<SubscriptionScreen> {
 
   Future<void> _handleSubscribe(String planId) async {
     // Afficher un dialogue informatif
-    final confirmed = await showDialog<bool>(
+    await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: const Text('Abonnement'),

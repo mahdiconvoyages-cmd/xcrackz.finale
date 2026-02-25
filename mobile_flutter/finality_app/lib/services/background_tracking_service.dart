@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:ui';
-import 'package:flutter/material.dart';
 import 'package:flutter_background_service/flutter_background_service.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:geolocator/geolocator.dart';
@@ -38,10 +37,7 @@ class BackgroundTrackingService {
   StreamSubscription<Position>? _iosPositionStream;
   StreamSubscription<Map<String, dynamic>?>? _positionUpdateSub;
 
-  // Paramètres
-  static const int _updateIntervalSeconds = 3;
-  static const int _historySnapshotIntervalMinutes = 5;
-  static const double _minMovementMeters = 5.0;
+  // Paramètres — configurés via service events
 
   bool get isTracking => _isTracking;
   String? get currentMissionId => _currentMissionId;
@@ -333,7 +329,6 @@ Future<void> _onStart(ServiceInstance service) async {
   StreamSubscription<Position>? positionStream;
   Timer? historyTimer;
   Position? lastPosition;
-  DateTime? lastHistorySnapshot;
   String? currentMissionId;
   SupabaseClient? supabaseClient;
   String? userId;
@@ -373,8 +368,6 @@ Future<void> _onStart(ServiceInstance service) async {
         supabaseClient = Supabase.instance.client;
       } catch (_) {}
     }
-
-    lastHistorySnapshot = DateTime.now();
 
     // Mettre à jour la notification
     if (service is AndroidServiceInstance) {

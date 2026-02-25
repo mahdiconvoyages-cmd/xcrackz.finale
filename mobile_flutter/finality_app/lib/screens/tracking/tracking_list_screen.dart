@@ -56,7 +56,7 @@ class _TrackingListScreenState extends State<TrackingListScreen> {
       
       // Créer un map pour accès rapide
       final gpsMap = <String, Map<String, dynamic>>{};
-      for (final gps in gpsDataList as List) {
+      for (final gps in gpsDataList) {
         gpsMap[gps['mission_id']] = gps;
       }
 

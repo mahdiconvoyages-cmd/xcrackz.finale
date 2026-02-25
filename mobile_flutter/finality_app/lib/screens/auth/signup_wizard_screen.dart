@@ -5,7 +5,6 @@ import 'dart:io';
 import '../../services/fraud_prevention_service.dart';
 import '../../services/validation_service.dart';
 import '../../main.dart';
-import '../home_screen.dart';
 
 /// Inscription simplifiee - 4 etapes rapides
 /// 1. Type (Entreprise / Convoyeur)
@@ -131,13 +130,6 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
     } finally {
       if (mounted) setState(() => _checkingPhone = false);
     }
-  }
-
-  void _showError(String msg) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(msg), backgroundColor: Colors.red),
-    );
   }
 
   // ==========================================

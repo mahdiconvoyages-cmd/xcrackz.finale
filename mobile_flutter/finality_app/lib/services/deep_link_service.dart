@@ -42,7 +42,6 @@ class DeepLinkService {
     logger.d('Handling deep link: $uri');
 
     // Parse the URI
-    final path = uri.path;
     final pathSegments = uri.pathSegments;
 
     if (pathSegments.isEmpty) {

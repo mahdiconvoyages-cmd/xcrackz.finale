@@ -3,7 +3,6 @@ import '../../utils/error_helper.dart';
 import '../../models/quote.dart';
 import '../../models/client.dart';
 import '../../services/quote_service.dart';
-import '../../services/insee_service.dart';
 import '../../widgets/siret_autocomplete_field.dart';
 import '../../widgets/client_selector.dart';
 
@@ -29,7 +28,6 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
   final _notesController = TextEditingController();
   final _termsController = TextEditingController();
   
-  InseeCompanyInfo? _selectedCompany;
   Client? _selectedClient;
   bool _useExistingClient = true;
   
@@ -236,7 +234,6 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
                 controller: _clientSiretController,
                 onCompanySelected: (company) {
                   setState(() {
-                    _selectedCompany = company;
                     if (company != null) {
                       _clientNameController.text = company.companyName ?? '';
                       _clientAddressController.text = company.fullAddress;

@@ -4,7 +4,6 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import '../main.dart';
-import 'home_screen.dart';
 import 'auth/signup_wizard_screen.dart';
 
 class LoginScreen extends StatefulWidget {

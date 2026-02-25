@@ -542,10 +542,8 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
     final client = _inv!.clientInfo ?? {};
     final (sLabel, _, _) = _si(_inv!.status);
 
-    final boldStyle = pw.TextStyle(font: fontBold, fontSize: 10);
     final regularStyle = pw.TextStyle(font: fontRegular, fontSize: 10);
     final smallStyle = pw.TextStyle(font: fontRegular, fontSize: 8.5, color: _textMuted);
-    final smallBold = pw.TextStyle(font: fontBold, fontSize: 8.5, color: _textMuted);
 
     pdf.addPage(pw.MultiPage(
       pageFormat: PdfPageFormat.a4,

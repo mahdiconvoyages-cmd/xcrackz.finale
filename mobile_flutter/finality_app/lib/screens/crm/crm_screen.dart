@@ -150,21 +150,21 @@ class _CRMScreenState extends State<CRMScreen>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w600,
                           color: PremiumTheme.textPrimary,
                         )),
                     const SizedBox(height: 2),
                     Text(subtitle,
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 13,
                           color: PremiumTheme.textSecondary,
                         )),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right_rounded,
+              const Icon(Icons.chevron_right_rounded,
                   color: PremiumTheme.textTertiary, size: 20),
             ],
           ),
@@ -228,7 +228,7 @@ class _CRMScreenState extends State<CRMScreen>
                                 letterSpacing: -0.3,
                               )),
                           Text(l10n.clientManagement,
-                              style: TextStyle(
+                              style: const TextStyle(
                                 fontSize: 13,
                                 color: PremiumTheme.textSecondary,
                               )),

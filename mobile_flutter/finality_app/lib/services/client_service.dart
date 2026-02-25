@@ -122,7 +122,7 @@ class ClientService {
         .maybeSingle();
 
     if (response == null) return null;
-    return Client.fromJson(response as Map<String, dynamic>);
+    return Client.fromJson(response);
   }
 
   /// Crée un nouveau client
@@ -140,7 +140,7 @@ class ClientService {
         .select()
         .single();
 
-    return Client.fromJson(response as Map<String, dynamic>);
+    return Client.fromJson(response);
   }
 
   /// Met à jour un client existant
@@ -156,7 +156,7 @@ class ClientService {
         .select()
         .single();
 
-    return Client.fromJson(response as Map<String, dynamic>);
+    return Client.fromJson(response);
   }
 
   /// Supprime un client
@@ -231,7 +231,7 @@ class ClientService {
         'https://recherche-entreprises.api.gouv.fr/search?q=$cleanSiret&page=1&per_page=5'
       );
 
-      final response = await Supabase.instance.client.functions.invoke(
+      await Supabase.instance.client.functions.invoke(
         'proxy-insee',
         body: {'url': uri.toString()},
       );

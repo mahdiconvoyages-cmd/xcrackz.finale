@@ -13,11 +13,22 @@ class PremiumTheme {
   static const Color primaryIndigo = Color(0xFF5B8DEF);
   static const Color primaryPurple = Color(0xFF8B7EE8);
   static const Color primaryTeal = Color(0xFF14B8A6);
+
+  /// Brand violet — used for CTAs, FABs, and navigation highlights.
+  static const Color brandViolet = Color(0xFF8B5CF6);
   
   static const Color accentGreen = Color(0xFF10B981);
   static const Color accentAmber = Color(0xFFF59E0B);
   static const Color accentRed = Color(0xFFEF4444);
   static const Color accentPink = Color(0xFFEC4899);
+  
+  // Extended palette — frequently used across screens
+  static const Color accentBlue = Color(0xFF3B82F6);
+  static const Color indigo500 = Color(0xFF6366F1);
+  static const Color purpleAccent = Color(0xFF9333EA);
+  static const Color darkSlate = Color(0xFF1E293B);
+  static const Color textMuted = Color(0xFF94A3B8);
+  static const Color slate300 = Color(0xFFCBD5E1);
   
   // Backgrounds - Thème clair
   static const Color lightBg = Color(0xFFF8F9FA);
@@ -123,26 +134,32 @@ class PremiumTheme {
   static BoxDecoration neumorphicCard({
     Color? color,
     bool pressed = false,
+    Brightness brightness = Brightness.light,
   }) {
+    final isLight = brightness == Brightness.light;
     return BoxDecoration(
-      color: color ?? cardBg,
+      color: color ?? (isLight ? cardBg : const Color(0xFF1E1E1E)),
       borderRadius: BorderRadius.circular(20),
       boxShadow: pressed
           ? [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.2),
+                color: Colors.black.withValues(alpha: isLight ? 0.1 : 0.2),
                 blurRadius: 10,
                 offset: const Offset(2, 2),
               ),
             ]
           : [
               BoxShadow(
-                color: Colors.white.withValues(alpha: 0.05),
+                color: isLight
+                    ? Colors.white.withValues(alpha: 0.8)
+                    : Colors.white.withValues(alpha: 0.05),
                 blurRadius: 10,
                 offset: const Offset(-5, -5),
               ),
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.3),
+                color: isLight
+                    ? Colors.black.withValues(alpha: 0.08)
+                    : Colors.black.withValues(alpha: 0.3),
                 blurRadius: 10,
                 offset: const Offset(5, 5),
               ),
@@ -598,15 +615,23 @@ class PremiumTheme {
     );
   }
   
-  /// Ajoute un effet shimmer (pour les loadings)
-  static BoxDecoration shimmerGradient() {
+  /// Shimmer loading placeholder gradient — adapts to theme brightness.
+  static BoxDecoration shimmerGradient({Brightness brightness = Brightness.light}) {
+    final isLight = brightness == Brightness.light;
     return BoxDecoration(
+      borderRadius: BorderRadius.circular(8),
       gradient: LinearGradient(
-        colors: [
-          Colors.white.withValues(alpha: 0.05),
-          Colors.white.withValues(alpha: 0.1),
-          Colors.white.withValues(alpha: 0.05),
-        ],
+        colors: isLight
+            ? [
+                const Color(0xFFE5E7EB),
+                const Color(0xFFF3F4F6),
+                const Color(0xFFE5E7EB),
+              ]
+            : [
+                Colors.white.withValues(alpha: 0.05),
+                Colors.white.withValues(alpha: 0.1),
+                Colors.white.withValues(alpha: 0.05),
+              ],
         stops: const [0.0, 0.5, 1.0],
         begin: Alignment.topLeft,
         end: Alignment.bottomRight,

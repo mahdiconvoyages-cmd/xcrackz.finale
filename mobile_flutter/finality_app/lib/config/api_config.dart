@@ -7,9 +7,17 @@ class ApiConfig {
   ApiConfig._();
 
   // ── Supabase ────────────────────────────────────────────────
-  static const supabaseUrl = 'https://lqrulgkavtzummbsxsok.supabase.co';
-  static const supabaseAnonKey =
-      'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxcnVsZ2thdnR6dW1tYnN4c29rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMTc5OTAsImV4cCI6MjA3NTY5Mzk5MH0.HyY4qR7OLsadOnwITmdn1tAiKyN7AVuNLcuVpLaQfKM';
+  // Use --dart-define at build time to override:
+  //   flutter build apk --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
+  static const supabaseUrl = String.fromEnvironment(
+    'SUPABASE_URL',
+    defaultValue: 'https://lqrulgkavtzummbsxsok.supabase.co',
+  );
+  static const supabaseAnonKey = String.fromEnvironment(
+    'SUPABASE_ANON_KEY',
+    defaultValue:
+        'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImxxcnVsZ2thdnR6dW1tYnN4c29rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjAxMTc5OTAsImV4cCI6MjA3NTY5Mzk5MH0.HyY4qR7OLsadOnwITmdn1tAiKyN7AVuNLcuVpLaQfKM',
+  );
 
   // ── French Government APIs ──────────────────────────────────
   /// Address autocomplete & geocoding (free, no key needed)

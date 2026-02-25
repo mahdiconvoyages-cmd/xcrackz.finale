@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../l10n/app_localizations.dart';
 import '../../main.dart';
 import '../../theme/premium_theme.dart';

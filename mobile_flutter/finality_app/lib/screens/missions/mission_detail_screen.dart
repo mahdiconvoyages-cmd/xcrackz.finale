@@ -2440,7 +2440,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
   Future<void> _generatePublicLink() async {
     try {
       final link = await _missionService.generatePublicTrackingLink(_mission!.id);
-      if (link != null && mounted) {
+      if (mounted) {
         setState(() => _publicTrackingLink = link);
       }
     } catch (e) {
@@ -2630,7 +2630,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
     setState(() => _isGeneratingLink = true);
     try {
       final link = await _missionService.generatePublicTrackingLink(_mission!.id);
-      if (link != null && mounted) {
+      if (mounted) {
         setState(() {
           _publicTrackingLink = link;
           _isGeneratingLink = false;

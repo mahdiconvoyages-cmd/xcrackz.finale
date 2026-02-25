@@ -1,8 +1,9 @@
-import 'package:flutter/material.dart';
+﻿import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/realtime_service.dart';
+import '../../utils/logger.dart';
 import '../profile/profile_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
@@ -121,7 +122,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           _subscriptionEndDate = DateTime.parse(subscription['current_period_end']);
           _daysRemaining = _subscriptionEndDate!.difference(DateTime.now()).inDays;
         } else {
-          // New user — subscription has no end date yet (welcome period)
+          // New user â€” subscription has no end date yet (welcome period)
           // Set 30 days from account creation as default
           final createdAt = currentUser?.createdAt;
           if (createdAt != null) {
@@ -153,7 +154,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
-      debugPrint('Erreur chargement dashboard: $e');
+      logger.e('Erreur chargement dashboard: $e');
       if (mounted) setState(() => _isLoading = false);
     }
   }
@@ -181,7 +182,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             case 'completed':
               icon = Icons.check_circle;
               color = PremiumTheme.accentGreen;
-              title = 'Mission terminée';
+              title = 'Mission terminÃ©e';
               break;
             case 'in_progress':
               icon = Icons.local_shipping;
@@ -191,7 +192,7 @@ class _DashboardScreenState extends State<DashboardScreen>
             case 'cancelled':
               icon = Icons.cancel;
               color = Colors.red;
-              title = 'Mission annulée';
+              title = 'Mission annulÃ©e';
               break;
             default:
               icon = Icons.schedule;
@@ -202,7 +203,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           final pickup = m['pickup_city'] ?? '';
           final delivery = m['delivery_city'] ?? '';
           final subtitle = (pickup.isNotEmpty && delivery.isNotEmpty)
-              ? '$pickup → $delivery'
+              ? '$pickup â†’ $delivery'
               : m['reference'] ?? 'Mission';
 
           activities.add({
@@ -215,7 +216,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           });
         }
       } catch (e) {
-        debugPrint('Erreur chargement missions récentes: $e');
+        logger.e('Erreur chargement missions rÃ©centes: $e');
       }
 
       // Fetch recent contacts (last 3)
@@ -238,10 +239,10 @@ class _DashboardScreenState extends State<DashboardScreen>
           });
         }
       } catch (e) {
-        debugPrint('Erreur chargement contacts récents: $e');
+        logger.e('Erreur chargement contacts rÃ©cents: $e');
       }
 
-      // Fetch recent inspections (last 3) — column is inspector_id
+      // Fetch recent inspections (last 3) â€” column is inspector_id
       try {
         final inspections = await supabase
             .from('vehicle_inspections')
@@ -254,7 +255,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           final inspType = i['type'] ?? 'departure';
           activities.add({
             'icon': Icons.camera_alt,
-            'title': inspType == 'departure' ? 'Inspection départ' : 'Inspection arrivée',
+            'title': inspType == 'departure' ? 'Inspection dÃ©part' : 'Inspection arrivÃ©e',
             'subtitle': '${i['vehicle_brand'] ?? ''} ${i['vehicle_model'] ?? ''}'.trim(),
             'time': _formatTimeAgo(DateTime.tryParse(i['created_at'] ?? '') ?? DateTime.now()),
             'color': inspType == 'departure' ? PremiumTheme.primaryPurple : PremiumTheme.primaryTeal,
@@ -262,7 +263,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           });
         }
       } catch (e) {
-        debugPrint('Erreur chargement inspections récentes: $e');
+        logger.e('Erreur chargement inspections rÃ©centes: $e');
       }
 
       // Fetch recent invoices (last 3)
@@ -284,17 +285,17 @@ class _DashboardScreenState extends State<DashboardScreen>
             case 'paid':
               icon = Icons.check_circle;
               color = PremiumTheme.accentGreen;
-              title = 'Facture payée';
+              title = 'Facture payÃ©e';
               break;
             case 'sent':
               icon = Icons.send;
               color = PremiumTheme.primaryBlue;
-              title = 'Facture envoyée';
+              title = 'Facture envoyÃ©e';
               break;
             case 'cancelled':
               icon = Icons.cancel;
               color = Colors.red;
-              title = 'Facture annulée';
+              title = 'Facture annulÃ©e';
               break;
             default:
               icon = Icons.receipt_long;
@@ -306,21 +307,21 @@ class _DashboardScreenState extends State<DashboardScreen>
           activities.add({
             'icon': icon,
             'title': title,
-            'subtitle': '${inv['client_name'] ?? 'Client'} · ${total.toStringAsFixed(2)}€',
+            'subtitle': '${inv['client_name'] ?? 'Client'} Â· ${total.toStringAsFixed(2)}â‚¬',
             'time': _formatTimeAgo(DateTime.tryParse(inv['updated_at'] ?? inv['created_at'] ?? '') ?? DateTime.now()),
             'color': color,
             'date': DateTime.tryParse(inv['updated_at'] ?? inv['created_at'] ?? '') ?? DateTime.now(),
           });
         }
       } catch (e) {
-        debugPrint('Erreur chargement factures récentes: $e');
+        logger.e('Erreur chargement factures rÃ©centes: $e');
       }
 
       // Sort all by date descending, take top 5
       activities.sort((a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
       _recentActivity = activities.take(5).toList();
     } catch (e) {
-      debugPrint('Erreur chargement activité récente: $e');
+      logger.e('Erreur chargement activitÃ© rÃ©cente: $e');
       _recentActivity = [];
     }
   }
@@ -329,7 +330,7 @@ class _DashboardScreenState extends State<DashboardScreen>
     final now = DateTime.now();
     final diff = now.difference(date);
 
-    if (diff.inMinutes < 1) return 'À l\'instant';
+    if (diff.inMinutes < 1) return 'Ã€ l\'instant';
     if (diff.inMinutes < 60) return 'Il y a ${diff.inMinutes}min';
     if (diff.inHours < 24) return 'Il y a ${diff.inHours}h';
     if (diff.inDays == 1) return 'Hier';
@@ -354,7 +355,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               color: PremiumTheme.primaryBlue,
               child: CustomScrollView(
                 slivers: [
-                  // App Bar simplifié et compact
+                  // App Bar simplifiÃ© et compact
                   SliverAppBar(
                     expandedHeight: 100,
                     floating: false,
@@ -432,7 +433,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       ),
                                     ),
                                     IconButton(
-                                      icon: Icon(Icons.person, color: PremiumTheme.primaryBlue, size: 22),
+                                      icon: const Icon(Icons.person, color: PremiumTheme.primaryBlue, size: 22),
                                       onPressed: () {
                                         Navigator.push(
                                           context,
@@ -457,7 +458,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     padding: const EdgeInsets.all(16),
                     sliver: SliverList(
                       delegate: SliverChildListDelegate([
-                        // Crédits et Abonnement
+                        // CrÃ©dits et Abonnement
                         _buildCreditsCard(l10n),
                         const SizedBox(height: 16),
 
@@ -519,7 +520,7 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                         const SizedBox(height: 24),
 
-                        // Activité récente
+                        // ActivitÃ© rÃ©cente
                         _buildRecentActivity(l10n),
 
                         const SizedBox(height: 32),
@@ -543,13 +544,13 @@ class _DashboardScreenState extends State<DashboardScreen>
           padding: const EdgeInsets.all(16),
           sliver: SliverList(
             delegate: SliverChildListDelegate([
-              ShimmerLoading(width: double.infinity, height: 120),
+              const ShimmerLoading(width: double.infinity, height: 120),
               const SizedBox(height: 16),
               Row(
                 children: [
-                  Expanded(child: ShimmerLoading(width: double.infinity, height: 100)),
+                  const Expanded(child: ShimmerLoading(width: double.infinity, height: 100)),
                   const SizedBox(width: 12),
-                  Expanded(child: ShimmerLoading(width: double.infinity, height: 100)),
+                  const Expanded(child: ShimmerLoading(width: double.infinity, height: 100)),
                 ],
               ),
             ]),
@@ -711,7 +712,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Validez votre adresse email pour profiter de votre mois de bienvenue et de vos 10 crédits offerts !',
+                          'Validez votre adresse email pour profiter de votre mois de bienvenue et de vos 10 crÃ©dits offerts !',
                           style: PremiumTheme.bodySmall.copyWith(
                             color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 12,
@@ -734,7 +735,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                           if (mounted) {
                             ScaffoldMessenger.of(context).showSnackBar(
                               const SnackBar(
-                                content: Text('Email de vérification renvoyé !'),
+                                content: Text('Email de vÃ©rification renvoyÃ© !'),
                                 backgroundColor: Color(0xFF10B981),
                               ),
                             );
@@ -994,7 +995,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                             gradient: LinearGradient(
                               colors: [PremiumTheme.accentGreen, PremiumTheme.primaryTeal],
                             ),
-                            borderRadius: BorderRadius.horizontal(left: Radius.circular(5)),
+                            borderRadius: const BorderRadius.horizontal(left: Radius.circular(5)),
                           ),
                         ),
                       ),
@@ -1247,7 +1248,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                         Icon(Icons.inbox_outlined, size: 40, color: Colors.grey.shade300),
                         const SizedBox(height: 8),
                         Text(
-                          'Aucune activité récente',
+                          'Aucune activitÃ© rÃ©cente',
                           style: PremiumTheme.bodySmall.copyWith(color: PremiumTheme.textSecondary),
                         ),
                       ],

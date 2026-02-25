@@ -25,14 +25,13 @@ class SupabaseService {
     Function(double)? onProgress,
   }) async {
     final bytes = await file.readAsBytes();
-    final totalBytes = bytes.length;
     
     // Provide real upload progress via byte-stream upload
     if (onProgress != null) {
       onProgress(0.1); // Start indicator
     }
     
-    final uploadPath = await _client.storage
+    await _client.storage
         .from('documents')
         .uploadBinary(path, bytes);
     

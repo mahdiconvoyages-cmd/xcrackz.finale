@@ -2,18 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart' as url_launcher;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
-import '../../l10n/app_localizations.dart';
-import '../../main.dart';
 import '../../models/mission.dart';
 import '../../services/mission_service.dart';
 import '../../theme/premium_theme.dart';
 import '../invoices/invoice_form_screen.dart';
 import '../../utils/error_helper.dart';
 import '../../widgets/premium/premium_widgets.dart';
-import 'mission_create_screen_new.dart';
 import 'mission_detail_screen.dart';
 import '../inspections/inspection_departure_screen.dart';
 import '../inspections/inspection_arrival_screen.dart';
+import '../../widgets/empty_state_widget.dart';
+import '../../utils/logger.dart';
 
 class MissionsScreen extends StatefulWidget {
   const MissionsScreen({super.key});
@@ -63,7 +62,7 @@ class _MissionsScreenState extends State<MissionsScreen>
             value: userId,
           ),
           callback: (payload) {
-            debugPrint('🔄 Realtime missions update (owner): ${payload.eventType}');
+            logger.d('🔄 Realtime missions update (owner): ${payload.eventType}');
             _loadMissions();
           },
         )
@@ -77,7 +76,7 @@ class _MissionsScreenState extends State<MissionsScreen>
             value: userId,
           ),
           callback: (payload) {
-            debugPrint('🔄 Realtime missions update (assigned): ${payload.eventType}');
+            logger.d('🔄 Realtime missions update (assigned): ${payload.eventType}');
             _loadMissions();
           },
         )
@@ -496,28 +495,12 @@ class _MissionsScreenState extends State<MissionsScreen>
         ? 'Aucune mission en attente'
         : status == 'in_progress'
             ? 'Aucune mission en cours'
-            : 'Aucune mission terminee';
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.08),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, size: 48, color: color.withValues(alpha: 0.5)),
-          ),
-          const SizedBox(height: 16),
-          Text(label,
-              style: PremiumTheme.bodySmall
-                  .copyWith(fontSize: 15, color: PremiumTheme.textTertiary)),
-          const SizedBox(height: 8),
-          Text('Tirez vers le bas pour actualiser',
-              style: PremiumTheme.caption),
-        ],
-      ),
+            : 'Aucune mission terminée';
+    return EmptyStateWidget(
+      icon: icon,
+      color: color,
+      title: label,
+      subtitle: 'Tirez vers le bas pour actualiser',
     );
   }
 
@@ -823,7 +806,6 @@ class _MissionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _MissionsScreenState.statusColor(mission.status);
-    final df = DateFormat('dd MMM yyyy', 'fr_FR');
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),

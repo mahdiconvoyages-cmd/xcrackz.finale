@@ -17,7 +17,6 @@ import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import '../../widgets/city_search_field.dart';
 import '../../services/lift_notification_service.dart';
-import '../../config/api_config.dart';
 
 // ── Couleurs ─────────────────────────────────────────────────────────────────
 
@@ -39,16 +38,6 @@ String _safeTime(String? t) {
   return t.length >= 5 ? t.substring(0, 5) : t;
 }
 
-String _timeAgo(String? iso) {
-  if (iso == null) return '';
-  final d = DateTime.tryParse(iso);
-  if (d == null) return '';
-  final diff = DateTime.now().difference(d);
-  if (diff.inMinutes < 60) return 'il y a ${diff.inMinutes}min';
-  if (diff.inHours < 24) return 'il y a ${diff.inHours}h';
-  return 'il y a ${diff.inDays}j';
-}
-
 String _formatDate(String? d) {
   if (d == null) return '';
   try {
@@ -62,23 +51,6 @@ String _formatDate(String? d) {
     return DateFormat('EEE d MMM', 'fr_FR').format(dt);
   } catch (_) {
     return d;
-  }
-}
-
-Future<Map<String, dynamic>?> _geocodeCity(String city) async {
-  try {
-    final res = await http.get(Uri.parse(
-        '${ApiConfig.adresseGouvBase}/search/?q=${Uri.encodeComponent(city)}&type=municipality&limit=1'));
-    if (res.statusCode != 200) return null;
-    final data = jsonDecode(res.body) as Map;
-    final features = (data['features'] as List?) ?? [];
-    if (features.isEmpty) return null;
-    final f = features.first as Map;
-    final coords = f['geometry']?['coordinates'] as List?;
-    if (coords == null || coords.length < 2) return null;
-    return {'lat': (coords[1] as num).toDouble(), 'lng': (coords[0] as num).toDouble()};
-  } catch (_) {
-    return null;
   }
 }
 

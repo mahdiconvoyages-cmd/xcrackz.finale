@@ -55,13 +55,13 @@ class AppDrawer extends StatelessWidget {
                   _SectionLabel('PRINCIPAL'),
                   _NavItem(
                     icon: Icons.dashboard_rounded,
-                    color: const Color(0xFF6366F1),
+                    color: PremiumTheme.indigo500,
                     label: 'Tableau de bord',
                     onTap: () => _navigate(context, const DashboardScreen()),
                   ),
                   _NavItem(
                     icon: Icons.assignment_rounded,
-                    color: const Color(0xFF10B981),
+                    color: PremiumTheme.accentGreen,
                     label: 'Missions',
                     onTap: () => _navigate(context, const MissionsScreen()),
                     trailing: GestureDetector(
@@ -72,10 +72,10 @@ class AppDrawer extends StatelessWidget {
                       child: Container(
                         padding: const EdgeInsets.all(6),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF10B981).withValues(alpha: 0.12),
+                          color: PremiumTheme.accentGreen.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        child: const Icon(Icons.add_rounded, size: 16, color: Color(0xFF10B981)),
+                        child: const Icon(Icons.add_rounded, size: 16, color: PremiumTheme.accentGreen),
                       ),
                     ),
                   ),
@@ -83,13 +83,13 @@ class AppDrawer extends StatelessWidget {
                   _SectionLabel('GESTION'),
                   _NavItem(
                     icon: Icons.receipt_long_rounded,
-                    color: const Color(0xFF3B82F6),
+                    color: PremiumTheme.accentBlue,
                     label: 'CRM & Facturation',
                     onTap: () => _navigate(context, const BillingGate(child: CRMScreen())),
                   ),
                   _NavItem(
                     icon: Icons.document_scanner_rounded,
-                    color: const Color(0xFF14B8A6),
+                    color: PremiumTheme.primaryTeal,
                     label: 'Documents scannés',
                     onTap: () => _navigate(context, const ScannedDocumentsScreenNew()),
                   ),
@@ -97,7 +97,7 @@ class AppDrawer extends StatelessWidget {
                   _SectionLabel('ENTRAIDE'),
                   _NavItem(
                     icon: Icons.people_alt_rounded,
-                    color: const Color(0xFFEC4899),
+                    color: PremiumTheme.accentPink,
                     label: 'Entraide Convoyeurs',
                     onTap: () => _navigate(context, const PlanningNetworkScreen()),
                   ),
@@ -105,19 +105,19 @@ class AppDrawer extends StatelessWidget {
                   _SectionLabel('COMPTE'),
                   _NavItem(
                     icon: Icons.person_rounded,
-                    color: const Color(0xFF8B5CF6),
+                    color: PremiumTheme.brandViolet,
                     label: 'Mon profil',
                     onTap: () => _navigate(context, const ProfileScreen()),
                   ),
                   _NavItem(
                     icon: Icons.business_center_rounded,
-                    color: const Color(0xFF0066FF),
+                    color: PremiumTheme.primaryBlue,
                     label: 'Profil Facturation',
                     onTap: () => _navigate(context, const BillingProfileScreen()),
                   ),
                   _NavItem(
                     icon: Icons.security_rounded,
-                    color: const Color(0xFF10B981),
+                    color: PremiumTheme.accentGreen,
                     label: 'Autorisations',
                     onTap: () => _navigate(context, const PermissionsScreen()),
                   ),
@@ -126,7 +126,7 @@ class AppDrawer extends StatelessWidget {
                     _SectionLabel('DEBUG'),
                     _NavItem(
                       icon: Icons.bug_report_rounded,
-                      color: const Color(0xFFEF4444),
+                      color: PremiumTheme.accentRed,
                       label: 'Outils Debug',
                       onTap: () => _navigate(context, const DebugToolsScreen()),
                     ),
@@ -175,7 +175,7 @@ class _Header extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(20, 20, 12, 20),
       decoration: const BoxDecoration(
-        gradient: LinearGradient(colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)], begin: Alignment.topLeft, end: Alignment.bottomRight),
+        gradient: LinearGradient(colors: [PremiumTheme.indigo500, PremiumTheme.brandViolet], begin: Alignment.topLeft, end: Alignment.bottomRight),
         borderRadius: BorderRadius.only(topRight: Radius.circular(24)),
       ),
       child: Row(
@@ -214,7 +214,7 @@ class _SectionLabel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 6),
-      child: Text(text, style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.6)),
+      child: Text(text, style: const TextStyle(color: PremiumTheme.textMuted, fontSize: 10, fontWeight: FontWeight.w700, letterSpacing: 1.6)),
     );
   }
 }
@@ -244,9 +244,9 @@ class _NavItem extends StatelessWidget {
                 child: Icon(icon, color: color, size: 20),
               ),
               const SizedBox(width: 14),
-              Expanded(child: Text(label, style: const TextStyle(color: Color(0xFF1E293B), fontSize: 14, fontWeight: FontWeight.w500))),
+              Expanded(child: Text(label, style: const TextStyle(color: PremiumTheme.darkSlate, fontSize: 14, fontWeight: FontWeight.w500))),
               if (trailing != null) trailing!
-              else const Icon(Icons.chevron_right_rounded, color: Color(0xFFCBD5E1), size: 18),
+              else const Icon(Icons.chevron_right_rounded, color: PremiumTheme.slate300, size: 18),
             ],
           ),
         ),
@@ -272,7 +272,7 @@ class _LogoutItem extends StatelessWidget {
                 TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Annuler')),
                 FilledButton(
                   onPressed: () => Navigator.pop(context, true),
-                  style: FilledButton.styleFrom(backgroundColor: const Color(0xFFEF4444)),
+                  style: FilledButton.styleFrom(backgroundColor: PremiumTheme.accentRed),
                   child: const Text('Déconnexion'),
                 ),
               ],
@@ -292,11 +292,11 @@ class _LogoutItem extends StatelessWidget {
             children: [
               Container(
                 width: 38, height: 38,
-                decoration: BoxDecoration(color: const Color(0xFFEF4444).withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
-                child: const Icon(Icons.logout_rounded, color: Color(0xFFEF4444), size: 20),
+                decoration: BoxDecoration(color: PremiumTheme.accentRed.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(10)),
+                child: const Icon(Icons.logout_rounded, color: PremiumTheme.accentRed, size: 20),
               ),
               const SizedBox(width: 14),
-              const Text('Déconnexion', style: TextStyle(color: Color(0xFFEF4444), fontSize: 14, fontWeight: FontWeight.w500)),
+              const Text('Déconnexion', style: TextStyle(color: PremiumTheme.accentRed, fontSize: 14, fontWeight: FontWeight.w500)),
             ],
           ),
         ),
@@ -328,7 +328,7 @@ class _FooterState extends State<_Footer> {
     final version = _cachedVersion ?? '';
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 16),
-      child: Text(version.isNotEmpty ? 'ChecksFleet v$version' : 'ChecksFleet', style: const TextStyle(color: Color(0xFFCBD5E1), fontSize: 11, fontWeight: FontWeight.w500)),
+      child: Text(version.isNotEmpty ? 'ChecksFleet v$version' : 'ChecksFleet', style: const TextStyle(color: PremiumTheme.slate300, fontSize: 11, fontWeight: FontWeight.w500)),
     );
   }
 }

@@ -14,6 +14,7 @@ import '../widgets/app_drawer.dart';
 import '../widgets/offline_indicator.dart';
 import '../widgets/update_dialog.dart';
 import '../utils/logger.dart';
+import '../theme/premium_theme.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'missions/missions_screen.dart';
 import 'missions/mission_create_screen_new.dart';
@@ -159,7 +160,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               onPressed: _openNewMission,
               icon: const Icon(Icons.add_road),
               label: Text(l10n.newMission),
-              backgroundColor: const Color(0xFF8B5CF6),
+              backgroundColor: PremiumTheme.brandViolet,
               foregroundColor: Colors.white,
               elevation: 4,
             )
@@ -179,26 +180,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           }
         },
         backgroundColor: Colors.white,
-        indicatorColor: const Color(0xFF8B5CF6).withOpacity(0.12),
+        indicatorColor: PremiumTheme.brandViolet.withOpacity(0.12),
         destinations: [
           NavigationDestination(
             icon: const Icon(Icons.dashboard_outlined),
-            selectedIcon: const Icon(Icons.dashboard, color: Color(0xFF8B5CF6)),
+            selectedIcon: Icon(Icons.dashboard, color: PremiumTheme.brandViolet),
             label: l10n.dashboard,
           ),
           NavigationDestination(
             icon: const Icon(Icons.assignment_outlined),
-            selectedIcon: const Icon(Icons.assignment, color: Color(0xFF8B5CF6)),
+            selectedIcon: Icon(Icons.assignment, color: PremiumTheme.brandViolet),
             label: l10n.missions,
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.folder_copy_outlined),
-            selectedIcon: Icon(Icons.folder_copy, color: Color(0xFF8B5CF6)),
+          NavigationDestination(
+            icon: const Icon(Icons.folder_copy_outlined),
+            selectedIcon: Icon(Icons.folder_copy, color: PremiumTheme.brandViolet),
             label: 'Documents',
           ),
-          const NavigationDestination(
-            icon: Icon(Icons.menu_rounded),
-            selectedIcon: Icon(Icons.menu_rounded, color: Color(0xFF8B5CF6)),
+          NavigationDestination(
+            icon: const Icon(Icons.menu_rounded),
+            selectedIcon: Icon(Icons.menu_rounded, color: PremiumTheme.brandViolet),
             label: 'Menu',
           ),
         ],

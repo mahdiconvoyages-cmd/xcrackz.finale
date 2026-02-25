@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../l10n/app_localizations.dart';
+import '../../theme/premium_theme.dart';
 
 class OnboardingScreen extends StatefulWidget {
   const OnboardingScreen({super.key});
@@ -17,26 +18,26 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     OnboardingPage(
       title: l10n.onboardingWelcomeTitle,
       description: l10n.onboardingWelcomeDesc,
-      icon: Icons.directions_car,
-      color: Colors.blue,
+      icon: Icons.directions_car_rounded,
+      gradient: PremiumTheme.primaryGradient,
     ),
     OnboardingPage(
       title: l10n.onboardingSmartTitle,
       description: l10n.onboardingSmartDesc,
-      icon: Icons.people,
-      color: Colors.green,
+      icon: Icons.people_alt_rounded,
+      gradient: PremiumTheme.tealGradient,
     ),
     OnboardingPage(
       title: l10n.onboardingMissionsTitle,
       description: l10n.onboardingMissionsDesc,
-      icon: Icons.assignment,
-      color: Colors.orange,
+      icon: Icons.assignment_turned_in_rounded,
+      gradient: PremiumTheme.purpleGradient,
     ),
     OnboardingPage(
       title: l10n.onboardingGpsTitle,
       description: l10n.onboardingGpsDesc,
-      icon: Icons.location_on,
-      color: Colors.red,
+      icon: Icons.location_on_rounded,
+      gradient: PremiumTheme.greenGradient,
     ),
   ];
 
@@ -173,18 +174,25 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Icon
+          // Gradient circle with icon
           Container(
-            width: 150,
-            height: 150,
+            width: 160,
+            height: 160,
             decoration: BoxDecoration(
-              color: page.color.withValues(alpha: 0.1),
               shape: BoxShape.circle,
+              gradient: page.gradient,
+              boxShadow: [
+                BoxShadow(
+                  color: page.gradient.colors.first.withValues(alpha: 0.3),
+                  blurRadius: 30,
+                  offset: const Offset(0, 12),
+                ),
+              ],
             ),
             child: Icon(
               page.icon,
               size: 80,
-              color: page.color,
+              color: Colors.white,
             ),
           ),
           
@@ -194,21 +202,19 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Text(
             page.title,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+            style: PremiumTheme.heading3.copyWith(fontWeight: FontWeight.bold),
           ),
           
-          const SizedBox(height: 24),
+          const SizedBox(height: 16),
           
           // Description
           Text(
             page.description,
             textAlign: TextAlign.center,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  height: 1.5,
-                ),
+            style: PremiumTheme.bodyLarge.copyWith(
+              color: PremiumTheme.textSecondary,
+              height: 1.6,
+            ),
           ),
         ],
       ),
@@ -237,12 +243,12 @@ class OnboardingPage {
   final String title;
   final String description;
   final IconData icon;
-  final Color color;
+  final LinearGradient gradient;
 
   OnboardingPage({
     required this.title,
     required this.description,
     required this.icon,
-    required this.color,
+    required this.gradient,
   });
 }

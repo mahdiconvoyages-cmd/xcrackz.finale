@@ -3,7 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/logger.dart';
 
-/// Service de synchronisation en temps réel avec le backend web
+/// Service de synchronisation en temps réel avec le backend web.
+///
+/// Provides reactive [Stream]s for Supabase tables via Realtime channels.
+/// All list queries are scoped to the current authenticated user (`user_id`).
 class SyncService {
   SupabaseClient get _supabase => Supabase.instance.client;
   final Map<String, RealtimeChannel> _channels = {};
@@ -11,16 +14,25 @@ class SyncService {
   final Map<String, Timer?> _debounceTimers = {};
   static const _debounceDuration = Duration(milliseconds: 500);
 
-  /// Get the current user's ID or null if not authenticated
+  /// Current authenticated user id, or `null`.
   String? get _currentUserId => _supabase.auth.currentUser?.id;
 
-  /// Synchroniser les missions en temps réel
-  Stream<List<Map<String, dynamic>>> syncMissions() {
-    const channelName = 'missions_sync';
-    
+  // ──────────────────────────────────────────────────────────────
+  // Generic sync helper — eliminates code duplication across tables
+  // ──────────────────────────────────────────────────────────────
+
+  /// Sets up a realtime-synced [Stream] for [table] filtered by `user_id`.
+  ///
+  /// [channelName] must be unique per table.
+  /// [loader] fetches the full dataset when data changes.
+  Stream<List<Map<String, dynamic>>> _syncTable({
+    required String channelName,
+    required String table,
+    required Future<List<Map<String, dynamic>>> Function() loader,
+  }) {
     final userId = _currentUserId;
     if (userId == null) {
-      logger.w('syncMissions called without authenticated user');
+      logger.w('$channelName called without authenticated user');
       return Stream.value([]);
     }
 
@@ -31,28 +43,23 @@ class SyncService {
     final controller = StreamController<List<Map<String, dynamic>>>.broadcast();
     _controllers[channelName] = controller;
 
-    // Charger les données initiales
-    _loadMissions().then((missions) {
-      if (!controller.isClosed) {
-        controller.add(missions);
-      }
+    // Load initial data
+    loader().then((data) {
+      if (!controller.isClosed) controller.add(data);
     });
 
-    // Écouter les changements en temps réel
+    // Realtime subscription with debounce
     final channel = _supabase.channel(channelName);
-    
     channel
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
           schema: 'public',
-          table: 'missions',
+          table: table,
           callback: (payload) async {
             _debounceTimers[channelName]?.cancel();
             _debounceTimers[channelName] = Timer(_debounceDuration, () async {
-              final missions = await _loadMissions();
-              if (!controller.isClosed) {
-                controller.add(missions);
-              }
+              final data = await loader();
+              if (!controller.isClosed) controller.add(data);
             });
           },
         )
@@ -62,148 +69,59 @@ class SyncService {
     return controller.stream;
   }
 
-  /// Synchroniser les inspections en temps réel
-  Stream<List<Map<String, dynamic>>> syncInspections() {
-    const channelName = 'vehicle_inspections_sync';
-    
-    final userId = _currentUserId;
-    if (userId == null) {
-      logger.w('syncInspections called without authenticated user');
-      return Stream.value([]);
+  /// Generic data loader — fetches all rows for [table] where `user_id` matches.
+  Future<List<Map<String, dynamic>>> _loadTable(String table) async {
+    try {
+      final userId = _currentUserId;
+      if (userId == null) return [];
+      final response = await _supabase
+          .from(table)
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      logger.e('Error loading $table: $e');
+      return [];
     }
-
-    if (_controllers.containsKey(channelName)) {
-      return _controllers[channelName]!.stream as Stream<List<Map<String, dynamic>>>;
-    }
-
-    final controller = StreamController<List<Map<String, dynamic>>>.broadcast();
-    _controllers[channelName] = controller;
-
-    // Charger les données initiales
-    _loadInspections().then((inspections) {
-      if (!controller.isClosed) {
-        controller.add(inspections);
-      }
-    });
-
-    // Écouter les changements en temps réel
-    final channel = _supabase.channel(channelName);
-    
-    channel
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'vehicle_inspections',
-          callback: (payload) async {
-            _debounceTimers[channelName]?.cancel();
-            _debounceTimers[channelName] = Timer(_debounceDuration, () async {
-              final inspections = await _loadInspections();
-              if (!controller.isClosed) {
-                controller.add(inspections);
-              }
-            });
-          },
-        )
-        .subscribe();
-
-    _channels[channelName] = channel;
-    return controller.stream;
   }
 
-  /// Synchroniser les factures en temps réel
-  Stream<List<Map<String, dynamic>>> syncInvoices() {
-    const channelName = 'invoices_sync';
-    
-    final userId = _currentUserId;
-    if (userId == null) {
-      logger.w('syncInvoices called without authenticated user');
-      return Stream.value([]);
-    }
+  // ──────────────────────────────────────────────────────────────
+  // Public sync streams (thin wrappers around _syncTable)
+  // ──────────────────────────────────────────────────────────────
 
-    if (_controllers.containsKey(channelName)) {
-      return _controllers[channelName]!.stream as Stream<List<Map<String, dynamic>>>;
-    }
+  /// Synchroniser les missions en temps réel.
+  Stream<List<Map<String, dynamic>>> syncMissions() => _syncTable(
+        channelName: 'missions_sync',
+        table: 'missions',
+        loader: () => _loadTable('missions'),
+      );
 
-    final controller = StreamController<List<Map<String, dynamic>>>.broadcast();
-    _controllers[channelName] = controller;
+  /// Synchroniser les inspections en temps réel.
+  Stream<List<Map<String, dynamic>>> syncInspections() => _syncTable(
+        channelName: 'vehicle_inspections_sync',
+        table: 'vehicle_inspections',
+        loader: () => _loadTable('vehicle_inspections'),
+      );
 
-    // Charger les données initiales
-    _loadInvoices().then((invoices) {
-      if (!controller.isClosed) {
-        controller.add(invoices);
-      }
-    });
+  /// Synchroniser les factures en temps réel.
+  Stream<List<Map<String, dynamic>>> syncInvoices() => _syncTable(
+        channelName: 'invoices_sync',
+        table: 'invoices',
+        loader: () => _loadTable('invoices'),
+      );
 
-    // Écouter les changements en temps réel
-    final channel = _supabase.channel(channelName);
-    
-    channel
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'invoices',
-          callback: (payload) async {
-            final invoices = await _loadInvoices();
-            if (!controller.isClosed) {
-              controller.add(invoices);
-            }
-          },
-        )
-        .subscribe();
+  /// Synchroniser les devis en temps réel.
+  Stream<List<Map<String, dynamic>>> syncQuotes() => _syncTable(
+        channelName: 'quotes_sync',
+        table: 'quotes',
+        loader: () => _loadTable('quotes'),
+      );
 
-    _channels[channelName] = channel;
-    return controller.stream;
-  }
-
-  /// Synchroniser les devis en temps réel
-  Stream<List<Map<String, dynamic>>> syncQuotes() {
-    const channelName = 'quotes_sync';
-    
-    final userId = _currentUserId;
-    if (userId == null) {
-      logger.w('syncQuotes called without authenticated user');
-      return Stream.value([]);
-    }
-
-    if (_controllers.containsKey(channelName)) {
-      return _controllers[channelName]!.stream as Stream<List<Map<String, dynamic>>>;
-    }
-
-    final controller = StreamController<List<Map<String, dynamic>>>.broadcast();
-    _controllers[channelName] = controller;
-
-    // Charger les données initiales
-    _loadQuotes().then((quotes) {
-      if (!controller.isClosed) {
-        controller.add(quotes);
-      }
-    });
-
-    // Écouter les changements en temps réel
-    final channel = _supabase.channel(channelName);
-    
-    channel
-        .onPostgresChanges(
-          event: PostgresChangeEvent.all,
-          schema: 'public',
-          table: 'quotes',
-          callback: (payload) async {
-            final quotes = await _loadQuotes();
-            if (!controller.isClosed) {
-              controller.add(quotes);
-            }
-          },
-        )
-        .subscribe();
-
-    _channels[channelName] = channel;
-    return controller.stream;
-  }
-
-  /// Synchroniser le profil utilisateur en temps réel
+  /// Synchroniser le profil utilisateur en temps réel.
   Stream<Map<String, dynamic>?> syncUserProfile(String userId) {
     final channelName = 'profile_sync_$userId';
-    
+
     if (_controllers.containsKey(channelName)) {
       return _controllers[channelName]!.stream as Stream<Map<String, dynamic>?>;
     }
@@ -211,16 +129,11 @@ class SyncService {
     final controller = StreamController<Map<String, dynamic>?>.broadcast();
     _controllers[channelName] = controller;
 
-    // Charger les données initiales
     _loadUserProfile(userId).then((profile) {
-      if (!controller.isClosed) {
-        controller.add(profile);
-      }
+      if (!controller.isClosed) controller.add(profile);
     });
 
-    // Écouter les changements en temps réel
     final channel = _supabase.channel(channelName);
-    
     channel
         .onPostgresChanges(
           event: PostgresChangeEvent.all,
@@ -233,81 +146,13 @@ class SyncService {
           ),
           callback: (payload) async {
             final profile = await _loadUserProfile(userId);
-            if (!controller.isClosed) {
-              controller.add(profile);
-            }
+            if (!controller.isClosed) controller.add(profile);
           },
         )
         .subscribe();
 
     _channels[channelName] = channel;
     return controller.stream;
-  }
-
-  // Méthodes de chargement des données
-
-  Future<List<Map<String, dynamic>>> _loadMissions() async {
-    try {
-      final userId = _currentUserId;
-      if (userId == null) return [];
-      final response = await _supabase
-          .from('missions')
-          .select()
-          .eq('user_id', userId)
-          .order('created_at', ascending: false);
-      return List<Map<String, dynamic>>.from(response as List);
-    } catch (e) {
-      logger.e('Error loading missions: $e');
-      return [];
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> _loadInspections() async {
-    try {
-      final userId = _currentUserId;
-      if (userId == null) return [];
-      final response = await _supabase
-          .from('vehicle_inspections')
-          .select()
-          .eq('user_id', userId)
-          .order('created_at', ascending: false);
-      return List<Map<String, dynamic>>.from(response as List);
-    } catch (e) {
-      logger.e('Error loading inspections: $e');
-      return [];
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> _loadInvoices() async {
-    try {
-      final userId = _currentUserId;
-      if (userId == null) return [];
-      final response = await _supabase
-          .from('invoices')
-          .select()
-          .eq('user_id', userId)
-          .order('created_at', ascending: false);
-      return List<Map<String, dynamic>>.from(response as List);
-    } catch (e) {
-      logger.e('Error loading invoices: $e');
-      return [];
-    }
-  }
-
-  Future<List<Map<String, dynamic>>> _loadQuotes() async {
-    try {
-      final userId = _currentUserId;
-      if (userId == null) return [];
-      final response = await _supabase
-          .from('quotes')
-          .select()
-          .eq('user_id', userId)
-          .order('created_at', ascending: false);
-      return List<Map<String, dynamic>>.from(response as List);
-    } catch (e) {
-      logger.e('Error loading quotes: $e');
-      return [];
-    }
   }
 
   Future<Map<String, dynamic>?> _loadUserProfile(String userId) async {
@@ -317,18 +162,24 @@ class SyncService {
           .select()
           .eq('id', userId)
           .single();
-      return response as Map<String, dynamic>;
+      return response;
     } catch (e) {
       logger.e('Error loading user profile: $e');
       return null;
     }
   }
 
-  /// Nettoyer tous les canaux de synchronisation
-  void dispose() {      for (var timer in _debounceTimers.values) {
-        timer?.cancel();
-      }
-      _debounceTimers.clear();    for (var channel in _channels.values) {
+  // ──────────────────────────────────────────────────────────────
+  // Lifecycle
+  // ──────────────────────────────────────────────────────────────
+
+  /// Clean up all realtime channels and stream controllers.
+  void dispose() {
+    for (var timer in _debounceTimers.values) {
+      timer?.cancel();
+    }
+    _debounceTimers.clear();
+    for (var channel in _channels.values) {
       _supabase.removeChannel(channel);
     }
     for (var controller in _controllers.values) {
@@ -338,8 +189,10 @@ class SyncService {
     _controllers.clear();
   }
 
-  /// Arrêter la synchronisation d'un canal spécifique
+  /// Stop synchronisation for a specific channel.
   void stopSync(String channelName) {
+    _debounceTimers[channelName]?.cancel();
+    _debounceTimers.remove(channelName);
     if (_channels.containsKey(channelName)) {
       _supabase.removeChannel(_channels[channelName]!);
       _channels.remove(channelName);
@@ -351,7 +204,7 @@ class SyncService {
   }
 }
 
-/// Provider pour le service de synchronisation
+/// Provider pour le service de synchronisation.
 class SyncProvider extends InheritedWidget {
   final SyncService syncService;
 

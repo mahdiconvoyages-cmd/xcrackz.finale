@@ -274,7 +274,7 @@ class InspectionPhotoService {
           .eq('inspection_id', inspectionId)
           .count();
 
-      return response.count ?? 0;
+      return response.count;
     } catch (e) {
       throw Exception('Erreur lors du comptage des photos: $e');
     }
@@ -289,7 +289,7 @@ class InspectionPhotoService {
           .eq('inspection_id', inspectionId)
           .count();
 
-      return response.count ?? 0;
+      return response.count;
     } catch (e) {
       throw Exception('Erreur lors du comptage des dommages: $e');
     }

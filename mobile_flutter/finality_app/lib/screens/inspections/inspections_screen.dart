@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../utils/error_helper.dart';
-import 'package:flutter_svg/flutter_svg.dart';
 import '../../models/inspection.dart';
 import '../../services/inspection_service.dart';
 import 'inspection_departure_screen.dart';
