@@ -1,6 +1,11 @@
 // ============================================================
-// CitySearchField — autocomplete communes via adresse.gouv.fr
-// Utilisé dans tous les champs ville (retour lift, offre, etc.)
+// CitySearchField — autocomplete villes Europe
+//
+// Sources :
+//   1. api-adresse.data.gouv.fr  →  France (rapide & précis)
+//   2. Nominatim / OpenStreetMap  →  toute l'Europe limitrophe
+//
+// Pays couverts : FR, BE, DE, ES, NL, LU, IT, PT, CH, AT, GB
 // ============================================================
 
 import 'dart:async';
@@ -11,6 +16,16 @@ import 'package:http/http.dart' as http;
 const _kTeal   = Color(0xFF0D9488);
 const _kGray   = Color(0xFF64748B);
 const _kBorder = Color(0xFFE2E8F0);
+
+/// Codes pays couverts par Nominatim (hors France, déjà via gouv.fr)
+const _nominatimCountries = 'be,de,es,nl,lu,it,pt,ch,at,gb';
+
+/// Drapeaux emoji par code pays
+const _countryFlags = {
+  'fr': '🇫🇷', 'be': '🇧🇪', 'de': '🇩🇪', 'es': '🇪🇸',
+  'nl': '🇳🇱', 'lu': '🇱🇺', 'it': '🇮🇹', 'pt': '🇵🇹',
+  'ch': '🇨🇭', 'at': '🇦🇹', 'gb': '🇬🇧',
+};
 
 class CitySearchField extends StatefulWidget {
   final TextEditingController controller;
@@ -54,7 +69,6 @@ class _CitySearchFieldState extends State<CitySearchField> {
   }
 
   void _onControllerChange() {
-    // Rafraîchir l'icône de nettoyage
     if (mounted) setState(() {});
   }
 
@@ -73,41 +87,98 @@ class _CitySearchFieldState extends State<CitySearchField> {
       _hideOverlay();
       return;
     }
-    _debounce = Timer(const Duration(milliseconds: 300), () => _fetch(value));
+    _debounce = Timer(const Duration(milliseconds: 350), () => _fetchAll(value));
   }
 
-  Future<void> _fetch(String query) async {
-    try {
-      final res = await http.get(Uri.parse(
-          'https://api-adresse.data.gouv.fr/search/?q=${Uri.encodeComponent(query)}&type=municipality&limit=6'));
-      if (!mounted) return;
-      if (res.statusCode != 200) return;
-      final data = jsonDecode(res.body) as Map<String, dynamic>;
-      final features = (data['features'] as List?) ?? [];
-      final suggestions = features.map((f) {
-        final p = (f['properties'] as Map<String, dynamic>?) ?? {};
-        return _Suggestion(
-          label:      p['label']    as String? ?? '',
-          city:       p['city']     as String? ?? (p['label'] as String? ?? ''),
-          postalCode: p['postcode'] as String? ?? '',
-          context:    p['context'] as String? ?? '',
-        );
-      }).where((s) => s.city.isNotEmpty).toList();
+  // ── Fetch from both APIs in parallel ──────────────────────────────────────
 
-      // Dédoublonner par ville
-      final seen = <String>{};
-      final unique = suggestions.where((s) => seen.add(s.city.toLowerCase())).toList();
+  Future<void> _fetchAll(String query) async {
+    final results = await Future.wait([
+      _fetchFrance(query),
+      _fetchNominatim(query),
+    ]);
 
-      if (unique.isNotEmpty && mounted) {
-        setState(() => _suggestions = unique);
-        _updateOverlay();
-      } else {
-        _hideOverlay();
-      }
-    } catch (_) {
+    final all = <_Suggestion>[...results[0], ...results[1]];
+
+    // Dédoublonner par (city lowercase + country)
+    final seen = <String>{};
+    final unique = all.where((s) {
+      final key = '${s.city.toLowerCase()}|${s.country}';
+      return seen.add(key);
+    }).toList();
+
+    if (!mounted) return;
+    if (unique.isNotEmpty) {
+      setState(() => _suggestions = unique);
+      _updateOverlay();
+    } else {
       _hideOverlay();
     }
   }
+
+  /// France — api-adresse.data.gouv.fr (rapide, précis)
+  Future<List<_Suggestion>> _fetchFrance(String query) async {
+    try {
+      final res = await http.get(Uri.parse(
+        'https://api-adresse.data.gouv.fr/search/'
+        '?q=${Uri.encodeComponent(query)}&type=municipality&limit=5',
+      ));
+      if (res.statusCode != 200) return [];
+      final data = jsonDecode(res.body) as Map<String, dynamic>;
+      final features = (data['features'] as List?) ?? [];
+      return features.map((f) {
+        final p = (f['properties'] as Map<String, dynamic>?) ?? {};
+        return _Suggestion(
+          city:       p['city'] as String? ?? (p['label'] as String? ?? ''),
+          postalCode: p['postcode'] as String? ?? '',
+          context:    p['context'] as String? ?? '',
+          country:    'fr',
+        );
+      }).where((s) => s.city.isNotEmpty).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  /// Europe — Nominatim / OpenStreetMap (gratuit, toute l'Europe)
+  Future<List<_Suggestion>> _fetchNominatim(String query) async {
+    try {
+      final res = await http.get(
+        Uri.parse(
+          'https://nominatim.openstreetmap.org/search'
+          '?q=${Uri.encodeComponent(query)}'
+          '&format=json&addressdetails=1'
+          '&countrycodes=$_nominatimCountries'
+          '&featuretype=city&limit=5',
+        ),
+        headers: {'User-Agent': 'ChecksFleet/1.0 (contact@checksfleet.com)'},
+      );
+      if (res.statusCode != 200) return [];
+      final data = jsonDecode(res.body) as List;
+      return data.map((item) {
+        final addr = (item['address'] as Map<String, dynamic>?) ?? {};
+        final city = (addr['city'] as String?)
+            ?? (addr['town'] as String?)
+            ?? (addr['village'] as String?)
+            ?? (addr['municipality'] as String?)
+            ?? '';
+        final state = addr['state'] as String? ?? '';
+        final cc = (addr['country_code'] as String? ?? '').toLowerCase();
+        final postcode = addr['postcode'] as String? ?? '';
+        final countryName = addr['country'] as String? ?? '';
+        return _Suggestion(
+          city: city,
+          postalCode: postcode,
+          context: state.isNotEmpty ? '$state, $countryName' : countryName,
+          country: cc,
+        );
+      }).where((s) => s.city.isNotEmpty).toList();
+    } catch (_) {
+      return [];
+    }
+  }
+
+  // ── Selection & overlay ───────────────────────────────────────────────────
 
   void _select(_Suggestion s) {
     widget.controller.text = s.city;
@@ -144,7 +215,7 @@ class _CitySearchFieldState extends State<CitySearchField> {
             borderRadius: BorderRadius.circular(12),
             color: Colors.white,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 240),
+              constraints: const BoxConstraints(maxHeight: 280),
               child: ListView.separated(
                 padding: const EdgeInsets.symmetric(vertical: 4),
                 shrinkWrap: true,
@@ -152,6 +223,7 @@ class _CitySearchFieldState extends State<CitySearchField> {
                 separatorBuilder: (_, __) => const Divider(height: 1, indent: 40),
                 itemBuilder: (_, i) {
                   final s = _suggestions[i];
+                  final flag = _countryFlags[s.country] ?? '🌍';
                   return InkWell(
                     onTap: () => _select(s),
                     borderRadius: BorderRadius.circular(8),
@@ -159,7 +231,7 @@ class _CitySearchFieldState extends State<CitySearchField> {
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                       child: Row(
                         children: [
-                          const Icon(Icons.location_city_outlined, size: 16, color: _kTeal),
+                          Text(flag, style: const TextStyle(fontSize: 18)),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
@@ -185,7 +257,10 @@ class _CitySearchFieldState extends State<CitySearchField> {
                                 color: const Color(0xFFE6FFFA),
                                 borderRadius: BorderRadius.circular(6),
                               ),
-                              child: Text(s.postalCode.substring(0, 2),
+                              child: Text(
+                                  s.postalCode.length >= 5
+                                      ? s.postalCode.substring(0, 5)
+                                      : s.postalCode,
                                   style: const TextStyle(
                                       fontSize: 10,
                                       fontWeight: FontWeight.w600,
@@ -252,14 +327,14 @@ class _CitySearchFieldState extends State<CitySearchField> {
 }
 
 class _Suggestion {
-  final String label;
   final String city;
   final String postalCode;
   final String context;
+  final String country; // code pays 2 lettres (fr, be, de…)
   const _Suggestion({
-    required this.label,
     required this.city,
     required this.postalCode,
     required this.context,
+    required this.country,
   });
 }

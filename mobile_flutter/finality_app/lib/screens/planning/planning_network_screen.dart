@@ -23,6 +23,7 @@ import 'retour_lift_screen.dart';
 import '_offer_publish_sheet.dart';
 import '_match_chat_sheet.dart';
 import '../../services/lift_notification_service.dart';
+import '../../services/ride_tracking_service.dart';
 
 // ── Couleurs ──────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ class PlanningNetworkScreen extends StatefulWidget {
 class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
   final _sb = Supabase.instance.client;
   final _liftNotif = LiftNotificationService();
+  final _tracking = RideTrackingService();
 
   List<Map<String, dynamic>> _myOffers   = [];
   List<Map<String, dynamic>> _myMatches  = [];
@@ -107,6 +109,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
   void dispose() {
     _channel?.unsubscribe();
     _liftNotif.dispose();
+    _tracking.dispose();
     super.dispose();
   }
 
@@ -181,11 +184,14 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
                     onDecline: m['driver_id'] == _uid && m['status'] == 'proposed'
                         ? () => _updateMatch(m['id'], 'declined', match: m)
                         : null,
+                    onStartTransit: m['driver_id'] == _uid && m['status'] == 'accepted'
+                        ? () => _startTransit(m)
+                        : null,
                     onCancelAccepted: m['driver_id'] == _uid && m['status'] == 'accepted'
                         ? () => _cancelAcceptedMatch(m)
                         : null,
-                    onMarkCompleted: m['status'] == 'accepted'
-                        ? () => _updateMatch(m['id'], 'completed', match: m)
+                    onMarkCompleted: m['status'] == 'in_transit'
+                        ? () => _completeTransit(m)
                         : null,
                   )).toList()),
             ],
@@ -358,6 +364,72 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
         ...items,
       ]),
     );
+  }
+
+  // ── GPS Tracking : démarrer / terminer le trajet ────────────────────────
+
+  Future<void> _startTransit(Map<String, dynamic> match) async {
+    HapticFeedback.heavyImpact();
+    final matchId = match['id'] as String;
+    final passengerId = match['passenger_id'] as String?;
+    final pickup = match['pickup_city'] as String? ?? '';
+    final dropoff = match['dropoff_city'] as String? ?? '';
+
+    // Démarrer le tracking GPS
+    final ok = await _tracking.startTracking(matchId);
+    if (!ok && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Active la localisation pour partager ta position'),
+          backgroundColor: _kRed,
+        ),
+      );
+      return;
+    }
+
+    // Mettre à jour le statut en DB
+    await _sb.from('ride_matches').update({
+      'status': 'in_transit',
+      'started_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', matchId);
+
+    // Notifier le passager
+    if (passengerId != null) {
+      try {
+        await _sb.functions.invoke('send-lift-notification', body: {
+          'to_user_id': passengerId,
+          'title': '🚗 Ton lift est en route !',
+          'body': '$pickup → $dropoff · Le conducteur a démarré le trajet.',
+          'data': {'type': 'in_transit', 'match_id': matchId},
+        });
+      } catch (_) {}
+    }
+    _load();
+  }
+
+  Future<void> _completeTransit(Map<String, dynamic> match) async {
+    HapticFeedback.mediumImpact();
+    final matchId = match['id'] as String;
+
+    // Arrêter le tracking GPS
+    await _tracking.stopTracking();
+
+    // Mettre à jour le statut
+    await _sb.from('ride_matches').update({
+      'status': 'completed',
+      'completed_at': DateTime.now().toUtc().toIso8601String(),
+    }).eq('id', matchId);
+
+    // Notation
+    final driverId = match['driver_id'] as String?;
+    final passengerId = match['passenger_id'] as String?;
+    final pickup = match['pickup_city'] as String? ?? '';
+    final dropoff = match['dropoff_city'] as String? ?? '';
+    final toRate = _uid == driverId ? passengerId : driverId;
+    if (toRate != null && mounted) {
+      await _rateMatch(matchId, toRate, pickup, dropoff);
+    }
+    _load();
   }
 
   // ── Actions ────────────────────────────────────────────────────────────────
@@ -597,6 +669,7 @@ class _MatchTile extends StatelessWidget {
   final VoidCallback onTap;
   final VoidCallback? onAccept;
   final VoidCallback? onDecline;
+  final VoidCallback? onStartTransit;
   final VoidCallback? onCancelAccepted;
   final VoidCallback? onMarkCompleted;
 
@@ -606,6 +679,7 @@ class _MatchTile extends StatelessWidget {
     required this.onTap,
     this.onAccept,
     this.onDecline,
+    this.onStartTransit,
     this.onCancelAccepted,
     this.onMarkCompleted,
   });
@@ -692,7 +766,54 @@ class _MatchTile extends StatelessWidget {
                   ),
               ],
             ),
-            if (onCancelAccepted != null) ...[              const SizedBox(height: 8),
+            // -- Démarrer le trajet (driver, accepted) --
+            if (onStartTransit != null) ...[
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.infinity,
+                child: FilledButton.icon(
+                  onPressed: onStartTransit,
+                  icon: const Icon(Icons.navigation_rounded, size: 16),
+                  label: const Text('Démarrer le trajet'),
+                  style: FilledButton.styleFrom(
+                    backgroundColor: _kBlue,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  ),
+                ),
+              ),
+            ],
+            // -- ETA bar for passenger during in_transit --
+            if (status == 'in_transit' && !isDriver) ...[
+              const SizedBox(height: 8),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFEFF6FF),
+                  borderRadius: BorderRadius.circular(10),
+                  border: Border.all(color: _kBlue.withOpacity(0.2)),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.directions_car, size: 16, color: _kBlue),
+                    const SizedBox(width: 8),
+                    Text(
+                      match['eta_minutes'] != null
+                          ? '🚗 En route — ETA : ${match['eta_minutes']} min'
+                          : '🚗 En route…',
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: _kBlue,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+            if (onCancelAccepted != null) ...[
+              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
@@ -708,7 +829,8 @@ class _MatchTile extends StatelessWidget {
                 ),
               ),
             ],
-            if (onMarkCompleted != null) ...[              const SizedBox(height: 8),
+            if (onMarkCompleted != null) ...[
+              const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
