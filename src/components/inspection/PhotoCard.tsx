@@ -27,7 +27,7 @@ const VEHICLE_PHOTOS: Record<string, Record<string, string>> = {
   'VU': {
     'front': '/assets/vehicles/master avant.png',
     'back': '/assets/vehicles/master avg (2).png',
-    'left_front': '/assets/vehicles/master lateral droit avant.png',
+    'left_front': '/assets/vehicles/master lateral gauche avant.png',
     'left_back': '/assets/vehicles/master laterak gauche arriere.png',
     'right_front': '/assets/vehicles/master lateral droit avant.png',
     'right_back': '/assets/vehicles/master lateral droit arriere.png',

@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../../services/lift_notification_service.dart';
 
 const _kTeal   = Color(0xFF0D9488);
 const _kTealBg = Color(0xFFE6FFFA);
@@ -28,6 +27,7 @@ class _MatchChatSheetState extends State<MatchChatSheet> {
 
   List<Map<String, dynamic>> _messages = [];
   bool _sending = false;
+  bool _loadingMessages = true;
   RealtimeChannel? _channel;
 
   String get _matchId => widget.match['id'] as String? ?? '';
@@ -49,13 +49,25 @@ class _MatchChatSheetState extends State<MatchChatSheet> {
 
   Future<void> _loadMessages() async {
     if (_matchId.isEmpty) return;
-    final res = await _sb.from('ride_messages')
-        .select('*')
-        .eq('match_id', _matchId)
-        .order('created_at');
-    if (!mounted) return;
-    setState(() => _messages = List<Map<String, dynamic>>.from(res));
-    _scrollToBottom();
+    setState(() => _loadingMessages = true);
+    try {
+      final res = await _sb.from('ride_messages')
+          .select('*')
+          .eq('match_id', _matchId)
+          .order('created_at');
+      if (!mounted) return;
+      setState(() {
+        _messages = List<Map<String, dynamic>>.from(res);
+        _loadingMessages = false;
+      });
+      _scrollToBottom();
+      // Marquer les messages reçus comme lus
+      _markMessagesAsRead();
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _loadingMessages = false);
+      debugPrint('Erreur chargement messages: $e');
+    }
   }
 
   void _subscribeMessages() {
@@ -68,11 +80,69 @@ class _MatchChatSheetState extends State<MatchChatSheet> {
         callback: (payload) {
           if (!mounted) return;
           final newMsg = payload.newRecord;
+          // Éviter les doublons (le message envoyé par moi peut arriver aussi via realtime)
+          final newId = newMsg['id'] as String?;
+          if (newId != null && _messages.any((m) => m['id'] == newId)) return;
           setState(() => _messages.add(Map<String, dynamic>.from(newMsg)));
           _scrollToBottom();
+          // Marquer comme lu si c'est un message reçu
+          if (newMsg['sender_id'] != widget.myUid) {
+            _markSingleMessageAsRead(newId);
+          }
+        },
+      )
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.update,
+        schema: 'public',
+        table: 'ride_messages',
+        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'match_id', value: _matchId),
+        callback: (payload) {
+          if (!mounted) return;
+          final updated = payload.newRecord;
+          final updatedId = updated['id'] as String?;
+          if (updatedId == null) return;
+          setState(() {
+            final idx = _messages.indexWhere((m) => m['id'] == updatedId);
+            if (idx != -1) {
+              _messages[idx] = Map<String, dynamic>.from(updated);
+            }
+          });
         },
       )
       ..subscribe();
+  }
+
+  /// Marque tous les messages reçus (non lus) comme lus
+  Future<void> _markMessagesAsRead() async {
+    try {
+      final unreadIds = _messages
+          .where((m) => m['sender_id'] != widget.myUid && m['is_read'] != true)
+          .map((m) => m['id'] as String)
+          .toList();
+      if (unreadIds.isEmpty) return;
+      await _sb.from('ride_messages')
+          .update({'is_read': true})
+          .inFilter('id', unreadIds);
+      // Mettre à jour localement aussi
+      if (!mounted) return;
+      setState(() {
+        for (var i = 0; i < _messages.length; i++) {
+          if (unreadIds.contains(_messages[i]['id'])) {
+            _messages[i] = {..._messages[i], 'is_read': true};
+          }
+        }
+      });
+    } catch (_) {}
+  }
+
+  /// Marque un message comme lu
+  Future<void> _markSingleMessageAsRead(String? messageId) async {
+    if (messageId == null) return;
+    try {
+      await _sb.from('ride_messages')
+          .update({'is_read': true})
+          .eq('id', messageId);
+    } catch (_) {}
   }
 
   void _scrollToBottom() {
@@ -93,25 +163,63 @@ class _MatchChatSheetState extends State<MatchChatSheet> {
     setState(() => _sending = true);
     _msgCtrl.clear();
     try {
-      await _sb.from('ride_messages').insert({
+      // Ajouter en local immédiatement (optimistic UI)
+      final tempMsg = {
+        'id': 'temp_${DateTime.now().millisecondsSinceEpoch}',
+        'match_id': _matchId,
+        'sender_id': widget.myUid,
+        'content': text,
+        'is_read': false,
+        'created_at': DateTime.now().toUtc().toIso8601String(),
+        '_pending': true,
+      };
+      setState(() => _messages.add(tempMsg));
+      _scrollToBottom();
+
+      final res = await _sb.from('ride_messages').insert({
         'match_id':  _matchId,
         'sender_id': widget.myUid,
         'content':   text,
-      });
+      }).select().single();
+
+      // Remplacer le message temporaire par le vrai
+      if (mounted) {
+        setState(() {
+          final idx = _messages.indexWhere((m) => m['id'] == tempMsg['id']);
+          if (idx != -1) {
+            _messages[idx] = Map<String, dynamic>.from(res);
+          }
+        });
+      }
+
       // Envoyer notification push au partenaire
       try {
         final driverId = widget.match['driver_id'] as String?;
         final passengerId = widget.match['passenger_id'] as String?;
         final partnerId = widget.myUid == driverId ? passengerId : driverId;
         if (partnerId != null && partnerId.isNotEmpty) {
-          await _sb.functions.invoke('send-lift-notification', body: {
-            'to_user_id': partnerId,
-            'title': '💬 Message lift',
-            'body': text.length > 80 ? '${text.substring(0, 80)}…' : text,
+          await _sb.functions.invoke('send-notification', body: {
+            'userId': partnerId,
+            'type': 'chat_message',
+            'title': '💬 Message Entraide',
+            'message': text.length > 80 ? '${text.substring(0, 80)}…' : text,
             'data': {'type': 'chat_message', 'match_id': _matchId},
           });
         }
       } catch (_) {}
+    } catch (e) {
+      // Retirer le message temporaire en cas d'erreur
+      if (mounted) {
+        setState(() {
+          _messages.removeWhere((m) => m['_pending'] == true);
+        });
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Erreur envoi: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _sending = false);
     }
@@ -177,20 +285,24 @@ class _MatchChatSheetState extends State<MatchChatSheet> {
           ),
           // Messages
           Expanded(
-            child: _messages.isEmpty
-                ? const Center(
-                    child: Text('Dites bonjour ! 👋',
-                        style: TextStyle(color: _kGray, fontSize: 15)))
-                : ListView.builder(
-                    controller: _scrollCtrl,
-                    keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.all(12),
-                    itemCount: _messages.length,
-                    itemBuilder: (_, i) => _MessageBubble(
-                      message: _messages[i],
-                      isMe: _messages[i]['sender_id'] == widget.myUid,
-                    ),
-                  ),
+            child: _loadingMessages
+                ? const Center(child: CircularProgressIndicator(color: _kTeal))
+                : _messages.isEmpty
+                    ? const Center(
+                        child: Text('Dites bonjour ! 👋',
+                            style: TextStyle(color: _kGray, fontSize: 15)))
+                    : ListView.builder(
+                        controller: _scrollCtrl,
+                        keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
+                        padding: const EdgeInsets.all(12),
+                        itemCount: _messages.length,
+                        itemBuilder: (_, i) => _MessageBubble(
+                          message: _messages[i],
+                          isMe: _messages[i]['sender_id'] == widget.myUid,
+                          isLast: i == _messages.length - 1,
+                          isPending: _messages[i]['_pending'] == true,
+                        ),
+                      ),
           ),
           // Input
           Container(
@@ -255,13 +367,21 @@ class _MatchChatSheetState extends State<MatchChatSheet> {
 class _MessageBubble extends StatelessWidget {
   final Map<String, dynamic> message;
   final bool isMe;
+  final bool isLast;
+  final bool isPending;
 
-  const _MessageBubble({required this.message, required this.isMe});
+  const _MessageBubble({
+    required this.message,
+    required this.isMe,
+    this.isLast = false,
+    this.isPending = false,
+  });
 
   @override
   Widget build(BuildContext context) {
     final content = message['content'] as String? ?? '';
     final createdAt = message['created_at'] as String?;
+    final isRead = message['is_read'] == true;
     String time = '';
     if (createdAt != null) {
       try {
@@ -285,32 +405,57 @@ class _MessageBubble extends StatelessWidget {
             const SizedBox(width: 6),
           ],
           Flexible(
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: isMe ? _kTeal : const Color(0xFFF1F5F9),
-                borderRadius: BorderRadius.only(
-                  topLeft: const Radius.circular(16),
-                  topRight: const Radius.circular(16),
-                  bottomLeft: Radius.circular(isMe ? 16 : 4),
-                  bottomRight: Radius.circular(isMe ? 4 : 16),
+            child: Opacity(
+              opacity: isPending ? 0.6 : 1.0,
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isMe ? _kTeal : const Color(0xFFF1F5F9),
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(16),
+                    topRight: const Radius.circular(16),
+                    bottomLeft: Radius.circular(isMe ? 16 : 4),
+                    bottomRight: Radius.circular(isMe ? 4 : 16),
+                  ),
                 ),
-              ),
-              child: Column(
-                crossAxisAlignment:
-                    isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
-                children: [
-                  Text(content,
-                      style: TextStyle(
-                          color: isMe ? Colors.white : _kDark, fontSize: 14)),
-                  if (time.isNotEmpty) ...[
-                    const SizedBox(height: 3),
-                    Text(time,
+                child: Column(
+                  crossAxisAlignment:
+                      isMe ? CrossAxisAlignment.end : CrossAxisAlignment.start,
+                  children: [
+                    Text(content,
                         style: TextStyle(
-                            fontSize: 10,
-                            color: isMe ? Colors.white60 : _kGray)),
+                            color: isMe ? Colors.white : _kDark, fontSize: 14)),
+                    if (time.isNotEmpty) ...[
+                      const SizedBox(height: 3),
+                      Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(time,
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: isMe ? Colors.white60 : _kGray)),
+                          // Indicateur Vu / Envoyé pour mes messages
+                          if (isMe) ...[
+                            const SizedBox(width: 4),
+                            Icon(
+                              isPending
+                                  ? Icons.access_time
+                                  : isRead
+                                      ? Icons.done_all
+                                      : Icons.done,
+                              size: 13,
+                              color: isPending
+                                  ? Colors.white38
+                                  : isRead
+                                      ? const Color(0xFF60E0FF)
+                                      : Colors.white60,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
             ),
           ),

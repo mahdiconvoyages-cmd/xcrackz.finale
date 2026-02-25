@@ -14,6 +14,7 @@
 //   - Mes demandes en attente
 // ===========================================================================
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
@@ -80,6 +81,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
   List<Map<String, dynamic>> _myOffers   = [];
   List<Map<String, dynamic>> _myMatches  = [];
   List<Map<String, dynamic>> _myRequests = [];
+  Map<String, int> _unreadCounts = {};
   bool _loading = true;
 
   String get _uid => _sb.auth.currentUser?.id ?? '';
@@ -93,6 +95,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
   }
 
   RealtimeChannel? _channel;
+  RealtimeChannel? _msgChannel;
 
   void _subscribeRealtime() {
     _channel = _sb.channel('planning_hub')
@@ -103,11 +106,30 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
         callback: (_) => _load(),
       )
       ..subscribe();
+    // Écouter les nouveaux messages pour mettre à jour les badges
+    _msgChannel = _sb.channel('planning_msg_badge')
+      ..onPostgresChanges(
+        event: PostgresChangeEvent.insert,
+        schema: 'public',
+        table: 'ride_messages',
+        callback: (payload) {
+          final msg = payload.newRecord;
+          final senderId = msg['sender_id'] as String?;
+          final matchId = msg['match_id'] as String?;
+          if (senderId == _uid || matchId == null) return;
+          if (!mounted) return;
+          setState(() {
+            _unreadCounts[matchId] = (_unreadCounts[matchId] ?? 0) + 1;
+          });
+        },
+      )
+      ..subscribe();
   }
 
   @override
   void dispose() {
     _channel?.unsubscribe();
+    _msgChannel?.unsubscribe();
     _liftNotif.dispose();
     _tracking.dispose();
     super.dispose();
@@ -138,16 +160,57 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
            .inFilter('status', ['active', 'urgent'])
            .gte('needed_date', DateFormat('yyyy-MM-dd').format(DateTime.now()))
            .order('needed_date'),
-      ]);
+      ]).timeout(const Duration(seconds: 15));
       if (!mounted) return;
+      final matches = List<Map<String, dynamic>>.from(results[1]);
+      // Charger les compteurs de messages non lus pour chaque match
+      Map<String, int> unread = {};
+      if (matches.isNotEmpty) {
+        try {
+          final matchIds = matches.map((m) => m['id'] as String).toList();
+          final unreadRes = await _sb.from('ride_messages')
+              .select('match_id')
+              .inFilter('match_id', matchIds)
+              .neq('sender_id', _uid)
+              .eq('is_read', false);
+          for (final row in unreadRes) {
+            final mid = row['match_id'] as String;
+            unread[mid] = (unread[mid] ?? 0) + 1;
+          }
+        } catch (_) {}
+      }
       setState(() {
         _myOffers   = List<Map<String, dynamic>>.from(results[0]);
-        _myMatches  = List<Map<String, dynamic>>.from(results[1]);
+        _myMatches  = matches;
         _myRequests = List<Map<String, dynamic>>.from(results[2]);
+        _unreadCounts = unread;
         _loading    = false;
       });
-    } catch (_) {
-      if (mounted) setState(() => _loading = false);
+    } catch (e) {
+      if (mounted) {
+        setState(() => _loading = false);
+        // Afficher message d'erreur réseau convivial
+        final errStr = e.toString();
+        if (errStr.contains('SocketException') ||
+            errStr.contains('Failed host lookup') ||
+            errStr.contains('TimeoutException') ||
+            errStr.contains('No address associated')) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.wifi_off, color: Colors.white, size: 18),
+                  SizedBox(width: 10),
+                  Expanded(child: Text('Pas de connexion internet. Vérifie ton réseau et réessaie.')),
+                ],
+              ),
+              backgroundColor: Color(0xFFEF4444),
+              behavior: SnackBarBehavior.floating,
+              duration: Duration(seconds: 5),
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -177,6 +240,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
                   _myMatches.map((m) => _MatchTile(
                     match: m,
                     myUid: _uid,
+                    unreadCount: _unreadCounts[m['id']] ?? 0,
                     onTap: () => _openChat(m),
                     onAccept: m['driver_id'] == _uid && m['status'] == 'proposed'
                         ? () => _updateMatch(m['id'], 'accepted', match: m)
@@ -443,12 +507,17 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
   }
 
   void _openChat(Map<String, dynamic> match) {
+    // Réinitialiser le compteur non lu pour ce match
+    final matchId = match['id'] as String?;
+    if (matchId != null && (_unreadCounts[matchId] ?? 0) > 0) {
+      setState(() => _unreadCounts[matchId] = 0);
+    }
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (_) => MatchChatSheet(match: match, myUid: _uid),
-    );
+    ).then((_) => _load()); // Recharger les compteurs après fermeture du chat
   }
 
   Future<void> _updateMatch(String matchId, String status, {Map<String, dynamic>? match}) async {
@@ -670,6 +739,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
 class _MatchTile extends StatelessWidget {
   final Map<String, dynamic> match;
   final String myUid;
+  final int unreadCount;
   final VoidCallback onTap;
   final VoidCallback? onAccept;
   final VoidCallback? onDecline;
@@ -680,6 +750,7 @@ class _MatchTile extends StatelessWidget {
   const _MatchTile({
     required this.match,
     required this.myUid,
+    this.unreadCount = 0,
     required this.onTap,
     this.onAccept,
     this.onDecline,
@@ -740,7 +811,35 @@ class _MatchTile extends StatelessWidget {
                   ),
                 ),
                 const Spacer(),
-                const Icon(Icons.chat_bubble_outline, size: 18, color: _kGray),
+                Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    const Icon(Icons.chat_bubble_outline, size: 18, color: _kGray),
+                    if (unreadCount > 0)
+                      Positioned(
+                        top: -6,
+                        right: -8,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          decoration: BoxDecoration(
+                            color: _kRed,
+                            borderRadius: BorderRadius.circular(10),
+                            border: Border.all(color: Colors.white, width: 1.5),
+                          ),
+                          constraints: const BoxConstraints(minWidth: 18, minHeight: 16),
+                          child: Text(
+                            unreadCount > 99 ? '99+' : '$unreadCount',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                  ],
+                ),
               ],
             ),
             const SizedBox(height: 10),

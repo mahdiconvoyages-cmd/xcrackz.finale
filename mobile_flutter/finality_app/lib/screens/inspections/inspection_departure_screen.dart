@@ -557,7 +557,9 @@ class _InspectionDepartureScreenState
       },
       child: Scaffold(
       backgroundColor: PremiumTheme.lightBg,
-      body: Column(
+      body: Stack(
+        children: [
+        Column(
         children: [
           // Header compact avec progress
           SafeArea(
@@ -647,6 +649,27 @@ class _InspectionDepartureScreenState
 
           // Navigation buttons
           _buildNavigationButtons(),
+        ],
+      ),
+        // Loading overlay pendant la soumission
+        if (_isLoading)
+          Container(
+            color: Colors.black54,
+            child: const Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(color: Color(0xFF14B8A6), strokeWidth: 3),
+                  SizedBox(height: 20),
+                  Text('Envoi de l\'inspection en cours…',
+                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                  SizedBox(height: 8),
+                  Text('Photos, signatures et documents',
+                      style: TextStyle(color: Colors.white70, fontSize: 13)),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     ), // Scaffold
@@ -1833,10 +1856,15 @@ class _InspectionDepartureScreenState
                         }
                       }
                     : null,
-                icon: Icon(
-                  _currentStep < 4 ? Icons.arrow_forward : Icons.check,
-                ),
-                label: Text(_currentStep < 4 ? 'Suivant' : 'Terminer'),
+                icon: _isLoading && _currentStep == 4
+                    ? const SizedBox(
+                        width: 18, height: 18,
+                        child: CircularProgressIndicator(
+                            color: Colors.white, strokeWidth: 2))
+                    : Icon(
+                        _currentStep < 4 ? Icons.arrow_forward : Icons.check,
+                      ),
+                label: Text(_currentStep < 4 ? 'Suivant' : (_isLoading ? 'Envoi en cours…' : 'Terminer')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF14B8A6),
                   foregroundColor: Colors.white,

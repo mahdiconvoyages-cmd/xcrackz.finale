@@ -316,7 +316,9 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: PremiumTheme.lightBg,
-      body: Column(
+      body: Stack(
+        children: [
+          Column(
         children: [
           // Header compact avec progress
           SafeArea(
@@ -426,16 +428,50 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: Text(
-                        _currentStep < 4 ? 'Suivant' : 'Terminer l\'inspection',
-                        style: const TextStyle(fontWeight: FontWeight.w600),
-                      ),
+                      child: _isLoading && _currentStep == 4
+                          ? const Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                SizedBox(
+                                    width: 18, height: 18,
+                                    child: CircularProgressIndicator(
+                                        color: Colors.white, strokeWidth: 2)),
+                                SizedBox(width: 10),
+                                Text('Envoi en cours…',
+                                    style: TextStyle(fontWeight: FontWeight.w600)),
+                              ],
+                            )
+                          : Text(
+                              _currentStep < 4 ? 'Suivant' : 'Terminer l\'inspection',
+                              style: const TextStyle(fontWeight: FontWeight.w600),
+                            ),
                     ),
                   ),
                 ],
               ),
             ),
           ),
+        ],
+      ),
+          // Loading overlay pendant la soumission
+          if (_isLoading)
+            Container(
+              color: Colors.black54,
+              child: const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    CircularProgressIndicator(color: Color(0xFF14B8A6), strokeWidth: 3),
+                    SizedBox(height: 20),
+                    Text('Envoi de l\'inspection en cours…',
+                        style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w600)),
+                    SizedBox(height: 8),
+                    Text('Photos, signatures et documents',
+                        style: TextStyle(color: Colors.white70, fontSize: 13)),
+                  ],
+                ),
+              ),
+            ),
         ],
       ),
     );

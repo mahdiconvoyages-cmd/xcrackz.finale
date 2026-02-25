@@ -8,7 +8,11 @@
 -- Exécuter dans Supabase Dashboard > SQL Editor
 -- ================================================================
 
--- 1. Vérifier si la FK existe déjà
+-- 1. Supprimer les quote_items orphelins (quote supprimé mais items restants)
+DELETE FROM quote_items 
+WHERE quote_id NOT IN (SELECT id FROM quotes);
+
+-- 2. Vérifier si la FK existe déjà
 DO $$
 BEGIN
     IF NOT EXISTS (
