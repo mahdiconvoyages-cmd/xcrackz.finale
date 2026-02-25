@@ -1,10 +1,11 @@
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 
 /// Service pour interroger l'API Sirene de l'INSEE
 /// API gratuite sans clé requise pour obtenir les informations d'entreprise via SIRET/SIREN
 class InseeService {
-  static const String _baseUrl = 'https://api.insee.fr/entreprises/sirene/V3';
+  static const String _baseUrl = ApiConfig.inseeBase;
   static const String _siretEndpoint = '/siret';
   static const String _sirenEndpoint = '/siren';
   

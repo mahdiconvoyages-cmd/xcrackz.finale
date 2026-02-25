@@ -402,7 +402,9 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
           'body': '$pickup → $dropoff · Le conducteur a démarré le trajet.',
           'data': {'type': 'in_transit', 'match_id': matchId},
         });
-      } catch (_) {}
+      } catch (e) {
+        debugPrint('Erreur notification lift: $e');
+      }
     }
     _load();
   }
@@ -613,7 +615,9 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
         'rating':        selectedRating,
         if (comment != null && comment!.isNotEmpty) 'comment': comment,
       });
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Erreur envoi note: $e');
+    }
   }
 
   /// Annulation d'un match déjà accepté par le conducteur → la demande du passager

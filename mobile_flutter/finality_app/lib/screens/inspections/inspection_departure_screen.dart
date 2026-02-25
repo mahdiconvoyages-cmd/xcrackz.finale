@@ -109,7 +109,7 @@ class _InspectionDepartureScreenState
         image: _vehicleType == 'PL'
             ? 'assets/vehicles/scania-avant.png'
             : _vehicleType == 'VU'
-            ? 'assets/vehicles/master avant.png'
+            ? 'assets/vehicles/master_avant.png'
             : 'assets/vehicles/avant.png',
       ),
       PhotoGuide(
@@ -119,8 +119,8 @@ class _InspectionDepartureScreenState
         image: _vehicleType == 'PL'
             ? 'assets/vehicles/scania-lateral-gauche-avant.png'
             : _vehicleType == 'VU'
-            ? 'assets/vehicles/master lateral gauche avant.png'
-            : 'assets/vehicles/lateral gauche avant.png',
+            ? 'assets/vehicles/master_lateral_gauche_avant.png'
+            : 'assets/vehicles/lateral_gauche_avant.png',
       ),
       PhotoGuide(
         label: 'Arrière gauche',
@@ -129,8 +129,8 @@ class _InspectionDepartureScreenState
         image: _vehicleType == 'PL'
             ? 'assets/vehicles/scania-lateral-gauche-arriere.png'
             : _vehicleType == 'VU'
-            ? 'assets/vehicles/master lateral gauche arriere.png'
-            : 'assets/vehicles/laterale gauche arriere.png',
+            ? 'assets/vehicles/master_lateral_gauche_arriere.png'
+            : 'assets/vehicles/laterale_gauche_arriere.png',
       ),
       PhotoGuide(
         label: 'Arrière',
@@ -139,7 +139,7 @@ class _InspectionDepartureScreenState
         image: _vehicleType == 'PL'
             ? 'assets/vehicles/scania-arriere.png'
             : _vehicleType == 'VU'
-            ? 'assets/vehicles/master avg (2).png'
+            ? 'assets/vehicles/master_avg_2.png'
             : 'assets/vehicles/arriere.png',
       ),
       PhotoGuide(
@@ -149,8 +149,8 @@ class _InspectionDepartureScreenState
         image: _vehicleType == 'PL'
             ? 'assets/vehicles/scania-lateral-droit-arriere.png'
             : _vehicleType == 'VU'
-            ? 'assets/vehicles/master lateral droit arriere.png'
-            : 'assets/vehicles/lateral droit arriere.png',
+            ? 'assets/vehicles/master_lateral_droit_arriere.png'
+            : 'assets/vehicles/lateral_droit_arriere.png',
       ),
       PhotoGuide(
         label: 'Avant droit',
@@ -159,8 +159,8 @@ class _InspectionDepartureScreenState
         image: _vehicleType == 'PL'
             ? 'assets/vehicles/scania-lateral-droit-avant.png'
             : _vehicleType == 'VU'
-            ? 'assets/vehicles/master lateral droit avant.png'
-            : 'assets/vehicles/lateraldroit avant.png',
+            ? 'assets/vehicles/master_lateral_droit_avant.png'
+            : 'assets/vehicles/lateraldroit_avant.png',
       ),
       PhotoGuide(
         label: 'Intérieur avant',

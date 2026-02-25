@@ -76,7 +76,7 @@ class ClientService {
         query = query.eq('is_favorite', isFavorite);
       }
 
-      final response = await query.order(orderBy, ascending: ascending);
+      final response = await query.order(orderBy, ascending: ascending).limit(200);
       
       final rawList = response as List;
       // Cache pour offline

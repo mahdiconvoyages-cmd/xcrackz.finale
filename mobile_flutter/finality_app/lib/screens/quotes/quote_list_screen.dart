@@ -20,6 +20,9 @@ class _QuoteListScreenState extends State<QuoteListScreen>
 
   List<Quote> _quotes = [];
   bool _isLoading = true;
+  bool _hasMore = true;
+  bool _isLoadingMore = false;
+  static const _pageSize = 20;
   String _filter = 'all';
   Map<String, dynamic> _stats = {};
 
@@ -42,16 +45,19 @@ class _QuoteListScreenState extends State<QuoteListScreen>
   }
 
   Future<void> _loadQuotes() async {
-    setState(() => _isLoading = true);
+    setState(() { _isLoading = true; _hasMore = true; });
 
     try {
       final quotes = await _quoteService.getQuotes(
         status: _filter == 'all' ? null : _filter,
+        offset: 0,
+        limit: _pageSize,
       );
 
       if (!mounted) return;
       setState(() {
         _quotes = quotes;
+        _hasMore = quotes.length >= _pageSize;
         _isLoading = false;
       });
     } catch (e) {
@@ -64,6 +70,26 @@ class _QuoteListScreenState extends State<QuoteListScreen>
           backgroundColor: PremiumTheme.accentRed,
         ),
       );
+    }
+  }
+
+  Future<void> _loadMore() async {
+    if (_isLoadingMore || !_hasMore) return;
+    setState(() => _isLoadingMore = true);
+    try {
+      final more = await _quoteService.getQuotes(
+        status: _filter == 'all' ? null : _filter,
+        offset: _quotes.length,
+        limit: _pageSize,
+      );
+      if (!mounted) return;
+      setState(() {
+        _quotes.addAll(more);
+        _hasMore = more.length >= _pageSize;
+        _isLoadingMore = false;
+      });
+    } catch (_) {
+      if (mounted) setState(() => _isLoadingMore = false);
     }
   }
 
@@ -109,8 +135,15 @@ class _QuoteListScreenState extends State<QuoteListScreen>
                           padding: const EdgeInsets.all(16),
                           cacheExtent: 500.0,
                           addAutomaticKeepAlives: true,
-                          itemCount: _quotes.length,
+                          itemCount: _quotes.length + (_hasMore ? 1 : 0),
                           itemBuilder: (context, index) {
+                            if (index >= _quotes.length) {
+                              _loadMore();
+                              return const Padding(
+                                padding: EdgeInsets.all(16),
+                                child: Center(child: CircularProgressIndicator()),
+                              );
+                            }
                             final quote = _quotes[index];
                             return FadeInAnimation(
                               key: ValueKey('quote-fade-${quote.id}'),

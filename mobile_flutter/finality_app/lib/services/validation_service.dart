@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 import '../utils/logger.dart';
+import '../config/api_config.dart';
 
 /// Service de validation des données d'inscription
 /// Valide SIRET via API INSEE, format email, téléphone, etc.
@@ -177,7 +178,7 @@ class ValidationService {
 
     // Appel API INSEE (version simplifiée - sans token pour l'instant)
     try {
-      final url = Uri.parse('https://api.insee.fr/entreprises/sirene/V3/siret/$cleaned');
+      final url = Uri.parse('${ApiConfig.inseeBase}/siret/$cleaned');
       
       // NOTE: Pour production, il faut un token INSEE
       // Inscription gratuite sur https://api.insee.fr/

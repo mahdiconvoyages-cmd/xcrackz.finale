@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 
 /// Route calculation result
 class RouteResult {
@@ -18,8 +19,8 @@ class RouteResult {
 /// Service for calculating real road distances using OSRM (free, open-source)
 /// Falls back to Haversine straight-line distance if OSRM is unavailable
 class RoutingService {
-  static const _osrmBase = 'https://router.project-osrm.org';
-  static const _timeout = Duration(seconds: 8);
+  static const _osrmBase = ApiConfig.osrmBase;
+  static const _timeout = ApiConfig.apiTimeout;
 
   /// Calculate road distance between two GPS points
   /// Returns distance in km and duration in minutes

@@ -36,32 +36,26 @@ class QuoteService {
   }
 
   // Read
-  Future<List<Quote>> getQuotes({String? status}) async {
+  Future<List<Quote>> getQuotes({String? status, int offset = 0, int limit = 20}) async {
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('Utilisateur non connecté');
 
       var query = _supabase
           .from('quotes')
-          .select('*')
+          .select('*, quote_items(*)')
           .eq('user_id', userId);
 
       if (status != null && status != 'all') {
         query = query.eq('status', status);
       }
       
-      final response = await query.order('created_at', ascending: false);
+      final response = await query
+          .order('created_at', ascending: false)
+          .range(offset, offset + limit - 1);
       
-      // Charger les items séparément pour chaque devis
       final quotes = <Quote>[];
       for (final json in response as List) {
-        final quoteId = json['id'] as String;
-        final items = await _supabase
-            .from('quote_items')
-            .select('*')
-            .eq('quote_id', quoteId);
-        
-        json['quote_items'] = items;
         quotes.add(Quote.fromJson(json));
       }
       

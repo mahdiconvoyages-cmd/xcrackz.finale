@@ -20,6 +20,7 @@ import 'widgets/offline_sync_manager.dart';
 import 'theme/premium_theme.dart';
 import 'utils/logger.dart';
 import 'l10n/app_localizations.dart';
+import 'config/api_config.dart';
 
 /// Whether Supabase has been initialized successfully
 bool supabaseInitialized = false;
@@ -41,16 +42,16 @@ void main() {
     // Logger
     try { logger.init(); } catch (_) {}
 
-    // dotenv
+    // dotenv — optional, only works if .env exists (dev mode)
     try {
       await dotenv.load(fileName: ".env");
-    } catch (e) {
-      startupError = '.env: $e';
+    } catch (_) {
+      // .env not bundled in release — will use ApiConfig fallback values
     }
 
-    // Supabase
-    final url = dotenv.env['SUPABASE_URL'] ?? '';
-    final key = dotenv.env['SUPABASE_ANON_KEY'] ?? '';
+    // Supabase — use .env first, fall back to compiled config
+    final url = dotenv.env['SUPABASE_URL'] ?? ApiConfig.supabaseUrl;
+    final key = dotenv.env['SUPABASE_ANON_KEY'] ?? ApiConfig.supabaseAnonKey;
 
     if (url.isNotEmpty && key.isNotEmpty) {
       try {

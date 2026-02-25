@@ -48,7 +48,8 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> {
           .from('inspection_documents')
           .select('*')
           .eq('user_id', uid)
-          .order('created_at', ascending: false);
+          .order('created_at', ascending: false)
+          .limit(100);
       if (!mounted) return;
       setState(() {
         _docs = List<Map<String, dynamic>>.from(res);
@@ -59,6 +60,12 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> {
       debugPrint('Load error: $e');
       if (!mounted) return;
       setState(() => _loading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Erreur de chargement: $e'),
+          backgroundColor: Colors.red.shade600,
+        ),
+      );
     }
   }
 

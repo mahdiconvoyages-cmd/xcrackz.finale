@@ -100,6 +100,7 @@ dev_dependencies:
 
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.1
+  flutter_native_splash: ^2.4.3
   build_runner: ^2.4.13
   riverpod_generator: ^2.6.2
   mockito: ^5.4.4
@@ -119,7 +120,6 @@ flutter:
   assets:
     - assets/vehicles/
     - assets/images/
-    - .env
 
   # An image asset can refer to one or more resolution-specific "variants", see
   # https://flutter.dev/to/resolution-aware-images
@@ -157,3 +157,13 @@ flutter_launcher_icons:
   adaptive_icon_foreground: "assets/icons/logo_foreground.png"
   min_sdk_android: 21
   remove_alpha_ios: true
+
+# Configuration du splash screen natif
+flutter_native_splash:
+  color: "#0F172A"
+  image: "assets/icons/logo.png"
+  android: true
+  ios: true
+  android_12:
+    color: "#0F172A"
+    image: "assets/icons/logo.png"

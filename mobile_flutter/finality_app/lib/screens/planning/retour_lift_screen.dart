@@ -17,6 +17,7 @@ import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import '../../widgets/city_search_field.dart';
 import '../../services/lift_notification_service.dart';
+import '../../config/api_config.dart';
 
 // ── Couleurs ─────────────────────────────────────────────────────────────────
 
@@ -67,7 +68,7 @@ String _formatDate(String? d) {
 Future<Map<String, dynamic>?> _geocodeCity(String city) async {
   try {
     final res = await http.get(Uri.parse(
-        'https://api-adresse.data.gouv.fr/search/?q=${Uri.encodeComponent(city)}&type=municipality&limit=1'));
+        '${ApiConfig.adresseGouvBase}/search/?q=${Uri.encodeComponent(city)}&type=municipality&limit=1'));
     if (res.statusCode != 200) return null;
     final data = jsonDecode(res.body) as Map;
     final features = (data['features'] as List?) ?? [];
@@ -221,7 +222,9 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
           .inFilter('status', ['proposed', 'accepted', 'in_transit'])
           .order('created_at', ascending: false);
       if (mounted) setState(() => _myMatches = List<Map<String, dynamic>>.from(data));
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Erreur chargement matchs: $e');
+    }
   }
 
   // ── Recherche des offres disponibles ─────────────────────────────────────
@@ -247,8 +250,7 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
             profile:profiles!user_id(
               id, first_name, last_name, avatar_url,
               company_name
-            ),
-            ratings:ride_ratings(rating)
+            )
           ''')
           .neq('user_id', _userId)
           .inFilter('status', ['active', 'en_route'])
@@ -270,8 +272,7 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
                 profile:profiles!user_id(
                   id, first_name, last_name, avatar_url,
                   company_name
-                ),
-                ratings:ride_ratings(rating)
+                )
               ''')
               .neq('user_id', _userId)
               .inFilter('status', ['active', 'en_route'])
@@ -286,7 +287,9 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
               offers.add(Map<String, dynamic>.from(o as Map)..['_is_axis'] = true);
             }
           }
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('Erreur recherche axe: $e');
+        }
       }
 
       // ── Tri : offres vers la bonne destination en premier ─────────────────
@@ -327,7 +330,9 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
         if (mounted) _showSnack('Tu as déjà une demande en cours pour ce lift', isError: true);
         return;
       }
-    } catch (_) {}
+    } catch (e) {
+      debugPrint('Erreur vérification doublon: $e');
+    }
 
     final confirmed = await showModalBottomSheet<bool>(
       context: context,

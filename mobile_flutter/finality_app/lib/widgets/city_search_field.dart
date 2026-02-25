@@ -1,31 +1,18 @@
 // ============================================================
-// CitySearchField — autocomplete villes Europe
+// CitySearchField — autocomplete villes France uniquement
 //
-// Sources :
-//   1. api-adresse.data.gouv.fr  →  France (rapide & précis)
-//   2. Nominatim / OpenStreetMap  →  toute l'Europe limitrophe
-//
-// Pays couverts : FR, BE, DE, ES, NL, LU, IT, PT, CH, AT, GB
+// Source : api-adresse.data.gouv.fr (rapide & précis)
 // ============================================================
 
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
+import '../config/api_config.dart';
 
 const _kTeal   = Color(0xFF0D9488);
 const _kGray   = Color(0xFF64748B);
 const _kBorder = Color(0xFFE2E8F0);
-
-/// Codes pays couverts par Nominatim (hors France, déjà via gouv.fr)
-const _nominatimCountries = 'be,de,es,nl,lu,it,pt,ch,at,gb';
-
-/// Drapeaux emoji par code pays
-const _countryFlags = {
-  'fr': '🇫🇷', 'be': '🇧🇪', 'de': '🇩🇪', 'es': '🇪🇸',
-  'nl': '🇳🇱', 'lu': '🇱🇺', 'it': '🇮🇹', 'pt': '🇵🇹',
-  'ch': '🇨🇭', 'at': '🇦🇹', 'gb': '🇬🇧',
-};
 
 class CitySearchField extends StatefulWidget {
   final TextEditingController controller;
@@ -90,26 +77,14 @@ class _CitySearchFieldState extends State<CitySearchField> {
     _debounce = Timer(const Duration(milliseconds: 350), () => _fetchAll(value));
   }
 
-  // ── Fetch from both APIs in parallel ──────────────────────────────────────
+  // ── Fetch from France API ───────────────────────────────────────────────
 
   Future<void> _fetchAll(String query) async {
-    final results = await Future.wait([
-      _fetchFrance(query),
-      _fetchNominatim(query),
-    ]);
-
-    final all = <_Suggestion>[...results[0], ...results[1]];
-
-    // Dédoublonner par (city lowercase + country)
-    final seen = <String>{};
-    final unique = all.where((s) {
-      final key = '${s.city.toLowerCase()}|${s.country}';
-      return seen.add(key);
-    }).toList();
+    final results = await _fetchFrance(query);
 
     if (!mounted) return;
-    if (unique.isNotEmpty) {
-      setState(() => _suggestions = unique);
+    if (results.isNotEmpty) {
+      setState(() => _suggestions = results);
       _updateOverlay();
     } else {
       _hideOverlay();
@@ -120,8 +95,8 @@ class _CitySearchFieldState extends State<CitySearchField> {
   Future<List<_Suggestion>> _fetchFrance(String query) async {
     try {
       final res = await http.get(Uri.parse(
-        'https://api-adresse.data.gouv.fr/search/'
-        '?q=${Uri.encodeComponent(query)}&type=municipality&limit=5',
+        '${ApiConfig.adresseGouvBase}/search/'
+        '?q=${Uri.encodeComponent(query)}&type=municipality&limit=8',
       ));
       if (res.statusCode != 200) return [];
       final data = jsonDecode(res.body) as Map<String, dynamic>;
@@ -132,45 +107,6 @@ class _CitySearchFieldState extends State<CitySearchField> {
           city:       p['city'] as String? ?? (p['label'] as String? ?? ''),
           postalCode: p['postcode'] as String? ?? '',
           context:    p['context'] as String? ?? '',
-          country:    'fr',
-        );
-      }).where((s) => s.city.isNotEmpty).toList();
-    } catch (_) {
-      return [];
-    }
-  }
-
-  /// Europe — Nominatim / OpenStreetMap (gratuit, toute l'Europe)
-  Future<List<_Suggestion>> _fetchNominatim(String query) async {
-    try {
-      final res = await http.get(
-        Uri.parse(
-          'https://nominatim.openstreetmap.org/search'
-          '?q=${Uri.encodeComponent(query)}'
-          '&format=json&addressdetails=1'
-          '&countrycodes=$_nominatimCountries'
-          '&featuretype=city&limit=5',
-        ),
-        headers: {'User-Agent': 'ChecksFleet/1.0 (contact@checksfleet.com)'},
-      );
-      if (res.statusCode != 200) return [];
-      final data = jsonDecode(res.body) as List;
-      return data.map((item) {
-        final addr = (item['address'] as Map<String, dynamic>?) ?? {};
-        final city = (addr['city'] as String?)
-            ?? (addr['town'] as String?)
-            ?? (addr['village'] as String?)
-            ?? (addr['municipality'] as String?)
-            ?? '';
-        final state = addr['state'] as String? ?? '';
-        final cc = (addr['country_code'] as String? ?? '').toLowerCase();
-        final postcode = addr['postcode'] as String? ?? '';
-        final countryName = addr['country'] as String? ?? '';
-        return _Suggestion(
-          city: city,
-          postalCode: postcode,
-          context: state.isNotEmpty ? '$state, $countryName' : countryName,
-          country: cc,
         );
       }).where((s) => s.city.isNotEmpty).toList();
     } catch (_) {
@@ -223,7 +159,6 @@ class _CitySearchFieldState extends State<CitySearchField> {
                 separatorBuilder: (_, __) => const Divider(height: 1, indent: 40),
                 itemBuilder: (_, i) {
                   final s = _suggestions[i];
-                  final flag = _countryFlags[s.country] ?? '🌍';
                   return InkWell(
                     onTap: () => _select(s),
                     borderRadius: BorderRadius.circular(8),
@@ -231,7 +166,7 @@ class _CitySearchFieldState extends State<CitySearchField> {
                       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
                       child: Row(
                         children: [
-                          Text(flag, style: const TextStyle(fontSize: 18)),
+                          const Text('🇫🇷', style: TextStyle(fontSize: 18)),
                           const SizedBox(width: 10),
                           Expanded(
                             child: Column(
@@ -330,11 +265,9 @@ class _Suggestion {
   final String city;
   final String postalCode;
   final String context;
-  final String country; // code pays 2 lettres (fr, be, de…)
   const _Suggestion({
     required this.city,
     required this.postalCode,
     required this.context,
-    required this.country,
   });
 }

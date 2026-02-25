@@ -14,6 +14,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/logger.dart';
+import '../config/api_config.dart';
 
 class RideTrackingService {
   static final RideTrackingService _instance = RideTrackingService._internal();
@@ -138,7 +139,7 @@ class RideTrackingService {
   Future<int?> _calculateETA(double destLat, double destLng) async {
     if (_lastPosition == null) return null;
     try {
-      final url = 'https://router.project-osrm.org/route/v1/driving/'
+      final url = '${ApiConfig.osrmBase}/route/v1/driving/'
           '${_lastPosition!.longitude},${_lastPosition!.latitude}'
           ';$destLng,$destLat'
           '?overview=false';

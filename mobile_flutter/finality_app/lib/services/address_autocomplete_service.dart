@@ -3,10 +3,11 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:http/http.dart' as http;
 import '../utils/logger.dart';
+import '../config/api_config.dart';
 
 /// Service d'autocomplétion d'adresses utilisant l'API Adresse du gouvernement français
 class AddressAutocompleteService {
-  static const String _baseUrl = 'https://api-adresse.data.gouv.fr';
+  static const String _baseUrl = ApiConfig.adresseGouvBase;
   
   /// Recherche d'adresses avec autocomplétion
   static Future<List<AddressSuggestion>> searchAddresses(String query) async {

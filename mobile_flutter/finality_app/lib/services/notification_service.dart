@@ -1,6 +1,9 @@
 import 'dart:io';
+import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../utils/logger.dart';
+import '../main.dart' show navigatorKey;
+import '../screens/missions/mission_detail_screen.dart';
 
 /// Service centralisé de notifications locales et préparation push (FCM).
 ///
@@ -200,15 +203,22 @@ class NotificationService {
     final payload = response.payload;
     if (payload == null) return;
 
+    final ctx = navigatorKey.currentContext;
+    if (ctx == null) return;
+
     // Routage basé sur le payload
     if (payload.startsWith('chat:')) {
       final conversationId = payload.substring(5);
       AppLogger.info('Navigation vers conversation: $conversationId');
-      // TODO: Naviguer vers l'écran de chat
+      // Chat screen navigation — will be implemented when chat screen exists
     } else if (payload.startsWith('mission:')) {
       final missionId = payload.substring(8);
       AppLogger.info('Navigation vers mission: $missionId');
-      // TODO: Naviguer vers le détail mission
+      Navigator.of(ctx).push(
+        MaterialPageRoute(
+          builder: (_) => MissionDetailScreen(missionId: missionId),
+        ),
+      );
     }
   }
 

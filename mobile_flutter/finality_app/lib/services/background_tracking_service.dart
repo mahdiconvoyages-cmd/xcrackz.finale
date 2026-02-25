@@ -212,7 +212,9 @@ class BackgroundTrackingService {
           await _supabase.from('mission_tracking_live').update({
             'is_active': false,
           }).eq('mission_id', _currentMissionId!);
-        } catch (_) {}
+        } catch (e) {
+          debugPrint('Erreur désactivation tracking: $e');
+        }
       }
     } else {
       // Toujours essayer d'arrêter le service même si _isTracking est false
@@ -427,7 +429,9 @@ Future<void> _onStart(ServiceInstance service) async {
           'last_update': DateTime.now().toUtc().toIso8601String(),
           'is_active': true,
         }, onConflict: 'mission_id,user_id');
-      } catch (_) {}
+      } catch (e) {
+        print('[BackgroundTracking] Upsert error: $e');
+      }
 
       // Envoyer la position à l'UI
       service.invoke('positionUpdate', {
@@ -469,7 +473,9 @@ Future<void> _onStart(ServiceInstance service) async {
             'altitude': lastPosition!.altitude,
             'recorded_at': DateTime.now().toUtc().toIso8601String(),
           });
-        } catch (_) {}
+        } catch (e) {
+          print('[BackgroundTracking] History snapshot error: $e');
+        }
       },
     );
   });
@@ -487,7 +493,9 @@ Future<void> _onStart(ServiceInstance service) async {
         await supabaseClient!.from('mission_tracking_live').update({
           'is_active': false,
         }).eq('mission_id', currentMissionId!);
-      } catch (_) {}
+      } catch (e) {
+        print('[BackgroundTracking] Stop deactivation error: $e');
+      }
 
       // Dernier snapshot
       if (lastPosition != null) {
@@ -503,7 +511,9 @@ Future<void> _onStart(ServiceInstance service) async {
             'altitude': lastPosition!.altitude,
             'recorded_at': DateTime.now().toUtc().toIso8601String(),
           });
-        } catch (_) {}
+        } catch (e) {
+          print('[BackgroundTracking] Final snapshot error: $e');
+        }
       }
     }
 
