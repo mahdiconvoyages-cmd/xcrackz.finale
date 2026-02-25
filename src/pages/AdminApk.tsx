@@ -89,29 +89,36 @@ export default function AdminApk() {
 
       if (!users || users.length === 0) {
         console.log('Aucun utilisateur avec FCM token');
+        alert('⚠️ Aucun utilisateur avec un token de notification trouvé.');
         return;
       }
 
-      // Envoyer la notification push via Edge Function
+      console.log(`Found ${users.length} users with FCM tokens`);
+
+      // Envoyer la notification push via Edge Function avec tokens directs
       const title = '🆕 Nouvelle version disponible !';
       const body = `ChecksFleet v${versionName} est disponible. ${notes || 'Mettez à jour pour profiter des dernières améliorations.'}`;
 
-      // Envoyer par batch à chaque utilisateur
-      const promises = users.map(u =>
-        supabase.functions.invoke('send-notification', {
-          body: {
-            userId: u.id,
-            type: 'app_update',
-            title,
-            message: body,
-            data: { type: 'app_update', version: versionName },
-            channel: 'updates',
-          },
-        }).catch(() => {}) // Ignorer les erreurs individuelles
-      );
+      // Passer les tokens directement pour éviter le problème de lookup DB
+      const fcmTokens = users.map(u => ({ userId: u.id, token: u.fcm_token }));
 
-      await Promise.allSettled(promises);
-      console.log(`✅ Notifications envoyées à ${users.length} utilisateurs`);
+      const { data: result, error } = await supabase.functions.invoke('send-notification', {
+        body: {
+          fcmTokens,
+          type: 'app_update',
+          title,
+          message: body,
+          data: { type: 'app_update', version: versionName },
+        },
+      });
+
+      if (error) {
+        console.error('Edge Function error:', error);
+        alert(`⚠️ Erreur envoi: ${error.message}`);
+      } else {
+        console.log('Notification result:', result);
+        alert(`✅ Notification envoyée à ${result?.recipients || 0}/${users.length} utilisateurs`);
+      }
     } catch (err) {
       console.error('Erreur envoi notifications:', err);
     }

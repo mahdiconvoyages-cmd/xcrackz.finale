@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.49.1';
 import { encode as base64url } from 'https://deno.land/std@0.168.0/encoding/base64url.ts';
 
 const corsHeaders = {
@@ -77,7 +77,9 @@ serve(async (req) => {
   }
 
   try {
-    const { userId, userIds, type, title, message, data } = await req.json();
+    const { userId, userIds, fcmTokens, type, title, message, data } = await req.json();
+
+    console.log(`send-notification: userId=${userId}, userIds=${userIds?.length || 0}, fcmTokens=${fcmTokens?.length || 0}, title=${title}`);
 
     if (!FCM_SERVICE_ACCOUNT) {
       throw new Error('FCM_SERVICE_ACCOUNT secret not configured');
@@ -92,57 +94,76 @@ serve(async (req) => {
     // Get OAuth2 access token for FCM
     const accessToken = await getAccessToken(serviceAccount);
 
-    // Initialize Supabase client
-    const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+    // Build list of {userId, fcmToken} targets
+    let targets: { userId: string; fcmToken: string }[] = [];
 
-    // Determine target user IDs
-    const targetUserIds: string[] = userId ? [userId] : (userIds || []);
-    if (targetUserIds.length === 0) {
-      throw new Error('No targeting specified (userId or userIds required)');
+    // Option 1: fcmTokens passed directly (fastest, no DB lookup)
+    if (fcmTokens && Array.isArray(fcmTokens) && fcmTokens.length > 0) {
+      targets = fcmTokens.map((t: any) => ({ userId: t.userId || 'unknown', fcmToken: t.token }));
+      console.log(`Using ${targets.length} directly-provided FCM tokens`);
+    } else {
+      // Option 2: Look up tokens from profiles table
+      const supabase = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!, {
+        auth: { autoRefreshToken: false, persistSession: false },
+      });
+
+      // Determine target user IDs
+      const targetUserIds: string[] = userId ? [userId] : (userIds || []);
+      if (targetUserIds.length === 0) {
+        throw new Error('No targeting specified (userId, userIds, or fcmTokens required)');
+      }
+
+      console.log(`Looking up FCM tokens for ${targetUserIds.length} users`);
+
+      // Fetch ALL profiles for targeted users, filter in code (avoids supabase-js null filter issues)
+      const { data: profiles, error: profilesError } = await supabase
+        .from('profiles')
+        .select('id, fcm_token')
+        .in('id', targetUserIds);
+
+      if (profilesError) {
+        throw new Error(`Error fetching profiles: ${profilesError.message}`);
+      }
+
+      // Keep only profiles with a non-null, non-empty fcm_token
+      const validProfiles = (profiles || []).filter((p: any) => p.fcm_token && p.fcm_token.trim().length > 0);
+      console.log(`Found ${validProfiles.length} valid FCM tokens out of ${profiles?.length || 0} profiles`);
+
+      if (validProfiles.length === 0) {
+        return new Response(
+          JSON.stringify({ success: true, recipients: 0, failed: 0, message: 'No valid FCM tokens found' }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+        );
+      }
+
+      targets = validProfiles.map((p: any) => ({ userId: p.id, fcmToken: p.fcm_token }));
     }
 
-    // Fetch FCM tokens from profiles
-    const { data: profiles, error: profilesError } = await supabase
-      .from('profiles')
-      .select('id, fcm_token')
-      .in('id', targetUserIds)
-      .not('fcm_token', 'is', null);
-
-    if (profilesError) {
-      throw new Error(`Error fetching profiles: ${profilesError.message}`);
-    }
-
-    if (!profiles || profiles.length === 0) {
-      console.log('No FCM tokens found for targeted users');
-      return new Response(
-        JSON.stringify({ success: true, recipients: 0, failed: 0, message: 'No FCM tokens found' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
-      );
-    }
+    console.log(`Sending FCM to ${targets.length} targets`);
 
     // Send push notification to each device via FCM HTTP v1
     let successCount = 0;
     let failCount = 0;
     const results: any[] = [];
 
-    for (const profile of profiles) {
+    for (const target of targets) {
       try {
         const fcmPayload = {
           message: {
-            token: profile.fcm_token,
+            token: target.fcmToken,
             notification: {
               title,
               body: message || '',
             },
             data: {
               type: type || 'general',
-              userId: profile.id,
+              userId: target.userId,
               ...(data ? Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])) : {}),
             },
             android: {
               priority: 'high' as const,
               notification: {
-                channel_id: 'checksfleet_notifications',
+                channel_id: type === 'app_update' ? 'app_updates' : 'checksfleet_notifications',
                 sound: 'default',
                 default_sound: true,
                 default_vibrate_timings: true,
@@ -167,10 +188,11 @@ serve(async (req) => {
 
         if (response.ok) {
           successCount++;
-          results.push({ userId: profile.id, success: true, messageId: result.name });
+          results.push({ userId: target.userId, success: true, messageId: result.name });
         } else {
           failCount++;
-          results.push({ userId: profile.id, success: false, error: result.error?.message });
+          results.push({ userId: target.userId, success: false, error: result.error?.message });
+          console.log(`FCM error for ${target.userId}: ${JSON.stringify(result.error)}`);
 
           // If the token is unregistered / invalid, clear it from the DB
           if (
@@ -179,35 +201,38 @@ serve(async (req) => {
             result.error?.status === 'NOT_FOUND' ||
             result.error?.details?.some((d: any) => d.errorCode === 'UNREGISTERED')
           ) {
-            await supabase.from('profiles').update({ fcm_token: null }).eq('id', profile.id);
-            console.log(`Cleared invalid FCM token for user ${profile.id}`);
+            const supabaseCleanup = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+            await supabaseCleanup.from('profiles').update({ fcm_token: null }).eq('id', target.userId);
+            console.log(`Cleared invalid FCM token for user ${target.userId}`);
           }
         }
       } catch (e) {
         failCount++;
-        results.push({ userId: profile.id, success: false, error: e.message });
+        results.push({ userId: target.userId, success: false, error: e.message });
       }
     }
 
-    // Log notifications
-    const logs = profiles.map((p: any, i: number) => ({
-      user_id: p.id,
-      action: 'sent',
-      type: type || 'general',
-      title,
-      message,
-      data,
-      success: results[i]?.success ?? false,
-    }));
+    // Log notifications (best effort)
+    try {
+      const supabaseLog = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!);
+      const logs = targets.map((t: any, i: number) => ({
+        user_id: t.userId,
+        action: 'sent',
+        type: type || 'general',
+        title,
+        message,
+        data,
+        success: results[i]?.success ?? false,
+      }));
+      await supabaseLog.from('notification_logs').insert(logs);
+    } catch (logErr: any) {
+      console.warn('Failed to log notifications:', logErr.message);
+    }
 
-    await supabase.from('notification_logs').insert(logs).catch((err: any) => {
-      console.warn('Failed to log notifications:', err.message);
-    });
-
-    console.log(`FCM send complete: ${successCount} sent, ${failCount} failed out of ${profiles.length}`);
+    console.log(`FCM send complete: ${successCount} sent, ${failCount} failed out of ${targets.length}`);
 
     return new Response(
-      JSON.stringify({ success: true, recipients: successCount, failed: failCount, results }),
+      JSON.stringify({ success: true, recipients: successCount, failed: failCount, total: targets.length, results }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
