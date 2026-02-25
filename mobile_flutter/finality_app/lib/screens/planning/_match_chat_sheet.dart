@@ -63,7 +63,7 @@ class _MatchChatSheetState extends State<MatchChatSheet> {
         event: PostgresChangeEvent.insert,
         schema: 'public',
         table: 'ride_messages',
-        filter: PostgresChangeFilter(type: FilterType.eq, column: 'match_id', value: _matchId),
+        filter: PostgresChangeFilter(type: PostgresChangeFilterType.eq, column: 'match_id', value: _matchId),
         callback: (payload) {
           if (!mounted) return;
           final newMsg = payload.newRecord;

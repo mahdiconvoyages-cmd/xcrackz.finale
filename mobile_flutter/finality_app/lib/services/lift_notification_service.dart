@@ -76,7 +76,7 @@ class LiftNotificationService {
         schema: 'public',
         table: 'ride_matches',
         filter: PostgresChangeFilter(
-            type: FilterType.eq, column: 'driver_id', value: _uid),
+            type: PostgresChangeFilterType.eq, column: 'driver_id', value: _uid),
         callback: (payload) => _onNewMatchAsDriver(payload.newRecord),
       )
       ..onPostgresChanges(
@@ -84,7 +84,7 @@ class LiftNotificationService {
         schema: 'public',
         table: 'ride_matches',
         filter: PostgresChangeFilter(
-            type: FilterType.eq, column: 'passenger_id', value: _uid),
+            type: PostgresChangeFilterType.eq, column: 'passenger_id', value: _uid),
         callback: (payload) => _onMatchUpdatedAsPassenger(payload.newRecord),
       )
       ..subscribe();
