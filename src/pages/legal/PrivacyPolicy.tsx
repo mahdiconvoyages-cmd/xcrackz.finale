@@ -1,4 +1,4 @@
-import { ArrowLeft, Shield, Lock, Eye, Database, UserCheck, Mail, FileText } from 'lucide-react';
+import { ArrowLeft, Shield, Lock, Eye, Database, UserCheck, Mail, FileText, Smartphone } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function PrivacyPolicy() {
@@ -23,7 +23,7 @@ export default function PrivacyPolicy() {
               <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent">
                 Politique de Confidentialité
               </h1>
-              <p className="text-slate-600 text-lg">Dernière mise à jour : 15 octobre 2025</p>
+              <p className="text-slate-600 text-lg">Dernière mise à jour : 19 février 2026</p>
             </div>
           </div>
         </div>
@@ -299,11 +299,74 @@ export default function PrivacyPolicy() {
             </div>
           </section>
 
+          {/* Permissions de l'application mobile */}
+          <section>
+            <div className="flex items-center gap-3 mb-4">
+              <Smartphone className="w-6 h-6 text-blue-600" />
+              <h2 className="text-2xl font-bold text-slate-900">9. Permissions de l'Application Mobile</h2>
+            </div>
+            <div className="text-slate-700 space-y-3">
+              <p>Notre application mobile ChecksFleet demande les permissions suivantes sur votre appareil :</p>
+              
+              <div className="space-y-4">
+                <div className="bg-red-50 border-l-4 border-red-500 p-4 rounded">
+                  <p className="font-bold text-red-900 mb-2">📷 Caméra (android.permission.CAMERA)</p>
+                  <ul className="text-sm list-disc list-inside space-y-1">
+                    <li><strong>Finalité :</strong> Prendre des photos lors des inspections de véhicules pour documenter l'état (dommages, rayures, etc.)</li>
+                    <li><strong>Utilisation :</strong> Les photos prises sont utilisées uniquement pour les rapports d'inspection et la documentation des véhicules transportés</li>
+                    <li><strong>Stockage :</strong> Les photos sont stockées de manière sécurisée sur nos serveurs (Supabase, hébergé dans l'UE)</li>
+                    <li><strong>Partage :</strong> Les photos ne sont partagées qu'avec les parties autorisées (client, transporteur, administrateur)</li>
+                    <li><strong>Consentement :</strong> L'accès à la caméra est demandé au moment de l'utilisation. Vous pouvez révoquer cette permission à tout moment dans les paramètres de votre appareil</li>
+                  </ul>
+                </div>
+
+                <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
+                  <p className="font-bold text-blue-900 mb-2">📍 Géolocalisation (ACCESS_FINE_LOCATION / ACCESS_COARSE_LOCATION)</p>
+                  <ul className="text-sm list-disc list-inside space-y-1">
+                    <li><strong>Finalité :</strong> Suivi GPS des missions de transport en cours, géolocalisation des inspections</li>
+                    <li><strong>Utilisation :</strong> Uniquement pendant les missions actives pour le suivi en temps réel et les rapports d'inspection</li>
+                    <li><strong>Consentement :</strong> Demandé explicitement. Vous pouvez désactiver la géolocalisation à tout moment</li>
+                  </ul>
+                </div>
+
+                <div className="bg-green-50 border-l-4 border-green-500 p-4 rounded">
+                  <p className="font-bold text-green-900 mb-2">📂 Stockage (READ/WRITE_EXTERNAL_STORAGE)</p>
+                  <ul className="text-sm list-disc list-inside space-y-1">
+                    <li><strong>Finalité :</strong> Enregistrer les rapports d'inspection en PDF, sauvegarder les photos localement</li>
+                    <li><strong>Utilisation :</strong> Accès limité aux fichiers créés par l'application</li>
+                  </ul>
+                </div>
+
+                <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded">
+                  <p className="font-bold text-purple-900 mb-2">🔔 Notifications (POST_NOTIFICATIONS)</p>
+                  <ul className="text-sm list-disc list-inside space-y-1">
+                    <li><strong>Finalité :</strong> Alertes de nouvelles missions, mises à jour de statut, messages du réseau covoiturage</li>
+                    <li><strong>Consentement :</strong> Demandé explicitement. Vous pouvez les désactiver dans les paramètres</li>
+                  </ul>
+                </div>
+
+                <div className="bg-yellow-50 border-l-4 border-yellow-500 p-4 rounded">
+                  <p className="font-bold text-yellow-900 mb-2">🌐 Internet (INTERNET / ACCESS_NETWORK_STATE)</p>
+                  <ul className="text-sm list-disc list-inside space-y-1">
+                    <li><strong>Finalité :</strong> Synchronisation des données, envoi des rapports, communication temps réel</li>
+                    <li><strong>Utilisation :</strong> Nécessaire au fonctionnement de l'application</li>
+                  </ul>
+                </div>
+              </div>
+
+              <p className="bg-green-50 border-l-4 border-green-500 p-4 rounded text-sm mt-4">
+                <strong>✅ Important :</strong> Toutes les permissions sont demandées au moment de leur première utilisation.
+                Vous pouvez révoquer n'importe quelle permission à tout moment depuis les <strong>Paramètres &gt; Applications &gt; ChecksFleet &gt; Autorisations</strong> de votre appareil.
+                L'application continuera de fonctionner avec des fonctionnalités réduites si certaines permissions sont refusées.
+              </p>
+            </div>
+          </section>
+
           {/* IA et données */}
           <section>
             <div className="flex items-center gap-3 mb-4">
               <Eye className="w-6 h-6 text-blue-600" />
-              <h2 className="text-2xl font-bold text-slate-900">9. Traitement des données</h2>
+              <h2 className="text-2xl font-bold text-slate-900">10. Traitement des données</h2>
             </div>
             <div className="text-slate-700 space-y-3">
               <p>
@@ -329,7 +392,7 @@ export default function PrivacyPolicy() {
           <section>
             <div className="flex items-center gap-3 mb-4">
               <FileText className="w-6 h-6 text-blue-600" />
-              <h2 className="text-2xl font-bold text-slate-900">10. Modifications de la Politique</h2>
+              <h2 className="text-2xl font-bold text-slate-900">11. Modifications de la Politique</h2>
             </div>
             <div className="text-slate-700 space-y-3">
               <p>

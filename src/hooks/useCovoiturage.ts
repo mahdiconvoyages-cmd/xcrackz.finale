@@ -90,6 +90,10 @@ export const useCovoiturage = (): UseCovoiturageResult => {
       // Filtrer par date
       if (date) {
         query = query.eq('departure_date', date);
+      } else {
+        // Sans date précise : ne montrer que les trajets d'aujourd'hui ou futurs
+        const today = new Date().toISOString().split('T')[0];
+        query = query.gte('departure_date', today);
       }
 
       const { data, error: queryError } = await query;
