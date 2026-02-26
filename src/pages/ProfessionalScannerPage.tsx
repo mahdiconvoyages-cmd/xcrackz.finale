@@ -41,7 +41,6 @@ import { applyAdvancedFilter, FilterType } from '../utils/advancedFilters';
 import OptimizedCropPage from './OptimizedCropPage';
 import { useAuth } from '../contexts/AuthContext';
 import { uploadInspectionDocument } from '../services/inspectionDocumentsService';
-import { showToast } from '../components/Toast';
 
 interface ScannedDocument {
   id: string;
