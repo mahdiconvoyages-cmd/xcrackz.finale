@@ -84,7 +84,8 @@ export default function AdminDashboard() {
       supabase.from('profiles').select('id, credits'),
       supabase.from('contacts').select('*', { count: 'exact', head: true }),
       supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo.toISOString()),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('last_sign_in_at', todayStart.toISOString()),
+      // last_sign_in_at may not exist — use created_at as fallback for active today count
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', todayStart.toISOString()),
       supabase.from('transactions').select('amount').eq('payment_status', 'paid').gte('created_at', monthStart.toISOString()),
       supabase.from('missions').select('*', { count: 'exact', head: true }).gte('created_at', monthStart.toISOString()),
     ]);
@@ -140,7 +141,7 @@ export default function AdminDashboard() {
   const loadRecentUsers = async () => {
     const { data } = await supabase
       .from('profiles')
-      .select('id, email, full_name, user_type, is_verified, is_admin, credits, created_at, last_sign_in_at')
+      .select('id, email, full_name, user_type, is_verified, is_admin, credits, created_at')
       .order('created_at', { ascending: false })
       .limit(10);
     setRecentUsers(data || []);

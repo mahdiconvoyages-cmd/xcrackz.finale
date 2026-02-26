@@ -294,23 +294,27 @@ export default function DashboardPremium() {
         .slice(0, 5);
 
       // Load vehicle inspections for total KM
-      const { data: inspections } = await supabase
-        .from('vehicle_inspections')
-        .select('inspection_type, mileage_km, mission_id')
-        .eq('user_id', user.id);
-
       let totalKm = 0;
-      if (inspections) {
-        const mileageByMission: Record<string, { dep?: number; arr?: number }> = {};
-        inspections.forEach(ins => {
-          if (!ins.mission_id) return;
-          if (!mileageByMission[ins.mission_id]) mileageByMission[ins.mission_id] = {};
-          if (ins.inspection_type === 'departure' && ins.mileage_km) mileageByMission[ins.mission_id].dep = ins.mileage_km;
-          if (ins.inspection_type === 'arrival' && ins.mileage_km) mileageByMission[ins.mission_id].arr = ins.mileage_km;
-        });
-        Object.values(mileageByMission).forEach(({ dep, arr }) => {
-          if (dep != null && arr != null && arr > dep) totalKm += arr - dep;
-        });
+      try {
+        const { data: inspections } = await supabase
+          .from('vehicle_inspections')
+          .select('inspection_type, mileage_km, mission_id')
+          .eq('user_id', user.id);
+
+        if (inspections) {
+          const mileageByMission: Record<string, { dep?: number; arr?: number }> = {};
+          inspections.forEach(ins => {
+            if (!ins.mission_id) return;
+            if (!mileageByMission[ins.mission_id]) mileageByMission[ins.mission_id] = {};
+            if (ins.inspection_type === 'departure' && ins.mileage_km) mileageByMission[ins.mission_id].dep = ins.mileage_km;
+            if (ins.inspection_type === 'arrival' && ins.mileage_km) mileageByMission[ins.mission_id].arr = ins.mileage_km;
+          });
+          Object.values(mileageByMission).forEach(({ dep, arr }) => {
+            if (dep != null && arr != null && arr > dep) totalKm += arr - dep;
+          });
+        }
+      } catch (e) {
+        console.warn('vehicle_inspections mileage query failed (columns may not exist yet):', e);
       }
 
       setFleetStats({
