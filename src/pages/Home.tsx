@@ -17,12 +17,22 @@ import {
   ClipboardCheck,
   Route,
   ScanLine,
-  Receipt,
   MapPinned,
   Gauge,
   Lock,
-  Cloud,
   ChevronRight,
+  Share2,
+  Users,
+  Moon,
+  WifiOff,
+  PenLine,
+  Fuel,
+  Eye,
+  MessageCircle,
+  Car,
+  PhoneOff,
+  Banknote,
+  FolderOpen,
 } from 'lucide-react';
 
 /* ─────────────── Animations ─────────────── */
@@ -51,6 +61,14 @@ const Navbar: React.FC = () => {
     return () => window.removeEventListener('scroll', h);
   }, []);
 
+  const navLinks = [
+    ['#problemes', 'Le problème'],
+    ['#gps', 'Suivi GPS'],
+    ['#inspection', 'État des lieux'],
+    ['#entraide', 'Entraide'],
+    ['#mobile', 'Mobile'],
+  ];
+
   return (
     <nav
       className={`fixed top-0 inset-x-0 z-50 transition-all duration-300 ${
@@ -66,10 +84,9 @@ const Navbar: React.FC = () => {
         </Link>
 
         <div className="hidden md:flex items-center gap-7 text-[15px] font-medium text-slate-600">
-          <a href="#features" className="hover:text-teal-500 transition">Fonctionnalités</a>
-          <a href="#how" className="hover:text-teal-500 transition">Comment ça marche</a>
-          <a href="#mobile" className="hover:text-teal-500 transition">Mobile</a>
-          <a href="#security" className="hover:text-teal-500 transition">Sécurité</a>
+          {navLinks.map(([href, label]) => (
+            <a key={href} href={href} className="hover:text-teal-500 transition">{label}</a>
+          ))}
         </div>
 
         <div className="hidden md:flex items-center gap-3">
@@ -89,7 +106,6 @@ const Navbar: React.FC = () => {
         </button>
       </div>
 
-      {/* Mobile overlay */}
       {open && (
         <motion.div
           initial={{ opacity: 0, y: -10 }}
@@ -97,28 +113,12 @@ const Navbar: React.FC = () => {
           className="md:hidden bg-white border-t border-slate-100 shadow-xl"
         >
           <div className="px-5 py-5 space-y-3">
-            {[
-              ['#features', 'Fonctionnalités'],
-              ['#how', 'Comment ça marche'],
-              ['#mobile', 'Mobile'],
-              ['#security', 'Sécurité'],
-            ].map(([href, label]) => (
-              <a
-                key={href}
-                href={href}
-                onClick={() => setOpen(false)}
-                className="block py-2 text-slate-700 font-medium"
-              >
-                {label}
-              </a>
+            {navLinks.map(([href, label]) => (
+              <a key={href} href={href} onClick={() => setOpen(false)} className="block py-2 text-slate-700 font-medium">{label}</a>
             ))}
             <div className="pt-3 border-t border-slate-100 flex flex-col gap-2">
-              <Link to="/login" className="py-3 text-center font-medium text-slate-700 border border-slate-200 rounded-xl">
-                Connexion
-              </Link>
-              <Link to="/register" className="py-3 text-center font-semibold text-white bg-slate-900 rounded-xl">
-                Essai gratuit
-              </Link>
+              <Link to="/login" className="py-3 text-center font-medium text-slate-700 border border-slate-200 rounded-xl">Connexion</Link>
+              <Link to="/register" className="py-3 text-center font-semibold text-white bg-slate-900 rounded-xl">Essai gratuit</Link>
             </div>
           </div>
         </motion.div>
@@ -135,10 +135,8 @@ const Hero: React.FC = () => {
 
   return (
     <section ref={ref} className="relative min-h-[100svh] flex items-center overflow-hidden bg-[#FAFBFC]">
-      {/* Subtle grid */}
       <div className="absolute inset-0 opacity-[0.03]" style={{ backgroundImage: 'radial-gradient(circle, #000 1px, transparent 1px)', backgroundSize: '24px 24px' }} />
 
-      {/* Gradient orbs */}
       <motion.div style={{ y: yBg }} className="absolute inset-0 pointer-events-none">
         <div className="absolute -top-40 -right-40 w-[600px] h-[600px] rounded-full bg-teal-400/10 blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-[500px] h-[500px] rounded-full bg-cyan-400/8 blur-3xl" />
@@ -146,78 +144,66 @@ const Hero: React.FC = () => {
 
       <div className="relative max-w-6xl mx-auto px-5 pt-28 pb-20 w-full">
         <div className="max-w-3xl mx-auto text-center">
-          {/* Badge */}
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={fadeUp}
-            custom={0}
+          <motion.div initial="hidden" animate="visible" variants={fadeUp} custom={0}
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-teal-50 text-teal-700 text-sm font-medium mb-8 border border-teal-100"
           >
             <span className="w-2 h-2 rounded-full bg-teal-500 animate-pulse" />
-            Plateforme professionnelle de convoyage
+            Conçu par des professionnels du convoyage
           </motion.div>
 
-          {/* Headline */}
-          <motion.h1
-            initial="hidden"
-            animate="visible"
-            variants={fadeUp}
-            custom={1}
-            className="text-[clamp(2.2rem,5vw,4rem)] font-extrabold leading-[1.1] tracking-tight text-slate-900"
+          <motion.h1 initial="hidden" animate="visible" variants={fadeUp} custom={1}
+            className="text-[clamp(2.2rem,5vw,3.8rem)] font-extrabold leading-[1.1] tracking-tight text-slate-900"
           >
-            Gérez vos missions de
+            Vos clients vous font confiance.
             <br />
             <span className="text-transparent bg-clip-text bg-gradient-to-r from-teal-500 via-cyan-500 to-blue-500">
-              convoyage automobile
+              Donnez-leur une raison.
             </span>
           </motion.h1>
 
-          {/* Sub */}
-          <motion.p
-            initial="hidden"
-            animate="visible"
-            variants={fadeUp}
-            custom={2}
-            className="mt-6 text-lg sm:text-xl text-slate-500 max-w-xl mx-auto leading-relaxed"
+          <motion.p initial="hidden" animate="visible" variants={fadeUp} custom={2}
+            className="mt-6 text-lg sm:text-xl text-slate-500 max-w-2xl mx-auto leading-relaxed"
           >
-            Inspections, tracking GPS, rapports, facturation — tout en une seule plateforme. Sur le web et sur mobile.
+            Suivi GPS en direct, état des lieux digital, réseau d'entraide entre convoyeurs — tout ce dont vous avez besoin pour travailler sereinement. Sur le web et sur mobile.
           </motion.p>
 
-          {/* CTA */}
-          <motion.div
-            initial="hidden"
-            animate="visible"
-            variants={fadeUp}
-            custom={3}
+          <motion.div initial="hidden" animate="visible" variants={fadeUp} custom={3}
             className="mt-10 flex flex-col sm:flex-row gap-3 justify-center"
           >
-            <Link
-              to="/register"
+            <Link to="/register"
               className="group inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-slate-900 text-white font-semibold rounded-full shadow-xl shadow-slate-900/15 hover:bg-slate-800 hover:scale-[1.02] transition-all duration-200"
             >
-              Démarrer gratuitement
+              Créer mon compte gratuitement
               <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </Link>
-            <a
-              href="#features"
+            <a href="#problemes"
               className="inline-flex items-center justify-center gap-2 px-7 py-3.5 font-semibold text-slate-700 bg-white rounded-full border border-slate-200 hover:border-slate-300 shadow-sm hover:shadow transition-all"
             >
-              Découvrir
+              Voir comment ça marche
               <ChevronDown className="w-4 h-4" />
             </a>
           </motion.div>
+
+          {/* Stat badges */}
+          <motion.div initial="hidden" animate="visible" variants={fadeUp} custom={4}
+            className="mt-12 flex flex-wrap justify-center gap-6 text-sm"
+          >
+            {[
+              { label: 'Zéro litige non documenté', icon: Shield },
+              { label: 'GPS temps réel partageable', icon: MapPinned },
+              { label: 'Fonctionne hors ligne', icon: WifiOff },
+            ].map((s, i) => (
+              <div key={i} className="flex items-center gap-2 text-slate-500">
+                <s.icon className="w-4 h-4 text-teal-500" />
+                <span>{s.label}</span>
+              </div>
+            ))}
+          </motion.div>
         </div>
 
-        {/* Dashboard preview — real screenshot */}
-        <motion.div
-          initial="hidden"
-          animate="visible"
-          variants={scaleIn}
-          className="mt-16 max-w-5xl mx-auto"
-        >
+        {/* Dashboard preview */}
+        <motion.div initial="hidden" animate="visible" variants={scaleIn} className="mt-16 max-w-5xl mx-auto">
           <div className="relative rounded-2xl bg-white border border-slate-200/80 shadow-2xl shadow-slate-900/8 overflow-hidden">
-            {/* Browser bar */}
             <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border-b border-slate-100">
               <div className="flex gap-1.5">
                 <div className="w-3 h-3 rounded-full bg-red-400" />
@@ -231,12 +217,7 @@ const Hero: React.FC = () => {
                 </div>
               </div>
             </div>
-
-            <img
-              src="/dashboard-preview.png"
-              alt="ChecksFleet Dashboard"
-              className="w-full h-auto"
-            />
+            <img src="/dashboard-preview.png" alt="ChecksFleet Dashboard" className="w-full h-auto" />
           </div>
         </motion.div>
       </div>
@@ -244,75 +225,407 @@ const Hero: React.FC = () => {
   );
 };
 
-/* ─────────────── Features ─────────────── */
+/* ─────────────── Pain Points ─────────────── */
+const painPoints = [
+  { icon: PhoneOff, text: 'Un client qui appelle toutes les 30 minutes pour savoir où est son véhicule' },
+  { icon: Car, text: 'Un litige à l\'arrivée parce que "cette rayure n\'était pas là avant"' },
+  { icon: Banknote, text: 'Un trajet retour à vide alors qu\'un collègue passait dans votre zone' },
+  { icon: FolderOpen, text: 'Des papiers qui traînent, des photos floues, zéro preuve en cas de problème' },
+];
+
+const PainPointsSection: React.FC = () => (
+  <section id="problemes" className="py-24 bg-white">
+    <div className="max-w-6xl mx-auto px-5">
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} className="text-center mb-16">
+        <motion.p variants={fadeUp} custom={0} className="text-sm font-semibold text-red-500 uppercase tracking-wider mb-3">
+          Le problème
+        </motion.p>
+        <motion.h2 variants={fadeUp} custom={1} className="text-3xl sm:text-4xl font-bold text-slate-900">
+          Est-ce que vous avez déjà vécu ça ?
+        </motion.h2>
+      </motion.div>
+
+      <div className="grid sm:grid-cols-2 gap-5 max-w-4xl mx-auto">
+        {painPoints.map((p, i) => (
+          <motion.div key={i} initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={i}
+            className="flex items-start gap-4 p-6 rounded-2xl bg-red-50/50 border border-red-100/60"
+          >
+            <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center flex-shrink-0">
+              <p.icon className="w-5 h-5 text-red-500" />
+            </div>
+            <p className="text-slate-700 leading-relaxed pt-1.5">{p.text}</p>
+          </motion.div>
+        ))}
+      </div>
+
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={5}
+        className="mt-12 text-center"
+      >
+        <div className="inline-flex items-center gap-3 px-6 py-4 rounded-2xl bg-teal-50 border border-teal-100">
+          <Check className="w-5 h-5 text-teal-600 flex-shrink-0" />
+          <p className="text-teal-800 font-medium text-lg">
+            ChecksFleet a été conçu précisément pour résoudre tout ça.
+          </p>
+        </div>
+      </motion.div>
+    </div>
+  </section>
+);
+
+/* ─────────────── GPS Tracking Feature ─────────────── */
+const GPSSection: React.FC = () => (
+  <section id="gps" className="py-24 bg-[#FAFBFC] overflow-hidden">
+    <div className="max-w-6xl mx-auto px-5">
+      <div className="grid lg:grid-cols-2 gap-16 items-center">
+        {/* Left – visual */}
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={scaleIn}
+          className="relative flex justify-center"
+        >
+          <div className="relative w-full max-w-md">
+            {/* Map card */}
+            <div className="rounded-2xl bg-white border border-slate-200 shadow-xl overflow-hidden">
+              <div className="h-56 bg-gradient-to-br from-teal-100 via-cyan-50 to-blue-50 relative">
+                {/* Simplified map illustration */}
+                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #0d9488 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+                {/* Route line */}
+                <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 224">
+                  <path d="M60,180 C120,140 200,60 340,50" stroke="url(#gps-gradient)" strokeWidth="3" fill="none" strokeDasharray="8,4" />
+                  <defs><linearGradient id="gps-gradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#14b8a6" /><stop offset="100%" stopColor="#3b82f6" /></linearGradient></defs>
+                  {/* Start marker */}
+                  <circle cx="60" cy="180" r="8" fill="#14b8a6" />
+                  <circle cx="60" cy="180" r="4" fill="white" />
+                  {/* End marker */}
+                  <circle cx="340" cy="50" r="8" fill="#3b82f6" />
+                  <circle cx="340" cy="50" r="4" fill="white" />
+                  {/* Moving dot */}
+                  <circle cx="200" cy="85" r="6" fill="#f59e0b">
+                    <animate attributeName="opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite" />
+                  </circle>
+                </svg>
+              </div>
+              <div className="p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-xs text-slate-400">Mission en cours</p>
+                    <p className="font-semibold text-slate-900">Paris → Marseille</p>
+                  </div>
+                  <div className="px-3 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-full">En direct</div>
+                </div>
+                <div className="grid grid-cols-3 gap-3 text-center">
+                  <div className="p-2 bg-slate-50 rounded-xl">
+                    <p className="text-xs text-slate-400">Vitesse</p>
+                    <p className="font-bold text-slate-900">127 km/h</p>
+                  </div>
+                  <div className="p-2 bg-slate-50 rounded-xl">
+                    <p className="text-xs text-slate-400">ETA</p>
+                    <p className="font-bold text-slate-900">2h15</p>
+                  </div>
+                  <div className="p-2 bg-slate-50 rounded-xl">
+                    <p className="text-xs text-slate-400">Restant</p>
+                    <p className="font-bold text-slate-900">285 km</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Floating link badge */}
+            <motion.div animate={{ y: [0, -8, 0] }} transition={{ repeat: Infinity, duration: 3 }}
+              className="absolute -top-4 -right-4 lg:right-0 bg-white rounded-2xl p-3 shadow-lg border border-slate-100"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
+                  <Share2 className="w-4 h-4 text-teal-600" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-slate-900">Lien partagé</div>
+                  <div className="text-[10px] text-slate-400">checksfleet.com/tracking/k7x...</div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </motion.div>
+
+        {/* Right – text */}
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }}>
+          <motion.p variants={fadeUp} custom={0} className="text-sm font-semibold text-teal-600 uppercase tracking-wider mb-3">
+            Suivi GPS en direct
+          </motion.p>
+          <motion.h2 variants={fadeUp} custom={1} className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">
+            Vos clients suivent leur véhicule sans vous appeler
+          </motion.h2>
+          <motion.p variants={fadeUp} custom={2} className="text-lg text-slate-500 mb-8 leading-relaxed">
+            Quand vous partez en mission, l'application génère un <strong className="text-slate-700">lien unique et sécurisé</strong>. Vous l'envoyez au client. Il clique, et il voit son véhicule se déplacer sur une carte en temps réel. Position, vitesse, heure d'arrivée estimée — sans installer quoi que ce soit.
+          </motion.p>
+
+          <div className="space-y-4">
+            {[
+              { icon: Share2, text: 'Lien de suivi généré automatiquement pour chaque mission' },
+              { icon: Eye, text: 'Position, vitesse et ETA en direct sur carte interactive' },
+              { icon: Lock, text: 'Le lien expire automatiquement après la mission' },
+              { icon: PhoneOff, text: 'Résultat : moins d\'appels, plus de confiance' },
+            ].map((f, i) => (
+              <motion.div key={i} variants={fadeUp} custom={i + 3} className="flex items-center gap-3">
+                <div className="w-9 h-9 rounded-xl bg-teal-50 flex items-center justify-center flex-shrink-0">
+                  <f.icon className="w-4 h-4 text-teal-600" />
+                </div>
+                <span className="text-[15px] text-slate-700">{f.text}</span>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  </section>
+);
+
+/* ─────────────── Inspection Feature ─────────────── */
+const InspectionSection: React.FC = () => (
+  <section id="inspection" className="py-24 bg-white overflow-hidden">
+    <div className="max-w-6xl mx-auto px-5">
+      <div className="grid lg:grid-cols-2 gap-16 items-center">
+        {/* Left – text */}
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }}>
+          <motion.p variants={fadeUp} custom={0} className="text-sm font-semibold text-blue-600 uppercase tracking-wider mb-3">
+            État des lieux digital
+          </motion.p>
+          <motion.h2 variants={fadeUp} custom={1} className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">
+            Votre meilleure protection contre les litiges
+          </motion.h2>
+          <motion.p variants={fadeUp} custom={2} className="text-lg text-slate-500 mb-8 leading-relaxed">
+            Fini les disputes à l'arrivée. Fini les <em>"cette bosse était déjà là"</em> sans preuve. Avant de partir, vous faites le tour du véhicule avec votre téléphone. À la livraison, même processus. Le rapport complet est généré automatiquement en PDF.
+          </motion.p>
+
+          <motion.div variants={fadeUp} custom={3} className="mb-8">
+            <p className="text-slate-700 font-medium mb-4">Avant le départ :</p>
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { icon: Camera, text: 'Photos de tous les angles' },
+                { icon: Gauge, text: 'Photo du compteur km' },
+                { icon: Fuel, text: 'Photo jauge carburant' },
+                { icon: PenLine, text: 'Marquage des dommages' },
+              ].map((f, i) => (
+                <div key={i} className="flex items-center gap-2.5 p-3 rounded-xl bg-blue-50/50 border border-blue-100/50">
+                  <f.icon className="w-4 h-4 text-blue-500 flex-shrink-0" />
+                  <span className="text-sm text-slate-700">{f.text}</span>
+                </div>
+              ))}
+            </div>
+          </motion.div>
+
+          <motion.div variants={fadeUp} custom={4}>
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100/60">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center flex-shrink-0">
+                  <PenLine className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900 mb-1">Signature sur votre téléphone</p>
+                  <p className="text-sm text-slate-500">Le client signe directement sur l'écran. Le document est horodaté, archivé, infalsifiable.</p>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
+
+        {/* Right – visual */}
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={scaleIn}
+          className="relative flex justify-center"
+        >
+          <div className="relative w-full max-w-sm">
+            {/* Inspection report card */}
+            <div className="rounded-2xl bg-white border border-slate-200 shadow-xl p-6">
+              <div className="flex items-center gap-3 mb-5">
+                <div className="w-10 h-10 rounded-xl bg-blue-500 flex items-center justify-center">
+                  <ClipboardCheck className="w-5 h-5 text-white" />
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900">Rapport d'inspection</p>
+                  <p className="text-xs text-slate-400">BMW X3 — AB-123-CD</p>
+                </div>
+              </div>
+
+              {/* Photo grid */}
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {['Avant G', 'Face', 'Avant D', 'Profil G', 'Arrière', 'Profil D'].map((label, i) => (
+                  <div key={i} className="aspect-square rounded-lg bg-gradient-to-br from-slate-100 to-slate-50 border border-slate-200 flex items-center justify-center">
+                    <div className="text-center">
+                      <Camera className="w-4 h-4 text-slate-300 mx-auto mb-0.5" />
+                      <span className="text-[9px] text-slate-400">{label}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Info rows */}
+              <div className="space-y-2 mb-4">
+                {[
+                  { label: 'Kilométrage', value: '42 350 km' },
+                  { label: 'Carburant', value: '3/4' },
+                  { label: 'Dommages signalés', value: '2 rayures' },
+                ].map((row, i) => (
+                  <div key={i} className="flex justify-between py-2 border-b border-slate-50">
+                    <span className="text-sm text-slate-500">{row.label}</span>
+                    <span className="text-sm font-medium text-slate-900">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Signature */}
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-100">
+                <p className="text-[10px] text-slate-400 mb-2">Signature client</p>
+                <svg className="w-full h-12" viewBox="0 0 300 50">
+                  <path d="M20,35 C40,10 60,40 80,25 C100,10 120,35 140,20 C160,5 180,30 200,25 C220,20 240,35 260,30" stroke="#334155" strokeWidth="2" fill="none" strokeLinecap="round" />
+                </svg>
+              </div>
+
+              <div className="mt-4 flex items-center justify-between">
+                <span className="text-[11px] text-slate-400">26/02/2026 — 09:41</span>
+                <div className="flex items-center gap-1 text-green-600">
+                  <Check className="w-3.5 h-3.5" />
+                  <span className="text-xs font-medium">Signé</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Floating PDF badge */}
+            <motion.div animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 4, delay: 1 }}
+              className="absolute -bottom-4 -left-4 lg:left-0 bg-white rounded-2xl p-3 shadow-lg border border-slate-100"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-red-50 flex items-center justify-center">
+                  <FileText className="w-4 h-4 text-red-600" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-slate-900">PDF généré</div>
+                  <div className="text-[10px] text-slate-400">rapport_inspection.pdf</div>
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        </motion.div>
+      </div>
+    </div>
+  </section>
+);
+
+/* ─────────────── Entraide / Network ─────────────── */
+const EntraideSection: React.FC = () => (
+  <section id="entraide" className="py-24 bg-[#FAFBFC]">
+    <div className="max-w-6xl mx-auto px-5">
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} className="text-center mb-16">
+        <motion.p variants={fadeUp} custom={0} className="text-sm font-semibold text-purple-600 uppercase tracking-wider mb-3">
+          Réseau d'entraide
+        </motion.p>
+        <motion.h2 variants={fadeUp} custom={1} className="text-3xl sm:text-4xl font-bold text-slate-900">
+          Fini les trajets retour à vide
+        </motion.h2>
+        <motion.p variants={fadeUp} custom={2} className="mt-4 text-lg text-slate-500 max-w-2xl mx-auto">
+          Publiez votre trajet, trouvez des collègues qui vont dans la même direction, partagez les frais. L'innovation qui n'existait pas dans le convoyage.
+        </motion.p>
+      </motion.div>
+
+      <div className="grid lg:grid-cols-3 gap-6">
+        {/* Card 1 – Publish */}
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={0}
+          className="p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-lg transition-all duration-300"
+        >
+          <div className="w-11 h-11 rounded-xl bg-purple-500 flex items-center justify-center mb-4">
+            <Route className="w-5 h-5 text-white" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">Publiez votre trajet</h3>
+          <p className="text-slate-500 text-[15px] leading-relaxed">
+            Avant de partir, indiquez votre route. Les convoyeurs de votre réseau voient immédiatement votre trajet sur la carte.
+          </p>
+        </motion.div>
+
+        {/* Card 2 – Chat */}
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={1}
+          className="p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-lg transition-all duration-300"
+        >
+          <div className="w-11 h-11 rounded-xl bg-indigo-500 flex items-center justify-center mb-4">
+            <MessageCircle className="w-5 h-5 text-white" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">Organisez-vous par chat</h3>
+          <p className="text-slate-500 text-[15px] leading-relaxed">
+            Un collègue a besoin de rentrer ? Il vous contacte via le chat intégré. Vous vous mettez d'accord en quelques messages.
+          </p>
+        </motion.div>
+
+        {/* Card 3 – Share costs */}
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={2}
+          className="p-6 rounded-2xl bg-white border border-slate-100 shadow-sm hover:shadow-lg transition-all duration-300"
+        >
+          <div className="w-11 h-11 rounded-xl bg-teal-500 flex items-center justify-center mb-4">
+            <Banknote className="w-5 h-5 text-white" />
+          </div>
+          <h3 className="text-lg font-semibold text-slate-900 mb-2">Partagez les frais</h3>
+          <p className="text-slate-500 text-[15px] leading-relaxed">
+            Chacun indique sa participation aux frais. Essence, péage — tout est clair et convenu à l'avance. Un retour à 200€ peut devenir 80€.
+          </p>
+        </motion.div>
+      </div>
+    </div>
+  </section>
+);
+
+/* ─────────────── Scanner + More Features ─────────────── */
 const features = [
-  {
-    icon: Route,
-    title: 'Gestion de missions',
-    desc: 'Créez et suivez vos missions de convoyage de A à Z avec affectation des conducteurs.',
-    color: 'bg-teal-500',
-  },
-  {
-    icon: ClipboardCheck,
-    title: 'Inspections complètes',
-    desc: 'États des lieux départ et arrivée avec photos, dommages et signatures numériques.',
-    color: 'bg-blue-500',
-  },
-  {
-    icon: MapPinned,
-    title: 'Tracking GPS',
-    desc: 'Suivez vos véhicules en temps réel et partagez un lien de suivi avec vos clients.',
-    color: 'bg-indigo-500',
-  },
-  {
-    icon: Receipt,
-    title: 'Facturation intégrée',
-    desc: 'Générez vos factures et devis professionnels directement depuis la plateforme.',
-    color: 'bg-purple-500',
-  },
   {
     icon: ScanLine,
     title: 'Scanner de documents',
-    desc: 'Numérisez cartes grises, permis et contrats avec OCR et export PDF.',
+    desc: 'Numérisez cartes grises, lettre de voiture, CMR ou permis. Détection automatique des bords, mode Pro multi-pages, export PDF.',
     color: 'bg-cyan-500',
   },
   {
+    icon: ClipboardCheck,
+    title: 'Tableau de bord complet',
+    desc: 'Toutes vos missions, historiques de véhicules, statistiques d\'activité et documents archivés — en un seul écran.',
+    color: 'bg-teal-500',
+  },
+  {
+    icon: Users,
+    title: 'Gestion multi-convoyeurs',
+    desc: 'Assignez des missions à vos convoyeurs, suivez leur avancement. Chaque document est rangé automatiquement au bon endroit.',
+    color: 'bg-blue-500',
+  },
+  {
     icon: FileCheck,
-    title: 'Rapports automatiques',
-    desc: "Rapports d'inspection détaillés générés en un clic, partageables par lien sécurisé.",
+    title: 'Rapports PDF automatiques',
+    desc: 'Rapports d\'inspection complets générés en un clic : photos, dommages, signature, kilométrage. Prêts à envoyer.',
     color: 'bg-emerald-500',
+  },
+  {
+    icon: Moon,
+    title: 'Mode sombre',
+    desc: 'Utilisez l\'application de nuit sans vous éblouir. Conçu pour les longues routes et les convoyages nocturnes.',
+    color: 'bg-slate-700',
+  },
+  {
+    icon: WifiOff,
+    title: 'Fonctionne hors ligne',
+    desc: 'Pas de réseau ? Pas grave. Tout se synchronise automatiquement dès que vous retrouvez la connexion.',
+    color: 'bg-amber-500',
   },
 ];
 
 const FeaturesSection: React.FC = () => (
   <section id="features" className="py-24 bg-white">
     <div className="max-w-6xl mx-auto px-5">
-      <motion.div
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: '-80px' }}
-        className="text-center mb-16"
-      >
+      <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} className="text-center mb-16">
         <motion.p variants={fadeUp} custom={0} className="text-sm font-semibold text-teal-600 uppercase tracking-wider mb-3">
-          Fonctionnalités
+          Et en plus
         </motion.p>
         <motion.h2 variants={fadeUp} custom={1} className="text-3xl sm:text-4xl font-bold text-slate-900">
-          Tout ce qu'il faut pour vos convoyages
+          Tout ce dont vous avez besoin sur le terrain
         </motion.h2>
         <motion.p variants={fadeUp} custom={2} className="mt-4 text-lg text-slate-500 max-w-2xl mx-auto">
-          Une plateforme complète pour gérer vos missions, inspections et documents.
+          Pas de fonctionnalités inutiles. Juste ce qui rend votre quotidien plus simple, plus sûr et plus rentable.
         </motion.p>
       </motion.div>
 
       <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
         {features.map((f, i) => (
-          <motion.div
-            key={i}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, margin: '-40px' }}
-            variants={fadeUp}
-            custom={i}
+          <motion.div key={i} initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-40px' }} variants={fadeUp} custom={i}
             className="group p-6 rounded-2xl bg-slate-50/60 border border-slate-100 hover:bg-white hover:shadow-lg hover:shadow-slate-900/5 hover:border-slate-200 transition-all duration-300"
           >
             <div className={`w-11 h-11 rounded-xl ${f.color} flex items-center justify-center mb-4`}>
@@ -327,78 +640,18 @@ const FeaturesSection: React.FC = () => (
   </section>
 );
 
-/* ─────────────── How It Works ─────────────── */
-const steps = [
-  { num: '01', title: 'Créez une mission', desc: 'Renseignez le véhicule, les adresses et le conducteur.', icon: FileText },
-  { num: '02', title: 'Inspection départ', desc: 'Photos, état des lieux et signature du client.', icon: Camera },
-  { num: '03', title: 'Suivi en temps réel', desc: 'Tracking GPS partageable par lien avec le client.', icon: MapPinned },
-  { num: '04', title: 'Livraison & rapport', desc: 'Inspection arrivée, rapport généré, facture créée.', icon: Check },
-];
-
-const HowSection: React.FC = () => (
-  <section id="how" className="py-24 bg-[#FAFBFC]">
-    <div className="max-w-6xl mx-auto px-5">
-      <motion.div
-        initial="hidden"
-        whileInView="visible"
-        viewport={{ once: true, margin: '-80px' }}
-        className="text-center mb-16"
-      >
-        <motion.p variants={fadeUp} custom={0} className="text-sm font-semibold text-teal-600 uppercase tracking-wider mb-3">
-          Comment ça marche
-        </motion.p>
-        <motion.h2 variants={fadeUp} custom={1} className="text-3xl sm:text-4xl font-bold text-slate-900">
-          Quatre étapes, zéro complexité
-        </motion.h2>
-      </motion.div>
-
-      <div className="relative grid md:grid-cols-4 gap-8">
-        {/* Connecting line */}
-        <div className="hidden md:block absolute top-14 left-[12%] right-[12%] h-px bg-gradient-to-r from-teal-200 via-cyan-200 to-blue-200" />
-
-        {steps.map((s, i) => (
-          <motion.div
-            key={i}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true }}
-            variants={fadeUp}
-            custom={i}
-            className="relative text-center"
-          >
-            <div className="relative inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-white border-2 border-slate-100 shadow-sm mb-5">
-              <s.icon className="w-6 h-6 text-teal-500" />
-              <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-slate-900 text-white text-[11px] font-bold flex items-center justify-center">
-                {s.num}
-              </span>
-            </div>
-            <h3 className="text-lg font-semibold text-slate-900 mb-2">{s.title}</h3>
-            <p className="text-slate-500 text-sm">{s.desc}</p>
-          </motion.div>
-        ))}
-      </div>
-    </div>
-  </section>
-);
-
 /* ─────────────── Mobile ─────────────── */
 const MobileSection: React.FC = () => (
-  <section id="mobile" className="py-24 bg-white overflow-hidden">
+  <section id="mobile" className="py-24 bg-[#FAFBFC] overflow-hidden">
     <div className="max-w-6xl mx-auto px-5">
       <div className="grid lg:grid-cols-2 gap-16 items-center">
         {/* Left – visual */}
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={scaleIn}
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={scaleIn}
           className="relative flex justify-center"
         >
-          {/* Phone mockup */}
           <div className="relative w-[280px]">
             <div className="rounded-[2.5rem] bg-slate-900 p-3 shadow-2xl shadow-slate-900/30">
               <div className="rounded-[2rem] bg-gradient-to-b from-teal-500 to-cyan-600 overflow-hidden">
-                {/* Status bar */}
                 <div className="flex items-center justify-between px-6 pt-4 pb-2">
                   <span className="text-[11px] text-white/80 font-medium">9:41</span>
                   <div className="flex gap-1">
@@ -407,7 +660,6 @@ const MobileSection: React.FC = () => (
                   </div>
                 </div>
 
-                {/* App content */}
                 <div className="px-5 pb-6 pt-2">
                   <p className="text-white/70 text-xs mb-1">Bonjour</p>
                   <p className="text-white text-lg font-bold mb-5">Mon tableau de bord</p>
@@ -416,7 +668,7 @@ const MobileSection: React.FC = () => (
                     {[
                       { label: 'Mission en cours', value: 'Paris → Lyon', color: 'bg-white/20' },
                       { label: 'Inspection', value: 'BMW X3 — Départ', color: 'bg-white/15' },
-                      { label: 'Prochaine livraison', value: 'Aujourd\'hui, 14h', color: 'bg-white/10' },
+                      { label: 'Entraide', value: '3 convoyeurs proches', color: 'bg-white/10' },
                     ].map((c, i) => (
                       <div key={i} className={`${c.color} backdrop-blur rounded-xl p-3.5`}>
                         <div className="text-[11px] text-white/60 mb-0.5">{c.label}</div>
@@ -429,7 +681,7 @@ const MobileSection: React.FC = () => (
                     {[
                       { icon: Camera, text: 'Scanner' },
                       { icon: Route, text: 'Missions' },
-                      { icon: Receipt, text: 'Factures' },
+                      { icon: Users, text: 'Entraide' },
                     ].map((a, i) => (
                       <div key={i} className="bg-white/10 backdrop-blur rounded-xl py-3 flex flex-col items-center gap-1.5">
                         <a.icon className="w-5 h-5 text-white" />
@@ -440,14 +692,11 @@ const MobileSection: React.FC = () => (
                 </div>
               </div>
             </div>
-            {/* Notch */}
             <div className="absolute top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-slate-900 rounded-b-2xl" />
           </div>
 
           {/* Floating badges */}
-          <motion.div
-            animate={{ y: [0, -8, 0] }}
-            transition={{ repeat: Infinity, duration: 3 }}
+          <motion.div animate={{ y: [0, -8, 0] }} transition={{ repeat: Infinity, duration: 3 }}
             className="absolute top-12 -right-4 lg:right-4 bg-white rounded-2xl p-3 shadow-lg border border-slate-100"
           >
             <div className="flex items-center gap-2">
@@ -461,9 +710,7 @@ const MobileSection: React.FC = () => (
             </div>
           </motion.div>
 
-          <motion.div
-            animate={{ y: [0, 8, 0] }}
-            transition={{ repeat: Infinity, duration: 4, delay: 1 }}
+          <motion.div animate={{ y: [0, 8, 0] }} transition={{ repeat: Infinity, duration: 4, delay: 1 }}
             className="absolute bottom-20 -left-4 lg:left-4 bg-white rounded-2xl p-3 shadow-lg border border-slate-100"
           >
             <div className="flex items-center gap-2">
@@ -472,42 +719,34 @@ const MobileSection: React.FC = () => (
               </div>
               <div>
                 <div className="text-xs font-semibold text-slate-900">Document scanné</div>
-                <div className="text-[10px] text-slate-400">Carte grise — OCR</div>
+                <div className="text-[10px] text-slate-400">Carte grise — PDF</div>
               </div>
             </div>
           </motion.div>
         </motion.div>
 
         {/* Right – text */}
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-        >
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }}>
           <motion.p variants={fadeUp} custom={0} className="text-sm font-semibold text-teal-600 uppercase tracking-wider mb-3">
             Application mobile
           </motion.p>
           <motion.h2 variants={fadeUp} custom={1} className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">
-            Toute la puissance dans votre poche
+            Vous ne travaillez pas dans un bureau. L'appli non plus.
           </motion.h2>
           <motion.p variants={fadeUp} custom={2} className="text-lg text-slate-500 mb-8 leading-relaxed">
-            L'application ChecksFleet vous accompagne sur le terrain. Inspections photo, scan de documents, suivi GPS — tout fonctionne hors ligne et se synchronise automatiquement.
+            ChecksFleet a été conçu pour le terrain. Inspections photo, scan de documents, suivi GPS — tout fonctionne même sans réseau et se synchronise automatiquement.
           </motion.p>
 
           <div className="space-y-4">
             {[
-              { icon: Camera, text: 'Inspections photo avec annotation des dommages' },
-              { icon: ScanLine, text: 'Scanner de documents avec OCR intégré' },
-              { icon: MapPinned, text: 'Navigation GPS et tracking en temps réel' },
-              { icon: Cloud, text: 'Synchronisation automatique avec le cloud' },
-              { icon: Smartphone, text: 'Fonctionne hors connexion' },
+              { icon: Camera, text: 'Inspections photo avec marquage des dommages' },
+              { icon: ScanLine, text: 'Scanner de documents avec détection automatique' },
+              { icon: MapPinned, text: 'Suivi GPS en temps réel partageable' },
+              { icon: WifiOff, text: 'Fonctionne sans connexion Internet' },
+              { icon: Moon, text: 'Mode sombre pour les routes de nuit' },
+              { icon: Smartphone, text: 'Compatible iPhone et Android' },
             ].map((f, i) => (
-              <motion.div
-                key={i}
-                variants={fadeUp}
-                custom={i + 3}
-                className="flex items-center gap-3"
-              >
+              <motion.div key={i} variants={fadeUp} custom={i + 3} className="flex items-center gap-3">
                 <div className="w-9 h-9 rounded-xl bg-teal-50 flex items-center justify-center flex-shrink-0">
                   <f.icon className="w-4 h-4 text-teal-600" />
                 </div>
@@ -516,9 +755,8 @@ const MobileSection: React.FC = () => (
             ))}
           </div>
 
-          <motion.div variants={fadeUp} custom={8} className="mt-8">
-            <Link
-              to="/register"
+          <motion.div variants={fadeUp} custom={9} className="mt-8">
+            <Link to="/register"
               className="inline-flex items-center gap-2 text-teal-600 font-semibold hover:text-teal-700 transition group"
             >
               Télécharger l'application
@@ -531,75 +769,47 @@ const MobileSection: React.FC = () => (
   </section>
 );
 
-/* ─────────────── Security / Trust ─────────────── */
-const SecuritySection: React.FC = () => (
-  <section id="security" className="py-24 bg-[#FAFBFC]">
-    <div className="max-w-6xl mx-auto px-5">
-      <div className="grid lg:grid-cols-2 gap-16 items-center">
-        {/* Left text */}
-        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }}>
-          <motion.p variants={fadeUp} custom={0} className="text-sm font-semibold text-teal-600 uppercase tracking-wider mb-3">
-            Sécurité & fiabilité
-          </motion.p>
-          <motion.h2 variants={fadeUp} custom={1} className="text-3xl sm:text-4xl font-bold text-slate-900 mb-6">
-            Vos données sont entre de bonnes mains
+/* ─────────────── Summary Table ─────────────── */
+const SummarySection: React.FC = () => {
+  const rows = [
+    { gain: 'Des clients rassurés', how: 'Suivi GPS en direct avec lien partageable', icon: MapPinned, color: 'text-teal-500' },
+    { gain: 'Une protection juridique', how: 'État des lieux photos + signature + PDF', icon: Shield, color: 'text-blue-500' },
+    { gain: 'Des économies sur les retours', how: 'Réseau d\'entraide entre convoyeurs', icon: Users, color: 'text-purple-500' },
+    { gain: 'Moins de paperasse', how: 'Scanner de documents intégré', icon: ScanLine, color: 'text-cyan-500' },
+    { gain: 'Sérénité sur le terrain', how: 'Hors ligne, mode nuit, simple à utiliser', icon: Smartphone, color: 'text-amber-500' },
+    { gain: 'Une image professionnelle', how: 'Rapports propres, données organisées', icon: FileCheck, color: 'text-emerald-500' },
+  ];
+
+  return (
+    <section className="py-24 bg-white">
+      <div className="max-w-4xl mx-auto px-5">
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} className="text-center mb-12">
+          <motion.h2 variants={fadeUp} custom={0} className="text-3xl sm:text-4xl font-bold text-slate-900">
+            En résumé
           </motion.h2>
-          <motion.p variants={fadeUp} custom={2} className="text-lg text-slate-500 mb-8 leading-relaxed">
-            ChecksFleet utilise les standards les plus élevés en matière de sécurité pour protéger vos informations et celles de vos clients.
+          <motion.p variants={fadeUp} custom={1} className="mt-3 text-lg text-slate-500">
+            Ce que ChecksFleet change concrètement dans votre quotidien.
           </motion.p>
-
-          <div className="grid grid-cols-2 gap-4">
-            {[
-              { icon: Shield, title: 'Chiffrement SSL', desc: 'Toutes les communications sont sécurisées' },
-              { icon: Lock, title: 'Données cryptées', desc: 'Stockage chiffré bout en bout' },
-              { icon: Cloud, title: 'Sauvegardes auto', desc: 'Backups quotidiens redondants' },
-              { icon: Gauge, title: 'Uptime 99.9%', desc: 'Infrastructure haute disponibilité' },
-            ].map((t, i) => (
-              <motion.div
-                key={i}
-                variants={fadeUp}
-                custom={i + 3}
-                className="p-4 rounded-xl bg-white border border-slate-100"
-              >
-                <t.icon className="w-5 h-5 text-teal-500 mb-2" />
-                <div className="text-sm font-semibold text-slate-900">{t.title}</div>
-                <div className="text-xs text-slate-500 mt-0.5">{t.desc}</div>
-              </motion.div>
-            ))}
-          </div>
         </motion.div>
 
-        {/* Right visual */}
-        <motion.div
-          initial="hidden"
-          whileInView="visible"
-          viewport={{ once: true }}
-          variants={scaleIn}
-          className="flex justify-center"
-        >
-          <div className="relative">
-            <div className="w-64 h-64 rounded-full bg-gradient-to-br from-teal-100 to-cyan-50 flex items-center justify-center">
-              <div className="w-48 h-48 rounded-full bg-gradient-to-br from-teal-50 to-white flex items-center justify-center border border-teal-100 shadow-inner">
-                <Shield className="w-20 h-20 text-teal-500" />
+        <div className="space-y-3">
+          {rows.map((r, i) => (
+            <motion.div key={i} initial="hidden" whileInView="visible" viewport={{ once: true }} variants={fadeUp} custom={i}
+              className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100 hover:bg-white hover:shadow-sm transition-all"
+            >
+              <r.icon className={`w-5 h-5 ${r.color} flex-shrink-0`} />
+              <div className="flex-1 min-w-0">
+                <span className="font-semibold text-slate-900">{r.gain}</span>
+                <span className="text-slate-400 mx-2">—</span>
+                <span className="text-slate-500 text-sm">{r.how}</span>
               </div>
-            </div>
-
-            {/* Orbiting dots */}
-            {[0, 72, 144, 216, 288].map((deg) => (
-              <div
-                key={deg}
-                className="absolute top-1/2 left-1/2 w-3 h-3 rounded-full bg-teal-400 shadow-lg shadow-teal-400/40"
-                style={{
-                  transform: `translate(-50%, -50%) rotate(${deg}deg) translateX(140px)`,
-                }}
-              />
-            ))}
-          </div>
-        </motion.div>
+            </motion.div>
+          ))}
+        </div>
       </div>
-    </div>
-  </section>
-);
+    </section>
+  );
+};
 
 /* ─────────────── CTA ─────────────── */
 const CTASection: React.FC = () => (
@@ -607,26 +817,27 @@ const CTASection: React.FC = () => (
     <div className="max-w-3xl mx-auto px-5 text-center">
       <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }}>
         <motion.h2 variants={fadeUp} custom={0} className="text-3xl sm:text-4xl font-bold text-white">
-          Prêt à simplifier vos convoyages ?
+          Testez sur votre prochaine mission
         </motion.h2>
         <motion.p variants={fadeUp} custom={1} className="mt-4 text-lg text-slate-400">
-          Créez votre compte en quelques secondes et commencez à gérer vos missions dès aujourd'hui.
+          Créez votre compte en 2 minutes. Aucun engagement. Toutes les fonctionnalités disponibles immédiatement.
         </motion.p>
         <motion.div variants={fadeUp} custom={2} className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
-          <Link
-            to="/register"
+          <Link to="/register"
             className="group inline-flex items-center justify-center gap-2 px-7 py-3.5 bg-teal-500 text-white font-semibold rounded-full hover:bg-teal-400 transition shadow-xl shadow-teal-500/25"
           >
-            Commencer gratuitement
+            Créer mon compte gratuitement
             <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
           </Link>
-          <Link
-            to="/login"
+          <Link to="/login"
             className="inline-flex items-center justify-center px-7 py-3.5 font-semibold text-white border border-white/20 rounded-full hover:bg-white/10 transition"
           >
             Se connecter
           </Link>
         </motion.div>
+        <motion.p variants={fadeUp} custom={3} className="mt-6 text-sm text-slate-500">
+          Pas de carte bancaire requise. Pas de surprise.
+        </motion.p>
       </motion.div>
     </div>
   </section>
@@ -645,7 +856,7 @@ const Footer: React.FC = () => (
             </span>
           </div>
           <p className="text-slate-400 text-sm leading-relaxed max-w-sm">
-            La plateforme tout-en-un pour les professionnels du convoyage automobile. Missions, inspections, tracking et facturation.
+            Conçu pour les professionnels du convoyage. Suivi GPS, état des lieux digital, réseau d'entraide — tout ce qu'il faut pour travailler sereinement.
           </p>
         </div>
 
@@ -653,10 +864,11 @@ const Footer: React.FC = () => (
           <h4 className="text-white text-sm font-semibold mb-4">Produit</h4>
           <ul className="space-y-2.5">
             {[
-              ['#features', 'Fonctionnalités'],
-              ['#how', 'Comment ça marche'],
+              ['#gps', 'Suivi GPS en direct'],
+              ['#inspection', 'État des lieux'],
+              ['#entraide', 'Réseau d\'entraide'],
+              ['#features', 'Toutes les fonctionnalités'],
               ['#mobile', 'Application mobile'],
-              ['#security', 'Sécurité'],
             ].map(([href, label]) => (
               <li key={href}>
                 <a href={href} className="text-slate-400 text-sm hover:text-teal-400 transition">{label}</a>
@@ -701,10 +913,13 @@ const Home: React.FC = () => (
   <div className="min-h-screen overflow-x-hidden bg-white">
     <Navbar />
     <Hero />
+    <PainPointsSection />
+    <GPSSection />
+    <InspectionSection />
+    <EntraideSection />
     <FeaturesSection />
-    <HowSection />
     <MobileSection />
-    <SecuritySection />
+    <SummarySection />
     <CTASection />
     <Footer />
   </div>
