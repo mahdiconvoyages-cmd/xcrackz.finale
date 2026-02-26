@@ -92,6 +92,9 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
   // Date sélectionnée
   DateTime _selectedDate = DateTime.now();
 
+  // Filtre horaire : heure minimum de départ
+  TimeOfDay? _minDepartureTime;
+
   // Onglet (lifts dispo / mes matchs)
   late TabController _tab;
 
@@ -282,6 +285,18 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
           }
           return score(a).compareTo(score(b));
         });
+      }
+
+      // ── Filtre compatibilité horaire ──────────────────────────────────────
+      if (_minDepartureTime != null) {
+        final minMinutes = _minDepartureTime!.hour * 60 + _minDepartureTime!.minute;
+        offers = offers.where((o) {
+          final t = o['departure_time'] as String? ?? '';
+          final parts = t.split(':');
+          if (parts.length < 2) return true;
+          final offerMinutes = (int.tryParse(parts[0]) ?? 0) * 60 + (int.tryParse(parts[1]) ?? 0);
+          return offerMinutes >= minMinutes;
+        }).toList();
       }
 
       if (mounted) setState(() { _offers = offers; _loading = false; });
@@ -528,6 +543,60 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
                     _search();
                   }
                 },
+              ),
+              const SizedBox(width: 6),
+              // Time compatibility filter chip
+              GestureDetector(
+                onTap: () async {
+                  if (_minDepartureTime != null) {
+                    // Toggle off
+                    setState(() => _minDepartureTime = null);
+                    _search();
+                    return;
+                  }
+                  final t = await showTimePicker(
+                    context: context,
+                    initialTime: TimeOfDay.now(),
+                    helpText: 'Heure minimum de départ',
+                  );
+                  if (t != null && mounted) {
+                    setState(() => _minDepartureTime = t);
+                    _search();
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: _minDepartureTime != null ? _kTealBg : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(
+                      color: _minDepartureTime != null ? _kTeal : _kBorder,
+                    ),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.schedule,
+                          size: 14,
+                          color: _minDepartureTime != null ? _kTeal : _kGray),
+                      const SizedBox(width: 4),
+                      Text(
+                        _minDepartureTime != null
+                            ? 'Dès ${_minDepartureTime!.hour.toString().padLeft(2, '0')}:${_minDepartureTime!.minute.toString().padLeft(2, '0')}'
+                            : 'Heure min',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: _minDepartureTime != null ? _kTeal : _kGray,
+                        ),
+                      ),
+                      if (_minDepartureTime != null) ...[
+                        const SizedBox(width: 4),
+                        const Icon(Icons.close, size: 12, color: _kTeal),
+                      ],
+                    ],
+                  ),
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -848,6 +917,7 @@ class _OfferCard extends StatelessWidget {
     final seats   = (offer['seats_available'] as num?)?.toInt() ?? 1;
     final vehicleType = offer['vehicle_type'] as String? ?? 'car';
     final notes   = offer['notes'] as String? ?? '';
+    final cost    = (offer['cost_contribution'] as num?)?.toDouble();
 
     // Est-ce que la destination correspond ?
     final isDirectMatch = toCity.isNotEmpty &&
@@ -1019,11 +1089,28 @@ class _OfferCard extends StatelessWidget {
                       maxLines: 2, overflow: TextOverflow.ellipsis),
                 ],
 
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton.icon(
-                    onPressed: onRequest,
+                // Participation aux frais
+                if (cost != null && cost > 0) ...[  
+                  const SizedBox(height: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFFF7ED),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(color: const Color(0xFFFED7AA)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.euro, size: 14, color: Color(0xFFD97706)),
+                        const SizedBox(width: 4),
+                        Text('Participation : ${cost.toStringAsFixed(0)}\u20ac',
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                                color: Color(0xFFD97706))),
+                      ],
+                    ),
+                  ),
+                ],
                     icon: const Icon(Icons.send_rounded, size: 16),
                     label: const Text('Demander un lift',
                         style: TextStyle(fontWeight: FontWeight.w600)),

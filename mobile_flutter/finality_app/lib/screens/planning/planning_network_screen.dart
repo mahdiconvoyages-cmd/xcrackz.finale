@@ -1062,6 +1062,7 @@ class _OfferTile extends StatelessWidget {
     final depTime = (offer['departure_time']  as String? ?? '').replaceAll(RegExp(r':\d{2}$'), '');
     final seats   = (offer['seats_available'] as num?)?.toInt() ?? 1;
     final missionLinkage = offer['mission_id'] != null;
+    final cost = (offer['cost_contribution'] as num?)?.toDouble();
 
     return Container(
       margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -1110,12 +1111,24 @@ class _OfferTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 3),
                 Text(
-                  '${_fmt(depDate)}${depTime.isNotEmpty ? " à $depTime" : ""} · $seats place${seats > 1 ? "s" : ""}',
+                  '${_fmt(depDate)}${depTime.isNotEmpty ? " à $depTime" : ""} · $seats place${seats > 1 ? "s" : ""}${cost != null && cost > 0 ? " · ${cost.toStringAsFixed(0)}€" : ""}',
                   style: const TextStyle(fontSize: 12, color: _kGray),
                 ),
               ],
             ),
           ),
+          if (cost != null && cost > 0) ...
+            [Container(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              decoration: BoxDecoration(
+                color: const Color(0xFFFFF7ED),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text('${cost.toStringAsFixed(0)}€',
+                  style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                      color: Color(0xFFD97706))),
+            ),
+            const SizedBox(width: 4)],
           IconButton(
             onPressed: onCancel,
             icon: const Icon(Icons.close, size: 18, color: _kGray),

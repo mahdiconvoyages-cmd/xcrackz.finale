@@ -39,6 +39,7 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
 
   final _fromCtrl = TextEditingController();
   final _toCtrl   = TextEditingController();
+  final _costCtrl = TextEditingController();
   TimeOfDay _time = const TimeOfDay(hour: 8, minute: 0);
   DateTime? _date;
   int _seats = 1;
@@ -57,6 +58,7 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
   void dispose() {
     _fromCtrl.dispose();
     _toCtrl.dispose();
+    _costCtrl.dispose();
     super.dispose();
   }
 
@@ -81,6 +83,38 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
   String get _timeLabel =>
       '${_time.hour.toString().padLeft(2, '0')}:${_time.minute.toString().padLeft(2, '0')}';
 
+  /// Notify users who have pending ride_requests matching this offer's route
+  Future<void> _notifyMatchingRequests(String origin, String dest, String date) async {
+    try {
+      final originKey = origin.split(' ').first;
+      // Find pending requests on the same route/date
+      final requests = await _sb
+          .from('ride_requests')
+          .select('user_id, pickup_city, destination_city')
+          .neq('user_id', widget.userId)
+          .eq('status', 'pending')
+          .eq('needed_date', date)
+          .ilike('pickup_city', '%$originKey%');
+
+      for (final req in (requests as List)) {
+        try {
+          final reqUserId = req['user_id'] as String?;
+          if (reqUserId == null || reqUserId.isEmpty) continue;
+          // Send push notification via Edge Function
+          await _sb.functions.invoke('send-notification', body: {
+            'userId': reqUserId,
+            'type': 'route_match',
+            'title': '🚗 Un lift sur ta route !',
+            'message': '$origin → $dest — Un convoyeur propose un trajet compatible avec ta demande.',
+            'data': {'type': 'route_match', 'origin': origin, 'destination': dest},
+          });
+        } catch (_) {}
+      }
+    } catch (e) {
+      debugPrint('Smart route notif error: $e');
+    }
+  }
+
   Future<void> _publish() async {
     if (_fromCtrl.text.trim().isEmpty || _toCtrl.text.trim().isEmpty || _date == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -98,8 +132,18 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
         'departure_time':   '$_timeLabel:00',
         'seats_available':  _seats,
         'status':           'active',
+        if (_costCtrl.text.trim().isNotEmpty)
+          'cost_contribution': double.tryParse(_costCtrl.text.trim()) ?? 0,
         if (widget.missionId != null) 'mission_id': widget.missionId,
       });
+
+      // ── Smart route notification: notify matching pending requests ──
+      _notifyMatchingRequests(
+        _fromCtrl.text.trim(),
+        _toCtrl.text.trim(),
+        DateFormat('yyyy-MM-dd').format(_date!),
+      );
+
       if (!mounted) return;
       Navigator.pop(context);
       widget.onPublished();
@@ -177,6 +221,34 @@ class _OfferPublishSheetState extends State<OfferPublishSheet> {
               ),
             ),
           ]),
+          const SizedBox(height: 10),
+          // Participation aux frais (optionnel)
+          TextField(
+            controller: _costCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              prefixIcon: const Icon(Icons.euro, size: 18, color: _kGray),
+              hintText: 'Participation aux frais (optionnel)',
+              hintStyle: const TextStyle(fontSize: 13, color: _kGray),
+              filled: true,
+              fillColor: const Color(0xFFF8FAFC),
+              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: _kBorder),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: _kBorder),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: _kTeal),
+              ),
+              suffixText: '€',
+              suffixStyle: const TextStyle(fontSize: 13, color: _kDark),
+            ),
+          ),
           const SizedBox(height: 10),
           Row(children: [
             _infoTile(Icons.event_seat, '$_seats place${_seats > 1 ? "s" : ""}'),

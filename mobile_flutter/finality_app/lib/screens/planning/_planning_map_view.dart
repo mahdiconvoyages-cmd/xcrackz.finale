@@ -39,7 +39,9 @@ class _PlanningMapViewState extends State<PlanningMapView> {
   double _zoom = 6.0;
   bool _loading = true;
   List<_OfferMarker> _markers = [];
+  List<_ClusterOrMarker> _displayItems = [];
   String? _error;
+  String _dateFilter = 'all'; // 'today', 'tomorrow', 'week', 'all'
 
   // Cache city → LatLng to avoid redundant geocoding
   final Map<String, LatLng?> _geocodeCache = {};
@@ -119,11 +121,13 @@ class _PlanningMapViewState extends State<PlanningMapView> {
       final markers = <_OfferMarker>[];
       for (final o in offers) {
         final origin = o['origin_city'] as String? ?? '';
+        final dest = o['destination_city'] as String? ?? '';
         final originLatLng = _geocodeCache[origin];
         if (originLatLng != null) {
           markers.add(_OfferMarker(
             offer: o,
             point: originLatLng,
+            destPoint: _geocodeCache[dest],
           ));
         }
       }
@@ -133,6 +137,7 @@ class _PlanningMapViewState extends State<PlanningMapView> {
           _markers = markers;
           _loading = false;
         });
+        _computeClusters(_zoom);
       }
     } catch (e) {
       if (mounted) {
@@ -169,6 +174,67 @@ class _PlanningMapViewState extends State<PlanningMapView> {
     _geocodeCache[city] = null; // Mark as not found
   }
 
+  /// Cluster nearby markers based on current zoom level
+  List<_OfferMarker> get _filteredMarkers {
+    if (_dateFilter == 'all') return _markers;
+    final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final tomorrow = today.add(const Duration(days: 1));
+    final weekEnd = today.add(const Duration(days: 7));
+
+    return _markers.where((m) {
+      final depStr = m.offer['departure_date'] as String?;
+      if (depStr == null) return false;
+      final dep = DateTime.tryParse(depStr);
+      if (dep == null) return false;
+      switch (_dateFilter) {
+        case 'today':
+          return dep.year == today.year && dep.month == today.month && dep.day == today.day;
+        case 'tomorrow':
+          return dep.year == tomorrow.year && dep.month == tomorrow.month && dep.day == tomorrow.day;
+        case 'week':
+          return !dep.isBefore(today) && dep.isBefore(weekEnd);
+        default:
+          return true;
+      }
+    }).toList();
+  }
+
+  void _computeClusters(double zoom) {
+    // Distance threshold decreases as user zooms in (degrees)
+    final threshold = 180 / (1 << zoom.clamp(3, 18).toInt()) * 3;
+    final filtered = _filteredMarkers;
+    final used = List.filled(filtered.length, false);
+    final clusters = <_ClusterOrMarker>[];
+
+    for (var i = 0; i < filtered.length; i++) {
+      if (used[i]) continue;
+      used[i] = true;
+      final group = [filtered[i]];
+      double latSum = filtered[i].point.latitude;
+      double lngSum = filtered[i].point.longitude;
+
+      for (var j = i + 1; j < filtered.length; j++) {
+        if (used[j]) continue;
+        final dLat = (filtered[i].point.latitude - filtered[j].point.latitude).abs();
+        final dLng = (filtered[i].point.longitude - filtered[j].point.longitude).abs();
+        if (dLat < threshold && dLng < threshold) {
+          used[j] = true;
+          group.add(filtered[j]);
+          latSum += filtered[j].point.latitude;
+          lngSum += filtered[j].point.longitude;
+        }
+      }
+
+      clusters.add(_ClusterOrMarker(
+        point: LatLng(latSum / group.length, lngSum / group.length),
+        markers: group,
+      ));
+    }
+
+    if (mounted) setState(() => _displayItems = clusters);
+  }
+
   void _showOfferDetail(_OfferMarker marker) {
     final o = marker.offer;
     final profile = (o['profile'] as Map?) ?? {};
@@ -178,7 +244,7 @@ class _PlanningMapViewState extends State<PlanningMapView> {
     final seats = (o['seats_available'] as num?)?.toInt() ?? 0;
     final depDate = o['departure_date'] as String? ?? '';
     final depTime = (o['departure_time'] as String? ?? '').replaceAll(RegExp(r':\d{2}$'), '');
-    final notes = o['notes'] as String? ?? '';
+    final notes = o['notes'] as String? ?? '';\n    final cost = (o['cost_contribution'] as num?)?.toDouble();
 
     showModalBottomSheet(
       context: context,
@@ -303,6 +369,27 @@ class _PlanningMapViewState extends State<PlanningMapView> {
                 overflow: TextOverflow.ellipsis,
               ),
             ],
+            if (cost != null && cost > 0) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFFF7ED),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: const Color(0xFFFED7AA)),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.euro, size: 14, color: Color(0xFFD97706)),
+                    const SizedBox(width: 4),
+                    Text('Participation : ${cost.toStringAsFixed(0)}€',
+                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600,
+                            color: Color(0xFFD97706))),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             SizedBox(
               width: double.infinity,
@@ -336,6 +423,30 @@ class _PlanningMapViewState extends State<PlanningMapView> {
     );
   }
 
+  Widget _dateChip(String label, String value) {
+    final selected = _dateFilter == value;
+    return GestureDetector(
+      onTap: () {
+        setState(() => _dateFilter = value);
+        _computeClusters(_mapController.camera.zoom);
+      },
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        margin: const EdgeInsets.symmetric(horizontal: 2),
+        decoration: BoxDecoration(
+          color: selected ? _kTeal : Colors.transparent,
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Text(label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600,
+              color: selected ? Colors.white : _kGray,
+            )),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Stack(
@@ -347,14 +458,71 @@ class _PlanningMapViewState extends State<PlanningMapView> {
             initialZoom: _zoom,
             maxZoom: 18,
             minZoom: 4,
+            onPositionChanged: (pos, hasGesture) {
+              if (hasGesture && pos.zoom != null) {
+                _computeClusters(pos.zoom!);
+              }
+            },
           ),
           children: [
             TileLayer(
               urlTemplate: 'https://tile.openstreetmap.org/{z}/{x}/{y}.png',
               userAgentPackageName: 'com.checksfleet.app',
             ),
+            // Polylines only for non-clustered items
+            PolylineLayer(
+              polylines: _displayItems
+                  .where((c) => !c.isCluster && c.markers.first.destPoint != null)
+                  .map((c) => Polyline(
+                        points: [c.markers.first.point, c.markers.first.destPoint!],
+                        color: _kTeal.withOpacity(0.5),
+                        strokeWidth: 2.5,
+                        isDotted: true,
+                      ))
+                  .toList(),
+            ),
+            // Origin markers (clustered or single)
             MarkerLayer(
-              markers: _markers.map((m) {
+              markers: _displayItems.map((item) {
+                if (item.isCluster) {
+                  return Marker(
+                    point: item.point,
+                    width: 48,
+                    height: 48,
+                    child: GestureDetector(
+                      onTap: () {
+                        // Zoom into cluster
+                        _mapController.move(item.point,
+                            (_mapController.camera.zoom + 2).clamp(4, 18));
+                      },
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: _kTeal.withOpacity(0.85),
+                          shape: BoxShape.circle,
+                          border: Border.all(color: Colors.white, width: 2.5),
+                          boxShadow: [
+                            BoxShadow(
+                              color: _kTeal.withOpacity(0.3),
+                              blurRadius: 8,
+                              spreadRadius: 2,
+                            ),
+                          ],
+                        ),
+                        child: Center(
+                          child: Text(
+                            '${item.markers.length}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                              fontSize: 16,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  );
+                }
+                final m = item.markers.first;
                 return Marker(
                   point: m.point,
                   width: 42,
@@ -382,6 +550,35 @@ class _PlanningMapViewState extends State<PlanningMapView> {
                               color: Colors.white, size: 20),
                         ),
                       ),
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+            // Destination markers (only for non-clustered)
+            MarkerLayer(
+              markers: _displayItems
+                  .where((c) => !c.isCluster && c.markers.first.destPoint != null)
+                  .map((c) {
+                final m = c.markers.first;
+                return Marker(
+                  point: m.destPoint!,
+                  width: 28,
+                  height: 28,
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEF4444),
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.15),
+                          blurRadius: 4,
+                        ),
+                      ],
+                    ),
+                    child: const Center(
+                      child: Icon(Icons.flag, color: Colors.white, size: 14),
                     ),
                   ),
                 );
@@ -421,33 +618,62 @@ class _PlanningMapViewState extends State<PlanningMapView> {
           Positioned(
             top: 16,
             left: 16,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(20),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.1),
-                    blurRadius: 8,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(20),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                      ),
+                    ],
                   ),
-                ],
-              ),
-              child: Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.directions_car, color: _kTeal, size: 18),
-                  const SizedBox(width: 6),
-                  Text(
-                    '${_markers.length} offre${_markers.length > 1 ? 's' : ''}',
-                    style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: _kDark,
-                    ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.directions_car, color: _kTeal, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${_filteredMarkers.length} offre${_filteredMarkers.length > 1 ? 's' : ''}',
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: _kDark,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                const SizedBox(height: 8),
+                // Date filter chips
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: [
+                      BoxShadow(
+                        color: Colors.black.withOpacity(0.1),
+                        blurRadius: 8,
+                      ),
+                    ],
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      _dateChip("Auj.", 'today'),
+                      _dateChip("Demain", 'tomorrow'),
+                      _dateChip("Semaine", 'week'),
+                      _dateChip("Tout", 'all'),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
         // Refresh button
@@ -483,6 +709,16 @@ class _PlanningMapViewState extends State<PlanningMapView> {
 class _OfferMarker {
   final Map<String, dynamic> offer;
   final LatLng point;
+  final LatLng? destPoint;
 
-  const _OfferMarker({required this.offer, required this.point});
+  const _OfferMarker({required this.offer, required this.point, this.destPoint});
+}
+
+/// A cluster or single marker for display
+class _ClusterOrMarker {
+  final LatLng point;
+  final List<_OfferMarker> markers;
+  bool get isCluster => markers.length > 1;
+
+  const _ClusterOrMarker({required this.point, required this.markers});
 }
