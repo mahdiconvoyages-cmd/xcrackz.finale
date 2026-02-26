@@ -1111,6 +1111,12 @@ class _OfferCard extends StatelessWidget {
                     ),
                   ),
                 ],
+
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: FilledButton.icon(
+                    onPressed: onRequest,
                     icon: const Icon(Icons.send_rounded, size: 16),
                     label: const Text('Demander un lift',
                         style: TextStyle(fontWeight: FontWeight.w600)),

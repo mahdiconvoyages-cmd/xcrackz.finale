@@ -244,7 +244,8 @@ class _PlanningMapViewState extends State<PlanningMapView> {
     final seats = (o['seats_available'] as num?)?.toInt() ?? 0;
     final depDate = o['departure_date'] as String? ?? '';
     final depTime = (o['departure_time'] as String? ?? '').replaceAll(RegExp(r':\d{2}$'), '');
-    final notes = o['notes'] as String? ?? '';\n    final cost = (o['cost_contribution'] as num?)?.toDouble();
+    final notes = o['notes'] as String? ?? '';
+    final cost = (o['cost_contribution'] as num?)?.toDouble();
 
     showModalBottomSheet(
       context: context,
@@ -477,7 +478,7 @@ class _PlanningMapViewState extends State<PlanningMapView> {
                         points: [c.markers.first.point, c.markers.first.destPoint!],
                         color: _kTeal.withOpacity(0.5),
                         strokeWidth: 2.5,
-                        isDotted: true,
+                        pattern: const StrokePattern.dotted(),
                       ))
                   .toList(),
             ),
