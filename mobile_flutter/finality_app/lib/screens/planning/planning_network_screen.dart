@@ -23,6 +23,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'retour_lift_screen.dart';
 import '_offer_publish_sheet.dart';
 import '_match_chat_sheet.dart';
+import '_planning_map_view.dart';
 import '../../services/lift_notification_service.dart';
 import '../../services/ride_tracking_service.dart';
 
@@ -83,6 +84,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
   List<Map<String, dynamic>> _myRequests = [];
   Map<String, int> _unreadCounts = {};
   bool _loading = true;
+  bool _showMap = false;
 
   String get _uid => _sb.auth.currentUser?.id ?? '';
 
@@ -162,8 +164,18 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
            .order('needed_date'),
       ]).timeout(const Duration(seconds: 15));
       if (!mounted) return;
-      final matches = List<Map<String, dynamic>>.from(results[1]);
-      // Charger les compteurs de messages non lus pour chaque match
+      final rawMatches = List<Map<String, dynamic>>.from(results[1]);
+      // Filter out malformed matches (missing id)
+      final matches = <Map<String, dynamic>>[];
+      for (final m in rawMatches) {
+        try {
+          final id = m['id'] as String?;
+          if (id != null && id.isNotEmpty) matches.add(m);
+        } catch (_) {
+          debugPrint('PlanningNetwork: skipping malformed match');
+        }
+      }
+      // Batch unread counts in a single query
       Map<String, int> unread = {};
       if (matches.isNotEmpty) {
         try {
@@ -174,8 +186,8 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
               .neq('sender_id', _uid)
               .eq('is_read', false);
           for (final row in unreadRes) {
-            final mid = row['match_id'] as String;
-            unread[mid] = (unread[mid] ?? 0) + 1;
+            final mid = row['match_id'] as String?;
+            if (mid != null) unread[mid] = (unread[mid] ?? 0) + 1;
           }
         } catch (_) {}
       }
@@ -221,7 +233,12 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
     final bottomPad = MediaQuery.of(context).padding.bottom;
     return Scaffold(
       backgroundColor: _kScaffold,
-      body: RefreshIndicator(
+      body: _showMap
+          ? SafeArea(child: Column(children: [
+              _buildMapAppBar(),
+              const Expanded(child: PlanningMapView()),
+            ]))
+          : RefreshIndicator(
         color: _kTeal,
         onRefresh: _load,
         child: CustomScrollView(
@@ -282,7 +299,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
           ],
         ),
       ),
-      floatingActionButton: Padding(
+      floatingActionButton: _showMap ? null : Padding(
         padding: EdgeInsets.only(bottom: bottomPad > 0 ? bottomPad - 8 : 0),
         child: FloatingActionButton.extended(
           onPressed: _publishOffer,
@@ -304,6 +321,11 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
       backgroundColor: _kTeal,
       foregroundColor: Colors.white,
       actions: [
+        IconButton(
+          icon: Icon(_showMap ? Icons.list_rounded : Icons.map_rounded),
+          onPressed: () => setState(() => _showMap = !_showMap),
+          tooltip: _showMap ? 'Vue liste' : 'Vue carte',
+        ),
         IconButton(
           icon: const Icon(Icons.refresh_rounded),
           onPressed: _load,
@@ -339,6 +361,41 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
             ),
           ),
         ),
+      ),
+    );
+  }
+
+  // ── Map AppBar (compact) ────────────────────────────────────────────────────
+
+  Widget _buildMapAppBar() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      decoration: const BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Color(0xFF0D9488), Color(0xFF0891B2)],
+          begin: Alignment.topLeft, end: Alignment.bottomRight,
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(Icons.map_rounded, color: Colors.white, size: 22),
+          const SizedBox(width: 10),
+          const Expanded(
+            child: Text(
+              'Carte des offres',
+              style: TextStyle(
+                color: Colors.white,
+                fontSize: 17,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.list_rounded, color: Colors.white),
+            tooltip: 'Vue liste',
+            onPressed: () => setState(() => _showMap = false),
+          ),
+        ],
       ),
     );
   }
@@ -771,7 +828,10 @@ class _MatchTile extends StatelessWidget {
     final depDate     = offer['departure_date'] as String?;
     final depTime     = (offer['departure_time'] as String? ?? '').replaceAll(RegExp(r':\d{2}$'), '');
 
-    return GestureDetector(
+    return Semantics(
+      button: true,
+      label: '${cfg.label} — ${isDriver ? "Je conduis" : "Passager"}, $pickup vers $dropoff${depDate != null ? ", $depDate" : ""}${unreadCount > 0 ? ", $unreadCount messages non lus" : ""}',
+      child: GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -985,6 +1045,7 @@ class _MatchTile extends StatelessWidget {
           ],
         ),
       ),
+    ),
     );
   }
 }

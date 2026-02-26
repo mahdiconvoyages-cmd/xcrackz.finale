@@ -253,10 +253,17 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
               .ilike('destination_city', '%$fromKey%')
               .order('departure_time', ascending: true);
 
+          // O(1) dedup with Set + per-offer try/catch
+          final existingIds = offers.map((e) => e['id'] as String?).whereType<String>().toSet();
           for (final o in axisData as List) {
-            final dup = offers.any((e) => e['id'] == o['id']);
-            if (!dup) {
-              offers.add(Map<String, dynamic>.from(o as Map)..['_is_axis'] = true);
+            try {
+              final oid = (o as Map)['id'] as String?;
+              if (oid != null && !existingIds.contains(oid)) {
+                existingIds.add(oid);
+                offers.add(Map<String, dynamic>.from(o)..['_is_axis'] = true);
+              }
+            } catch (e) {
+              debugPrint('Erreur traitement offre axe: $e');
             }
           }
         } catch (e) {
@@ -851,7 +858,10 @@ class _OfferCard extends StatelessWidget {
       'car': '🚗', 'van': '🚐', 'truck': '🚛', 'suv': '🏎️', 'motorcycle': '🏍️',
     };
 
-    return Container(
+    return Semantics(
+      button: true,
+      label: 'Offre de $name, $origin vers $dest, $seats places${isDirectMatch ? ", trajet direct" : ""}',
+      child: Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: _kCard,
@@ -1032,6 +1042,7 @@ class _OfferCard extends StatelessWidget {
           ),
         ],
       ),
+    ),
     );
   }
 }

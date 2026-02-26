@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:http/http.dart' as http;
 import '../../models/client.dart';
 import '../../services/client_service.dart';
 
@@ -96,7 +98,7 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     final siret = _siretController.text.replaceAll(RegExp(r'\s'), '');
     if (siret.length < 9) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Entrez au moins 9 chiffres')),
+        const SnackBar(content: Text('Entrez au moins 9 chiffres (SIREN ou SIRET)')),
       );
       return;
     }
@@ -104,22 +106,80 @@ class _ClientDetailScreenState extends State<ClientDetailScreen> {
     setState(() => _isSearchingSiret = true);
     
     try {
-      // API gouvernementale recherche-entreprises
-      // Pour l'instant, juste extraire le SIREN du SIRET
-      if (siret.length >= 9) {
-        final siren = siret.substring(0, 9);
-        _sirenController.text = siren;
+      // API recherche-entreprises.api.gouv.fr (gratuite, sans clé)
+      final uri = Uri.parse(
+        'https://recherche-entreprises.api.gouv.fr/search?q=$siret&page=1&per_page=1',
+      );
+      final response = await http.get(uri).timeout(const Duration(seconds: 10));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body) as Map<String, dynamic>;
+        final results = data['results'] as List? ?? [];
+        
+        if (results.isNotEmpty) {
+          final company = results.first as Map<String, dynamic>;
+          final nom = company['nom_complet'] as String? ?? '';
+          final siege = company['siege'] as Map<String, dynamic>? ?? {};
+          final siren = company['siren'] as String? ?? '';
+          final adresse = siege['adresse'] as String? ?? '';
+          final codePostal = siege['code_postal'] as String? ?? '';
+          final ville = siege['libelle_commune'] as String? ?? '';
+          
+          // Auto-fill the fields
+          if (nom.isNotEmpty) _companyNameController.text = nom;
+          if (siren.isNotEmpty) _sirenController.text = siren;
+          if (adresse.isNotEmpty) _addressController.text = adresse;
+          if (codePostal.isNotEmpty) _postalCodeController.text = codePostal;
+          if (ville.isNotEmpty) _cityController.text = ville;
+          
+          // Auto-set isCompany
+          setState(() => _isCompany = true);
+          
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Entreprise trouvée : $nom'),
+                backgroundColor: const Color(0xFF10B981),
+              ),
+            );
+          }
+        } else {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(
+                content: Text('Aucune entreprise trouvée pour ce numéro'),
+                backgroundColor: Color(0xFFEF4444),
+              ),
+            );
+          }
+          // Fallback: extract SIREN from SIRET
+          if (siret.length >= 9) {
+            _sirenController.text = siret.substring(0, 9);
+          }
+        }
+      } else {
+        // Fallback on HTTP error
+        if (siret.length >= 9) {
+          _sirenController.text = siret.substring(0, 9);
+        }
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('API indisponible — SIREN extrait du SIRET')),
+          );
+        }
       }
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('SIREN extrait du SIRET')),
-      );
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Erreur: ${e.toString()}')),
-      );
+      // Fallback on network error
+      if (siret.length >= 9) {
+        _sirenController.text = siret.substring(0, 9);
+      }
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Erreur réseau — SIREN extrait: ${e.toString().split(':').first}')),
+        );
+      }
     } finally {
-      setState(() => _isSearchingSiret = false);
+      if (mounted) setState(() => _isSearchingSiret = false);
     }
   }
 

@@ -7,6 +7,10 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../main.dart' show navigatorKey;
 import '../screens/missions/mission_detail_screen.dart';
+import '../screens/planning/planning_network_screen.dart';
+import '../screens/profile/support_chat_screen.dart';
+import '../screens/tracking/tracking_list_screen.dart';
+import '../screens/crm/crm_screen.dart';
 import '../services/update_service.dart';
 import '../widgets/update_dialog.dart';
 import '../utils/logger.dart';
@@ -224,6 +228,45 @@ class FCMService {
       return;
     }
 
+    // Route by notification type
+    switch (type) {
+      case 'ride_match':
+      case 'ride_message':
+      case 'ride_accepted':
+      case 'ride_declined':
+      case 'in_transit':
+        // Navigate to Planning Network for ride-related notifications
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const PlanningNetworkScreen()),
+        );
+        return;
+
+      case 'support_message':
+      case 'support_reply':
+        // Navigate to Support Chat
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const SupportChatScreen()),
+        );
+        return;
+
+      case 'tracking_update':
+        // Navigate to Tracking list
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const TrackingListScreen()),
+        );
+        return;
+
+      case 'invoice':
+      case 'quote':
+      case 'client':
+        // Navigate to CRM
+        Navigator.of(context).push(
+          MaterialPageRoute(builder: (_) => const CRMScreen()),
+        );
+        return;
+    }
+
+    // Fallback: route by mission_id if present
     final missionId = data['mission_id'] as String?;
     if (missionId != null && missionId.isNotEmpty) {
       Navigator.of(context).push(

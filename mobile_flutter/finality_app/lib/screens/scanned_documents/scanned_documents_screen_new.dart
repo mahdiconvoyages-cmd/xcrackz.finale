@@ -144,9 +144,14 @@ class _ScannedDocumentsScreenNewState extends State<ScannedDocumentsScreenNew> {
     try {
       await supabase.from('inspection_documents').delete().eq('id', doc['id']);
       if (doc['document_url'] != null) {
-        final uri = Uri.parse(doc['document_url']);
-        final p = uri.pathSegments.skip(3).join('/');
-        await supabase.storage.from('inspection-documents').remove([p]);
+        const bucket = 'inspection-documents';
+        final url = doc['document_url'] as String;
+        final marker = '/$bucket/';
+        final idx = url.indexOf(marker);
+        if (idx >= 0) {
+          final storagePath = url.substring(idx + marker.length);
+          await supabase.storage.from(bucket).remove([storagePath]);
+        }
       }
       if (mounted) { _snack('Document supprime', PremiumTheme.accentGreen); _load(); }
     } catch (e) {

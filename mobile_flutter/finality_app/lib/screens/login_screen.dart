@@ -51,6 +51,15 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
     _loadRememberedCredentials();
   }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Respect reduced-motion accessibility setting
+    if (MediaQuery.of(context).disableAnimations) {
+      _animationController.value = 1.0;
+    }
+  }
+
   Future<void> _loadRememberedCredentials() async {
     final prefs = await SharedPreferences.getInstance();
     final remembered = prefs.getBool('remember_me') ?? false;
