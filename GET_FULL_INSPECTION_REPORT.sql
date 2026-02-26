@@ -72,6 +72,8 @@ BEGIN
             'photo_url', ip.full_url,
             'thumbnail_url', ip.thumbnail_url,
             'photo_type', ip.photo_type,
+            'damage_status', COALESCE(ip.damage_status, 'RAS'),
+            'damage_comment', ip.damage_comment,
             'taken_at', ip.taken_at
           ) ORDER BY ip.taken_at)
           FROM inspection_photos_v2 ip
@@ -130,6 +132,8 @@ BEGIN
             'photo_url', ip.full_url,
             'thumbnail_url', ip.thumbnail_url,
             'photo_type', ip.photo_type,
+            'damage_status', COALESCE(ip.damage_status, 'RAS'),
+            'damage_comment', ip.damage_comment,
             'taken_at', ip.taken_at
           ) ORDER BY ip.taken_at)
           FROM inspection_photos_v2 ip

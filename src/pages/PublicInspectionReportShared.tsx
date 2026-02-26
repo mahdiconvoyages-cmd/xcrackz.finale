@@ -623,6 +623,11 @@ export default function PublicInspectionReportShared() {
                                 className="w-full h-40 object-cover cursor-pointer hover:opacity-90 transition"
                                 onClick={() => openPhoto(departure.photos, i)}
                               />
+                              {depPhoto.damage_status && depPhoto.damage_status !== 'RAS' && (
+                                <div className="absolute bottom-0 left-0 right-0 bg-amber-500/90 text-white text-xs px-2 py-1">
+                                  ⚠ {depPhoto.damage_status}{depPhoto.damage_comment ? ` — ${depPhoto.damage_comment}` : ''}
+                                </div>
+                              )}
                             </div>
                             <div className="relative bg-white">
                               <div className="absolute top-2 left-2 bg-blue-500 text-white text-xs px-2 py-0.5 rounded-full font-bold z-10">ARRIVÉE</div>
@@ -632,6 +637,11 @@ export default function PublicInspectionReportShared() {
                                 className="w-full h-40 object-cover cursor-pointer hover:opacity-90 transition"
                                 onClick={() => openPhoto(arrival.photos, i)}
                               />
+                              {arrPhoto.damage_status && arrPhoto.damage_status !== 'RAS' && (
+                                <div className="absolute bottom-0 left-0 right-0 bg-amber-500/90 text-white text-xs px-2 py-1">
+                                  ⚠ {arrPhoto.damage_status}{arrPhoto.damage_comment ? ` — ${arrPhoto.damage_comment}` : ''}
+                                </div>
+                              )}
                             </div>
                           </div>
                           <div className="text-center text-xs text-gray-500 py-1 bg-gray-50">Photo {i+1}</div>
@@ -1116,13 +1126,34 @@ function InspectionCard({ title, inspection, color, onOpenPhoto, vehicleLabel, p
         {/* Photos */}
         {inspection.photos && inspection.photos.length > 0 && (
           <Section title={`Photos (${inspection.photos.length})`} icon={ImageIcon}>
-            <div className="grid grid-cols-3 md:grid-cols-5 gap-3">
-              {inspection.photos.map((photo: any, i: number) => (
-                <div key={i} onClick={() => onOpenPhoto(inspection.photos, i)}
-                  className="aspect-square rounded-lg overflow-hidden cursor-pointer hover:ring-4 ring-blue-500 transition print:break-inside-avoid">
-                  <img src={photo.url || photo.photo_url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {inspection.photos.map((photo: any, i: number) => {
+                const hasDamage = photo.damage_status && photo.damage_status !== 'RAS';
+                return (
+                <div key={i} className={`rounded-lg overflow-hidden border-2 ${hasDamage ? 'border-amber-400' : 'border-transparent'} print:break-inside-avoid`}>
+                  <div onClick={() => onOpenPhoto(inspection.photos, i)}
+                    className="aspect-square cursor-pointer hover:ring-4 ring-blue-500 transition">
+                    <img src={photo.url || photo.photo_url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                  </div>
+                  {/* Label du type de photo */}
+                  <div className="bg-gray-50 px-2 py-1">
+                    <p className="text-xs text-gray-500 truncate">{photo.photo_type?.replace(/_/g, ' ') || `Photo ${i + 1}`}</p>
+                  </div>
+                  {/* Dommage + Commentaire */}
+                  {hasDamage && (
+                    <div className="bg-amber-50 border-t border-amber-200 px-3 py-2">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+                        <span className="text-xs font-bold text-amber-700">{photo.damage_status}</span>
+                      </div>
+                      {photo.damage_comment && (
+                        <p className="text-xs text-amber-600 italic">« {photo.damage_comment} »</p>
+                      )}
+                    </div>
+                  )}
                 </div>
-              ))}
+                );
+              })}
             </div>
           </Section>
         )}
