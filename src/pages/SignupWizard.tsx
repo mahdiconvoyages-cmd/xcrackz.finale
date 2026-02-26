@@ -257,14 +257,12 @@ export default function SignupWizard() {
       navigate('/login', { state: { signupSuccess: true } });
     } catch (err: any) {
       console.error('Signup error:', err);
-      // Provide a user-friendly message for common email errors
       const msg = err.message || '';
-      if (msg.toLowerCase().includes('email') || msg.toLowerCase().includes('confirmation')) {
-        setError('Erreur d\'envoi de l\'email de confirmation. Votre compte a peut-être été créé — essayez de vous connecter ou réessayez dans quelques minutes.');
-      } else if (msg.includes('already registered') || msg.includes('already been registered')) {
+      // Show raw error for debugging + user-friendly hint
+      if (msg.includes('already registered') || msg.includes('already been registered')) {
         setError('Cet email est déjà utilisé. Essayez de vous connecter.');
       } else {
-        setError(msg || "Erreur lors de l'inscription");
+        setError(`Erreur: ${msg || "Erreur lors de l'inscription"}`);
       }
       const fp = await fraudPreventionService.generateDeviceFingerprint();
       const ip = await fraudPreventionService.getUserIpAddress();
