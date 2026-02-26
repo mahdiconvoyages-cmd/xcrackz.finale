@@ -84,6 +84,7 @@ const ScannerHomePage = lazyRetry(() => import('./pages/ScannerHomePage'));
 const ProfessionalScannerPage = lazyRetry(() => import('./pages/ProfessionalScannerPage'));
 const MyDocuments = lazyRetry(() => import('./pages/MyDocuments'));
 const BillingProfile = lazyRetry(() => import('./pages/BillingProfile'));
+const AuthCallback = lazyRetry(() => import('./pages/AuthCallback'));
 
 function AppContent() {
   return (
@@ -99,6 +100,7 @@ function AppContent() {
         <Route path="/legal/terms-of-service" element={<TermsOfService />} />
         <Route path="/legal/cookie-policy" element={<CookiePolicy />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/register" element={<SignupWizard />} />
         <Route path="/signup" element={<SignupWizard />} />
         <Route path="/inscription" element={<SignupWizard />} />

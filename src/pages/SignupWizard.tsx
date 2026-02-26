@@ -212,7 +212,7 @@ export default function SignupWizard() {
         email: form.email,
         password: form.password,
         options: {
-          emailRedirectTo: `${window.location.origin}/login`,
+          emailRedirectTo: `${window.location.origin}/auth/callback`,
           data: {
             full_name: form.fullName,
             phone: form.phone || null,

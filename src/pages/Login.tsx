@@ -1,7 +1,8 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { LogIn, Mail, Lock, Eye, EyeOff, Zap, Shield, ArrowRight } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { supabase } from '../lib/supabase';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -9,8 +10,39 @@ export default function Login() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const { signIn } = useAuth();
+  const { signIn, user } = useAuth();
   const navigate = useNavigate();
+
+  // Handle auth callback tokens in URL (for confirmation links pointing to /login)
+  useEffect(() => {
+    const handleTokens = async () => {
+      const url = new URL(window.location.href);
+      const params = url.searchParams;
+      const hashParams = new URLSearchParams(url.hash.substring(1));
+
+      const code = params.get('code');
+      const tokenHash = params.get('token_hash');
+      const type = params.get('type') as any;
+      const accessToken = hashParams.get('access_token');
+
+      if (code) {
+        await supabase.auth.exchangeCodeForSession(code);
+        navigate('/dashboard', { replace: true });
+      } else if (tokenHash && type) {
+        await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
+        navigate('/dashboard', { replace: true });
+      } else if (accessToken) {
+        // Implicit flow — detectSessionInUrl handles it, just redirect
+        navigate('/dashboard', { replace: true });
+      }
+    };
+    handleTokens();
+  }, [navigate]);
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user) navigate('/dashboard', { replace: true });
+  }, [user, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
