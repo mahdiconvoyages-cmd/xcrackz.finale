@@ -14,6 +14,7 @@ import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { validationService } from '../services/validationService';
 import { fraudPreventionService } from '../services/fraudPreventionService';
+import { Mail, Gift, CheckCircle } from 'lucide-react';
 
 /* -- PremiumTheme tokens -- */
 const T = {
@@ -62,6 +63,8 @@ export default function SignupWizard() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
+  const [signupComplete, setSignupComplete] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
 
   /* -- Phone uniqueness check state -- */
   const [phoneChecked, setPhoneChecked] = useState(false);
@@ -240,10 +243,9 @@ export default function SignupWizard() {
         userAgent: navigator.userAgent, stepReached: 4, success: true,
       });
 
-      // Crédits à 0 à l'inscription
-      // 10 crédits de bienvenue seront donnés automatiquement à la confirmation email (trigger SQL)
-      // L'utilisateur est connecté directement après l'inscription
-      navigate('/dashboard', { state: { newSignup: true } });
+      // Compte créé ! L'utilisateur doit confirmer son email pour recevoir 10 crédits
+      // Le trigger SQL on_email_confirmed donnera les crédits automatiquement
+      setSignupComplete(true);
     } catch (err: any) {
       console.error('Signup error:', err);
       const msg = err.message || '';
@@ -641,6 +643,102 @@ export default function SignupWizard() {
       </div>
     </div>
   );
+
+  /* ================================
+     RESEND CONFIRMATION EMAIL
+     ================================ */
+  const handleResendEmail = async () => {
+    setResendingEmail(true);
+    try {
+      await supabase.auth.resend({ type: 'signup', email: form.email });
+      setError('');
+    } catch (err) {
+      console.error('Resend error:', err);
+    } finally {
+      setResendingEmail(false);
+    }
+  };
+
+  /* ================================
+     SIGNUP COMPLETE SCREEN
+     ================================ */
+  if (signupComplete) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-teal-600 via-blue-600 to-indigo-700 flex items-center justify-center p-4">
+        <div className="w-full max-w-lg bg-white/[0.98] backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden p-8">
+          <div className="text-center">
+            {/* Icon */}
+            <div className="mx-auto w-20 h-20 bg-blue-100 rounded-full flex items-center justify-center mb-6">
+              <Mail className="w-10 h-10 text-blue-600" />
+            </div>
+
+            {/* Title */}
+            <h2 className="text-2xl font-bold mb-2" style={{ color: T.textPrimary }}>
+              Vérifiez votre email
+            </h2>
+
+            {/* Subtitle */}
+            <p className="text-sm mb-6" style={{ color: T.textSecondary }}>
+              Un email de confirmation a été envoyé à
+            </p>
+            <p className="font-semibold text-base mb-6" style={{ color: T.primaryBlue }}>
+              {form.email}
+            </p>
+
+            {/* Gift box */}
+            <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-5 mb-6 border border-blue-200">
+              <div className="flex items-center justify-center gap-2 mb-2">
+                <Gift className="w-5 h-5 text-blue-600" />
+                <span className="font-bold text-blue-700">10 crédits de bienvenue</span>
+              </div>
+              <p className="text-sm text-blue-600">
+                Cliquez sur le lien dans l'email pour activer vos crédits gratuits ! 
+                Ils seront valables 30 jours.
+              </p>
+            </div>
+
+            {/* Steps */}
+            <div className="text-left space-y-3 mb-6">
+              <div className="flex items-start gap-3">
+                <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+                <span className="text-sm" style={{ color: T.textPrimary }}>Compte créé avec succès</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Mail className="w-5 h-5 text-blue-500 flex-shrink-0 mt-0.5" />
+                <span className="text-sm" style={{ color: T.textPrimary }}>Ouvrez l'email et cliquez sur le lien</span>
+              </div>
+              <div className="flex items-start gap-3">
+                <Gift className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" />
+                <span className="text-sm" style={{ color: T.textPrimary }}>Recevez 10 crédits + accès complet</span>
+              </div>
+            </div>
+
+            {/* Buttons */}
+            <button
+              onClick={handleResendEmail}
+              disabled={resendingEmail}
+              className="w-full py-3 rounded-xl font-medium text-sm border transition-all mb-3"
+              style={{ borderColor: T.borderDefault, color: T.textSecondary }}
+            >
+              {resendingEmail ? 'Envoi en cours...' : 'Renvoyer l\'email'}
+            </button>
+
+            <Link
+              to="/login"
+              className="block w-full py-3.5 rounded-xl font-bold text-sm text-white text-center transition-all"
+              style={{ backgroundColor: T.primaryBlue, boxShadow: `0 4px 14px ${T.primaryBlue}40` }}
+            >
+              Se connecter
+            </Link>
+
+            <p className="text-xs mt-4" style={{ color: T.textTertiary }}>
+              Vérifiez aussi vos spams si vous ne trouvez pas l'email.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   /* ================================
      MAIN RENDER
