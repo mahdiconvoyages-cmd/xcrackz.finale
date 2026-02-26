@@ -828,10 +828,7 @@ class _MatchTile extends StatelessWidget {
     final depDate     = offer['departure_date'] as String?;
     final depTime     = (offer['departure_time'] as String? ?? '').replaceAll(RegExp(r':\d{2}$'), '');
 
-    return Semantics(
-      button: true,
-      label: '${cfg.label} — ${isDriver ? "Je conduis" : "Passager"}, $pickup vers $dropoff${depDate != null ? ", $depDate" : ""}${unreadCount > 0 ? ", $unreadCount messages non lus" : ""}',
-      child: GestureDetector(
+    return GestureDetector(
       onTap: onTap,
       child: Container(
         margin: const EdgeInsets.fromLTRB(16, 0, 16, 10),
@@ -1045,7 +1042,6 @@ class _MatchTile extends StatelessWidget {
           ],
         ),
       ),
-    ),
     );
   }
 }

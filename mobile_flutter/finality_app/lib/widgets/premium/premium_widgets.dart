@@ -100,14 +100,6 @@ class _AnimatedStatCardState extends State<AnimatedStatCard>
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (MediaQuery.of(context).disableAnimations) {
-      _controller.value = 1.0;
-    }
-  }
-
-  @override
   void dispose() {
     _controller.dispose();
     super.dispose();
@@ -379,14 +371,6 @@ class _ProgressRingState extends State<ProgressRing>
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (MediaQuery.of(context).disableAnimations) {
-      _controller.value = 1.0;
-    }
-  }
-
-  @override
   void didUpdateWidget(ProgressRing oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.progress != widget.progress) {
@@ -528,14 +512,6 @@ class _FadeInAnimationState extends State<FadeInAnimation>
     Future.delayed(widget.delay, () {
       if (mounted) _controller.forward();
     });
-  }
-
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    if (MediaQuery.of(context).disableAnimations) {
-      _controller.value = 1.0;
-    }
   }
 
   @override

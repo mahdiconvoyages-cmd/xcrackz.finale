@@ -67,15 +67,6 @@ class _DashboardScreenState extends State<DashboardScreen>
   }
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // Respect reduced-motion accessibility setting
-    if (MediaQuery.of(context).disableAnimations) {
-      _animationController.value = 1.0;
-    }
-  }
-
-  @override
   void dispose() {
     _animationController.dispose();
     _realtimeService.unsubscribeAll();

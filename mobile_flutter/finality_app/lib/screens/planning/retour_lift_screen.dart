@@ -858,10 +858,7 @@ class _OfferCard extends StatelessWidget {
       'car': '🚗', 'van': '🚐', 'truck': '🚛', 'suv': '🏎️', 'motorcycle': '🏍️',
     };
 
-    return Semantics(
-      button: true,
-      label: 'Offre de $name, $origin vers $dest, $seats places${isDirectMatch ? ", trajet direct" : ""}',
-      child: Container(
+    return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
         color: _kCard,
@@ -1042,7 +1039,6 @@ class _OfferCard extends StatelessWidget {
           ),
         ],
       ),
-    ),
     );
   }
 }
