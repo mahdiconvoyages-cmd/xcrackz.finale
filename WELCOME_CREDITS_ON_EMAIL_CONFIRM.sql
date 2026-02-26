@@ -20,15 +20,29 @@ CREATE TABLE IF NOT EXISTS public.credit_transactions (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   amount INTEGER NOT NULL,
-  type TEXT NOT NULL, -- 'welcome_bonus', 'purchase', 'usage', 'expiry', 'refund'
+  transaction_type TEXT NOT NULL DEFAULT 'welcome_bonus',
   description TEXT,
   expires_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- Ajouter les colonnes manquantes si la table existait déjà
+DO $$
+BEGIN
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='credit_transactions' AND column_name='transaction_type') THEN
+    ALTER TABLE public.credit_transactions ADD COLUMN transaction_type TEXT NOT NULL DEFAULT 'welcome_bonus';
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='credit_transactions' AND column_name='description') THEN
+    ALTER TABLE public.credit_transactions ADD COLUMN description TEXT;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_schema='public' AND table_name='credit_transactions' AND column_name='expires_at') THEN
+    ALTER TABLE public.credit_transactions ADD COLUMN expires_at TIMESTAMPTZ;
+  END IF;
+END $$;
+
 -- Index pour requêtes rapides
 CREATE INDEX IF NOT EXISTS idx_credit_transactions_user_id ON public.credit_transactions(user_id);
-CREATE INDEX IF NOT EXISTS idx_credit_transactions_type ON public.credit_transactions(type);
+CREATE INDEX IF NOT EXISTS idx_credit_transactions_type ON public.credit_transactions(transaction_type);
 
 -- RLS
 ALTER TABLE public.credit_transactions ENABLE ROW LEVEL SECURITY;
@@ -58,7 +72,7 @@ BEGIN
     -- Vérifier qu'on n'a pas déjà donné le bonus
     SELECT EXISTS(
       SELECT 1 FROM public.credit_transactions
-      WHERE user_id = NEW.id AND type = 'welcome_bonus'
+      WHERE user_id = NEW.id AND transaction_type = 'welcome_bonus'
     ) INTO v_already_got_bonus;
     
     IF NOT v_already_got_bonus THEN
@@ -73,7 +87,7 @@ BEGIN
       WHERE id = NEW.id;
       
       -- Logger la transaction
-      INSERT INTO public.credit_transactions (user_id, amount, type, description, expires_at)
+      INSERT INTO public.credit_transactions (user_id, amount, transaction_type, description, expires_at)
       VALUES (
         NEW.id, 
         10, 
