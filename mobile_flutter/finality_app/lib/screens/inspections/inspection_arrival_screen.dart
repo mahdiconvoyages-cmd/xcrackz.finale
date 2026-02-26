@@ -6,11 +6,11 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
-import '../../widgets/signature_pad_widget.dart';
 import '../../widgets/inspection_report_link_dialog.dart';
 import '../document_scanner/document_scanner_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
+import 'widgets/inspection_shared_widgets.dart';
 
 /// Écran d'inspection d'arrivée moderne avec 8 photos obligatoires
 /// Compatible avec les tables Expo mobile (vehicle_inspections + inspection_photos)
@@ -36,6 +36,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
 
   int _currentStep = 0;
   bool _isLoading = false;
+  bool _isSubmitting = false;
   String _vehicleType = 'VL'; // VL, VU, ou PL
 
   // Step 1: KM, Carburant, Tableau de bord
@@ -48,10 +49,12 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
 
   final List<String?> _photos = List.filled(8, null);
   final List<String> _photoDamages = List.filled(8, 'RAS');
+  final List<String> _photoComments = List.filled(8, '');
 
   // Photos optionnelles (10 max, apparaissent progressivement)
   final List<String?> _optionalPhotos = List.filled(10, null);
   final List<String> _optionalPhotoDamages = List.filled(10, 'RAS');
+  final List<String> _optionalPhotoComments = List.filled(10, '');
 
   // Step 3: Check-list d'arrivée (spécifique arrivée)
   bool _allKeysReturned = false;
@@ -104,82 +107,8 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
   }
 
   /// Initialiser les guides photos selon le type de véhicule
-  /// Chaque type a ses propres images extérieures, intérieur identique pour tous
   void _initializePhotoGuides() {
-    _photoGuides = [
-      PhotoGuide(
-        label: 'Avant',
-        icon: Icons.directions_car,
-        description: 'Vue de face du véhicule',
-        image: _vehicleType == 'PL'
-            ? 'assets/vehicles/scania-avant.png'
-            : _vehicleType == 'VU'
-            ? 'assets/vehicles/master_avant.png'
-            : 'assets/vehicles/avant.png',
-      ),
-      PhotoGuide(
-        label: 'Avant gauche',
-        icon: Icons.format_indent_increase,
-        description: 'Angle avant latéral gauche',
-        image: _vehicleType == 'PL'
-            ? 'assets/vehicles/scania-lateral-gauche-avant.png'
-            : _vehicleType == 'VU'
-            ? 'assets/vehicles/master_lateral_gauche_avant.png'
-            : 'assets/vehicles/lateral_gauche_avant.png',
-      ),
-      PhotoGuide(
-        label: 'Arrière gauche',
-        icon: Icons.format_indent_decrease,
-        description: 'Angle arrière latéral gauche',
-        image: _vehicleType == 'PL'
-            ? 'assets/vehicles/scania-lateral-gauche-arriere.png'
-            : _vehicleType == 'VU'
-            ? 'assets/vehicles/master_lateral_gauche_arriere.png'
-            : 'assets/vehicles/laterale_gauche_arriere.png',
-      ),
-      PhotoGuide(
-        label: 'Arrière',
-        icon: Icons.directions_car,
-        description: 'Vue arrière du véhicule',
-        image: _vehicleType == 'PL'
-            ? 'assets/vehicles/scania-arriere.png'
-            : _vehicleType == 'VU'
-            ? 'assets/vehicles/master_avg_2.png'
-            : 'assets/vehicles/arriere.png',
-      ),
-      PhotoGuide(
-        label: 'Arrière droit',
-        icon: Icons.format_indent_decrease,
-        description: 'Angle arrière latéral droit',
-        image: _vehicleType == 'PL'
-            ? 'assets/vehicles/scania-lateral-droit-arriere.png'
-            : _vehicleType == 'VU'
-            ? 'assets/vehicles/master_lateral_droit_arriere.png'
-            : 'assets/vehicles/lateral_droit_arriere.png',
-      ),
-      PhotoGuide(
-        label: 'Avant droit',
-        icon: Icons.format_indent_increase,
-        description: 'Angle avant latéral droit',
-        image: _vehicleType == 'PL'
-            ? 'assets/vehicles/scania-lateral-droit-avant.png'
-            : _vehicleType == 'VU'
-            ? 'assets/vehicles/master_lateral_droit_avant.png'
-            : 'assets/vehicles/lateraldroit_avant.png',
-      ),
-      PhotoGuide(
-        label: 'Intérieur avant',
-        icon: Icons.airline_seat_recline_normal,
-        description: 'Sièges avant et habitacle',
-        image: 'assets/vehicles/interieur_avant.png', // Identique pour tous
-      ),
-      PhotoGuide(
-        label: 'Intérieur arrière',
-        icon: Icons.weekend,
-        description: 'Sièges arrière et espace passagers',
-        image: 'assets/vehicles/interieur_arriere.png', // Identique pour tous
-      ),
-    ];
+    _photoGuides = buildPhotoGuides(_vehicleType);
   }
 
   Future<void> _loadMissionDetails() async {
@@ -313,7 +242,40 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final hasProgress = _currentStep > 0 ||
+        _dashboardPhoto != null ||
+        _photos.any((p) => p != null) ||
+        _kmController.text.isNotEmpty;
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) async {
+        if (didPop) return;
+        if (!hasProgress) { Navigator.pop(context); return; }
+        final confirm = await showDialog<bool>(
+          context: context,
+          builder: (_) => AlertDialog(
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+            title: const Text('Quitter l\'inspection ?',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            content: const Text(
+                'Votre progression sera perdue. Voulez-vous vraiment quitter ?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text('Continuer'),
+              ),
+              FilledButton(
+                style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text('Quitter'),
+              ),
+            ],
+          ),
+        );
+        if (confirm == true && context.mounted) Navigator.pop(context);
+      },
+      child: Scaffold(
       backgroundColor: PremiumTheme.lightBg,
       body: Stack(
         children: [
@@ -335,7 +297,31 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                       children: [
                         IconButton(
                           icon: const Icon(Icons.close, color: Colors.white, size: 22),
-                          onPressed: () => Navigator.pop(context),
+                          onPressed: () async {
+                            if (!hasProgress) { Navigator.pop(context); return; }
+                            final confirm = await showDialog<bool>(
+                              context: context,
+                              builder: (_) => AlertDialog(
+                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                title: const Text('Quitter l\'inspection ?',
+                                    style: TextStyle(fontWeight: FontWeight.bold)),
+                                content: const Text(
+                                    'Votre progression sera perdue. Voulez-vous vraiment quitter ?'),
+                                actions: [
+                                  TextButton(
+                                    onPressed: () => Navigator.pop(context, false),
+                                    child: const Text('Continuer'),
+                                  ),
+                                  FilledButton(
+                                    style: FilledButton.styleFrom(backgroundColor: Colors.red),
+                                    onPressed: () => Navigator.pop(context, true),
+                                    child: const Text('Quitter'),
+                                  ),
+                                ],
+                              ),
+                            );
+                            if (confirm == true && context.mounted) Navigator.pop(context);
+                          },
                         ),
                         Expanded(
                           child: Text(
@@ -359,25 +345,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
 
           // Content
           Expanded(
-            child: _isLoading
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ShimmerLoading(
-                          width: MediaQuery.of(context).size.width - 48,
-                          height: 200,
-                          borderRadius: PremiumTheme.radiusXL,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          'Finalisation de l\'inspection...',
-                          style: PremiumTheme.body,
-                        ),
-                      ],
-                    ),
-                  )
-                : _buildStepContent(),
+            child: _buildStepContent(),
           ),
 
           // Navigation buttons avec SafeArea
@@ -427,7 +395,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: _isLoading && _currentStep == 4
+                      child: _isSubmitting && _currentStep == 4
                           ? const Row(
                               mainAxisSize: MainAxisSize.min,
                               children: [
@@ -453,7 +421,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
         ],
       ),
           // Loading overlay pendant la soumission
-          if (_isLoading)
+          if (_isSubmitting)
             Container(
               color: Colors.black54,
               child: const Center(
@@ -473,7 +441,8 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
             ),
         ],
       ),
-    );
+    ), // Scaffold
+    ); // PopScope
   }
   int _getVisibleOptionalPhotosCount() {
     // Afficher progressivement les photos optionnelles
@@ -553,7 +522,15 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
       case 0:
         return _dashboardPhoto != null && _kmController.text.isNotEmpty;
       case 1:
-        return _photos.every((photo) => photo != null);
+        if (!_photos.every((photo) => photo != null)) return false;
+        // Vérifier que chaque dommage ≠ RAS a un commentaire
+        for (int i = 0; i < 8; i++) {
+          if (_photoDamages[i] != 'RAS' && _photoComments[i].trim().isEmpty) return false;
+        }
+        for (int i = 0; i < 10; i++) {
+          if (_optionalPhotos[i] != null && _optionalPhotoDamages[i] != 'RAS' && _optionalPhotoComments[i].trim().isEmpty) return false;
+        }
+        return true;
       case 2:
         return _allKeysReturned && _documentsReturned;
       case 3:
@@ -573,7 +550,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() => _isSubmitting = true);
 
     try {
       final userId = supabase.auth.currentUser?.id;
@@ -608,51 +585,61 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
 
       final inspectionId = inspectionResponse['id'];
 
-      // 2. Upload et sauvegarder toutes les photos
-      final allPhotos = [
+      // 2. Upload et sauvegarder toutes les photos (parallèle par batch de 3)
+      final allPhotos = <Map<String, dynamic>>[
         if (_dashboardPhoto != null)
-          {'path': _dashboardPhoto!, 'type': 'dashboard_arrival', 'index': -1},
+          {'path': _dashboardPhoto!, 'type': 'dashboard_arrival', 'index': -1, 'damage': 'RAS', 'comment': ''},
         ..._photos.asMap().entries.where((e) => e.value != null).map((e) => {
               'path': e.value!,
               'type': '${_photoGuides[e.key].label}_arrival',
               'index': e.key,
+              'damage': _photoDamages[e.key],
+              'comment': _photoComments[e.key],
             }),
         ..._optionalPhotos.asMap().entries.where((e) => e.value != null).map((e) => {
               'path': e.value!,
               'type': 'Photo optionnelle ${e.key + 1}_arrival',
               'index': e.key + 8,
+              'damage': _optionalPhotoDamages[e.key],
+              'comment': _optionalPhotoComments[e.key],
             }),
       ];
 
-      for (final photo in allPhotos) {
-        final filePath = photo['path'] as String;
-        final file = File(filePath);
-        if (!file.existsSync()) {
-          debugPrint('⚠️ Photo file missing: $filePath');
-          continue;
-        }
-        final bytes = await file.readAsBytes();
-        final photoType = (photo['type'] as String).replaceAll(' ', '_').replaceAll('é', 'e').replaceAll('è', 'e');
-        final fileName =
-            'inspection_arrival_${inspectionId}_${photoType}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        final storagePath = 'inspections/$userId/$fileName';
+      // Upload par batch de 3 en parallèle
+      for (int i = 0; i < allPhotos.length; i += 3) {
+        final batch = allPhotos.skip(i).take(3);
+        await Future.wait(batch.map((photo) async {
+          final filePath = photo['path'] as String;
+          final file = File(filePath);
+          if (!file.existsSync()) {
+            debugPrint('⚠️ Photo file missing: $filePath');
+            return;
+          }
+          final bytes = await file.readAsBytes();
+          final photoType = (photo['type'] as String).replaceAll(' ', '_').replaceAll('é', 'e').replaceAll('è', 'e');
+          final fileName =
+              'inspection_arrival_${inspectionId}_${photoType}_${DateTime.now().millisecondsSinceEpoch}_${photo['index']}.jpg';
+          final storagePath = 'inspections/$userId/$fileName';
 
-        await supabase.storage.from('inspection-photos').uploadBinary(
-              storagePath,
-              bytes,
-              fileOptions: const FileOptions(upsert: true),
-            );
+          await supabase.storage.from('inspection-photos').uploadBinary(
+                storagePath,
+                bytes,
+                fileOptions: const FileOptions(upsert: true),
+              );
 
-        final publicUrl =
-            supabase.storage.from('inspection-photos').getPublicUrl(storagePath);
+          final publicUrl =
+              supabase.storage.from('inspection-photos').getPublicUrl(storagePath);
 
-        // 3. Enregistrer dans inspection_photos_v2
-        await supabase.from('inspection_photos_v2').insert({
-          'inspection_id': inspectionId,
-          'full_url': publicUrl,
-          'photo_type': photo['type'],
-          'taken_at': DateTime.now().toUtc().toIso8601String(),
-        });
+          // 3. Enregistrer dans inspection_photos_v2
+          await supabase.from('inspection_photos_v2').insert({
+            'inspection_id': inspectionId,
+            'full_url': publicUrl,
+            'photo_type': photo['type'],
+            'damage_status': photo['damage'],
+            'damage_comment': (photo['damage'] != 'RAS' && (photo['comment'] as String).isNotEmpty) ? photo['comment'] : null,
+            'taken_at': DateTime.now().toUtc().toIso8601String(),
+          });
+        }));
       }
 
       // 4. Sauvegarder les documents scannés avec noms personnalisés
@@ -722,7 +709,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
         'is_active': true,
       }, onConflict: 'mission_id,report_type');
 
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isSubmitting = false);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -789,7 +776,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
         if (mounted) Navigator.pop(context, true);
       }
     } catch (e) {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isSubmitting = false);
       _showError('Erreur lors de la soumission: $e');
     }
   }
@@ -1030,7 +1017,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
               crossAxisCount: 2,
-              childAspectRatio: 0.8,
+              childAspectRatio: 0.65,
               crossAxisSpacing: 16,
               mainAxisSpacing: 16,
             ),
@@ -1160,13 +1147,45 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                           setState(() {
                             if (isOptional) {
                               _optionalPhotoDamages[index] = value;
+                              if (value == 'RAS') _optionalPhotoComments[index] = '';
                             } else {
                               _photoDamages[index] = value;
+                              if (value == 'RAS') _photoComments[index] = '';
                             }
                           });
                         }
                       },
                     ),
+                  // Champ commentaire obligatoire si dommage ≠ RAS
+                  if (hasPhoto && (isOptional ? _optionalPhotoDamages[index] : _photoDamages[index]) != 'RAS') ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.all(6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFEF3C7),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(color: const Color(0xFFF59E0B)),
+                      ),
+                      child: TextField(
+                        decoration: InputDecoration(
+                          hintText: 'Commentaire obligatoire...',
+                          hintStyle: TextStyle(color: Colors.orange.shade300, fontSize: 11),
+                          border: InputBorder.none,
+                          isDense: true,
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                        style: const TextStyle(fontSize: 11, color: Colors.black87),
+                        maxLines: 2,
+                        onChanged: (val) {
+                          if (isOptional) {
+                            _optionalPhotoComments[index] = val;
+                          } else {
+                            _photoComments[index] = val;
+                          }
+                        },
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -1689,69 +1708,3 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
     super.dispose();
   }
 }
-
-class PhotoGuide {
-  final String label;
-  final IconData icon;
-  final String description;
-  final String? image;
-
-  const PhotoGuide({
-    required this.label,
-    required this.icon,
-    required this.description,
-    this.image,
-  });
-}
-
-class SignaturePadDialog extends StatelessWidget {
-  final String title;
-  final String subtitle;
-
-  const SignaturePadDialog({
-    super.key,
-    required this.title,
-    this.subtitle = '',
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: Colors.white,
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (subtitle.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: PremiumTheme.textSecondary,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-            const SizedBox(height: 24),
-            SignaturePadWidget(
-              title: title,
-              onSaved: (signature) {
-                Navigator.pop(context, signature);
-              },
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-

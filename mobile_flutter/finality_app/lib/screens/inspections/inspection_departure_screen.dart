@@ -5,11 +5,11 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
-import '../../widgets/signature_pad_widget.dart';
 import '../../widgets/inspection_report_link_dialog.dart';
 import '../document_scanner/document_scanner_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
+import 'widgets/inspection_shared_widgets.dart';
 
 /// Écran d'inspection de départ moderne avec 8 photos obligatoires
 /// Compatible avec les tables Expo mobile (vehicle_inspections + inspection_photos)
@@ -35,6 +35,7 @@ class _InspectionDepartureScreenState
 
   int _currentStep = 0;
   bool _isLoading = false;
+  bool _isSubmitting = false;
   String _vehicleType = 'VL'; // VL, VU, ou PL
 
   // Step 1: KM, Carburant, Tableau de bord
@@ -47,10 +48,12 @@ class _InspectionDepartureScreenState
 
   final List<String?> _photos = List.filled(8, null);
   final List<String> _photoDamages = List.filled(8, 'RAS');
+  final List<String> _photoComments = List.filled(8, '');
 
   // Photos optionnelles (10 max, apparaissent progressivement)
   final List<String?> _optionalPhotos = List.filled(10, null);
   final List<String> _optionalPhotoDamages = List.filled(10, 'RAS');
+  final List<String> _optionalPhotoComments = List.filled(10, '');
 
   // Step 3: État du véhicule & Checklist
   String _vehicleCondition = 'Bon';
@@ -98,82 +101,8 @@ class _InspectionDepartureScreenState
   }
 
   /// Initialiser les guides photos selon le type de véhicule
-  /// Chaque type a ses propres images extérieures, intérieur identique pour tous
   void _initializePhotoGuides() {
-    _photoGuides = [
-      PhotoGuide(
-        label: 'Avant',
-        icon: Icons.directions_car,
-        description: 'Vue de face du véhicule',
-        image: _vehicleType == 'PL'
-            ? 'assets/vehicles/scania-avant.png'
-            : _vehicleType == 'VU'
-            ? 'assets/vehicles/master_avant.png'
-            : 'assets/vehicles/avant.png',
-      ),
-      PhotoGuide(
-        label: 'Avant gauche',
-        icon: Icons.format_indent_increase,
-        description: 'Angle avant latéral gauche',
-        image: _vehicleType == 'PL'
-            ? 'assets/vehicles/scania-lateral-gauche-avant.png'
-            : _vehicleType == 'VU'
-            ? 'assets/vehicles/master_lateral_gauche_avant.png'
-            : 'assets/vehicles/lateral_gauche_avant.png',
-      ),
-      PhotoGuide(
-        label: 'Arrière gauche',
-        icon: Icons.format_indent_decrease,
-        description: 'Angle arrière latéral gauche',
-        image: _vehicleType == 'PL'
-            ? 'assets/vehicles/scania-lateral-gauche-arriere.png'
-            : _vehicleType == 'VU'
-            ? 'assets/vehicles/master_lateral_gauche_arriere.png'
-            : 'assets/vehicles/laterale_gauche_arriere.png',
-      ),
-      PhotoGuide(
-        label: 'Arrière',
-        icon: Icons.directions_car,
-        description: 'Vue arrière du véhicule',
-        image: _vehicleType == 'PL'
-            ? 'assets/vehicles/scania-arriere.png'
-            : _vehicleType == 'VU'
-            ? 'assets/vehicles/master_avg_2.png'
-            : 'assets/vehicles/arriere.png',
-      ),
-      PhotoGuide(
-        label: 'Arrière droit',
-        icon: Icons.format_indent_decrease,
-        description: 'Angle arrière latéral droit',
-        image: _vehicleType == 'PL'
-            ? 'assets/vehicles/scania-lateral-droit-arriere.png'
-            : _vehicleType == 'VU'
-            ? 'assets/vehicles/master_lateral_droit_arriere.png'
-            : 'assets/vehicles/lateral_droit_arriere.png',
-      ),
-      PhotoGuide(
-        label: 'Avant droit',
-        icon: Icons.format_indent_increase,
-        description: 'Angle avant latéral droit',
-        image: _vehicleType == 'PL'
-            ? 'assets/vehicles/scania-lateral-droit-avant.png'
-            : _vehicleType == 'VU'
-            ? 'assets/vehicles/master_lateral_droit_avant.png'
-            : 'assets/vehicles/lateraldroit_avant.png',
-      ),
-      PhotoGuide(
-        label: 'Intérieur avant',
-        icon: Icons.airline_seat_recline_normal,
-        description: 'Sièges avant et habitacle',
-        image: 'assets/vehicles/interieur_avant.png', // Identique pour tous
-      ),
-      PhotoGuide(
-        label: 'Intérieur arrière',
-        icon: Icons.weekend,
-        description: 'Sièges arrière et espace passagers',
-        image: 'assets/vehicles/interieur_arriere.png', // Identique pour tous
-      ),
-    ];
+    _photoGuides = buildPhotoGuides(_vehicleType);
   }
 
   /// Charger les détails de la mission pour obtenir le type de véhicule
@@ -198,22 +127,21 @@ class _InspectionDepartureScreenState
     }
   }
 
-  /// Charger le nom du convoyeur depuis profiles.full_name (comme Expo ligne 91)
+  /// Charger le nom du convoyeur depuis profiles
   Future<void> _loadDriverName() async {
     try {
-      final user = supabase.auth.currentUser;
-      if (user == null) return;
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
 
       final response = await supabase
           .from('profiles')
-          .select('full_name')
-          .eq('id', user.id)
+          .select('first_name, last_name')
+          .eq('id', userId)
           .maybeSingle();
 
-      if (response != null) {
-        if (!mounted) return;
+      if (response != null && mounted) {
         setState(() {
-          _driverName = response['full_name'] ?? '';
+          _driverName = '${response['first_name'] ?? ''} ${response['last_name'] ?? ''}'.trim();
         });
         debugPrint('✅ INSPECTION: Driver name loaded = $_driverName');
       }
@@ -305,7 +233,16 @@ class _InspectionDepartureScreenState
         return _dashboardPhoto != null && _kmController.text.isNotEmpty;
       case 1:
         // Vérifier que les 8 photos sont prises
-        return _photos.every((photo) => photo != null);
+        if (!_photos.every((photo) => photo != null)) return false;
+        // Vérifier que chaque dommage ≠ RAS a un commentaire
+        for (int i = 0; i < 8; i++) {
+          if (_photoDamages[i] != 'RAS' && _photoComments[i].trim().isEmpty) return false;
+        }
+        // Vérifier les photos optionnelles avec dommage
+        for (int i = 0; i < 10; i++) {
+          if (_optionalPhotos[i] != null && _optionalPhotoDamages[i] != 'RAS' && _optionalPhotoComments[i].trim().isEmpty) return false;
+        }
+        return true;
       case 2:
         return true; // Checklist optionnelle
       case 3:
@@ -325,7 +262,7 @@ class _InspectionDepartureScreenState
       return;
     }
 
-    setState(() => _isLoading = true);
+    setState(() => _isSubmitting = true);
 
     try {
       final userId = supabase.auth.currentUser?.id;
@@ -374,52 +311,62 @@ class _InspectionDepartureScreenState
       final inspectionId = inspectionResponse['id'];
       debugPrint('✅ STEP 1 OK: inspectionId=$inspectionId');
 
-      // 2. Upload photos vers inspection-photos bucket
+      // 2. Upload photos vers inspection-photos bucket (parallèle par batch de 3)
       debugPrint('📸 STEP 2: Uploading photos...');
-      final allPhotos = [
+      final allPhotos = <Map<String, dynamic>>[
         if (_dashboardPhoto != null)
-          {'path': _dashboardPhoto!, 'type': 'dashboard', 'index': -1},
+          {'path': _dashboardPhoto!, 'type': 'dashboard', 'index': -1, 'damage': 'RAS', 'comment': ''},
         ..._photos.asMap().entries.where((e) => e.value != null).map((e) => {
               'path': e.value!,
               'type': _photoGuides[e.key].label,
               'index': e.key,
+              'damage': _photoDamages[e.key],
+              'comment': _photoComments[e.key],
             }),
         ..._optionalPhotos.asMap().entries.where((e) => e.value != null).map((e) => {
               'path': e.value!,
               'type': 'Photo optionnelle ${e.key + 1}',
               'index': e.key + 8,
+              'damage': _optionalPhotoDamages[e.key],
+              'comment': _optionalPhotoComments[e.key],
             }),
       ];
 
-      for (final photo in allPhotos) {
-        final filePath = photo['path'] as String;
-        final file = File(filePath);
-        if (!file.existsSync()) {
-          debugPrint('⚠️ Photo file missing: $filePath');
-          continue; // Skip missing photos instead of crashing
-        }
-        final bytes = await file.readAsBytes();
-        final photoType = (photo['type'] as String).replaceAll(' ', '_').replaceAll('é', 'e').replaceAll('è', 'e');
-        final fileName =
-            'inspection_${inspectionId}_${photoType}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        final storagePath = 'inspections/$userId/$fileName';
+      // Upload par batch de 3 en parallèle
+      for (int i = 0; i < allPhotos.length; i += 3) {
+        final batch = allPhotos.skip(i).take(3);
+        await Future.wait(batch.map((photo) async {
+          final filePath = photo['path'] as String;
+          final file = File(filePath);
+          if (!file.existsSync()) {
+            debugPrint('⚠️ Photo file missing: $filePath');
+            return;
+          }
+          final bytes = await file.readAsBytes();
+          final photoType = (photo['type'] as String).replaceAll(' ', '_').replaceAll('é', 'e').replaceAll('è', 'e');
+          final fileName =
+              'inspection_${inspectionId}_${photoType}_${DateTime.now().millisecondsSinceEpoch}_${photo['index']}.jpg';
+          final storagePath = 'inspections/$userId/$fileName';
 
-        await supabase.storage.from('inspection-photos').uploadBinary(
-              storagePath,
-              bytes,
-              fileOptions: const FileOptions(upsert: true),
-            );
+          await supabase.storage.from('inspection-photos').uploadBinary(
+                storagePath,
+                bytes,
+                fileOptions: const FileOptions(upsert: true),
+              );
 
-        final publicUrl =
-            supabase.storage.from('inspection-photos').getPublicUrl(storagePath);
+          final publicUrl =
+              supabase.storage.from('inspection-photos').getPublicUrl(storagePath);
 
-        // 3. Enregistrer dans inspection_photos_v2
-        await supabase.from('inspection_photos_v2').insert({
-          'inspection_id': inspectionId,
-          'full_url': publicUrl,
-          'photo_type': photo['type'],
-          'taken_at': DateTime.now().toUtc().toIso8601String(),
-        });
+          // 3. Enregistrer dans inspection_photos_v2
+          await supabase.from('inspection_photos_v2').insert({
+            'inspection_id': inspectionId,
+            'full_url': publicUrl,
+            'photo_type': photo['type'],
+            'damage_status': photo['damage'],
+            'damage_comment': (photo['damage'] != 'RAS' && (photo['comment'] as String).isNotEmpty) ? photo['comment'] : null,
+            'taken_at': DateTime.now().toUtc().toIso8601String(),
+          });
+        }));
       }
       debugPrint('✅ STEP 2-3 OK: ${allPhotos.length} photos uploaded');
 
@@ -504,7 +451,7 @@ class _InspectionDepartureScreenState
       debugPrint('❌ INSPECTION DEPARTURE ERROR: $e');
       _showError('Erreur: $e');
     } finally {
-      if (mounted) setState(() => _isLoading = false);
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
@@ -624,26 +571,7 @@ class _InspectionDepartureScreenState
 
           // Content
           Expanded(
-            child: _isLoading
-                ? Center(
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        ShimmerLoading(
-                          width: MediaQuery.of(context).size.width - 48,
-                          height: 200,
-                          borderRadius: PremiumTheme.radiusXL,
-                        ),
-                        const SizedBox(height: 24),
-                        ShimmerLoading(
-                          width: MediaQuery.of(context).size.width - 48,
-                          height: 100,
-                          borderRadius: PremiumTheme.radiusLG,
-                        ),
-                      ],
-                    ),
-                  )
-                : _buildStepContent(),
+            child: _buildStepContent(),
           ),
 
           // Navigation buttons
@@ -651,7 +579,7 @@ class _InspectionDepartureScreenState
         ],
       ),
         // Loading overlay pendant la soumission
-        if (_isLoading)
+        if (_isSubmitting)
           Container(
             color: Colors.black54,
             child: const Center(
@@ -1033,7 +961,7 @@ class _InspectionDepartureScreenState
               crossAxisCount: 2,
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: 0.85,
+              childAspectRatio: 0.65,
             ),
             itemCount: 8 + _getVisibleOptionalPhotosCount(),
             itemBuilder: (context, index) {
@@ -1207,12 +1135,50 @@ class _InspectionDepartureScreenState
                         setState(() {
                           if (isOptional) {
                             _optionalPhotoDamages[index] = value ?? 'RAS';
+                            if (value == 'RAS') _optionalPhotoComments[index] = '';
                           } else {
                             _photoDamages[index] = value ?? 'RAS';
+                            if (value == 'RAS') _photoComments[index] = '';
                           }
                         });
                       },
                     ),
+                    // Commentaire obligatoire si dommage ≠ RAS
+                    if (damage != 'RAS') ...[
+                      const SizedBox(height: 6),
+                      TextField(
+                        style: TextStyle(color: PremiumTheme.textPrimary, fontSize: 11),
+                        maxLines: 2,
+                        decoration: InputDecoration(
+                          hintText: 'Décrivez le dommage...',
+                          hintStyle: TextStyle(color: PremiumTheme.textTertiary, fontSize: 11),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                          filled: true,
+                          fillColor: const Color(0xFFFEF3C7),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: const BorderSide(color: Color(0xFFF59E0B)),
+                          ),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: const BorderSide(color: Color(0xFFF59E0B)),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(6),
+                            borderSide: const BorderSide(color: Color(0xFFEF4444), width: 2),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          if (isOptional) {
+                            _optionalPhotoComments[index] = value;
+                          } else {
+                            _photoComments[index] = value;
+                          }
+                          setState(() {}); // Refresh _canProceed
+                        },
+                        controller: null, // Stateless — uses onChanged
+                      ),
+                    ],
                   ],
                 ],
               ),
@@ -1828,7 +1794,7 @@ class _InspectionDepartureScreenState
                         }
                       }
                     : null,
-                icon: _isLoading && _currentStep == 4
+                icon: _isSubmitting && _currentStep == 4
                     ? const SizedBox(
                         width: 18, height: 18,
                         child: CircularProgressIndicator(
@@ -1836,7 +1802,7 @@ class _InspectionDepartureScreenState
                     : Icon(
                         _currentStep < 4 ? Icons.arrow_forward : Icons.check,
                       ),
-                label: Text(_currentStep < 4 ? 'Suivant' : (_isLoading ? 'Envoi en cours…' : 'Terminer')),
+                label: Text(_currentStep < 4 ? 'Suivant' : (_isSubmitting ? 'Envoi en cours…' : 'Terminer')),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: const Color(0xFF14B8A6),
                   foregroundColor: Colors.white,
@@ -1848,71 +1814,6 @@ class _InspectionDepartureScreenState
                   ),
                 ),
               ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class PhotoGuide {
-  final String label;
-  final IconData icon;
-  final String description;
-  final String? image;
-
-  PhotoGuide({
-    required this.label,
-    required this.icon,
-    required this.description,
-    this.image,
-  });
-}
-
-class SignaturePadDialog extends StatelessWidget {
-  final String title;
-  final String subtitle;
-
-  const SignaturePadDialog({
-    super.key,
-    required this.title,
-    this.subtitle = '',
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: const Color(0xFF1F2937),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(
-              title,
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 18,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            if (subtitle.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Text(
-                subtitle,
-                style: const TextStyle(
-                  color: Colors.white70,
-                  fontSize: 14,
-                ),
-              ),
-            ],
-            const SizedBox(height: 24),
-            SignaturePadWidget(
-              title: title,
-              onSaved: (signature) {
-                Navigator.pop(context, signature);
-              },
             ),
           ],
         ),
