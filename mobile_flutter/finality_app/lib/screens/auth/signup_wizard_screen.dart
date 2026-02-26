@@ -737,6 +737,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
       final authResponse = await supabase.auth.signUp(
         email: _signupData['email'],
         password: _signupData['password'],
+        emailRedirectTo: 'https://checksfleet.com/auth/callback',
         data: {
           'full_name': _signupData['full_name'],
           'user_type': _signupData['user_type'],
@@ -786,7 +787,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           'device_fingerprint': deviceFingerprint,
           'registration_ip': ipAddress,
           'app_role': _signupData['user_type'] == 'company' ? 'donneur_d_ordre' : 'convoyeur',
-          'credits': 0,
+          // NE PAS envoyer credits:0 ici — le trigger handle_email_confirmed gère les crédits
         });
       } catch (profileErr) {
         // Profile upsert may fail (e.g. unique constraint on phone) but 
