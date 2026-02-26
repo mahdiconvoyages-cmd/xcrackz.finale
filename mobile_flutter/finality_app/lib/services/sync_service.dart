@@ -3,6 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/logger.dart';
 
+/// @deprecated Use [RealtimeService] instead. This service's functionality
+/// has been merged into RealtimeService (see realtime_service.dart).
+///
 /// Service de synchronisation en temps réel avec le backend web.
 ///
 /// Provides reactive [Stream]s for Supabase tables via Realtime channels.

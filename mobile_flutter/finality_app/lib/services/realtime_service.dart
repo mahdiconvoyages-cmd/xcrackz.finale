@@ -2,11 +2,21 @@ import 'dart:async';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/logger.dart';
 
-/// Service de gestion des subscriptions Supabase Realtime
-/// Permet d'écouter les changements en temps réel sur les tables
+/// Unified Realtime service for Supabase Postgres Changes.
+///
+/// Provides both:
+///  - **Callback-based** subscriptions (credits, subscription, inspections, missions)
+///  - **Stream-based** sync for full table lists with debounce
+///
+/// Replaces both the old RealtimeService and SyncService.
 class RealtimeService {
   final SupabaseClient _supabase = Supabase.instance.client;
   final Map<String, RealtimeChannel> _channels = {};
+  final Map<String, StreamController> _controllers = {};
+  final Map<String, Timer?> _debounceTimers = {};
+  static const _debounceDuration = Duration(milliseconds: 500);
+
+  String? get _currentUserId => _supabase.auth.currentUser?.id;
 
   /// Subscribe to missions changes for a specific user
   StreamSubscription<dynamic>? subscribeMissions({
@@ -178,6 +188,15 @@ class RealtimeService {
       channel.unsubscribe();
     }
     _channels.clear();
+    // Also clean up stream-based resources
+    for (var timer in _debounceTimers.values) {
+      timer?.cancel();
+    }
+    _debounceTimers.clear();
+    for (var controller in _controllers.values) {
+      controller.close();
+    }
+    _controllers.clear();
     logger.d('REALTIME: Unsubscribed from all channels');
   }
 
@@ -189,5 +208,103 @@ class RealtimeService {
   /// Get all active channels
   List<String> getActiveChannels() {
     return _channels.keys.toList();
+  }
+
+  // ──────────────────────────────────────────────────────────────
+  //  STREAM-BASED SYNC (from former SyncService)
+  // ──────────────────────────────────────────────────────────────
+
+  /// Sets up a realtime-synced [Stream] for [table] filtered by `user_id`.
+  /// The stream emits the full list each time a change is detected (debounced).
+  Stream<List<Map<String, dynamic>>> syncTable({
+    required String channelName,
+    required String table,
+    Future<List<Map<String, dynamic>>> Function()? loader,
+  }) {
+    final userId = _currentUserId;
+    if (userId == null) {
+      logger.w('$channelName called without authenticated user');
+      return Stream.value([]);
+    }
+
+    if (_controllers.containsKey(channelName)) {
+      return _controllers[channelName]!.stream as Stream<List<Map<String, dynamic>>>;
+    }
+
+    final defaultLoader = loader ?? () => _loadTable(table);
+    final controller = StreamController<List<Map<String, dynamic>>>.broadcast();
+    _controllers[channelName] = controller;
+
+    // Load initial data
+    defaultLoader().then((data) {
+      if (!controller.isClosed) controller.add(data);
+    });
+
+    // Realtime subscription with debounce
+    final channel = _supabase.channel(channelName);
+    channel
+        .onPostgresChanges(
+          event: PostgresChangeEvent.all,
+          schema: 'public',
+          table: table,
+          callback: (payload) async {
+            _debounceTimers[channelName]?.cancel();
+            _debounceTimers[channelName] = Timer(_debounceDuration, () async {
+              final data = await defaultLoader();
+              if (!controller.isClosed) controller.add(data);
+            });
+          },
+        )
+        .subscribe();
+
+    _channels[channelName] = channel;
+    return controller.stream;
+  }
+
+  /// Generic loader — fetches all rows for [table] where `user_id` matches.
+  Future<List<Map<String, dynamic>>> _loadTable(String table) async {
+    try {
+      final userId = _currentUserId;
+      if (userId == null) return [];
+      final response = await _supabase
+          .from(table)
+          .select()
+          .eq('user_id', userId)
+          .order('created_at', ascending: false);
+      return List<Map<String, dynamic>>.from(response as List);
+    } catch (e) {
+      logger.e('Error loading $table: $e');
+      return [];
+    }
+  }
+
+  /// Sync missions stream.
+  Stream<List<Map<String, dynamic>>> syncMissions() =>
+      syncTable(channelName: 'missions_sync', table: 'missions');
+
+  /// Sync inspections stream.
+  Stream<List<Map<String, dynamic>>> syncInspections() =>
+      syncTable(channelName: 'vehicle_inspections_sync', table: 'vehicle_inspections');
+
+  /// Sync invoices stream.
+  Stream<List<Map<String, dynamic>>> syncInvoices() =>
+      syncTable(channelName: 'invoices_sync', table: 'invoices');
+
+  /// Sync quotes stream.
+  Stream<List<Map<String, dynamic>>> syncQuotes() =>
+      syncTable(channelName: 'quotes_sync', table: 'quotes');
+
+  /// Stop sync for a specific channel.
+  void stopSync(String channelName) {
+    _debounceTimers[channelName]?.cancel();
+    _debounceTimers.remove(channelName);
+    if (_channels.containsKey(channelName)) {
+      _supabase.removeChannel(_channels[channelName]!);
+      _channels.remove(channelName);
+    }
+    if (_controllers.containsKey(channelName)) {
+      _controllers[channelName]!.close();
+      _controllers.remove(channelName);
+    }
   }
 }

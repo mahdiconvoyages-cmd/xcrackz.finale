@@ -11,11 +11,11 @@ import '../invoices/invoice_form_screen.dart';
 import '../inspections/inspection_departure_screen.dart';
 import '../inspections/inspection_arrival_screen.dart';
 import '../../theme/premium_theme.dart';
-import 'package:intl/intl.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'mission_create_screen_new.dart';
 import '../planning/retour_lift_screen.dart';
 import '../planning/_offer_publish_sheet.dart';
+import 'widgets/mission_detail_cards.dart';
 
 class MissionDetailScreen extends StatefulWidget {
   final String missionId;
@@ -221,41 +221,52 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
                 delegate: SliverChildListDelegate([
                   // Code de partage (createur uniquement)
                   if (_isCreator && _mission!.shareCode != null) ...[
-                    _buildShareCodeCard(),
+                    MissionShareCodeCard(mission: _mission!),
                     const SizedBox(height: 16),
                   ],
                   // Chauffeur assigne + changement
                   if (_mission!.assignedToUserId != null || _isCreator) ...[
-                    _buildDriverCard(),
+                    MissionDriverCard(
+                      mission: _mission!,
+                      driverName: _assignedDriverName,
+                      isCreator: _isCreator,
+                      onChangeDriver: _changeDriver,
+                    ),
                     const SizedBox(height: 16),
                   ],
                   // Etat des inspections (visible quand en cours ou terminee)
                   if (_mission!.status == 'in_progress' || _mission!.status == 'completed') ...[
-                    _buildInspectionStatusCard(),
+                    MissionInspectionStatusCard(
+                      mission: _mission!,
+                      hasDeparture: _hasDepartureInspection,
+                      hasArrival: _hasArrivalInspection,
+                      hasRestitutionDeparture: _hasRestitutionDepartureInspection,
+                      hasRestitutionArrival: _hasRestitutionArrivalInspection,
+                    ),
                     const SizedBox(height: 16),
                   ],
                   // Mandataire
-                  _buildMandataireCard(),
+                  MissionMandataireCard(mission: _mission!),
                   const SizedBox(height: 16),
                   // Vehicule
-                  _buildVehicleCard(),
+                  MissionVehicleCard(mission: _mission!),
                   const SizedBox(height: 16),
                   // Itineraire
-                  _buildItineraireCard(),
+                  MissionItineraryCard(mission: _mission!, onPhoneCall: _makePhoneCall),
                   const SizedBox(height: 16),
                   // Restitution (vehicule retour + itineraire retour)
                   if (_mission!.hasRestitution) ...[
-                    _buildRestitutionCard(),
+                    MissionRestitutionCard(mission: _mission!, onPhoneCall: _makePhoneCall),
                     const SizedBox(height: 16),
                   ],
                   // Prix
                   if (_mission!.price != null) ...[
-                    _buildPriceCard(),
+                    MissionPriceCard(price: _mission!.price!),
                     const SizedBox(height: 16),
                   ],
                   // Notes
                   if (_mission!.notes != null && _mission!.notes!.isNotEmpty) ...[
-                    _buildNotesCard(),
+                    MissionNotesCard(notes: _mission!.notes!),
                     const SizedBox(height: 16),
                   ],
                   // Partage lien de suivi client
@@ -265,7 +276,13 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
                   ],
                   // Tracking GPS
                   if (_mission!.status == 'in_progress') ...[
-                    _buildTrackingCard(),
+                    MissionTrackingCard(
+                      isActive: _isTrackingActive,
+                      publicLink: _publicTrackingLink,
+                      onToggle: _toggleTracking,
+                      onCopyLink: _copyLinkToClipboard,
+                      onShareLink: _shareTrackingLink,
+                    ),
                     const SizedBox(height: 16),
                   ],
                   const SizedBox(height: 80),
@@ -335,7 +352,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
                 children: [
                   Row(
                     children: [
-                      _statusBadge(_mission!.status),
+                      MissionStatusBadge(status: _mission!.status),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Text(
@@ -367,893 +384,19 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
     );
   }
 
-  Widget _statusBadge(String status) {
-    Color bgColor;
-    String label;
-    switch (status) {
-      case 'pending':
-        bgColor = PremiumTheme.accentAmber;
-        label = 'En attente';
-        break;
-      case 'assigned':
-        bgColor = PremiumTheme.primaryBlue;
-        label = 'Assignee';
-        break;
-      case 'in_progress':
-        bgColor = PremiumTheme.primaryPurple;
-        label = 'En cours';
-        break;
-      case 'completed':
-        bgColor = PremiumTheme.accentGreen;
-        label = 'Terminee';
-        break;
-      default:
-        bgColor = PremiumTheme.textSecondary;
-        label = status;
-    }
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-      ),
-    );
-  }
-
   // ==============================================
-  //  SHARE CODE CARD
+  //  SHARE CODE CARD → Extracted to MissionShareCodeCard
+  //  DRIVER CARD → Extracted to MissionDriverCard
+  //  INSPECTION STATUS CARD → Extracted to MissionInspectionStatusCard
+  //  MANDATAIRE CARD → Extracted to MissionMandataireCard
+  //  VEHICLE CARD → Extracted to MissionVehicleCard
+  //  ITINERARY CARD → Extracted to MissionItineraryCard
+  //  RESTITUTION CARD → Extracted to MissionRestitutionCard
+  //  PRICE CARD → Extracted to MissionPriceCard
+  //  NOTES CARD → Extracted to MissionNotesCard
+  //  TRACKING CARD → Extracted to MissionTrackingCard
+  //  (All above are in widgets/mission_detail_cards.dart)
   // ==============================================
-  Widget _buildShareCodeCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [Color(0xFF6366F1), Color(0xFF8B5CF6)],
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.key, color: Colors.white, size: 22),
-              SizedBox(width: 8),
-              Text(
-                'Code de mission',
-                style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            _mission!.status == 'in_progress'
-                ? 'Ce code reste actif. Un autre chauffeur peut prendre le relais.'
-                : 'Partagez ce code pour permettre a un chauffeur de rejoindre la mission',
-            style: const TextStyle(color: Colors.white70, fontSize: 13),
-          ),
-          const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-                  decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.3)),
-                  ),
-                  child: Text(
-                    _mission!.shareCode!,
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 22,
-                      fontWeight: FontWeight.bold,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              IconButton(
-                onPressed: () {
-                  Clipboard.setData(ClipboardData(text: _mission!.shareCode!));
-                  if (mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Code copie dans le presse-papier'),
-                        backgroundColor: PremiumTheme.accentGreen,
-                        duration: Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                },
-                icon: const Icon(Icons.copy, color: Colors.white),
-                style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.2),
-                  padding: const EdgeInsets.all(14),
-                ),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ==============================================
-  //  DRIVER CARD
-  // ==============================================
-  Widget _buildDriverCard() {
-    final hasDriver = _mission!.assignedToUserId != null;
-    return _card(
-      icon: Icons.person_pin,
-      title: 'Chauffeur',
-      color: PremiumTheme.primaryBlue,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (hasDriver) ...[
-            Row(
-              children: [
-                Container(
-                  width: 40, height: 40,
-                  decoration: BoxDecoration(
-                    color: PremiumTheme.primaryBlue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: const Icon(Icons.person, color: PremiumTheme.primaryBlue, size: 22),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _assignedDriverName ?? 'Chauffeur assigne',
-                        style: const TextStyle(color: PremiumTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w600),
-                      ),
-                      const Text('Chauffeur actuel', style: TextStyle(color: PremiumTheme.textTertiary, fontSize: 13)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ] else ...[
-            const Text(
-              'Aucun chauffeur assigne',
-              style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 15),
-            ),
-            const SizedBox(height: 4),
-            const Text(
-              'Partagez le code de mission pour qu\'un chauffeur rejoigne',
-              style: TextStyle(color: PremiumTheme.textTertiary, fontSize: 13),
-            ),
-          ],
-          // Bouton changer de chauffeur (createur uniquement, mission pas terminee)
-          if (_isCreator && hasDriver && _mission!.status != 'completed') ...[
-            const SizedBox(height: 14),
-            SizedBox(
-              width: double.infinity,
-              child: OutlinedButton.icon(
-                onPressed: _changeDriver,
-                icon: const Icon(Icons.swap_horiz, size: 20),
-                label: const Text('Changer de chauffeur'),
-                style: OutlinedButton.styleFrom(
-                  foregroundColor: PremiumTheme.accentAmber,
-                  side: BorderSide(color: PremiumTheme.accentAmber.withOpacity(0.5)),
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              ),
-            ),
-            const SizedBox(height: 6),
-            const Text(
-              'Le code de mission restera actif pour le nouveau chauffeur.',
-              style: TextStyle(color: PremiumTheme.textTertiary, fontSize: 12),
-              textAlign: TextAlign.center,
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ==============================================
-  //  INSPECTION STATUS CARD
-  // ==============================================
-  Widget _buildInspectionStatusCard() {
-    return _card(
-      icon: Icons.checklist,
-      title: 'Inspections',
-      color: PremiumTheme.primaryTeal,
-      child: Column(
-        children: [
-          _inspectionRow(
-            'Inspection depart',
-            _hasDepartureInspection,
-            Icons.login,
-          ),
-          const SizedBox(height: 10),
-          _inspectionRow(
-            'Inspection arrivee',
-            _hasArrivalInspection,
-            Icons.logout,
-          ),
-          if (_mission!.hasRestitution) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
-              decoration: BoxDecoration(
-                color: const Color(0xFFFFF3E0),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE65100).withOpacity(0.2)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.swap_horiz_rounded, color: Color(0xFFE65100), size: 16),
-                  const SizedBox(width: 6),
-                  Text(
-                    'Restitution',
-                    style: TextStyle(
-                      color: const Color(0xFFE65100),
-                      fontSize: 12,
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            _inspectionRow(
-              'Inspection depart restitution',
-              _hasRestitutionDepartureInspection,
-              Icons.login,
-            ),
-            const SizedBox(height: 10),
-            _inspectionRow(
-              'Inspection arrivee restitution',
-              _hasRestitutionArrivalInspection,
-              Icons.logout,
-            ),
-          ],
-          if (_mission!.status == 'in_progress' && (!_hasDepartureInspection || !_hasArrivalInspection ||
-              (_mission!.hasRestitution && (!_hasRestitutionDepartureInspection || !_hasRestitutionArrivalInspection)))) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: PremiumTheme.accentAmber.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: PremiumTheme.accentAmber.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.warning_amber_rounded, color: PremiumTheme.accentAmber, size: 18),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      _mission!.hasRestitution
-                          ? 'Les 4 inspections (depart, arrivee, restitution depart, restitution arrivee) sont obligatoires.'
-                          : 'Les deux inspections (depart et arrivee) sont obligatoires pour terminer la mission.',
-                      style: TextStyle(color: PremiumTheme.accentAmber.withOpacity(0.9), fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _inspectionRow(String label, bool done, IconData icon) {
-    return Row(
-      children: [
-        Container(
-          width: 32, height: 32,
-          decoration: BoxDecoration(
-            color: done ? PremiumTheme.accentGreen.withOpacity(0.1) : PremiumTheme.textTertiary.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(
-            done ? Icons.check_circle : Icons.radio_button_unchecked,
-            color: done ? PremiumTheme.accentGreen : PremiumTheme.textTertiary,
-            size: 20,
-          ),
-        ),
-        const SizedBox(width: 10),
-        Icon(icon, size: 18, color: done ? PremiumTheme.textPrimary : PremiumTheme.textTertiary),
-        const SizedBox(width: 8),
-        Text(
-          label,
-          style: TextStyle(
-            color: done ? PremiumTheme.textPrimary : PremiumTheme.textTertiary,
-            fontSize: 15,
-            fontWeight: done ? FontWeight.w600 : FontWeight.normal,
-            decoration: done ? TextDecoration.lineThrough : null,
-          ),
-        ),
-        const Spacer(),
-        Text(
-          done ? 'Fait' : 'A faire',
-          style: TextStyle(
-            color: done ? PremiumTheme.accentGreen : PremiumTheme.accentAmber,
-            fontSize: 13,
-            fontWeight: FontWeight.w600,
-          ),
-        ),
-      ],
-    );
-  }
-
-  // ==============================================
-  //  MANDATAIRE CARD
-  // ==============================================
-  Widget _buildMandataireCard() {
-    return _card(
-      icon: Icons.person_outline,
-      title: 'Mandataire',
-      color: PremiumTheme.primaryPurple,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            _mission!.mandataireName ?? 'Non renseigne',
-            style: const TextStyle(color: PremiumTheme.textPrimary, fontSize: 17, fontWeight: FontWeight.w600),
-          ),
-          if (_mission!.mandataireCompany != null && _mission!.mandataireCompany!.isNotEmpty) ...[
-            const SizedBox(height: 6),
-            Row(
-              children: [
-                const Icon(Icons.business, color: PremiumTheme.primaryPurple, size: 16),
-                const SizedBox(width: 6),
-                Text(
-                  _mission!.mandataireCompany!,
-                  style: const TextStyle(color: PremiumTheme.textSecondary, fontSize: 15),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  // ==============================================
-  //  VEHICLE CARD
-  // ==============================================
-  Widget _buildVehicleCard() {
-    final label = _mission!.hasRestitution ? 'Vehicule Aller' : 'Vehicule';
-    return _card(
-      icon: Icons.directions_car,
-      title: label,
-      color: PremiumTheme.primaryTeal,
-      child: Column(
-        children: [
-          if (_mission!.hasRestitution)
-            Container(
-              margin: const EdgeInsets.only(bottom: 10),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: PremiumTheme.primaryBlue.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(6),
-              ),
-              child: const Text('ALLER', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: PremiumTheme.primaryBlue)),
-            ),
-          if (_mission!.vehicleBrand != null || _mission!.vehicleModel != null)
-            _infoRow(Icons.directions_car, 'Marque / Modele',
-                '${_mission!.vehicleBrand ?? ''} ${_mission!.vehicleModel ?? ''}'.trim()),
-          if (_mission!.vehicleType != null)
-            _infoRow(Icons.category, 'Type', _mission!.vehicleType!),
-          if (_mission!.vehiclePlate != null)
-            _infoRow(Icons.pin, 'Immatriculation', _mission!.vehiclePlate!),
-          if (_mission!.vehicleVin != null)
-            _infoRow(Icons.confirmation_number, 'N VIN', _mission!.vehicleVin!),
-        ],
-      ),
-    );
-  }
-
-  // ==============================================
-  //  ITINERAIRE CARD
-  // ==============================================
-  Widget _buildItineraireCard() {
-    final dateFormat = DateFormat('dd/MM/yyyy HH:mm');
-    return _card(
-      icon: Icons.route,
-      title: 'Itineraire',
-      color: PremiumTheme.accentGreen,
-      child: Column(
-        children: [
-          _locationBlock(
-            color: PremiumTheme.accentGreen,
-            label: 'ENLEVEMENT',
-            address: _mission!.pickupAddress ?? 'Non specifie',
-            contactName: _mission!.pickupContactName,
-            contactPhone: _mission!.pickupContactPhone,
-            date: _mission!.pickupDate != null ? dateFormat.format(_mission!.pickupDate!) : null,
-          ),
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                const SizedBox(width: 16),
-                Container(
-                  width: 2,
-                  height: 30,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [PremiumTheme.accentGreen, PremiumTheme.primaryBlue],
-                      begin: Alignment.topCenter,
-                      end: Alignment.bottomCenter,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Icon(Icons.arrow_downward, color: PremiumTheme.textTertiary, size: 16),
-              ],
-            ),
-          ),
-          _locationBlock(
-            color: PremiumTheme.primaryBlue,
-            label: 'LIVRAISON',
-            address: _mission!.deliveryAddress ?? 'Non specifie',
-            contactName: _mission!.deliveryContactName,
-            contactPhone: _mission!.deliveryContactPhone,
-            date: _mission!.deliveryDate != null ? dateFormat.format(_mission!.deliveryDate!) : null,
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _locationBlock({
-    required Color color,
-    required String label,
-    required String address,
-    String? contactName,
-    String? contactPhone,
-    String? date,
-  }) {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.circle, color: color, size: 10),
-              const SizedBox(width: 8),
-              Text(label, style: TextStyle(color: color, fontSize: 12, fontWeight: FontWeight.bold, letterSpacing: 1)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(address, style: const TextStyle(color: PremiumTheme.textPrimary, fontSize: 15, fontWeight: FontWeight.w500)),
-          if (date != null) ...[
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Icon(Icons.calendar_today, color: color.withOpacity(0.7), size: 14),
-                const SizedBox(width: 6),
-                Text(date, style: const TextStyle(color: PremiumTheme.textSecondary, fontSize: 13)),
-              ],
-            ),
-          ],
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.04),
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: color.withOpacity(0.15)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.person, color: color, size: 18),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(
-                        contactName != null && contactName.isNotEmpty
-                            ? contactName
-                            : 'Contact non renseigne',
-                        style: TextStyle(
-                          color: contactName != null && contactName.isNotEmpty
-                              ? PremiumTheme.textPrimary
-                              : PremiumTheme.textTertiary,
-                          fontSize: 15,
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                if (contactPhone != null && contactPhone.isNotEmpty)
-                  InkWell(
-                    onTap: () => _makePhoneCall(contactPhone),
-                    borderRadius: BorderRadius.circular(10),
-                    child: Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                      decoration: BoxDecoration(
-                        color: color.withOpacity(0.1),
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: color.withOpacity(0.3)),
-                      ),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(Icons.phone, color: color, size: 20),
-                          const SizedBox(width: 10),
-                          Text(
-                            contactPhone,
-                            style: const TextStyle(
-                              color: PremiumTheme.textPrimary,
-                              fontSize: 17,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 0.5,
-                            ),
-                          ),
-                          const SizedBox(width: 10),
-                          Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                            decoration: BoxDecoration(
-                              color: color,
-                              borderRadius: BorderRadius.circular(20),
-                            ),
-                            child: const Text(
-                              'Appeler',
-                              style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  )
-                else
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
-                    decoration: BoxDecoration(
-                      color: PremiumTheme.textTertiary.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: const Row(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      children: [
-                        Icon(Icons.phone_disabled, color: PremiumTheme.textTertiary, size: 18),
-                        SizedBox(width: 8),
-                        Text(
-                          'Aucun numero de telephone',
-                          style: TextStyle(color: PremiumTheme.textTertiary, fontSize: 14),
-                        ),
-                      ],
-                    ),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ==============================================
-  //  RESTITUTION CARD (Phase 2 - Retour)
-  // ==============================================
-  Widget _buildRestitutionCard() {
-    const Color restitutionOrange = Color(0xFFE65100);
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
-        boxShadow: [
-          BoxShadow(color: restitutionOrange.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 4)),
-        ],
-      ),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(20),
-        child: Column(
-          children: [
-            // Orange gradient header
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [Color(0xFFE65100), Color(0xFFF57C00)],
-                ),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.swap_horiz_rounded, color: Colors.white, size: 22),
-                  const SizedBox(width: 10),
-                  const Expanded(
-                    child: Text(
-                      'Restitution - Vehicule Retour',
-                      style: TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: const Text('PHASE 2', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
-                  ),
-                ],
-              ),
-            ),
-            // Body
-            Container(
-              width: double.infinity,
-              color: PremiumTheme.cardBg,
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Vehicle info box
-                  Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.all(14),
-                    decoration: BoxDecoration(
-                      color: restitutionOrange.withOpacity(0.05),
-                      borderRadius: BorderRadius.circular(14),
-                      border: Border.all(color: restitutionOrange.withOpacity(0.15)),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: restitutionOrange.withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: const Icon(Icons.directions_car, color: restitutionOrange, size: 22),
-                            ),
-                            const SizedBox(width: 12),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '${_mission!.restitutionVehicleBrand ?? ''} ${_mission!.restitutionVehicleModel ?? ''}'.trim().isEmpty
-                                        ? 'Vehicule retour'
-                                        : '${_mission!.restitutionVehicleBrand ?? ''} ${_mission!.restitutionVehicleModel ?? ''}'.trim(),
-                                    style: const TextStyle(color: PremiumTheme.textPrimary, fontSize: 16, fontWeight: FontWeight.w700),
-                                  ),
-                                  if (_mission!.restitutionVehiclePlate != null) ...[
-                                    const SizedBox(height: 4),
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                      decoration: BoxDecoration(
-                                        color: restitutionOrange.withOpacity(0.12),
-                                        borderRadius: BorderRadius.circular(6),
-                                      ),
-                                      child: Text(
-                                        _mission!.restitutionVehiclePlate!,
-                                        style: const TextStyle(color: restitutionOrange, fontSize: 13, fontWeight: FontWeight.w700, letterSpacing: 1),
-                                      ),
-                                    ),
-                                  ],
-                                ],
-                              ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                              decoration: BoxDecoration(
-                                color: restitutionOrange.withOpacity(0.15),
-                                borderRadius: BorderRadius.circular(6),
-                              ),
-                              child: const Text('RETOUR', style: TextStyle(color: restitutionOrange, fontSize: 11, fontWeight: FontWeight.w700)),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  // Itinerary
-                  _locationBlock(
-                    color: restitutionOrange,
-                    label: 'ENLEVEMENT RETOUR',
-                    address: _mission!.restitutionPickupAddress ?? 'Non specifie',
-                    contactName: null,
-                    contactPhone: null,
-                  ),
-                  Padding(
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: Row(
-                      children: [
-                        const SizedBox(width: 16),
-                        Container(
-                          width: 2,
-                          height: 30,
-                          decoration: const BoxDecoration(
-                            gradient: LinearGradient(
-                              colors: [Color(0xFFE65100), Color(0xFFD32F2F)],
-                              begin: Alignment.topCenter,
-                              end: Alignment.bottomCenter,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        const Icon(Icons.arrow_downward, color: PremiumTheme.textTertiary, size: 16),
-                      ],
-                    ),
-                  ),
-                  _locationBlock(
-                    color: const Color(0xFFD32F2F),
-                    label: 'LIVRAISON RETOUR',
-                    address: _mission!.restitutionDeliveryAddress ?? 'Non specifie',
-                    contactName: null,
-                    contactPhone: null,
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ==============================================
-  //  PRICE CARD
-  // ==============================================
-  Widget _buildPriceCard() {
-    return _card(
-      icon: Icons.euro,
-      title: 'Prix',
-      color: PremiumTheme.accentAmber,
-      child: Text(
-        '${_mission!.price!.toStringAsFixed(2)} EUR',
-        style: const TextStyle(color: PremiumTheme.textPrimary, fontSize: 22, fontWeight: FontWeight.bold),
-      ),
-    );
-  }
-
-  // ==============================================
-  //  NOTES CARD
-  // ==============================================
-  Widget _buildNotesCard() {
-    return _card(
-      icon: Icons.note_outlined,
-      title: 'Notes',
-      color: PremiumTheme.textSecondary,
-      child: Text(
-        _mission!.notes!,
-        style: const TextStyle(color: PremiumTheme.textSecondary, fontSize: 15),
-      ),
-    );
-  }
-
-  // ==============================================
-  //  TRACKING CARD
-  // ==============================================
-  Widget _buildTrackingCard() {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: PremiumTheme.cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: _isTrackingActive ? PremiumTheme.accentGreen.withOpacity(0.5) : const Color(0xFFE5E7EB),
-        ),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
-        ],
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Icon(
-                _isTrackingActive ? Icons.gps_fixed : Icons.gps_off,
-                color: _isTrackingActive ? PremiumTheme.accentGreen : PremiumTheme.textTertiary,
-                size: 24,
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _isTrackingActive ? 'Tracking GPS Actif' : 'Tracking GPS Inactif',
-                      style: TextStyle(
-                        color: _isTrackingActive ? PremiumTheme.accentGreen : PremiumTheme.textSecondary,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 15,
-                      ),
-                    ),
-                    Text(
-                      _isTrackingActive
-                          ? 'Position mise a jour toutes les 3s'
-                          : 'Activez pour partager votre position',
-                      style: const TextStyle(color: PremiumTheme.textTertiary, fontSize: 12),
-                    ),
-                  ],
-                ),
-              ),
-              Switch(
-                value: _isTrackingActive,
-                onChanged: (_) => _toggleTracking(),
-                activeColor: PremiumTheme.accentGreen,
-              ),
-            ],
-          ),
-          if (_isTrackingActive && _publicTrackingLink != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: PremiumTheme.lightBg,
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE5E7EB)),
-              ),
-              child: Text(
-                _publicTrackingLink!,
-                style: const TextStyle(color: PremiumTheme.textSecondary, fontSize: 12),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    onPressed: _copyLinkToClipboard,
-                    icon: const Icon(Icons.copy, size: 16),
-                    label: const Text('Copier'),
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: PremiumTheme.primaryTeal,
-                      side: const BorderSide(color: Color(0xFFE5E7EB)),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ElevatedButton.icon(
-                    onPressed: _shareTrackingLink,
-                    icon: const Icon(Icons.share, size: 16),
-                    label: const Text('Partager'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: PremiumTheme.primaryTeal,
-                      foregroundColor: Colors.white,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ],
-      ),
-    );
-  }
 
   // ==============================================
   //  BOTTOM ACTIONS
@@ -1539,59 +682,6 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
             ],
           ],
         ),
-      ),
-    );
-  }
-
-  // ==============================================
-  //  WIDGETS REUTILISABLES
-  // ==============================================
-  Widget _card({required IconData icon, required String title, required Color color, required Widget child}) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: PremiumTheme.cardBg,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.15)),
-        boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 22),
-              const SizedBox(width: 8),
-              Text(title, style: TextStyle(color: color, fontSize: 17, fontWeight: FontWeight.bold)),
-            ],
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
-
-  Widget _infoRow(IconData icon, String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Row(
-        children: [
-          Icon(icon, color: PremiumTheme.primaryTeal.withOpacity(0.7), size: 18),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(label, style: const TextStyle(color: PremiumTheme.textTertiary, fontSize: 12)),
-                const SizedBox(height: 2),
-                Text(value, style: const TextStyle(color: PremiumTheme.textPrimary, fontSize: 15)),
-              ],
-            ),
-          ),
-        ],
       ),
     );
   }
@@ -2575,7 +1665,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
               children: [
                 // SMS
                 Expanded(
-                  child: _ShareButton(
+                  child: ShareButton(
                     icon: Icons.sms,
                     label: 'SMS',
                     color: const Color(0xFF10B981),
@@ -2587,7 +1677,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
                 const SizedBox(width: 8),
                 // WhatsApp
                 Expanded(
-                  child: _ShareButton(
+                  child: ShareButton(
                     icon: Icons.chat,
                     label: 'WhatsApp',
                     color: const Color(0xFF25D366),
@@ -2597,7 +1687,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
                 const SizedBox(width: 8),
                 // Email
                 Expanded(
-                  child: _ShareButton(
+                  child: ShareButton(
                     icon: Icons.email,
                     label: 'Email',
                     color: const Color(0xFF3B82F6),
@@ -2609,7 +1699,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
                 const SizedBox(width: 8),
                 // Share generic
                 Expanded(
-                  child: _ShareButton(
+                  child: ShareButton(
                     icon: Icons.share,
                     label: 'Autre',
                     color: const Color(0xFF8B5CF6),
@@ -2746,54 +1836,5 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         SnackBar(content: Text('Erreur partage: ${ErrorHelper.cleanError(e)}'), backgroundColor: PremiumTheme.accentRed),
       );
     }
-  }
-}
-
-// ══════════════════════════════════════════════════════════════════
-//  Share Button Widget
-// ══════════════════════════════════════════════════════════════════
-
-class _ShareButton extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _ShareButton({
-    required this.icon,
-    required this.label,
-    required this.color,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(12),
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 10),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, color: color, size: 20),
-            const SizedBox(height: 4),
-            Text(
-              label,
-              style: TextStyle(
-                color: color,
-                fontSize: 10,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

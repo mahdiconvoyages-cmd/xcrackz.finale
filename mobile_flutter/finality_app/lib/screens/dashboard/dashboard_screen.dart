@@ -88,69 +88,29 @@ class _DashboardScreenState extends State<DashboardScreen>
       final currentUser = supabase.auth.currentUser;
       _isEmailVerified = currentUser?.emailConfirmedAt != null;
 
-      // Load profile, subscription and stats in parallel
-      final results = await Future.wait<dynamic>([
-        supabase
-            .from('profiles')
-            .select('first_name, last_name, credits')
-            .eq('id', userId)
-            .maybeSingle(),
-        supabase
-            .from('subscriptions')
-            .select('plan, status, current_period_end, auto_renew')
-            .eq('user_id', userId)
-            .eq('status', 'active')
-            .maybeSingle(),
-        supabase.rpc('get_dashboard_stats', params: {'p_user_id': userId}),
-      ]);
-
-      final profile = results[0] as Map<String, dynamic>?;
-      final subscription = results[1] as Map<String, dynamic>?;
-      final statsRes = results[2];
-
-      if (profile != null) {
-        _firstName = profile['first_name'] ?? '';
-        _lastName = profile['last_name'] ?? '';
-        _credits = profile['credits'] ?? 0;
-      }
-
-      if (subscription != null) {
-        _plan = (subscription['plan'] ?? 'free').toString().toUpperCase();
-        _hasActiveSubscription = true;
-        
-        if (subscription['current_period_end'] != null) {
-          _subscriptionEndDate = DateTime.parse(subscription['current_period_end']);
-          _daysRemaining = _subscriptionEndDate!.difference(DateTime.now()).inDays;
-        } else {
-          // New user — subscription has no end date yet (welcome period)
-          // Set 30 days from account creation as default
-          final createdAt = currentUser?.createdAt;
-          if (createdAt != null) {
-            final created = DateTime.parse(createdAt);
-            _subscriptionEndDate = created.add(const Duration(days: 30));
-            _daysRemaining = _subscriptionEndDate!.difference(DateTime.now()).inDays;
-          } else {
-            _daysRemaining = 30;
-          }
+      // ── SINGLE RPC: get_dashboard_complete ──
+      // Replaces 7 separate queries with 1 server-side call.
+      // Falls back to legacy multi-query if the RPC doesn't exist yet.
+      Map<String, dynamic>? dashData;
+      try {
+        final rpcResult = await supabase.rpc(
+          'get_dashboard_complete',
+          params: {'p_user_id': userId},
+        );
+        if (rpcResult is Map<String, dynamic>) {
+          dashData = rpcResult;
         }
+      } catch (e) {
+        logger.w('get_dashboard_complete RPC unavailable, using legacy queries: $e');
+      }
+
+      if (dashData != null) {
+        // ── Fast path: single RPC returned everything ──
+        _parseDashboardRpcResult(dashData, currentUser);
       } else {
-        _plan = 'FREE';
-        _hasActiveSubscription = true; // New users have a welcome period
-        _daysRemaining = 30;
+        // ── Legacy fallback: parallel queries ──
+        await _loadDashboardLegacy(userId, currentUser);
       }
-
-      // Stats already loaded via Future.wait above
-
-      if (statsRes != null) {
-        _totalMissions = statsRes['total_missions'] ?? 0;
-        _activeMissions = statsRes['active_missions'] ?? 0;
-        _completedMissions = statsRes['completed_missions'] ?? 0;
-        _completionRate = (statsRes['completion_rate'] ?? 0).toDouble();
-        _totalContacts = statsRes['total_contacts'] ?? 0;
-      }
-
-      // Load REAL recent activity (last 5 events across missions, contacts, inspections)
-      await _loadRecentActivity(userId);
 
       if (mounted) setState(() => _isLoading = false);
     } catch (e) {
@@ -159,170 +119,253 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
   }
 
-  Future<void> _loadRecentActivity(String userId) async {
+  /// Parse the result from get_dashboard_complete RPC.
+  void _parseDashboardRpcResult(Map<String, dynamic> data, User? currentUser) {
+    // Profile
+    final profile = data['profile'] as Map<String, dynamic>?;
+    if (profile != null) {
+      _firstName = profile['first_name'] ?? '';
+      _lastName = profile['last_name'] ?? '';
+      _credits = profile['credits'] ?? 0;
+    }
+
+    // Subscription
+    final subscription = data['subscription'] as Map<String, dynamic>?;
+    _parseSubscription(subscription, currentUser);
+
+    // Stats
+    final stats = data['stats'] as Map<String, dynamic>?;
+    if (stats != null) {
+      _totalMissions = stats['total_missions'] ?? 0;
+      _activeMissions = stats['active_missions'] ?? 0;
+      _completedMissions = stats['completed_missions'] ?? 0;
+      _completionRate = (stats['completion_rate'] ?? 0).toDouble();
+      _totalContacts = stats['total_contacts'] ?? 0;
+    }
+
+    // Recent activity — build from the 4 lists returned by the RPC
+    _buildRecentActivityFromRpc(data);
+  }
+
+  /// Parse subscription data (shared between RPC and legacy paths).
+  void _parseSubscription(Map<String, dynamic>? subscription, User? currentUser) {
+    if (subscription != null) {
+      _plan = (subscription['plan'] ?? 'free').toString().toUpperCase();
+      _hasActiveSubscription = true;
+
+      if (subscription['current_period_end'] != null) {
+        _subscriptionEndDate = DateTime.parse(subscription['current_period_end'].toString());
+        _daysRemaining = _subscriptionEndDate!.difference(DateTime.now()).inDays;
+      } else {
+        // New user — subscription has no end date yet (welcome period)
+        final createdAt = currentUser?.createdAt;
+        if (createdAt != null) {
+          final created = DateTime.parse(createdAt);
+          _subscriptionEndDate = created.add(const Duration(days: 30));
+          _daysRemaining = _subscriptionEndDate!.difference(DateTime.now()).inDays;
+        } else {
+          _daysRemaining = 30;
+        }
+      }
+    } else {
+      _plan = 'FREE';
+      _hasActiveSubscription = true; // New users have a welcome period
+      _daysRemaining = 30;
+    }
+  }
+
+  /// Build recent activity list from the RPC result JSON lists.
+  void _buildRecentActivityFromRpc(Map<String, dynamic> data) {
+    final List<Map<String, dynamic>> activities = [];
+
+    // Missions
+    for (final m in (data['recent_missions'] as List? ?? [])) {
+      final status = m['status'] ?? 'pending';
+      final (icon, color, title) = _missionActivityInfo(status);
+      final pickup = m['pickup_city'] ?? '';
+      final delivery = m['delivery_city'] ?? '';
+      final subtitle = (pickup.toString().isNotEmpty && delivery.toString().isNotEmpty)
+          ? '$pickup → $delivery'
+          : m['reference'] ?? 'Mission';
+      final date = DateTime.tryParse((m['updated_at'] ?? m['created_at'] ?? '').toString()) ?? DateTime.now();
+      activities.add({'icon': icon, 'title': title, 'subtitle': subtitle, 'time': _formatTimeAgo(date), 'color': color, 'date': date});
+    }
+
+    // Contacts
+    for (final c in (data['recent_contacts'] as List? ?? [])) {
+      final isCompany = c['type'] == true;
+      final date = DateTime.tryParse((c['created_at'] ?? '').toString()) ?? DateTime.now();
+      activities.add({
+        'icon': Icons.person_add,
+        'title': isCompany ? 'Nouvelle entreprise' : 'Nouveau contact',
+        'subtitle': c['name'] ?? 'Contact',
+        'time': _formatTimeAgo(date),
+        'color': PremiumTheme.primaryBlue,
+        'date': date,
+      });
+    }
+
+    // Inspections
+    for (final i in (data['recent_inspections'] as List? ?? [])) {
+      final inspType = (i['type'] ?? 'departure').toString();
+      final date = DateTime.tryParse((i['created_at'] ?? '').toString()) ?? DateTime.now();
+      activities.add({
+        'icon': Icons.camera_alt,
+        'title': inspType == 'departure' ? 'Inspection départ' : 'Inspection arrivée',
+        'subtitle': '${i['vehicle_brand'] ?? ''} ${i['vehicle_model'] ?? ''}'.trim(),
+        'time': _formatTimeAgo(date),
+        'color': inspType == 'departure' ? PremiumTheme.primaryPurple : PremiumTheme.primaryTeal,
+        'date': date,
+      });
+    }
+
+    // Invoices
+    for (final inv in (data['recent_invoices'] as List? ?? [])) {
+      final status = (inv['status'] ?? 'draft').toString();
+      final (icon, color, title) = _invoiceActivityInfo(status);
+      final total = (inv['total'] ?? 0).toDouble();
+      final date = DateTime.tryParse((inv['updated_at'] ?? inv['created_at'] ?? '').toString()) ?? DateTime.now();
+      activities.add({
+        'icon': icon, 'title': title,
+        'subtitle': '${inv['client_name'] ?? 'Client'} · ${total.toStringAsFixed(2)}€',
+        'time': _formatTimeAgo(date), 'color': color, 'date': date,
+      });
+    }
+
+    activities.sort((a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
+    _recentActivity = activities.take(5).toList();
+  }
+
+  /// Legacy multi-query fallback (used if RPC not deployed yet).
+  Future<void> _loadDashboardLegacy(String userId, User? currentUser) async {
+    final results = await Future.wait<dynamic>([
+      supabase.from('profiles').select('first_name, last_name, credits').eq('id', userId).maybeSingle(),
+      supabase.from('subscriptions').select('plan, status, current_period_end, auto_renew').eq('user_id', userId).eq('status', 'active').maybeSingle(),
+      supabase.rpc('get_dashboard_stats', params: {'p_user_id': userId}),
+    ]);
+
+    final profile = results[0] as Map<String, dynamic>?;
+    final subscription = results[1] as Map<String, dynamic>?;
+    final statsRes = results[2];
+
+    if (profile != null) {
+      _firstName = profile['first_name'] ?? '';
+      _lastName = profile['last_name'] ?? '';
+      _credits = profile['credits'] ?? 0;
+    }
+
+    _parseSubscription(subscription, currentUser);
+
+    if (statsRes != null) {
+      _totalMissions = statsRes['total_missions'] ?? 0;
+      _activeMissions = statsRes['active_missions'] ?? 0;
+      _completedMissions = statsRes['completed_missions'] ?? 0;
+      _completionRate = (statsRes['completion_rate'] ?? 0).toDouble();
+      _totalContacts = statsRes['total_contacts'] ?? 0;
+    }
+
+    await _loadRecentActivityLegacy(userId);
+  }
+
+  /// Legacy: load recent activity with 4 separate queries.
+  Future<void> _loadRecentActivityLegacy(String userId) async {
     try {
       final List<Map<String, dynamic>> activities = [];
 
-      // Fetch recent missions (last 5)
       try {
-        final missions = await supabase
-            .from('missions')
+        final missions = await supabase.from('missions')
             .select('id, reference, status, pickup_city, delivery_city, created_at, updated_at')
             .or('user_id.eq.$userId,assigned_user_id.eq.$userId')
-            .order('updated_at', ascending: false)
-            .limit(5);
-
+            .order('updated_at', ascending: false).limit(5);
         for (final m in (missions as List)) {
           final status = m['status'] ?? 'pending';
-          IconData icon;
-          Color color;
-          String title;
-
-          switch (status) {
-            case 'completed':
-              icon = Icons.check_circle;
-              color = PremiumTheme.accentGreen;
-              title = 'Mission terminée';
-              break;
-            case 'in_progress':
-              icon = Icons.local_shipping;
-              color = PremiumTheme.primaryBlue;
-              title = 'Mission en cours';
-              break;
-            case 'cancelled':
-              icon = Icons.cancel;
-              color = Colors.red;
-              title = 'Mission annulée';
-              break;
-            default:
-              icon = Icons.schedule;
-              color = PremiumTheme.primaryPurple;
-              title = 'Nouvelle mission';
-          }
-
+          final (icon, color, title) = _missionActivityInfo(status);
           final pickup = m['pickup_city'] ?? '';
           final delivery = m['delivery_city'] ?? '';
-          final subtitle = (pickup.isNotEmpty && delivery.isNotEmpty)
-              ? '$pickup → $delivery'
-              : m['reference'] ?? 'Mission';
-
-          activities.add({
-            'icon': icon,
-            'title': title,
-            'subtitle': subtitle,
-            'time': _formatTimeAgo(DateTime.tryParse(m['updated_at'] ?? m['created_at'] ?? '') ?? DateTime.now()),
-            'color': color,
-            'date': DateTime.tryParse(m['updated_at'] ?? m['created_at'] ?? '') ?? DateTime.now(),
-          });
+          final subtitle = (pickup.isNotEmpty && delivery.isNotEmpty) ? '$pickup → $delivery' : m['reference'] ?? 'Mission';
+          final date = DateTime.tryParse(m['updated_at'] ?? m['created_at'] ?? '') ?? DateTime.now();
+          activities.add({'icon': icon, 'title': title, 'subtitle': subtitle, 'time': _formatTimeAgo(date), 'color': color, 'date': date});
         }
-      } catch (e) {
-        logger.e('Erreur chargement missions récentes: $e');
-      }
+      } catch (e) { logger.e('Erreur chargement missions récentes: $e'); }
 
-      // Fetch recent contacts (last 3)
       try {
-        final contacts = await supabase
-            .from('contacts')
-            .select('id, name, type, created_at')
+        final contacts = await supabase.from('clients')
+            .select('id, name, is_company, created_at')
             .eq('user_id', userId)
-            .order('created_at', ascending: false)
-            .limit(3);
-
+            .order('created_at', ascending: false).limit(3);
         for (final c in (contacts as List)) {
+          final date = DateTime.tryParse(c['created_at'] ?? '') ?? DateTime.now();
           activities.add({
             'icon': Icons.person_add,
-            'title': c['type'] == 'driver' ? 'Nouveau chauffeur' : 'Nouveau contact',
+            'title': c['is_company'] == true ? 'Nouvelle entreprise' : 'Nouveau contact',
             'subtitle': c['name'] ?? 'Contact',
-            'time': _formatTimeAgo(DateTime.tryParse(c['created_at'] ?? '') ?? DateTime.now()),
-            'color': PremiumTheme.primaryBlue,
-            'date': DateTime.tryParse(c['created_at'] ?? '') ?? DateTime.now(),
+            'time': _formatTimeAgo(date), 'color': PremiumTheme.primaryBlue, 'date': date,
           });
         }
-      } catch (e) {
-        logger.e('Erreur chargement contacts récents: $e');
-      }
+      } catch (e) { logger.e('Erreur chargement contacts récents: $e'); }
 
-      // Fetch recent inspections (last 3) — column is inspector_id
       try {
-        final inspections = await supabase
-            .from('vehicle_inspections')
-            .select('id, type, vehicle_brand, vehicle_model, created_at')
+        final inspections = await supabase.from('vehicle_inspections')
+            .select('id, inspection_type, vehicle_brand, vehicle_model, created_at')
             .eq('inspector_id', userId)
-            .order('created_at', ascending: false)
-            .limit(3);
-
+            .order('created_at', ascending: false).limit(3);
         for (final i in (inspections as List)) {
-          final inspType = i['type'] ?? 'departure';
+          final inspType = i['inspection_type'] ?? 'departure';
+          final date = DateTime.tryParse(i['created_at'] ?? '') ?? DateTime.now();
           activities.add({
             'icon': Icons.camera_alt,
             'title': inspType == 'departure' ? 'Inspection départ' : 'Inspection arrivée',
             'subtitle': '${i['vehicle_brand'] ?? ''} ${i['vehicle_model'] ?? ''}'.trim(),
-            'time': _formatTimeAgo(DateTime.tryParse(i['created_at'] ?? '') ?? DateTime.now()),
+            'time': _formatTimeAgo(date),
             'color': inspType == 'departure' ? PremiumTheme.primaryPurple : PremiumTheme.primaryTeal,
-            'date': DateTime.tryParse(i['created_at'] ?? '') ?? DateTime.now(),
+            'date': date,
           });
         }
-      } catch (e) {
-        logger.e('Erreur chargement inspections récentes: $e');
-      }
+      } catch (e) { logger.e('Erreur chargement inspections récentes: $e'); }
 
-      // Fetch recent invoices (last 3)
       try {
-        final invoices = await supabase
-            .from('invoices')
+        final invoices = await supabase.from('invoices')
             .select('id, invoice_number, client_name, status, total, created_at, updated_at')
             .eq('user_id', userId)
-            .order('updated_at', ascending: false)
-            .limit(3);
-
+            .order('updated_at', ascending: false).limit(3);
         for (final inv in (invoices as List)) {
           final status = inv['status'] ?? 'draft';
-          IconData icon;
-          Color color;
-          String title;
-
-          switch (status) {
-            case 'paid':
-              icon = Icons.check_circle;
-              color = PremiumTheme.accentGreen;
-              title = 'Facture payée';
-              break;
-            case 'sent':
-              icon = Icons.send;
-              color = PremiumTheme.primaryBlue;
-              title = 'Facture envoyée';
-              break;
-            case 'cancelled':
-              icon = Icons.cancel;
-              color = Colors.red;
-              title = 'Facture annulée';
-              break;
-            default:
-              icon = Icons.receipt_long;
-              color = PremiumTheme.primaryPurple;
-              title = 'Nouvelle facture';
-          }
-
+          final (icon, color, title) = _invoiceActivityInfo(status);
           final total = (inv['total'] ?? 0).toDouble();
+          final date = DateTime.tryParse(inv['updated_at'] ?? inv['created_at'] ?? '') ?? DateTime.now();
           activities.add({
-            'icon': icon,
-            'title': title,
+            'icon': icon, 'title': title,
             'subtitle': '${inv['client_name'] ?? 'Client'} · ${total.toStringAsFixed(2)}€',
-            'time': _formatTimeAgo(DateTime.tryParse(inv['updated_at'] ?? inv['created_at'] ?? '') ?? DateTime.now()),
-            'color': color,
-            'date': DateTime.tryParse(inv['updated_at'] ?? inv['created_at'] ?? '') ?? DateTime.now(),
+            'time': _formatTimeAgo(date), 'color': color, 'date': date,
           });
         }
-      } catch (e) {
-        logger.e('Erreur chargement factures récentes: $e');
-      }
+      } catch (e) { logger.e('Erreur chargement factures récentes: $e'); }
 
-      // Sort all by date descending, take top 5
       activities.sort((a, b) => (b['date'] as DateTime).compareTo(a['date'] as DateTime));
       _recentActivity = activities.take(5).toList();
     } catch (e) {
       logger.e('Erreur chargement activité récente: $e');
       _recentActivity = [];
+    }
+  }
+
+  /// Helper: mission status → (icon, color, title) for activity list.
+  (IconData, Color, String) _missionActivityInfo(String status) {
+    switch (status) {
+      case 'completed': return (Icons.check_circle, PremiumTheme.accentGreen, 'Mission terminée');
+      case 'in_progress': return (Icons.local_shipping, PremiumTheme.primaryBlue, 'Mission en cours');
+      case 'cancelled': return (Icons.cancel, Colors.red, 'Mission annulée');
+      default: return (Icons.schedule, PremiumTheme.primaryPurple, 'Nouvelle mission');
+    }
+  }
+
+  /// Helper: invoice status → (icon, color, title) for activity list.
+  (IconData, Color, String) _invoiceActivityInfo(String status) {
+    switch (status) {
+      case 'paid': return (Icons.check_circle, PremiumTheme.accentGreen, 'Facture payée');
+      case 'sent': return (Icons.send, PremiumTheme.primaryBlue, 'Facture envoyée');
+      case 'cancelled': return (Icons.cancel, Colors.red, 'Facture annulée');
+      default: return (Icons.receipt_long, PremiumTheme.primaryPurple, 'Nouvelle facture');
     }
   }
 

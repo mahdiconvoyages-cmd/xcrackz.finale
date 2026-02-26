@@ -27,7 +27,7 @@ final subscriptionServiceProvider =
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef SubscriptionServiceRef = AutoDisposeProviderRef<SubscriptionService>;
-String _$subscriptionHash() => r'c123500ad45920517d8029f09aba64603b305951';
+String _$subscriptionHash() => r'cd9a5c57952a79b3bd4599aeafcbb7619863e798';
 
 /// Provider Riverpod pour l'abonnement
 ///

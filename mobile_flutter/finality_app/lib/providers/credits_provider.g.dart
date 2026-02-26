@@ -25,7 +25,7 @@ final creditsServiceProvider = AutoDisposeProvider<CreditsService>.internal(
 @Deprecated('Will be removed in 3.0. Use Ref instead')
 // ignore: unused_element
 typedef CreditsServiceRef = AutoDisposeProviderRef<CreditsService>;
-String _$creditsHash() => r'e3229ea0d937475470c8336c449ded1e7dccd2b1';
+String _$creditsHash() => r'82a06b3c822c080b7f8c5a1c9fd2454fb3efcec1';
 
 /// Provider Riverpod pour les crédits
 ///
