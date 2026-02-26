@@ -177,8 +177,27 @@ export default function DashboardPremium() {
       };
 
       if (subscription) {
+        const planName = (subscription.plan || 'free').toUpperCase();
+        const isFree = planName === 'FREE';
+        
         // Utiliser current_period_end tel quel — pas de fallback artificiel
         let endDate = subscription.current_period_end ? new Date(subscription.current_period_end) : null;
+        
+        // Plan FREE sans date de fin = pas d'expiration
+        if (isFree && !endDate) {
+          creditData = {
+            credits: profile?.credits || 0,
+            plan: 'FREE',
+            daysRemaining: 999,
+            hoursRemaining: 999,
+            endDate: null,
+            hasActiveSubscription: true,
+            isExpiringSoon: false,
+            isExpired: false,
+            timeRemainingText: '',
+          };
+          setCreditInfo(creditData);
+        } else {
         const daysRemaining = endDate ? Math.ceil((endDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : -1;
         const isExpiredByDate = endDate ? endDate <= now : false;
         
@@ -236,6 +255,7 @@ export default function DashboardPremium() {
             timeRemainingText: '',
           };
         }
+        } // close else for non-free plans
       }
       setCreditInfo(creditData);
 
@@ -583,7 +603,7 @@ export default function DashboardPremium() {
                       )}
                       <div className="min-w-0">
                         <p className="text-white text-sm font-medium truncate">
-                          {creditInfo.isExpired ? 'Expiré' : (creditInfo as any).timeRemainingText ? `${(creditInfo as any).timeRemainingText} restants` : `${creditInfo.daysRemaining}j restants`}
+                          {creditInfo.isExpired ? 'Expiré' : !creditInfo.endDate ? 'Plan actif' : (creditInfo as any).timeRemainingText ? `${(creditInfo as any).timeRemainingText} restants` : `${creditInfo.daysRemaining}j restants`}
                         </p>
                         {creditInfo.endDate && (
                           <p className="text-white/70 text-xs truncate">
