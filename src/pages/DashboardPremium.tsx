@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
+import { Mail, Gift } from 'lucide-react';
 
 // Types
 interface DashboardStats {
@@ -503,7 +504,40 @@ export default function DashboardPremium() {
 
       {/* Content */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
-        
+
+        {/* BANDEAU CONFIRMATION EMAIL — 10 crédits de bienvenue */}
+        {user && !user.email_confirmed_at && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="rounded-2xl p-4 sm:p-5 border-2 bg-blue-50 border-blue-300"
+          >
+            <div className="flex items-start gap-3">
+              <div className="p-2 rounded-xl bg-blue-100">
+                <Gift className="w-6 h-6 text-blue-600" />
+              </div>
+              <div className="flex-1">
+                <h3 className="font-bold text-sm sm:text-base text-blue-800">
+                  🎁 Confirmez votre email et recevez 10 crédits de bienvenue !
+                </h3>
+                <p className="text-xs sm:text-sm mt-1 text-blue-600">
+                  Un email de confirmation a été envoyé à <strong>{user.email}</strong>. Cliquez sur le lien pour activer vos crédits gratuits (valables 30 jours).
+                </p>
+              </div>
+              <button
+                onClick={async () => {
+                  await supabase.auth.resend({ type: 'signup', email: user.email || '' });
+                  alert('Email de confirmation renvoyé !');
+                }}
+                className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold whitespace-nowrap"
+              >
+                <Mail className="w-4 h-4 inline mr-1" />
+                Renvoyer
+              </button>
+            </div>
+          </motion.div>
+        )}
+
         {/* ALERTE EXPIRY - 48h/24h */}
         {creditInfo.hasActiveSubscription && !creditInfo.isExpired && creditInfo.hoursRemaining <= 48 && (
           <motion.div 

@@ -29,8 +29,8 @@ export default function AuthCallback() {
           const { error } = await supabase.auth.exchangeCodeForSession(code);
           if (error) throw error;
           setStatus('success');
-          setMessage('Email confirmé ! Redirection vers le tableau de bord...');
-          setTimeout(() => navigate('/dashboard', { replace: true }), 1500);
+          setMessage('Email confirmé ! 🎁 Vos 10 crédits de bienvenue ont été activés. Redirection...');
+          setTimeout(() => navigate('/dashboard', { replace: true }), 2000);
           return;
         }
 
@@ -41,8 +41,8 @@ export default function AuthCallback() {
           const { error } = await supabase.auth.verifyOtp({ token_hash: tokenHash, type });
           if (error) throw error;
           setStatus('success');
-          setMessage('Email confirmé ! Redirection vers le tableau de bord...');
-          setTimeout(() => navigate('/dashboard', { replace: true }), 1500);
+          setMessage('Email confirmé ! 🎁 Vos 10 crédits de bienvenue ont été activés. Redirection...');
+          setTimeout(() => navigate('/dashboard', { replace: true }), 2000);
           return;
         }
 

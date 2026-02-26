@@ -56,7 +56,7 @@ export default function Login() {
       if (err.message.includes('Invalid login credentials')) {
         setError('Email ou mot de passe incorrect');
       } else if (err.message.includes('Email not confirmed')) {
-        setError('Veuillez confirmer votre email');
+        setError('Veuillez confirmer votre email en cliquant sur le lien envoyé à votre adresse. Vérifiez vos spams.');
       } else {
         setError(err.message || 'Une erreur est survenue');
       }

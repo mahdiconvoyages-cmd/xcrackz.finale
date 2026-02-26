@@ -240,21 +240,10 @@ export default function SignupWizard() {
         userAgent: navigator.userAgent, stepReached: 4, success: true,
       });
 
-      // Welcome gift: 10 credits given after email verification (via SQL trigger)
-      // No credits at signup — they'll be added when email is confirmed
-      if (authData?.user?.id) {
-        try {
-          const end = new Date();
-          end.setDate(end.getDate() + 30);
-          await supabase.from('subscriptions').insert({
-            user_id: authData.user.id, plan: 'free', status: 'active',
-            start_date: new Date().toISOString(), end_date: end.toISOString(),
-            credits_remaining: 0, auto_renew: false,
-          });
-        } catch (e) { console.error('Erreur creation abonnement:', e); }
-      }
-
-      navigate('/login', { state: { signupSuccess: true } });
+      // Crédits à 0 à l'inscription
+      // 10 crédits de bienvenue seront donnés automatiquement à la confirmation email (trigger SQL)
+      // L'utilisateur est connecté directement après l'inscription
+      navigate('/dashboard', { state: { newSignup: true } });
     } catch (err: any) {
       console.error('Signup error:', err);
       const msg = err.message || '';
