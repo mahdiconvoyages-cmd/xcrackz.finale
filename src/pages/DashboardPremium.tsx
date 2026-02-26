@@ -320,7 +320,7 @@ export default function DashboardPremium() {
         const { data: inspections } = await supabase
           .from('vehicle_inspections')
           .select('inspection_type, mileage_km, mission_id')
-          .eq('user_id', user.id);
+          .eq('inspector_id', user.id);
 
         if (inspections) {
           const mileageByMission: Record<string, { dep?: number; arr?: number }> = {};
