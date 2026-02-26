@@ -1,7 +1,7 @@
 // Service Worker pour ChecksFleet PWA
 // Cache les assets statiques et permet le mode hors ligne
 
-const CACHE_VERSION = 'v5-checksfleet-2026'; // CHANGÉ pour forcer mise à jour + fix chunk stale cache
+const CACHE_VERSION = 'v6-checksfleet-2026'; // CHANGÉ: fix clone-after-consume bug
 const CACHE_NAME = `checksfleet-${CACHE_VERSION}`;
 const STATIC_CACHE = `checksfleet-static-${CACHE_VERSION}`;
 const DYNAMIC_CACHE = `checksfleet-dynamic-${CACHE_VERSION}`;
@@ -76,7 +76,8 @@ self.addEventListener('fetch', (event) => {
       fetch(request, { mode: 'cors', credentials: 'same-origin' })
         .then((response) => {
           if (response && response.status === 200 && response.type === 'basic') {
-            caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, response.clone()));
+            const cloned = response.clone();
+            caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, cloned));
           }
           return response;
         })
@@ -104,10 +105,9 @@ self.addEventListener('fetch', (event) => {
             if (!response || response.status !== 200 || response.type !== 'basic') {
               return response;
             }
-            return caches.open(DYNAMIC_CACHE).then((cache) => {
-              cache.put(request, response.clone());
-              return response;
-            });
+            const cloned = response.clone();
+            caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, cloned));
+            return response;
           })
           .catch(() => {
             if (request.destination === 'image') {
@@ -126,10 +126,8 @@ self.addEventListener('fetch', (event) => {
       .then((response) => {
         // Ne mettre en cache que les requêtes GET
         if (request.method === 'GET') {
-          return caches.open(DYNAMIC_CACHE).then((cache) => {
-            cache.put(request, response.clone());
-            return response;
-          });
+          const cloned = response.clone();
+          caches.open(DYNAMIC_CACHE).then((cache) => cache.put(request, cloned));
         }
         return response;
       })
