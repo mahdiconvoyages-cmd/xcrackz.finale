@@ -30,6 +30,10 @@ interface UserProfile {
   onboarding_completed?: boolean;
   fcm_token?: string;
   subscription?: SubscriptionInfo | null;
+  referral_code?: string;
+  referred_by?: string;
+  referred_by_name?: string;
+  referral_count?: number;
 }
 
 interface SubscriptionInfo {
@@ -130,7 +134,7 @@ export default function AdminUsers() {
     try {
       const { data: profiles, error } = await supabase
         .from('profiles')
-        .select('id, email, full_name, first_name, last_name, phone, company_name, company_siret, user_type, is_admin, is_verified, credits, avatar_url, created_at, updated_at, base_city, onboarding_completed, fcm_token')
+        .select('id, email, full_name, first_name, last_name, phone, company_name, company_siret, user_type, is_admin, is_verified, credits, avatar_url, created_at, updated_at, base_city, onboarding_completed, fcm_token, referral_code, referred_by')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -139,13 +143,30 @@ export default function AdminUsers() {
         .from('subscriptions')
         .select('id, user_id, plan, status, current_period_start, current_period_end, auto_renew, payment_method, notes');
 
+      // Charger les stats de parrainage
+      const { data: referralStats } = await supabase
+        .from('referrals')
+        .select('referrer_id, status');
+
+      const referralCountMap = new Map<string, number>();
+      referralStats?.forEach(r => {
+        const count = referralCountMap.get(r.referrer_id) || 0;
+        referralCountMap.set(r.referrer_id, count + 1);
+      });
+
       const subsMap = new Map<string, SubscriptionInfo>();
       subs?.forEach(s => subsMap.set(s.user_id, s));
+
+      // Map des noms pour referred_by
+      const profileMap = new Map<string, string>();
+      profiles?.forEach(p => profileMap.set(p.id, p.full_name || p.email));
 
       setUsers((profiles || []).map(p => ({
         ...p,
         credits: p.credits || 0,
         subscription: subsMap.get(p.id) || null,
+        referred_by_name: p.referred_by ? profileMap.get(p.referred_by) || '' : '',
+        referral_count: referralCountMap.get(p.id) || 0,
       })));
     } catch (err) {
       console.error('Erreur chargement utilisateurs:', err);
@@ -616,6 +637,8 @@ export default function AdminUsers() {
                         {user.is_admin && <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-red-100 text-red-700">ADMIN</span>}
                         {user.is_verified && <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-green-100 text-green-700">VÉRIFIÉ</span>}
                         {user.fcm_token && <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-blue-100 text-blue-700">PUSH</span>}
+                        {(user.referral_count || 0) > 0 && <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-purple-100 text-purple-700" title={`${user.referral_count} filleul(s)`}>🤝 {user.referral_count}</span>}
+                        {user.referred_by_name && <span className="px-1.5 py-0.5 text-[9px] font-bold rounded-full bg-indigo-100 text-indigo-700" title={`Parrainé par ${user.referred_by_name}`}>PARRAINÉ</span>}
                       </div>
                     </td>
 
@@ -755,6 +778,34 @@ export default function AdminUsers() {
                   >
                     <Minus className="w-4 h-4" /> Retirer
                   </button>
+                </div>
+              </div>
+
+              {/* Parrainage Section */}
+              <div className="bg-gradient-to-br from-purple-50 to-indigo-50 rounded-2xl p-5 border border-purple-200/50">
+                <h4 className="font-bold text-slate-900 flex items-center gap-2 mb-3">
+                  <Users className="w-5 h-5 text-purple-500" /> Parrainage
+                </h4>
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-600">Code parrainage</span>
+                    <span className="font-mono font-bold text-purple-700 bg-purple-100 px-3 py-1 rounded-lg text-sm">{selectedUser.referral_code || '—'}</span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-slate-600">Filleuls amenés</span>
+                    <span className="font-bold text-purple-700">{selectedUser.referral_count || 0}</span>
+                  </div>
+                  {selectedUser.referred_by_name && (
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-slate-600">Parrainé par</span>
+                      <span className="font-semibold text-indigo-700">{selectedUser.referred_by_name}</span>
+                    </div>
+                  )}
+                  {(selectedUser.referral_count || 0) > 0 && (
+                    <div className="bg-purple-100/60 rounded-xl p-3 text-xs text-purple-700">
+                      💰 {(selectedUser.referral_count || 0) * 10} crédits gagnés via parrainage
+                    </div>
+                  )}
                 </div>
               </div>
 

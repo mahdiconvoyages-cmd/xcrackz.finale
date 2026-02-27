@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Loader, Camera, CheckCircle, AlertCircle, Link, Copy, Share2 } from 'lucide-react';
+import { ArrowLeft, Loader, Camera, CheckCircle, AlertCircle, Copy, Share2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import SignatureCanvas from '../components/inspection/SignatureCanvas';

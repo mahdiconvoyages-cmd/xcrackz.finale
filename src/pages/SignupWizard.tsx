@@ -9,12 +9,12 @@
  * depuis la page dediee /billing-profile avant d'acceder au CRM.
  */
 
-import React, { useState, useRef } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import React, { useState, useRef, useEffect } from 'react';
+import { useNavigate, Link, useSearchParams } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { validationService } from '../services/validationService';
 import { fraudPreventionService } from '../services/fraudPreventionService';
-import { Mail, Gift, CheckCircle } from 'lucide-react';
+import { Mail, Gift, CheckCircle, Users } from 'lucide-react';
 
 /* -- PremiumTheme tokens -- */
 const T = {
@@ -54,10 +54,12 @@ interface SignupData {
   password: string;
   confirmPassword: string;
   acceptedTerms: boolean;
+  referralCode: string;
 }
 
 export default function SignupWizard() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const avatarInputRef = useRef<HTMLInputElement>(null);
   const [step, setStep] = useState(0);
   const [loading, setLoading] = useState(false);
@@ -71,6 +73,21 @@ export default function SignupWizard() {
   const [phoneAvailable, setPhoneAvailable] = useState(true);
   const [checkingPhone, setCheckingPhone] = useState(false);
 
+  /* -- Referral code validation state -- */
+  const [referralChecked, setReferralChecked] = useState(false);
+  const [referralValid, setReferralValid] = useState(false);
+  const [referralSponsor, setReferralSponsor] = useState('');
+  const [checkingReferral, setCheckingReferral] = useState(false);
+
+  // Pre-fill referral code from URL ?ref=XXX
+  useEffect(() => {
+    const refCode = searchParams.get('ref');
+    if (refCode) {
+      setForm(p => ({ ...p, referralCode: refCode.toUpperCase() }));
+      checkReferralCode(refCode);
+    }
+  }, []);
+
   const [form, setForm] = useState<SignupData>({
     userType: '',
     fullName: '',
@@ -81,6 +98,7 @@ export default function SignupWizard() {
     password: '',
     confirmPassword: '',
     acceptedTerms: false,
+    referralCode: '',
   });
 
   /* -- Validation per step -- */
@@ -174,6 +192,21 @@ export default function SignupWizard() {
     return supabase.storage.from('avatars').getPublicUrl(`${path}/${name}`).data.publicUrl;
   };
 
+  /* -- Referral code check -- */
+  const checkReferralCode = async (code: string) => {
+    if (!code.trim()) { setReferralChecked(false); setReferralValid(false); setReferralSponsor(''); return; }
+    setCheckingReferral(true);
+    try {
+      const { data, error } = await supabase.rpc('validate_referral_code', { p_code: code.trim() });
+      if (!error && data && data.length > 0 && data[0].valid) {
+        setReferralChecked(true); setReferralValid(true); setReferralSponsor(data[0].referrer_name || '');
+      } else {
+        setReferralChecked(true); setReferralValid(false); setReferralSponsor('');
+      }
+    } catch (e) { console.error('Referral check error:', e); setReferralChecked(true); setReferralValid(false); }
+    finally { setCheckingReferral(false); }
+  };
+
   /* -- Phone uniqueness check -- */
   const checkPhoneAvailability = async (phone: string) => {
     if (!phone.trim()) return;
@@ -242,6 +275,23 @@ export default function SignupWizard() {
         email: form.email, phone: form.phone, deviceFingerprint, ipAddress,
         userAgent: navigator.userAgent, stepReached: 4, success: true,
       });
+
+      // Lier le parrainage si un code valide a été saisi
+      if (form.referralCode.trim() && referralValid && authData?.user?.id) {
+        try {
+          const { data: refData } = await supabase.rpc('validate_referral_code', { p_code: form.referralCode.trim() });
+          if (refData && refData.length > 0 && refData[0].valid && refData[0].referrer_id) {
+            await supabase.from('profiles').update({ referred_by: refData[0].referrer_id }).eq('id', authData.user.id);
+            // Créer l'entrée de parrainage en pending (récompensé au moment de l'attribution d'abonnement)
+            await supabase.from('referrals').insert({
+              referrer_id: refData[0].referrer_id,
+              referred_id: authData.user.id,
+              referral_code: form.referralCode.trim().toUpperCase(),
+              status: 'pending',
+            });
+          }
+        } catch (refErr) { console.warn('Referral link error:', refErr); }
+      }
 
       // Compte créé ! L'utilisateur doit confirmer son email pour recevoir 10 crédits
       // Le trigger SQL on_email_confirmed donnera les crédits automatiquement
@@ -372,19 +422,76 @@ export default function SignupWizard() {
       </div>
 
       {/* Full name */}
-      <div className="max-w-md mx-auto">
-        <label className="block text-sm font-medium mb-1.5" style={{ color: T.textPrimary }}>
-          Nom complet <span className="text-red-500">*</span>
-        </label>
-        <input
-          type="text"
-          value={form.fullName}
-          onChange={e => setForm(p => ({ ...p, fullName: e.target.value }))}
-          placeholder="Jean Dupont"
-          className={inputCls}
-          style={inputStyle}
-          autoFocus
-        />
+      <div className="max-w-md mx-auto space-y-4">
+        <div>
+          <label className="block text-sm font-medium mb-1.5" style={{ color: T.textPrimary }}>
+            Nom complet <span className="text-red-500">*</span>
+          </label>
+          <input
+            type="text"
+            value={form.fullName}
+            onChange={e => setForm(p => ({ ...p, fullName: e.target.value }))}
+            placeholder="Jean Dupont"
+            className={inputCls}
+            style={inputStyle}
+            autoFocus
+          />
+        </div>
+
+        {/* Code parrainage (optionnel) */}
+        <div>
+          <label className="block text-sm font-medium mb-1.5" style={{ color: T.textPrimary }}>
+            <span className="flex items-center gap-1.5">
+              <Users className="w-4 h-4" style={{ color: T.primaryTeal }} />
+              Code de parrainage <span className="text-xs font-normal" style={{ color: T.textTertiary }}>(optionnel)</span>
+            </span>
+          </label>
+          <div className="relative">
+            <input
+              type="text"
+              value={form.referralCode}
+              onChange={e => {
+                setForm(p => ({ ...p, referralCode: e.target.value.toUpperCase() }));
+                setReferralChecked(false); setReferralValid(false); setReferralSponsor('');
+              }}
+              onBlur={() => form.referralCode.trim() && checkReferralCode(form.referralCode)}
+              placeholder="Ex: MAH-7X3K"
+              className={inputCls}
+              style={{
+                ...inputStyle,
+                borderColor: referralChecked ? (referralValid ? '#10B981' : '#EF4444') : inputStyle.borderColor,
+              }}
+            />
+            {checkingReferral && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <div className="w-4 h-4 border-2 border-teal-500 border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+            {referralChecked && referralValid && !checkingReferral && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <svg className="w-5 h-5 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                </svg>
+              </div>
+            )}
+            {referralChecked && !referralValid && !checkingReferral && (
+              <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </div>
+            )}
+          </div>
+          {referralChecked && referralValid && referralSponsor && (
+            <div className="mt-2 rounded-xl p-3 flex items-center gap-2" style={{ backgroundColor: '#D1FAE5', border: '1px solid #A7F3D0' }}>
+              <Users className="w-4 h-4 text-emerald-600" />
+              <p className="text-xs text-emerald-700">Parraine par <strong>{referralSponsor}</strong></p>
+            </div>
+          )}
+          {referralChecked && !referralValid && form.referralCode.trim() && (
+            <p className="text-xs mt-1.5 text-red-500">Code de parrainage invalide</p>
+          )}
+        </div>
       </div>
     </div>
   );
@@ -589,6 +696,12 @@ export default function SignupWizard() {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M3 5a2 2 0 012-2h3.28a1 1 0 01.948.684l1.498 4.493a1 1 0 01-.502 1.21l-2.257 1.13a11.042 11.042 0 005.516 5.516l1.13-2.257a1 1 0 011.21-.502l4.493 1.498a1 1 0 01.684.949V19a2 2 0 01-2 2h-1C9.716 21 3 14.284 3 6V5z" />
                 </svg>
                 <span className="text-sm" style={{ color: T.textPrimary }}>{form.phone}</span>
+              </div>
+            )}
+            {referralValid && referralSponsor && (
+              <div className="flex items-center gap-3">
+                <Users className="w-4 h-4 flex-shrink-0" style={{ color: T.primaryTeal }} />
+                <span className="text-sm" style={{ color: T.textPrimary }}>Parraine par <strong>{referralSponsor}</strong></span>
               </div>
             )}
           </div>

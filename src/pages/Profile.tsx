@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { UserCircle, Mail, Save, Camera, Star, Award, MapPin, Phone, Building, Calendar, Shield, TrendingUp, Clock, CheckCircle2, Crown } from 'lucide-react';
+import { UserCircle, Mail, Save, Camera, Star, Award, MapPin, Phone, Building, Calendar, Shield, TrendingUp, Clock, CheckCircle2, Crown, Users, Copy, Share2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { supabase } from '../lib/supabase';
 import { useSubscription } from '../hooks/useSubscription';
@@ -54,6 +54,9 @@ export default function Profile() {
     avatar_url: null,
   });
   const [uploading, setUploading] = useState(false);
+  const [referralCode, setReferralCode] = useState('');
+  const [referralCount, setReferralCount] = useState(0);
+  const [referralCopied, setReferralCopied] = useState(false);
   const [stats, setStats] = useState<UserStats>({
     total_missions: 0,
     completed_missions: 0,
@@ -64,6 +67,7 @@ export default function Profile() {
   useEffect(() => {
     loadProfile();
     loadStats();
+    loadReferral();
   }, [user]);
 
   const loadProfile = async () => {
@@ -130,6 +134,33 @@ export default function Profile() {
     } catch (err) {
       console.error('Error loading stats:', err);
     }
+  };
+
+  const loadReferral = async () => {
+    if (!user) return;
+    try {
+      const { data: prof } = await supabase.from('profiles').select('referral_code').eq('id', user.id).maybeSingle();
+      if (prof?.referral_code) setReferralCode(prof.referral_code);
+      const { data: refs, count } = await supabase.from('referrals').select('id', { count: 'exact' }).eq('referrer_id', user.id);
+      setReferralCount(count || 0);
+    } catch (err) { console.error('Error loading referral:', err); }
+  };
+
+  const copyReferralCode = () => {
+    if (!referralCode) return;
+    const shareUrl = `${window.location.origin}/register?ref=${referralCode}`;
+    navigator.clipboard.writeText(shareUrl);
+    setReferralCopied(true);
+    setTimeout(() => setReferralCopied(false), 2000);
+  };
+
+  const shareReferral = () => {
+    if (!referralCode || !navigator.share) return;
+    navigator.share({
+      title: 'Rejoins ChecksFleet !',
+      text: `Inscris-toi sur ChecksFleet avec mon code de parrainage ${referralCode} et profite de la plateforme !`,
+      url: `${window.location.origin}/register?ref=${referralCode}`,
+    });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -391,6 +422,43 @@ export default function Profile() {
               <p className="text-xs text-slate-600 font-semibold">Crédits</p>
             </div>
           </div>
+
+          {/* Parrainage Card */}
+          {referralCode && (
+            <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-xl p-5 mt-4 animate-in slide-in-from-bottom duration-700" style={{ animationDelay: '500ms' }}>
+              <div className="flex items-center gap-3 mb-3">
+                <div className="p-2 bg-purple-100 rounded-lg">
+                  <Users className="w-5 h-5 text-purple-600" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-slate-900">Parrainage</h3>
+                  <p className="text-xs text-slate-500">Invitez vos contacts et gagnez 10 crédits par filleul !</p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2 mb-3">
+                <div className="flex-1 bg-white border border-purple-200 rounded-lg px-4 py-2.5 font-mono font-bold text-purple-700 text-center text-lg tracking-wider">
+                  {referralCode}
+                </div>
+                <button onClick={copyReferralCode} className={`p-2.5 rounded-lg transition-all ${referralCopied ? 'bg-green-500 text-white' : 'bg-purple-100 text-purple-600 hover:bg-purple-200'}`} title="Copier le lien">
+                  {referralCopied ? <CheckCircle2 className="w-5 h-5" /> : <Copy className="w-5 h-5" />}
+                </button>
+                {typeof navigator.share === 'function' && (
+                  <button onClick={shareReferral} className="p-2.5 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition" title="Partager">
+                    <Share2 className="w-5 h-5" />
+                  </button>
+                )}
+              </div>
+              <div className="flex items-center justify-between text-sm">
+                <span className="text-slate-600">Filleuls inscrits</span>
+                <span className="font-bold text-purple-700">{referralCount}</span>
+              </div>
+              {referralCount > 0 && (
+                <div className="mt-2 bg-purple-100/60 rounded-lg p-2.5 text-xs text-purple-700 text-center font-medium">
+                  🎉 {referralCount * 10} crédits gagnés grâce au parrainage !
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         <div className="lg:col-span-2 bg-white border border-slate-200 rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-sm animate-in slide-in-from-right duration-700">
