@@ -255,21 +255,21 @@ export default function TeamMissions() {
   return (
     <div className="min-h-screen" style={{ backgroundColor: T.lightBg }}>
       {/* ── Sticky AppBar ── */}
-      <div className="sticky top-0 z-30 bg-white shadow-sm">
+      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 1px rgba(0,0,0,0.04)' }}>
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between">
           <div>
-            <h1 className="text-lg lg:text-2xl font-bold" style={{ color: T.textPrimary }}>Mes Convoyages</h1>
+            <h1 className="text-lg lg:text-2xl font-extrabold tracking-tight" style={{ color: T.textPrimary }}>Mes Convoyages</h1>
             <p className="hidden lg:block text-sm mt-0.5" style={{ color: T.textSecondary }}>{missions.length} mission{missions.length > 1 ? 's' : ''} au total</p>
           </div>
           <div className="flex items-center gap-2 lg:gap-3">
             <button onClick={() => setShowJoinModal(true)}
-              className="flex items-center gap-1.5 px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-sm font-semibold transition hover:shadow-sm"
-              style={{ backgroundColor: `${T.primaryBlue}0D`, color: T.primaryBlue }}>
+              className="flex items-center gap-1.5 px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-sm font-bold transition-all hover:shadow-md"
+              style={{ backgroundColor: `${T.primaryBlue}0D`, color: T.primaryBlue, border: `1px solid ${T.primaryBlue}20` }}>
               <LogIn className="w-4 h-4" /> <span className="hidden sm:inline">Rejoindre</span>
             </button>
             <Link to="/missions/create"
-              className="flex items-center gap-1.5 px-3 lg:px-5 py-2 lg:py-2.5 rounded-xl text-sm font-semibold text-white transition hover:shadow-md"
-              style={{ backgroundColor: T.primaryTeal }}>
+              className="flex items-center gap-1.5 px-3 lg:px-5 py-2 lg:py-2.5 rounded-xl text-sm font-bold text-white transition-all hover:shadow-lg"
+              style={{ background: `linear-gradient(135deg, ${T.primaryTeal}, #0F9D7A)`, boxShadow: `0 2px 8px ${T.primaryTeal}30` }}>
               <Plus className="w-4 h-4" /> <span className="hidden sm:inline">Nouvelle mission</span><span className="sm:hidden">Nouvelle</span>
             </Link>
           </div>
@@ -287,16 +287,18 @@ export default function TeamMissions() {
               const active = activeTab === tab.key;
               return (
                 <button key={tab.key} onClick={() => setActiveTab(tab.key)}
-                  className="flex items-center gap-4 p-4 rounded-2xl text-left transition-all hover:shadow-md"
+                  className="flex items-center gap-4 p-4 rounded-2xl text-left transition-all duration-200"
                   style={active
-                    ? { backgroundColor: '#FFF', boxShadow: `0 0 0 2px ${tab.color}60, 0 4px 12px ${tab.color}15`, border: `1px solid ${tab.color}30` }
-                    : { backgroundColor: '#FFF', border: `1px solid ${T.borderDefault}` }}>
-                  <div className="p-3 rounded-xl shrink-0" style={{ backgroundColor: active ? `${tab.color}15` : T.fieldBg }}>
-                    <tab.icon className="w-6 h-6" style={{ color: active ? tab.color : T.textTertiary }} />
+                    ? { backgroundColor: '#FFF', boxShadow: `0 0 0 2px ${tab.color}50, 0 8px 24px ${tab.color}18`, border: `1px solid ${tab.color}30`, transform: 'translateY(-1px)' }
+                    : { backgroundColor: '#FFF', border: `1px solid ${T.borderDefault}`, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}
+                  onMouseEnter={e => { if (!active) { e.currentTarget.style.boxShadow = `0 4px 12px ${tab.color}12`; e.currentTarget.style.borderColor = `${tab.color}40`; } }}
+                  onMouseLeave={e => { if (!active) { e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.04)'; e.currentTarget.style.borderColor = T.borderDefault; } }}>
+                  <div className="p-3 rounded-xl shrink-0" style={{ background: active ? `linear-gradient(135deg, ${tab.color}, ${tab.color}BB)` : T.fieldBg, boxShadow: active ? `0 3px 10px ${tab.color}30` : 'none' }}>
+                    <tab.icon className="w-6 h-6" style={{ color: active ? '#FFF' : T.textTertiary }} />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-2xl font-bold" style={{ color: active ? tab.color : T.textPrimary }}>{tab.count}</p>
-                    <p className="text-sm font-semibold" style={{ color: active ? tab.color : T.textSecondary }}>{tab.label}</p>
+                    <p className="text-2xl font-extrabold" style={{ color: active ? tab.color : T.textPrimary }}>{tab.count}</p>
+                    <p className="text-sm font-bold" style={{ color: active ? tab.color : T.textSecondary }}>{tab.label}</p>
                     <p className="text-xs mt-0.5" style={{ color: T.textTertiary }}>{tab.desc}</p>
                   </div>
                 </button>
@@ -519,187 +521,249 @@ export default function TeamMissions() {
               })}
             </>
           ) : (
-            /* ── Grid view cards ── */
+            /* ── Grid view cards — Premium design ── */
             filteredMissions.map((m) => {
               const sc = scfg(m.status);
               return (
-                <div key={m.id} className="group rounded-2xl overflow-hidden bg-white transition-all hover:shadow-lg cursor-pointer"
-                  style={{ border: `1px solid ${T.borderDefault}`, boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}
+                <div key={m.id}
+                  className="group rounded-2xl overflow-hidden bg-white transition-all duration-200 cursor-pointer"
+                  style={{
+                    boxShadow: `0 2px 12px ${sc.color}12, 0 1px 4px rgba(0,0,0,0.04)`,
+                    border: `1px solid ${T.borderDefault}`,
+                  }}
+                  onMouseEnter={e => { e.currentTarget.style.boxShadow = `0 8px 28px ${sc.color}20, 0 2px 8px rgba(0,0,0,0.06)`; e.currentTarget.style.transform = 'translateY(-2px)'; }}
+                  onMouseLeave={e => { e.currentTarget.style.boxShadow = `0 2px 12px ${sc.color}12, 0 1px 4px rgba(0,0,0,0.04)`; e.currentTarget.style.transform = 'translateY(0)'; }}
                   onClick={() => { setSelectedMission(m); setShowDetailsModal(true); }}>
 
-                  {/* ── Card header ── */}
-                  <div className="px-4 lg:px-5 py-3 lg:py-3.5 flex items-center gap-2" style={{ backgroundColor: `${sc.color}08`, borderBottom: `1px solid ${sc.color}15` }}>
-                    <div className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: sc.color }} />
-                    <span className="text-sm lg:text-base font-bold flex-1" style={{ color: T.textPrimary }}>{m.reference}</span>
-                    {m.assigned_user_id && m.assigned_user_id !== m.user_id && (
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${T.primaryBlue}15`, color: T.primaryBlue }}>Reçue</span>
-                    )}
-                    <span className="text-[10px] lg:text-[11px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>
-                      {sc.label}
-                    </span>
-                    <ChevronRight className="w-4 h-4 opacity-40 group-hover:opacity-100 transition" style={{ color: T.textTertiary }} />
-                  </div>
+                  <div className="flex">
+                    {/* ── Left accent stripe ── */}
+                    <div className="w-1.5 lg:w-[5px] shrink-0" style={{ background: `linear-gradient(to bottom, ${sc.color}, ${sc.color}55)` }} />
 
-                  <div className="px-4 lg:px-5 pb-4 lg:pb-5 pt-3 space-y-3">
-                    {/* ── Vehicle row ── */}
-                    <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl" style={{ backgroundColor: `${T.primaryTeal}12` }}>
-                        <Car className="w-4 h-4 lg:w-5 lg:h-5" style={{ color: T.primaryTeal }} />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <span className="text-sm lg:text-base font-semibold block" style={{ color: T.textPrimary }}>
-                          {m.vehicle_brand} {m.vehicle_model}
+                    <div className="flex-1 min-w-0">
+                      {/* ── Card header ── */}
+                      <div className="px-4 lg:px-5 py-3 lg:py-3.5 flex items-center gap-2.5"
+                        style={{ background: `linear-gradient(to right, ${sc.color}08, transparent)`, borderBottom: `1px solid ${sc.color}10` }}>
+                        {/* Status icon square */}
+                        <div className="w-8 h-8 rounded-lg shrink-0 flex items-center justify-center"
+                          style={{ background: `linear-gradient(135deg, ${sc.color}, ${sc.color}BB)`, boxShadow: `0 2px 8px ${sc.color}30` }}>
+                          {m.status === 'pending'     && <Clock className="w-4 h-4 text-white" />}
+                          {(m.status === 'in_progress' || m.status === 'assigned') && <TrendingUp className="w-4 h-4 text-white" />}
+                          {m.status === 'completed'   && <CheckCircle className="w-4 h-4 text-white" />}
+                          {m.status === 'cancelled'   && <X className="w-4 h-4 text-white" />}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <span className="text-sm lg:text-[15px] font-extrabold block tracking-wide" style={{ color: T.textPrimary }}>{m.reference}</span>
+                          <span className="text-[10px] lg:text-xs" style={{ color: T.textTertiary }}>
+                            {new Date(m.pickup_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
+                          </span>
+                        </div>
+                        {m.assigned_user_id && m.assigned_user_id !== m.user_id && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${T.primaryBlue}15`, color: T.primaryBlue }}>Reçue</span>
+                        )}
+                        <span className="text-[10px] lg:text-[11px] font-bold px-2.5 py-1 rounded-full"
+                          style={{ background: `linear-gradient(135deg, ${sc.color}18, ${sc.color}0C)`, color: sc.text, border: `1px solid ${sc.color}30` }}>
+                          {sc.label}
                         </span>
-                        {m.vehicle_type && <span className="text-[10px] lg:text-xs" style={{ color: T.textTertiary }}>{m.vehicle_type}</span>}
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center group-hover:bg-gray-100 transition"
+                          style={{ backgroundColor: `${T.borderDefault}60` }}>
+                          <ChevronRight className="w-4 h-4 opacity-40 group-hover:opacity-100 transition" style={{ color: T.textTertiary }} />
+                        </div>
                       </div>
-                      {m.vehicle_plate && (
-                        <span className="text-xs lg:text-sm font-mono font-bold px-2.5 py-1 rounded-lg" style={{ backgroundColor: T.fieldBg, border: `1.5px solid ${T.borderDefault}`, color: T.textPrimary }}>
-                          {m.vehicle_plate}
-                        </span>
-                      )}
-                    </div>
 
-                    {/* ── Restitution badge ── */}
-                    {m.has_restitution && (
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl" style={{ backgroundColor: `${T.deepOrange}0D`, border: `1px solid ${T.deepOrange}30` }}>
-                        <RefreshCw className="w-3.5 h-3.5" style={{ color: T.deepOrange }} />
-                        <span className="text-xs font-semibold" style={{ color: T.deepOrange }}>
-                          Restitution
-                          {(m.restitution_vehicle_brand || m.restitution_vehicle_plate) && (
-                            <span className="font-normal ml-1" style={{ color: `${T.deepOrange}CC` }}>
-                              {m.restitution_vehicle_brand} {m.restitution_vehicle_model}
-                              {m.restitution_vehicle_plate && ` · ${m.restitution_vehicle_plate}`}
+                      <div className="px-4 lg:px-5 pb-4 lg:pb-5 pt-3 space-y-2.5">
+                        {/* ── Vehicle row ── */}
+                        <div className="flex items-center gap-3 p-2.5 rounded-xl"
+                          style={{ background: `linear-gradient(to right, ${T.primaryTeal}08, ${T.primaryTeal}03)`, border: `1px solid ${T.primaryTeal}15` }}>
+                          <div className="p-2 rounded-lg shrink-0"
+                            style={{ background: `linear-gradient(135deg, ${T.primaryTeal}, ${T.primaryTeal}BB)`, boxShadow: `0 2px 6px ${T.primaryTeal}25` }}>
+                            <Car className="w-4 h-4 text-white" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <span className="text-sm lg:text-[15px] font-bold block" style={{ color: T.textPrimary }}>
+                              {m.vehicle_brand} {m.vehicle_model}
+                            </span>
+                            {m.vehicle_type && <span className="text-[10px] lg:text-xs" style={{ color: T.textTertiary }}>{m.vehicle_type}</span>}
+                          </div>
+                          {m.vehicle_plate && (
+                            <span className="text-xs lg:text-sm font-mono font-extrabold px-2.5 py-1 rounded-lg tracking-wider"
+                              style={{ backgroundColor: '#FFF', border: `1.5px solid ${T.borderDefault}`, color: T.textPrimary, boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                              {m.vehicle_plate}
                             </span>
                           )}
-                        </span>
-                      </div>
-                    )}
-
-                    {/* ── Route row ── */}
-                    <div className="rounded-xl p-3" style={{ backgroundColor: T.fieldBg }}>
-                      <div className="flex items-start gap-2.5 mb-2">
-                        <div className="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style={{ backgroundColor: T.accentGreen }} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs lg:text-sm font-medium" style={{ color: T.textPrimary }}>{m.pickup_city || m.pickup_address}</p>
-                          {m.pickup_address && m.pickup_city && <p className="hidden lg:block text-[11px] mt-0.5" style={{ color: T.textTertiary }}>{m.pickup_address}</p>}
-                          {m.pickup_contact_name && <p className="text-[10px] lg:text-xs mt-0.5" style={{ color: T.textTertiary }}>{m.pickup_contact_name}</p>}
                         </div>
-                      </div>
-                      <div className="ml-[5px] w-px h-3 mb-2" style={{ backgroundColor: T.borderDefault }} />
-                      <div className="flex items-start gap-2.5">
-                        <div className="w-2.5 h-2.5 rounded-full mt-1 shrink-0" style={{ backgroundColor: T.primaryBlue }} />
-                        <div className="flex-1 min-w-0">
-                          <p className="text-xs lg:text-sm font-medium" style={{ color: T.textPrimary }}>{m.delivery_city || m.delivery_address}</p>
-                          {m.delivery_address && m.delivery_city && <p className="hidden lg:block text-[11px] mt-0.5" style={{ color: T.textTertiary }}>{m.delivery_address}</p>}
-                          {m.delivery_contact_name && <p className="text-[10px] lg:text-xs mt-0.5" style={{ color: T.textTertiary }}>{m.delivery_contact_name}</p>}
-                        </div>
-                      </div>
-                    </div>
 
-                    {/* ── Meta rows (mandataire, driver) ── */}
-                    <div className="flex flex-wrap gap-x-4 gap-y-1.5">
-                      {(m.mandataire_name || m.mandataire_company) && (
-                        <div className="flex items-center gap-1.5">
-                          <Building2 className="w-3.5 h-3.5" style={{ color: T.primaryPurple }} />
-                          <span className="text-xs font-medium" style={{ color: T.primaryPurple }}>{m.mandataire_name}{m.mandataire_company ? ` · ${m.mandataire_company}` : ''}</span>
-                        </div>
-                      )}
-                      {m.assigned_user_id && driverNames[m.assigned_user_id] && (
-                        <div className="flex items-center gap-1.5">
-                          <User className="w-3.5 h-3.5" style={{ color: T.primaryBlue }} />
-                          <span className="text-xs font-medium" style={{ color: T.primaryBlue }}>{driverNames[m.assigned_user_id]}</span>
-                        </div>
-                      )}
-                    </div>
-
-                    {/* ── Date + Price row ── */}
-                    <div className="flex items-center justify-between pt-1 border-t" style={{ borderColor: `${T.borderDefault}80` }}>
-                      <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5" style={{ color: T.textTertiary }} />
-                        <span className="text-xs lg:text-sm" style={{ color: T.textSecondary }}>
-                          {new Date(m.pickup_date).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' })}
-                        </span>
-                      </div>
-                      {m.price > 0 && (
-                        <span className="text-sm lg:text-base font-bold" style={{ color: T.primaryTeal }}>{m.price.toLocaleString('fr-FR')} €</span>
-                      )}
-                    </div>
-
-                    {/* ── Action buttons ── */}
-                    <div className="flex flex-wrap gap-1.5 lg:gap-2 pt-1" onClick={e => e.stopPropagation()}>
-                      {m.status === 'pending' && (
-                        <button onClick={() => handleStartInspection(m)}
-                          className="flex items-center gap-1.5 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold text-white transition hover:shadow-md"
-                          style={{ backgroundColor: T.primaryTeal }}>
-                          <Play className="w-3.5 h-3.5" /> Démarrer
-                        </button>
-                      )}
-                      {m.status === 'in_progress' && (
-                        <>
-                          <button onClick={() => handleStartInspection(m)}
-                            className="flex items-center gap-1.5 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold text-white hover:shadow-md transition"
-                            style={{ backgroundColor: T.primaryBlue }}>
-                            <TrendingUp className="w-3.5 h-3.5" /> Continuer
-                          </button>
-                          <button onClick={() => handleCompleteMission(m)}
-                            className="flex items-center gap-1.5 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold text-white hover:shadow-md transition"
-                            style={{ backgroundColor: hasDepartureInspection(m.id) && hasArrivalInspection(m.id) ? T.accentGreen : T.textTertiary }}>
-                            <CheckCircle className="w-3.5 h-3.5" /> Terminer
-                          </button>
-                        </>
-                      )}
-                      {m.status === 'completed' && (
-                        <>
-                          <button onClick={() => handleViewReport(m.id)}
-                            className="flex items-center gap-1.5 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold text-white hover:shadow-md transition"
-                            style={{ backgroundColor: T.accentGreen }}>
-                            <FileText className="w-3.5 h-3.5" /> Rapport
-                          </button>
-                          <button onClick={() => handleCreateInvoice(m)}
-                            className="flex items-center gap-1.5 px-3 lg:px-4 py-1.5 lg:py-2 rounded-xl text-xs lg:text-sm font-semibold text-white hover:shadow-md transition"
-                            style={{ backgroundColor: T.accentAmber }}>
-                            <Receipt className="w-3.5 h-3.5" /> Facture
-                          </button>
-                        </>
-                      )}
-                      {/* Secondary actions */}
-                      <div className="flex gap-1 lg:gap-1.5 ml-auto">
-                        <button onClick={async () => { try { await generateMissionPDF(m); } catch (e) { console.error(e); } }}
-                          className="p-1.5 lg:p-2 rounded-lg transition hover:scale-105" style={{ color: T.primaryPurple, backgroundColor: `${T.primaryPurple}10` }}
-                          title="PDF">
-                          <FileText className="w-3.5 h-3.5" />
-                        </button>
-                        {m.user_id === user?.id && (
-                          <>
-                            <button onClick={() => navigate(`/missions/edit/${m.id}`)}
-                              className="p-1.5 lg:p-2 rounded-lg transition hover:scale-105" style={{ color: T.primaryBlue, backgroundColor: `${T.primaryBlue}10` }}
-                              title="Modifier">
-                              <Edit className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => { setSelectedMission(m); setShowShareCodeModal(true); }}
-                              className="p-1.5 lg:p-2 rounded-lg transition hover:scale-105" style={{ color: T.primaryIndigo, backgroundColor: `${T.primaryIndigo}10` }}
-                              title="Partager">
-                              <Users className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => handleArchiveMission(m.id, !m.archived)}
-                              className="p-1.5 lg:p-2 rounded-lg transition hover:scale-105" style={{ color: T.accentAmber, backgroundColor: `${T.accentAmber}10` }}
-                              title={m.archived ? 'Restaurer' : 'Archiver'}>
-                              <Archive className="w-3.5 h-3.5" />
-                            </button>
-                            <button onClick={() => handleDeleteMission(m.id)}
-                              className="p-1.5 lg:p-2 rounded-lg transition hover:scale-105" style={{ color: T.accentRed, backgroundColor: `${T.accentRed}10` }}
-                              title="Supprimer">
-                              <Trash2 className="w-3.5 h-3.5" />
-                            </button>
-                          </>
+                        {/* ── Restitution badge ── */}
+                        {m.has_restitution && (
+                          <div className="flex items-center gap-2.5 px-3 py-2.5 rounded-xl"
+                            style={{ background: `linear-gradient(to right, ${T.deepOrange}0D, ${T.deepOrange}06)`, border: `1px solid ${T.deepOrange}25` }}>
+                            <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ backgroundColor: `${T.deepOrange}15` }}>
+                              <RefreshCw className="w-3.5 h-3.5" style={{ color: T.deepOrange }} />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <span className="text-xs font-bold block" style={{ color: T.deepOrange }}>Aller-Retour (Restitution)</span>
+                              {(m.restitution_vehicle_brand || m.restitution_vehicle_plate) && (
+                                <span className="text-[11px]" style={{ color: `${T.deepOrange}BB` }}>
+                                  {m.restitution_vehicle_brand} {m.restitution_vehicle_model}
+                                  {m.restitution_vehicle_plate && ` · ${m.restitution_vehicle_plate}`}
+                                </span>
+                              )}
+                            </div>
+                          </div>
                         )}
-                        {m.status === 'in_progress' && (
-                          <button onClick={() => navigate(`/missions/${m.id}/tracking`)}
-                            className="p-1.5 lg:p-2 rounded-lg transition hover:scale-105" style={{ color: T.primaryTeal, backgroundColor: `${T.primaryTeal}10` }}
-                            title="GPS Tracking">
-                            <Navigation className="w-3.5 h-3.5" />
-                          </button>
+
+                        {/* ── Route row — vertical timeline ── */}
+                        <div className="rounded-xl p-3 lg:p-3.5" style={{ backgroundColor: T.fieldBg, border: `1px solid ${T.borderDefault}` }}>
+                          {/* Departure */}
+                          <div className="flex items-start gap-2.5">
+                            <div className="flex flex-col items-center">
+                              <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                                style={{ background: `linear-gradient(135deg, ${T.accentGreen}, ${T.accentGreen}AA)`, boxShadow: `0 2px 6px ${T.accentGreen}30` }}>
+                                <MapPin className="w-3 h-3 text-white" />
+                              </div>
+                              <div className="w-0.5 h-5 my-1 rounded-full" style={{ background: `linear-gradient(to bottom, ${T.accentGreen}55, ${T.primaryBlue}55)` }} />
+                            </div>
+                            <div className="flex-1 min-w-0 pb-1">
+                              <p className="text-[9px] font-extrabold tracking-[1.5px] uppercase mb-0.5" style={{ color: T.accentGreen }}>DÉPART</p>
+                              <p className="text-xs lg:text-sm font-semibold" style={{ color: T.textPrimary }}>{m.pickup_city || m.pickup_address}</p>
+                              {m.pickup_address && m.pickup_city && <p className="hidden lg:block text-[11px] mt-0.5" style={{ color: T.textTertiary }}>{m.pickup_address}</p>}
+                              {m.pickup_contact_name && (
+                                <p className="flex items-center gap-1 text-[10px] lg:text-xs mt-1" style={{ color: T.textSecondary }}>
+                                  <User className="w-3 h-3" style={{ color: `${T.accentGreen}88` }} />{m.pickup_contact_name}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                          {/* Arrival */}
+                          <div className="flex items-start gap-2.5">
+                            <div className="w-6 h-6 rounded-full flex items-center justify-center shrink-0"
+                              style={{ background: `linear-gradient(135deg, ${T.primaryBlue}, ${T.primaryBlue}AA)`, boxShadow: `0 2px 6px ${T.primaryBlue}30` }}>
+                              <MapPinned className="w-3 h-3 text-white" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[9px] font-extrabold tracking-[1.5px] uppercase mb-0.5" style={{ color: T.primaryBlue }}>ARRIVÉE</p>
+                              <p className="text-xs lg:text-sm font-semibold" style={{ color: T.textPrimary }}>{m.delivery_city || m.delivery_address}</p>
+                              {m.delivery_address && m.delivery_city && <p className="hidden lg:block text-[11px] mt-0.5" style={{ color: T.textTertiary }}>{m.delivery_address}</p>}
+                              {m.delivery_contact_name && (
+                                <p className="flex items-center gap-1 text-[10px] lg:text-xs mt-1" style={{ color: T.textSecondary }}>
+                                  <User className="w-3 h-3" style={{ color: `${T.primaryBlue}88` }} />{m.delivery_contact_name}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* ── Meta rows (mandataire, driver) ── */}
+                        {((m.mandataire_name || m.mandataire_company) || (m.assigned_user_id && driverNames[m.assigned_user_id])) && (
+                          <div className="flex flex-wrap gap-2">
+                            {(m.mandataire_name || m.mandataire_company) && (
+                              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: `${T.primaryPurple}08` }}>
+                                <Building2 className="w-3.5 h-3.5" style={{ color: T.primaryPurple }} />
+                                <span className="text-xs font-semibold" style={{ color: T.primaryPurple }}>{m.mandataire_name}{m.mandataire_company ? ` · ${m.mandataire_company}` : ''}</span>
+                              </div>
+                            )}
+                            {m.assigned_user_id && driverNames[m.assigned_user_id] && (
+                              <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg" style={{ backgroundColor: `${T.primaryBlue}08` }}>
+                                <User className="w-3.5 h-3.5" style={{ color: T.primaryBlue }} />
+                                <span className="text-xs font-semibold" style={{ color: T.primaryBlue }}>{driverNames[m.assigned_user_id]}</span>
+                              </div>
+                            )}
+                          </div>
                         )}
+
+                        {/* ── Price row ── */}
+                        {m.price > 0 && (
+                          <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                            style={{ background: `linear-gradient(to right, ${T.accentGreen}0A, ${T.primaryTeal}05)`, border: `1px solid ${T.accentGreen}18` }}>
+                            <div className="w-6 h-6 rounded-md flex items-center justify-center" style={{ backgroundColor: `${T.accentGreen}15` }}>
+                              <DollarSign className="w-3.5 h-3.5" style={{ color: T.accentGreen }} />
+                            </div>
+                            <span className="text-xs flex-1" style={{ color: T.textSecondary }}>Prix</span>
+                            <span className="text-base lg:text-lg font-extrabold tracking-wide" style={{ color: T.accentGreen }}>{m.price.toLocaleString('fr-FR')} €</span>
+                          </div>
+                        )}
+
+                        {/* ── Action buttons ── */}
+                        <div className="flex flex-wrap gap-1.5 lg:gap-2 pt-1.5" onClick={e => e.stopPropagation()}>
+                          {m.status === 'pending' && (
+                            <button onClick={() => handleStartInspection(m)}
+                              className="flex items-center gap-1.5 px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-bold text-white transition-all hover:shadow-lg active:scale-[0.98]"
+                              style={{ background: `linear-gradient(135deg, ${T.primaryTeal}, #0F9D7A)`, boxShadow: `0 3px 10px ${T.primaryTeal}30` }}>
+                              <Play className="w-3.5 h-3.5" /> Démarrer
+                            </button>
+                          )}
+                          {m.status === 'in_progress' && (
+                            <>
+                              <button onClick={() => handleStartInspection(m)}
+                                className="flex items-center gap-1.5 px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-bold text-white transition-all hover:shadow-lg active:scale-[0.98]"
+                                style={{ background: `linear-gradient(135deg, ${T.primaryBlue}, #0052CC)`, boxShadow: `0 3px 10px ${T.primaryBlue}30` }}>
+                                <TrendingUp className="w-3.5 h-3.5" /> Continuer
+                              </button>
+                              <button onClick={() => handleCompleteMission(m)}
+                                className="flex items-center gap-1.5 px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-bold text-white transition-all hover:shadow-lg active:scale-[0.98]"
+                                style={{
+                                  background: hasDepartureInspection(m.id) && hasArrivalInspection(m.id)
+                                    ? `linear-gradient(135deg, ${T.accentGreen}, #059669)`
+                                    : T.textTertiary,
+                                  boxShadow: hasDepartureInspection(m.id) && hasArrivalInspection(m.id) ? `0 3px 10px ${T.accentGreen}30` : 'none',
+                                }}>
+                                <CheckCircle className="w-3.5 h-3.5" /> Terminer
+                              </button>
+                            </>
+                          )}
+                          {m.status === 'completed' && (
+                            <>
+                              <button onClick={() => handleViewReport(m.id)}
+                                className="flex items-center gap-1.5 px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-bold text-white transition-all hover:shadow-lg active:scale-[0.98]"
+                                style={{ background: `linear-gradient(135deg, ${T.primaryBlue}, #0052CC)`, boxShadow: `0 3px 10px ${T.primaryBlue}30` }}>
+                                <FileText className="w-3.5 h-3.5" /> Rapport
+                              </button>
+                              <button onClick={() => handleCreateInvoice(m)}
+                                className="flex items-center gap-1.5 px-3 lg:px-4 py-2 lg:py-2.5 rounded-xl text-xs lg:text-sm font-bold text-white transition-all hover:shadow-lg active:scale-[0.98]"
+                                style={{ background: `linear-gradient(135deg, ${T.accentGreen}, #059669)`, boxShadow: `0 3px 10px ${T.accentGreen}30` }}>
+                                <Receipt className="w-3.5 h-3.5" /> Facture
+                              </button>
+                            </>
+                          )}
+                          {/* Secondary actions */}
+                          <div className="flex gap-1 lg:gap-1.5 ml-auto">
+                            <button onClick={async () => { try { await generateMissionPDF(m); } catch (e) { console.error(e); } }}
+                              className="p-1.5 lg:p-2 rounded-lg transition-all hover:scale-110 hover:shadow-sm" style={{ color: T.primaryPurple, backgroundColor: `${T.primaryPurple}10` }}
+                              title="PDF">
+                              <FileText className="w-3.5 h-3.5" />
+                            </button>
+                            {m.user_id === user?.id && (
+                              <>
+                                <button onClick={() => navigate(`/missions/edit/${m.id}`)}
+                                  className="p-1.5 lg:p-2 rounded-lg transition-all hover:scale-110 hover:shadow-sm" style={{ color: T.primaryBlue, backgroundColor: `${T.primaryBlue}10` }}
+                                  title="Modifier">
+                                  <Edit className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => { setSelectedMission(m); setShowShareCodeModal(true); }}
+                                  className="p-1.5 lg:p-2 rounded-lg transition-all hover:scale-110 hover:shadow-sm" style={{ color: T.primaryIndigo, backgroundColor: `${T.primaryIndigo}10` }}
+                                  title="Partager">
+                                  <Users className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => handleArchiveMission(m.id, !m.archived)}
+                                  className="p-1.5 lg:p-2 rounded-lg transition-all hover:scale-110 hover:shadow-sm" style={{ color: T.accentAmber, backgroundColor: `${T.accentAmber}10` }}
+                                  title={m.archived ? 'Restaurer' : 'Archiver'}>
+                                  <Archive className="w-3.5 h-3.5" />
+                                </button>
+                                <button onClick={() => handleDeleteMission(m.id)}
+                                  className="p-1.5 lg:p-2 rounded-lg transition-all hover:scale-110 hover:shadow-sm" style={{ color: T.accentRed, backgroundColor: `${T.accentRed}10` }}
+                                  title="Supprimer">
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </>
+                            )}
+                            {m.status === 'in_progress' && (
+                              <button onClick={() => navigate(`/missions/${m.id}/tracking`)}
+                                className="p-1.5 lg:p-2 rounded-lg transition-all hover:scale-110 hover:shadow-sm" style={{ color: T.primaryTeal, backgroundColor: `${T.primaryTeal}10` }}
+                                title="GPS Tracking">
+                                <Navigation className="w-3.5 h-3.5" />
+                              </button>
+                            )}
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>

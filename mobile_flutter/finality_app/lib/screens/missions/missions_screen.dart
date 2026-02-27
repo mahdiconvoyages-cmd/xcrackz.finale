@@ -784,7 +784,7 @@ class _MissionsScreenState extends State<MissionsScreen>
 }
 
 // ============================================================
-//  MISSION TILE — carte moderne, theme clair
+//  MISSION TILE — carte premium avec accent latéral
 // ============================================================
 class _MissionTile extends StatelessWidget {
   final Mission mission;
@@ -806,184 +806,177 @@ class _MissionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = _MissionsScreenState.statusColor(mission.status);
+    final df = DateFormat('dd MMM yyyy', 'fr_FR');
 
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 14),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        borderRadius: BorderRadius.circular(18),
         boxShadow: [
           BoxShadow(
-            color: color.withValues(alpha: 0.08),
-            blurRadius: 12,
-            offset: const Offset(0, 4),
+            color: color.withValues(alpha: 0.10),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.03),
-            blurRadius: 6,
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
             offset: const Offset(0, 2),
           ),
         ],
       ),
       child: Material(
         color: Colors.transparent,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(18),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(16),
-          child: Column(
-            children: [
-              // ---- Header: ref + badge + chevron ----
-              Container(
-                padding: const EdgeInsets.fromLTRB(16, 14, 12, 10),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.04),
-                  borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(16)),
-                ),
-                child: Row(
-                  children: [
-                    // Status dot
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: color,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: color.withValues(alpha: 0.4),
-                            blurRadius: 4,
-                          ),
-                        ],
-                      ),
+          borderRadius: BorderRadius.circular(18),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── Left accent stripe ──
+                Container(
+                  width: 5,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [color, color.withValues(alpha: 0.4)],
                     ),
-                    const SizedBox(width: 10),
-                    // Reference
-                    Expanded(
-                      child: Text(
-                        mission.reference ?? 'Mission',
-                        style: PremiumTheme.label.copyWith(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
+                    borderRadius: const BorderRadius.only(
+                      topLeft: Radius.circular(18),
+                      bottomLeft: Radius.circular(18),
+                    ),
+                  ),
+                ),
+                // ── Card body ──
+                Expanded(
+                  child: Column(
+                    children: [
+                      // ── Header ──
+                      Container(
+                        padding: const EdgeInsets.fromLTRB(14, 12, 12, 10),
+                        decoration: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              color.withValues(alpha: 0.06),
+                              Colors.white,
+                            ],
+                            begin: Alignment.centerLeft,
+                            end: Alignment.centerRight,
+                          ),
+                          borderRadius: const BorderRadius.only(
+                            topRight: Radius.circular(18),
+                          ),
                         ),
-                      ),
-                    ),
-                    // Status badge
-                    _badge(color),
-                    const SizedBox(width: 6),
-                    Icon(Icons.chevron_right_rounded,
-                        color: PremiumTheme.textTertiary, size: 22),
-                  ],
-                ),
-              ),
-              // ---- Body ----
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 14),
-                child: Column(
-                  children: [
-                    // Vehicle row
-                    _vehicleRow(),
-                    const SizedBox(height: 12),
-                    // Restitution badge
-                    if (mission.hasRestitution)
-                      Padding(
-                        padding: const EdgeInsets.only(bottom: 10),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                          decoration: BoxDecoration(
-                            color: const Color(0xFFFFF3E0),
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: const Color(0xFFE65100).withValues(alpha: 0.3)),
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Icon(Icons.swap_horiz_rounded, size: 16, color: const Color(0xFFE65100)),
-                                  const SizedBox(width: 6),
-                                  const Text(
-                                    'Aller-Retour (Restitution)',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.w600,
-                                      color: Color(0xFFE65100),
-                                    ),
+                        child: Row(
+                          children: [
+                            // Animated status indicator
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                gradient: LinearGradient(
+                                  colors: [color, color.withValues(alpha: 0.7)],
+                                ),
+                                borderRadius: BorderRadius.circular(10),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: color.withValues(alpha: 0.30),
+                                    blurRadius: 8,
+                                    offset: const Offset(0, 2),
                                   ),
                                 ],
                               ),
-                              if (mission.restitutionVehicleBrand != null || mission.restitutionVehiclePlate != null || mission.vehicleBrand != null || mission.vehiclePlate != null) ...[                           
-                                const SizedBox(height: 4),
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Icon(Icons.directions_car, size: 14, color: const Color(0xFFE65100).withValues(alpha: 0.7)),
-                                    const SizedBox(width: 4),
-                                    Flexible(
+                              child: Icon(
+                                _MissionsScreenState.statusIcon(mission.status),
+                                size: 16,
+                                color: Colors.white,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    mission.reference ?? 'Mission',
+                                    style: PremiumTheme.label.copyWith(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w800,
+                                      letterSpacing: 0.3,
+                                    ),
+                                  ),
+                                  if (mission.pickupDate != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2),
                                       child: Text(
-                                        [
-                                          if (mission.restitutionVehicleBrand != null || mission.vehicleBrand != null)
-                                            mission.restitutionVehicleBrand ?? mission.vehicleBrand,
-                                          if (mission.restitutionVehicleModel != null || mission.vehicleModel != null)
-                                            mission.restitutionVehicleModel ?? mission.vehicleModel,
-                                        ].where((e) => e != null).join(' '),
-                                        style: const TextStyle(
+                                        df.format(mission.pickupDate!),
+                                        style: PremiumTheme.caption.copyWith(
                                           fontSize: 11,
-                                          fontWeight: FontWeight.w500,
-                                          color: Color(0xFFE65100),
+                                          color: PremiumTheme.textTertiary,
                                         ),
-                                        overflow: TextOverflow.ellipsis,
                                       ),
                                     ),
-                                    if (mission.restitutionVehiclePlate != null || mission.vehiclePlate != null) ...[
-                                      const SizedBox(width: 8),
-                                      Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                                        decoration: BoxDecoration(
-                                          color: const Color(0xFFE65100).withValues(alpha: 0.12),
-                                          borderRadius: BorderRadius.circular(4),
-                                        ),
-                                        child: Text(
-                                          mission.restitutionVehiclePlate ?? mission.vehiclePlate!,
-                                          style: const TextStyle(
-                                            fontSize: 11,
-                                            fontWeight: FontWeight.w700,
-                                            color: Color(0xFFE65100),
-                                          ),
-                                        ),
-                                      ),
-                                    ],
-                                  ],
-                                ),
-                              ],
-                            ],
-                          ),
+                                ],
+                              ),
+                            ),
+                            _badge(color),
+                            const SizedBox(width: 4),
+                            Container(
+                              padding: const EdgeInsets.all(4),
+                              decoration: BoxDecoration(
+                                color: Colors.grey.shade100,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(Icons.chevron_right_rounded,
+                                  color: PremiumTheme.textTertiary, size: 18),
+                            ),
+                          ],
                         ),
                       ),
-                    // Route
-                    _routeRow(),
-                    // Mandataire + date
-                    if (mission.mandataireName != null &&
-                        mission.mandataireName!.isNotEmpty)
+                      // ── Body ──
                       Padding(
-                        padding: const EdgeInsets.only(top: 10),
-                        child: _mandataireRow(),
+                        padding: const EdgeInsets.fromLTRB(14, 10, 14, 12),
+                        child: Column(
+                          children: [
+                            // Vehicle row
+                            _vehicleRow(),
+                            const SizedBox(height: 10),
+                            // Restitution badge
+                            if (mission.hasRestitution)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: _restitutionBadge(),
+                              ),
+                            // Route (vertical timeline)
+                            _routeTimeline(),
+                            // Mandataire
+                            if (mission.mandataireName != null &&
+                                mission.mandataireName!.isNotEmpty)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 10),
+                                child: _mandataireRow(),
+                              ),
+                            // Price row
+                            if (mission.price != null && mission.price! > 0)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 10),
+                                child: _priceRow(),
+                              ),
+                            // Actions
+                            const SizedBox(height: 12),
+                            _actions(context, color),
+                          ],
+                        ),
                       ),
-                    // Price + date row
-                    Padding(
-                      padding: const EdgeInsets.only(top: 10),
-                      child: _infoRow(),
-                    ),
-                    // Action buttons
-                    const SizedBox(height: 12),
-                    _actions(context, color),
-                  ],
+                    ],
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ),
@@ -992,29 +985,20 @@ class _MissionTile extends StatelessWidget {
 
   Widget _badge(Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.1),
+        gradient: LinearGradient(
+          colors: [color.withValues(alpha: 0.15), color.withValues(alpha: 0.08)],
+        ),
         borderRadius: BorderRadius.circular(20),
-        border: Border.all(color: color.withValues(alpha: 0.3)),
+        border: Border.all(color: color.withValues(alpha: 0.25)),
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            _MissionsScreenState.statusIcon(mission.status),
-            size: 12,
+      child: Text(
+        _MissionsScreenState.statusLabel(mission.status),
+        style: TextStyle(
             color: color,
-          ),
-          const SizedBox(width: 4),
-          Text(
-            _MissionsScreenState.statusLabel(mission.status),
-            style: TextStyle(
-                color: color,
-                fontSize: 11,
-                fontWeight: FontWeight.w600),
-          ),
-        ],
+            fontSize: 11,
+            fontWeight: FontWeight.w700),
       ),
     );
   }
@@ -1023,154 +1007,147 @@ class _MissionTile extends StatelessWidget {
     final hasVehicle = mission.vehicleBrand != null ||
         mission.vehicleModel != null;
     if (!hasVehicle) return const SizedBox.shrink();
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(6),
-          decoration: BoxDecoration(
-            color: PremiumTheme.primaryTeal.withValues(alpha: 0.08),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: Icon(Icons.directions_car_rounded,
-              color: PremiumTheme.primaryTeal, size: 18),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            '${mission.vehicleBrand ?? ''} ${mission.vehicleModel ?? ''}'
-                .trim(),
-            style: PremiumTheme.body.copyWith(
-              fontWeight: FontWeight.w600,
-              fontSize: 14,
-            ),
-          ),
-        ),
-        if (mission.vehiclePlate != null)
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: const Color(0xFFF3F4F6),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: const Color(0xFFE5E7EB)),
-            ),
-            child: Text(
-              mission.vehiclePlate!,
-              style: PremiumTheme.caption.copyWith(
-                fontWeight: FontWeight.w700,
-                letterSpacing: 1.2,
-                color: PremiumTheme.textPrimary,
-                fontSize: 12,
-              ),
-            ),
-          ),
-      ],
-    );
-  }
-
-  Widget _routeRow() {
-    final from =
-        mission.pickupCity ?? mission.pickupAddress ?? 'Depart';
-    final to = mission.deliveryCity ??
-        mission.deliveryAddress ??
-        'Arrivee';
-    final fromName = mission.pickupContactName;
-    final toName = mission.deliveryContactName;
     return Container(
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
-        color: const Color(0xFFF8FAFC),
+        gradient: LinearGradient(
+          colors: [
+            PremiumTheme.primaryTeal.withValues(alpha: 0.06),
+            PremiumTheme.primaryTeal.withValues(alpha: 0.02),
+          ],
+        ),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        border: Border.all(color: PremiumTheme.primaryTeal.withValues(alpha: 0.12)),
       ),
       child: Row(
         children: [
-          // From column
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                if (fromName != null && fromName.isNotEmpty)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      children: [
-                        Icon(Icons.person_rounded,
-                            color: PremiumTheme.accentGreen, size: 14),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(fromName,
-                              style: PremiumTheme.bodySmall.copyWith(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: PremiumTheme.textPrimary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
-                        ),
-                      ],
-                    ),
-                  ),
-                Row(
-                  children: [
-                    _routeDot(PremiumTheme.accentGreen),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(from,
-                          style: PremiumTheme.bodySmall.copyWith(
-                              fontSize: 13, fontWeight: FontWeight.w500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                  ],
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [PremiumTheme.primaryTeal, PremiumTheme.primaryTeal.withValues(alpha: 0.7)],
+              ),
+              borderRadius: BorderRadius.circular(10),
+              boxShadow: [
+                BoxShadow(
+                  color: PremiumTheme.primaryTeal.withValues(alpha: 0.25),
+                  blurRadius: 6,
+                  offset: const Offset(0, 2),
                 ),
               ],
             ),
+            child: const Icon(Icons.directions_car_rounded,
+                color: Colors.white, size: 18),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 6),
-            child: Icon(Icons.arrow_forward_rounded,
-                color: PremiumTheme.textTertiary, size: 16),
-          ),
-          // To column
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (toName != null && toName.isNotEmpty)
+                Text(
+                  '${mission.vehicleBrand ?? ''} ${mission.vehicleModel ?? ''}'
+                      .trim(),
+                  style: PremiumTheme.body.copyWith(
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                if (mission.vehicleType != null)
                   Padding(
-                    padding: const EdgeInsets.only(bottom: 4),
-                    child: Row(
-                      children: [
-                        Icon(Icons.person_rounded,
-                            color: PremiumTheme.primaryBlue, size: 14),
-                        const SizedBox(width: 4),
-                        Expanded(
-                          child: Text(toName,
-                              style: PremiumTheme.bodySmall.copyWith(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w700,
-                                color: PremiumTheme.textPrimary,
-                              ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis),
-                        ),
-                      ],
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      mission.vehicleType!,
+                      style: PremiumTheme.caption.copyWith(
+                        fontSize: 11,
+                        color: PremiumTheme.textTertiary,
+                      ),
                     ),
                   ),
-                Row(
-                  children: [
-                    _routeDot(PremiumTheme.primaryBlue),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: Text(to,
-                          style: PremiumTheme.bodySmall.copyWith(
-                              fontSize: 13, fontWeight: FontWeight.w500),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis),
-                    ),
-                  ],
+              ],
+            ),
+          ),
+          if (mission.vehiclePlate != null)
+            Container(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFD1D5DB), width: 1.5),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.04),
+                    blurRadius: 4,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Text(
+                mission.vehiclePlate!,
+                style: PremiumTheme.caption.copyWith(
+                  fontWeight: FontWeight.w800,
+                  letterSpacing: 1.3,
+                  color: PremiumTheme.textPrimary,
+                  fontSize: 12,
                 ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _restitutionBadge() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [const Color(0xFFFFF3E0), const Color(0xFFFFF8E1)],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: const Color(0xFFE65100).withValues(alpha: 0.25)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: const Color(0xFFE65100).withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: const Icon(Icons.swap_horiz_rounded, size: 16, color: Color(0xFFE65100)),
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Aller-Retour (Restitution)',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFE65100),
+                  ),
+                ),
+                if (mission.restitutionVehicleBrand != null || mission.restitutionVehiclePlate != null || mission.vehicleBrand != null || mission.vehiclePlate != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 3),
+                    child: Text(
+                      [
+                        mission.restitutionVehicleBrand ?? mission.vehicleBrand,
+                        mission.restitutionVehicleModel ?? mission.vehicleModel,
+                        if (mission.restitutionVehiclePlate != null || mission.vehiclePlate != null)
+                          '· ${mission.restitutionVehiclePlate ?? mission.vehiclePlate}',
+                      ].where((e) => e != null).join(' '),
+                      style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                        color: const Color(0xFFE65100).withValues(alpha: 0.8),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
               ],
             ),
           ),
@@ -1179,86 +1156,264 @@ class _MissionTile extends StatelessWidget {
     );
   }
 
-  Widget _routeDot(Color color) {
+  Widget _routeTimeline() {
+    final from = mission.pickupCity ?? mission.pickupAddress ?? 'Depart';
+    final to = mission.deliveryCity ?? mission.deliveryAddress ?? 'Arrivee';
+    final fromName = mission.pickupContactName;
+    final toName = mission.deliveryContactName;
+
     return Container(
-      width: 10,
-      height: 10,
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.2),
-        shape: BoxShape.circle,
-        border: Border.all(color: color, width: 2),
+        color: const Color(0xFFF8FAFC),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        children: [
+          // Departure point
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Column(
+                children: [
+                  Container(
+                    width: 24,
+                    height: 24,
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        colors: [PremiumTheme.accentGreen, PremiumTheme.accentGreen.withValues(alpha: 0.7)],
+                      ),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: PremiumTheme.accentGreen.withValues(alpha: 0.30),
+                          blurRadius: 6,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(Icons.arrow_upward_rounded, size: 14, color: Colors.white),
+                  ),
+                  // Dashed line
+                  Container(
+                    width: 2,
+                    height: 20,
+                    margin: const EdgeInsets.symmetric(vertical: 4),
+                    decoration: BoxDecoration(
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [
+                          PremiumTheme.accentGreen.withValues(alpha: 0.4),
+                          PremiumTheme.primaryBlue.withValues(alpha: 0.4),
+                        ],
+                      ),
+                      borderRadius: BorderRadius.circular(1),
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('DÉPART',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                        color: PremiumTheme.accentGreen,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(from,
+                        style: PremiumTheme.body.copyWith(
+                            fontSize: 13, fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    if (fromName != null && fromName.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_rounded,
+                                color: PremiumTheme.accentGreen.withValues(alpha: 0.6), size: 12),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(fromName,
+                                  style: PremiumTheme.caption.copyWith(
+                                    fontSize: 11,
+                                    color: PremiumTheme.textSecondary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          // Arrival point
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 24,
+                height: 24,
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [PremiumTheme.primaryBlue, PremiumTheme.primaryBlue.withValues(alpha: 0.7)],
+                  ),
+                  shape: BoxShape.circle,
+                  boxShadow: [
+                    BoxShadow(
+                      color: PremiumTheme.primaryBlue.withValues(alpha: 0.30),
+                      blurRadius: 6,
+                    ),
+                  ],
+                ),
+                child: const Icon(Icons.arrow_downward_rounded, size: 14, color: Colors.white),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('ARRIVÉE',
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1.2,
+                        color: PremiumTheme.primaryBlue,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(to,
+                        style: PremiumTheme.body.copyWith(
+                            fontSize: 13, fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis),
+                    if (toName != null && toName.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 3),
+                        child: Row(
+                          children: [
+                            Icon(Icons.person_rounded,
+                                color: PremiumTheme.primaryBlue.withValues(alpha: 0.6), size: 12),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(toName,
+                                  style: PremiumTheme.caption.copyWith(
+                                    fontSize: 11,
+                                    color: PremiumTheme.textSecondary,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _mandataireRow() {
-    return Row(
-      children: [
-        Icon(Icons.person_outline_rounded,
-            color: PremiumTheme.primaryPurple, size: 16),
-        const SizedBox(width: 6),
-        Text(
-          mission.mandataireName!,
-          style: PremiumTheme.bodySmall.copyWith(
-            color: PremiumTheme.primaryPurple,
-            fontWeight: FontWeight.w500,
-            fontSize: 13,
-          ),
-        ),
-        if (mission.mandataireCompany != null &&
-            mission.mandataireCompany!.isNotEmpty) ...[
-          Text(' — ',
-              style: PremiumTheme.caption
-                  .copyWith(color: PremiumTheme.textTertiary)),
-          Flexible(
-            child: Text(
-              mission.mandataireCompany!,
-              style: PremiumTheme.caption
-                  .copyWith(color: PremiumTheme.textSecondary),
-              overflow: TextOverflow.ellipsis,
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: PremiumTheme.primaryPurple.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.business_rounded,
+              color: PremiumTheme.primaryPurple, size: 16),
+          const SizedBox(width: 8),
+          Text(
+            mission.mandataireName!,
+            style: PremiumTheme.bodySmall.copyWith(
+              color: PremiumTheme.primaryPurple,
+              fontWeight: FontWeight.w600,
+              fontSize: 12,
             ),
           ),
+          if (mission.mandataireCompany != null &&
+              mission.mandataireCompany!.isNotEmpty) ...[
+            Text(' · ',
+                style: PremiumTheme.caption
+                    .copyWith(color: PremiumTheme.primaryPurple.withValues(alpha: 0.5))),
+            Flexible(
+              child: Text(
+                mission.mandataireCompany!,
+                style: PremiumTheme.caption.copyWith(
+                  color: PremiumTheme.primaryPurple.withValues(alpha: 0.7),
+                  fontSize: 12,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 
-  Widget _infoRow() {
-    final df = DateFormat('dd/MM/yy');
-    return Row(
-      children: [
-        if (mission.pickupDate != null) ...[
-          Icon(Icons.calendar_today_rounded,
-              size: 13, color: PremiumTheme.textTertiary),
-          const SizedBox(width: 4),
+  Widget _priceRow() {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            PremiumTheme.accentGreen.withValues(alpha: 0.08),
+            PremiumTheme.primaryTeal.withValues(alpha: 0.04),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: PremiumTheme.accentGreen.withValues(alpha: 0.15),
+        ),
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: PremiumTheme.accentGreen.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Icon(Icons.euro_rounded,
+                color: PremiumTheme.accentGreen, size: 14),
+          ),
+          const SizedBox(width: 8),
           Text(
-            df.format(mission.pickupDate!),
-            style: PremiumTheme.caption
-                .copyWith(fontSize: 12, color: PremiumTheme.textSecondary),
+            'Prix',
+            style: PremiumTheme.caption.copyWith(
+              color: PremiumTheme.textSecondary,
+              fontSize: 12,
+            ),
+          ),
+          const Spacer(),
+          Text(
+            '${mission.price!.toStringAsFixed(0)} €',
+            style: TextStyle(
+              color: PremiumTheme.accentGreen,
+              fontWeight: FontWeight.w800,
+              fontSize: 16,
+              letterSpacing: 0.5,
+            ),
           ),
         ],
-        const Spacer(),
-        if (mission.price != null && mission.price! > 0)
-          Container(
-            padding:
-                const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-            decoration: BoxDecoration(
-              color: PremiumTheme.accentGreen.withValues(alpha: 0.08),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(
-                  color:
-                      PremiumTheme.accentGreen.withValues(alpha: 0.25)),
-            ),
-            child: Text(
-              '${mission.price!.toStringAsFixed(0)} EUR',
-              style: TextStyle(
-                color: PremiumTheme.accentGreen,
-                fontWeight: FontWeight.w700,
-                fontSize: 13,
-              ),
-            ),
-          ),
-      ],
+      ),
     );
   }
 
@@ -1269,8 +1424,8 @@ class _MissionTile extends StatelessWidget {
           Expanded(
             child: _actionButton(
               icon: Icons.play_arrow_rounded,
-              label: 'Inspection depart',
-              color: PremiumTheme.primaryTeal,
+              label: 'Demarrer',
+              colors: [PremiumTheme.primaryTeal, const Color(0xFF0F9D7A)],
               onTap: onAction,
             ),
           ),
@@ -1278,8 +1433,8 @@ class _MissionTile extends StatelessWidget {
           Expanded(
             child: _actionButton(
               icon: Icons.flag_rounded,
-              label: 'Inspection arrivee',
-              color: PremiumTheme.primaryBlue,
+              label: 'Inspection',
+              colors: [PremiumTheme.primaryBlue, const Color(0xFF0052CC)],
               onTap: onAction,
             ),
           ),
@@ -1288,8 +1443,8 @@ class _MissionTile extends StatelessWidget {
             Expanded(
               child: _actionButton(
                 icon: Icons.description_rounded,
-                label: 'Rapport depart',
-                color: PremiumTheme.primaryTeal,
+                label: 'Rapport',
+                colors: [PremiumTheme.primaryTeal, const Color(0xFF0F9D7A)],
                 onTap: onViewDepartureReport!,
               ),
             ),
@@ -1299,8 +1454,8 @@ class _MissionTile extends StatelessWidget {
           Expanded(
             child: _actionButton(
               icon: Icons.description_rounded,
-              label: 'Voir rapport',
-              color: PremiumTheme.primaryBlue,
+              label: 'Rapport',
+              colors: [PremiumTheme.primaryBlue, const Color(0xFF0052CC)],
               onTap: onReport!,
             ),
           ),
@@ -1311,18 +1466,12 @@ class _MissionTile extends StatelessWidget {
             child: _actionButton(
               icon: Icons.receipt_long_rounded,
               label: 'Facture',
-              color: PremiumTheme.accentGreen,
+              colors: [PremiumTheme.accentGreen, const Color(0xFF059669)],
               onTap: onInvoice!,
             ),
           ),
-        const SizedBox(width: 8),
-        _actionButton(
-          icon: Icons.open_in_new_rounded,
-          label: 'Details',
-          color: PremiumTheme.textSecondary,
-          onTap: onTap,
-          outlined: true,
-        ),
+        const SizedBox(width: 6),
+        _detailButton(onTap),
       ],
     );
   }
@@ -1330,9 +1479,8 @@ class _MissionTile extends StatelessWidget {
   Widget _actionButton({
     required IconData icon,
     required String label,
-    required Color color,
+    required List<Color> colors,
     required VoidCallback onTap,
-    bool outlined = false,
   }) {
     return GestureDetector(
       onTap: onTap,
@@ -1340,31 +1488,50 @@ class _MissionTile extends StatelessWidget {
         padding:
             const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         decoration: BoxDecoration(
-          color: outlined
-              ? Colors.transparent
-              : color.withValues(alpha: 0.08),
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: outlined
-                ? const Color(0xFFE5E7EB)
-                : color.withValues(alpha: 0.2),
+          gradient: LinearGradient(
+            colors: colors,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
           ),
-        ),
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: outlined ? MainAxisSize.min : MainAxisSize.max,
-          children: [
-            Icon(icon, color: color, size: 16),
-            const SizedBox(width: 5),
-            Text(
-              label,
-              style: TextStyle(
-                  color: color,
-                  fontSize: 12,
-                  fontWeight: FontWeight.w600),
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: [
+            BoxShadow(
+              color: colors[0].withValues(alpha: 0.30),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
             ),
           ],
         ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, color: Colors.white, size: 16),
+            const SizedBox(width: 5),
+            Text(
+              label,
+              style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _detailButton(VoidCallback onTap) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.all(10),
+        decoration: BoxDecoration(
+          color: Colors.grey.shade100,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFE5E7EB)),
+        ),
+        child: Icon(Icons.open_in_new_rounded,
+            color: PremiumTheme.textSecondary, size: 16),
       ),
     );
   }
