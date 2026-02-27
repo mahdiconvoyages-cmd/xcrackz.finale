@@ -83,7 +83,7 @@ workflows:
         script: |
           cd mobile_flutter/finality_app
           set -e
-          BUILD_NUMBER=$(date +%s)
+          BUILD_NUMBER=$PROJECT_BUILD_NUMBER
           echo "Build number: $BUILD_NUMBER"
           
           # Build Flutter app without code signing (profiles already set up by use-profiles)
