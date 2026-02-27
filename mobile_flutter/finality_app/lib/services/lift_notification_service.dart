@@ -7,6 +7,7 @@
 // via l'Edge Function send-lift-notification).
 // =============================================================
 
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../utils/logger.dart';
@@ -32,6 +33,7 @@ class LiftNotificationService {
   // ── Init ────────────────────────────────────────────────────────────────────
 
   Future<void> initialize() async {
+    if (kIsWeb) return; // Local notifications not supported on web
     if (_initialized || _uid.isEmpty) return;
     _initialized = true;
 

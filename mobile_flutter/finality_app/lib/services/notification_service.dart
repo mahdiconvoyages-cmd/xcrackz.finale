@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../utils/logger.dart';
@@ -47,6 +48,7 @@ class NotificationService {
 
   // ─── Initialisation ───────────────────────────────────────────────
   Future<void> initialize() async {
+    if (kIsWeb) return; // Notifications not supported on web
     if (_initialized) return;
 
     const androidSettings =

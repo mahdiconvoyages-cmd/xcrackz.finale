@@ -37,6 +37,7 @@ class PlanningLocationService {
 
   /// Initialise les notifications locales
   Future<void> initNotifications() async {
+    if (kIsWeb) return; // Local notifications not supported on web
     const androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
     const iosSettings = DarwinInitializationSettings(
       requestAlertPermission: true,

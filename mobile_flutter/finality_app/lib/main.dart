@@ -5,7 +5,9 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'package:firebase_crashlytics/firebase_crashlytics.dart';
+import 'package:firebase_crashlytics/firebase_crashlytics.dart'
+    if (dart.library.html) 'utils/crashlytics_stub.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'screens/splash_screen.dart';
 import 'screens/onboarding/onboarding_screen.dart';
 import 'screens/login_screen.dart';
@@ -75,8 +77,10 @@ void main() {
     // Firebase & FCM & Crashlytics
     try {
       await Firebase.initializeApp();
-      // Enable Crashlytics — records non-fatal + fatal errors
-      FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+      if (!kIsWeb) {
+        // Enable Crashlytics — records non-fatal + fatal errors (native only)
+        FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+      }
       await FCMService().initialize();
     } catch (e) {
       logger.e('Firebase init error: $e');
@@ -95,7 +99,9 @@ void main() {
     // Error handler — premium error boundary + Crashlytics
     FlutterError.onError = (details) {
       logger.e('FlutterError: ${details.exceptionAsString()}');
-      FirebaseCrashlytics.instance.recordFlutterError(details);
+      if (!kIsWeb) {
+        FirebaseCrashlytics.instance.recordFlutterError(details);
+      }
       FlutterError.presentError(details);
     };
 
@@ -137,8 +143,10 @@ void main() {
 
     runApp(const ProviderScope(child: CHECKSFLEETApp()));
   }, (error, stack) {
-    // Report fatal crash to Crashlytics
-    FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    // Report fatal crash to Crashlytics (native only)
+    if (!kIsWeb) {
+      FirebaseCrashlytics.instance.recordError(error, stack, fatal: true);
+    }
     // Fatal crash — show error screen
     runApp(MaterialApp(
       home: Scaffold(

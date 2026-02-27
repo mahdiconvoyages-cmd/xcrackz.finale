@@ -1,13 +1,15 @@
 {
     "name": "ChecksFleet",
     "short_name": "ChecksFleet",
-    "start_url": ".",
+    "start_url": "/",
     "display": "standalone",
-    "background_color": "#0175C2",
-    "theme_color": "#0175C2",
-    "description": "ChecksFleet - Gestion de convoyage automobile",
+    "background_color": "#0f172a",
+    "theme_color": "#14b8a6",
+    "description": "ChecksFleet - Application de gestion de convoyage automobile",
     "orientation": "portrait-primary",
     "prefer_related_applications": false,
+    "categories": ["business", "productivity"],
+    "lang": "fr",
     "icons": [
         {
             "src": "icons/Icon-192.png",

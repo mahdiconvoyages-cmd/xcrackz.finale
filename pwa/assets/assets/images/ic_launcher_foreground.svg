@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+    <defs>
+        <!-- Gradients -->
+        <linearGradient id="primaryGlow" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#00f2fe;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#4facfe;stop-opacity:1" />
+        </linearGradient>
+
+        <linearGradient id="carBodyGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" style="stop-color:#e2e8f0;stop-opacity:1" />
+            <stop offset="50%" style="stop-color:#ffffff;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#e2e8f0;stop-opacity:1" />
+        </linearGradient>
+        
+        <linearGradient id="bgSurface" x1="0%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" style="stop-color:#0f172a;stop-opacity:1" />
+            <stop offset="100%" style="stop-color:#1e293b;stop-opacity:1" />
+        </linearGradient>
+
+        <!-- Reduced Glow Filter (Softer) -->
+        <filter id="softGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="2" result="blur" />
+            <feFlood flood-color="#00f2fe" flood-opacity="0.3" result="flood" />
+            <feComposite in="flood" in2="blur" operator="in" result="glow" />
+            <feMerge>
+                <feMergeNode in="glow" />
+                <feMergeNode in="SourceGraphic" />
+            </feMerge>
+        </filter>
+        
+        <!-- Red Rear Glow Filter Stronger -->
+        <filter id="redGlow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur in="SourceAlpha" stdDeviation="1.5" result="blur" />
+            <feFlood flood-color="#ff0000" flood-opacity="0.9" result="flood" />
+            <feComposite in="flood" in2="blur" operator="in" result="glow" />
+            <feMerge>
+                <feMergeNode in="glow" />
+                <feMergeNode in="SourceGraphic" />
+            </feMerge>
+        </filter>
+    </defs>
+
+    <!-- Background -->
+    <rect width="512" height="512" rx="120" fill="url(#bgSurface)" />
+    
+    <!-- Background Tech Lines -->
+    <circle cx="256" cy="230" r="190" fill="none" stroke="#1e293b" stroke-width="1" opacity="0.5" />
+    <path d="M 0 256 L 512 256" stroke="#334155" stroke-width="0.5" opacity="0.3" />
+    <path d="M 256 0 L 256 512" stroke="#334155" stroke-width="0.5" opacity="0.3" />
+
+    <!-- Main Content Group -->
+    <g transform="translate(256, 230)">
+        
+        <!-- THE "Stylized C" INSIDE (Inner Logo) -->
+        <!-- Hexagonal C shape open on the right -->
+        <path d="M 50,-55 L 25,-90 L -50,-90 L -80,-50 L -80,50 L -50,90 L 25,90 L 50,55" 
+              fill="none" 
+              stroke="url(#primaryGlow)" 
+              stroke-width="14" 
+              stroke-linecap="round" 
+              stroke-linejoin="round"
+              filter="url(#softGlow)" />
+        
+        <!-- Tech dots on the C -->
+        <circle cx="50" cy="-55" r="3" fill="white" />
+        <circle cx="50" cy="55" r="3" fill="white" />
+        
+        <!-- OUTER CIRCUIT TRACK (Closed Loop Now) -->
+        <!-- Added 'Z' to close the path -->
+        <path id="circuitPath" d="M 130,-75 L 65,-145 L -85,-145 L -150,-75 L -150,75 L -85,145 L 65,145 L 130,75 Z" 
+              fill="none" stroke="#334155" stroke-width="24" stroke-linecap="round" stroke-linejoin="round" opacity="0.2" />
+        
+        <!-- Track Rails -->
+        <path d="M 130,-75 L 65,-145 L -85,-145 L -150,-75 L -150,75 L -85,145 L 65,145 L 130,75 Z" 
+              fill="none" stroke="url(#primaryGlow)" stroke-width="2" stroke-dasharray="10,20" stroke-linecap="round" stroke-linejoin="round" opacity="0.4" />
+
+        <!-- CAR GROUP -->
+        <g>
+            <!-- Animation Loop (Full circuit) -->
+            <animateMotion dur="7s" repeatCount="indefinite" rotate="auto" keyPoints="0;1" keyTimes="0;1" calcMode="linear">
+                <mpath href="#circuitPath" />
+            </animateMotion>
+
+            <!-- Car Design (Facing Right ->) -->
+             <g transform="scale(0.85)">
+                <!-- Headlight Beams (Reduced Opacity/Glow per request) -->
+                <path d="M 30,-3 L 60,-12 L 60,12 L 30,3" fill="url(#primaryGlow)" opacity="0.1" />
+
+                <!-- Wheels -->
+                <rect x="-18" y="-13" width="12" height="6" rx="2" fill="#1e293b" />
+                <rect x="18" y="-13" width="12" height="6" rx="2" fill="#1e293b" />
+                <rect x="-18" y="7" width="12" height="6" rx="2" fill="#1e293b" />
+                <rect x="18" y="7" width="12" height="6" rx="2" fill="#1e293b" />
+
+                <!-- Car Chassis -->
+                <path d="M -28,-10 L 28,-10 L 38,0 L 28,10 L -28,10 L -30,0 Z" fill="url(#carBodyGrad)" />
+                
+                <!-- Windshield / Cockpit -->
+                <path d="M -5,-6 L 12,-6 L 18,0 L 12,6 L -5,6 L -8,0 Z" fill="#0f172a" stroke="#00f2fe" stroke-width="0.5" />
+                
+                <!-- RED REAR LIGHTS (Strong Red, No Cyan Glow Mix) -->
+                <g filter="url(#redGlow)">
+                    <rect x="-31" y="-8" width="4" height="4" fill="#ff0000" />
+                    <rect x="-31" y="4" width="4" height="4" fill="#ff0000" />
+                </g>
+            </g>
+        </g>
+    </g>
+
+    <text x="256" y="445" font-family="'Segoe UI', Roboto, sans-serif" font-size="44" font-weight="900" fill="white" text-anchor="middle" letter-spacing="4" filter="url(#softGlow)">CHECKSFLEET</text>
+</svg>

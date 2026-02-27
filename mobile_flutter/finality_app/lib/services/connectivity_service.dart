@@ -73,6 +73,7 @@ class ConnectivityService extends ChangeNotifier {
 
   /// Vérifie si internet est vraiment accessible (DNS lookup)
   Future<bool> _hasRealInternet() async {
+    if (kIsWeb) return true; // On web, trust connectivity_plus result
     try {
       final result = await InternetAddress.lookup('google.com')
           .timeout(const Duration(seconds: 3));
