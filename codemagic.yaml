@@ -81,24 +81,24 @@ workflows:
           # Verify export options exist
           if [ -z "$CM_EXPORT_OPTIONS_PATH" ] || [ ! -f "$CM_EXPORT_OPTIONS_PATH" ]; then
             echo "⚠️ CM_EXPORT_OPTIONS_PATH empty or missing, generating fallback..."
-            cat > /tmp/ExportOptions.plist << 'EOPLIST'
-<?xml version="1.0" encoding="UTF-8"?>
-<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
-<plist version="1.0">
-<dict>
-  <key>method</key>
-  <string>app-store</string>
-  <key>teamID</key>
-  <string>P35Y6M742T</string>
-  <key>signingStyle</key>
-  <string>manual</string>
-  <key>uploadBitcode</key>
-  <false/>
-  <key>uploadSymbols</key>
-  <true/>
-</dict>
-</plist>
-EOPLIST
+            {
+              echo '<?xml version="1.0" encoding="UTF-8"?>'
+              echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
+              echo '<plist version="1.0">'
+              echo '<dict>'
+              echo '  <key>method</key>'
+              echo '  <string>app-store</string>'
+              echo '  <key>teamID</key>'
+              echo '  <string>P35Y6M742T</string>'
+              echo '  <key>signingStyle</key>'
+              echo '  <string>manual</string>'
+              echo '  <key>uploadBitcode</key>'
+              echo '  <false/>'
+              echo '  <key>uploadSymbols</key>'
+              echo '  <true/>'
+              echo '</dict>'
+              echo '</plist>'
+            } > /tmp/ExportOptions.plist
             export CM_EXPORT_OPTIONS_PATH=/tmp/ExportOptions.plist
           fi
           
