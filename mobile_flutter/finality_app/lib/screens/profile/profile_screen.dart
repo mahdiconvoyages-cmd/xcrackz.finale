@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:share_plus/share_plus.dart';
 import '../../l10n/app_localizations.dart';
 import '../../main.dart';
 import '../../theme/premium_theme.dart';
@@ -20,10 +22,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _lastName = '';
   bool _isLoading = true;
 
+  // Referral / Parrainage
+  String? _referralCode;
+  int _referralCount = 0;
+  int _referralCredits = 0;
+  bool _referralCopied = false;
+
   @override
   void initState() {
     super.initState();
     _loadProfile();
+    _loadReferral();
   }
 
   Future<void> _loadProfile() async {
@@ -53,6 +62,64 @@ class _ProfileScreenState extends State<ProfileScreen> {
       if (!mounted) return;
       setState(() => _isLoading = false);
     }
+  }
+
+  Future<void> _loadReferral() async {
+    try {
+      final userId = supabase.auth.currentUser?.id;
+      if (userId == null) return;
+
+      final profile = await supabase
+          .from('profiles')
+          .select('referral_code')
+          .eq('id', userId)
+          .maybeSingle();
+
+      final referrals = await supabase
+          .from('referrals')
+          .select('id, reward_credits, status')
+          .eq('referrer_id', userId);
+
+      if (!mounted) return;
+      final refList = referrals as List;
+      setState(() {
+        _referralCode = profile?['referral_code'];
+        _referralCount = refList.length;
+        _referralCredits = refList
+            .where((r) => r['status'] == 'rewarded')
+            .fold<int>(0, (sum, r) => sum + ((r['reward_credits'] ?? 0) as int));
+      });
+    } catch (e) {
+      debugPrint('Load referral error: $e');
+    }
+  }
+
+  void _copyReferralCode() {
+    if (_referralCode == null) return;
+    final shareUrl = 'https://checksfleet.com/register?ref=$_referralCode';
+    Clipboard.setData(ClipboardData(text: shareUrl));
+    setState(() => _referralCopied = true);
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Lien de parrainage copie !'),
+        backgroundColor: Color(0xFF10B981),
+        duration: Duration(seconds: 2),
+      ),
+    );
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) setState(() => _referralCopied = false);
+    });
+  }
+
+  void _shareReferralCode() {
+    if (_referralCode == null) return;
+    final shareUrl = 'https://checksfleet.com/register?ref=$_referralCode';
+    SharePlus.instance.share(
+      ShareParams(
+        text: 'Rejoins ChecksFleet avec mon code parrainage et beneficie d\'avantages ! $shareUrl',
+        title: 'Invitation ChecksFleet',
+      ),
+    );
   }
 
   @override
@@ -258,6 +325,158 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 24),
+
+                // Referral / Parrainage Card
+                if (_referralCode != null) ...[
+                  FadeInAnimation(
+                    delay: const Duration(milliseconds: 50),
+                    child: Container(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: [Colors.purple[600]!, Colors.deepPurple[700]!],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(PremiumTheme.radiusLG),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.purple.withValues(alpha: 0.3),
+                            blurRadius: 16,
+                            offset: const Offset(0, 6),
+                          ),
+                        ],
+                      ),
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: const Icon(Icons.people, color: Colors.white, size: 24),
+                              ),
+                              const SizedBox(width: 12),
+                              const Expanded(
+                                child: Text(
+                                  'Parrainage',
+                                  style: TextStyle(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                              if (_referralCredits > 0)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: Colors.amber[400],
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    '+$_referralCredits credits',
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black87,
+                                    ),
+                                  ),
+                                ),
+                            ],
+                          ),
+                          const SizedBox(height: 16),
+                          // Referral code display
+                          Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: Colors.white.withValues(alpha: 0.15),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                            ),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        'Votre code',
+                                        style: TextStyle(
+                                          fontSize: 11,
+                                          color: Colors.white.withValues(alpha: 0.7),
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        _referralCode!,
+                                        style: const TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold,
+                                          color: Colors.white,
+                                          letterSpacing: 2,
+                                          fontFamily: 'monospace',
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                                // Copy button
+                                IconButton(
+                                  onPressed: _copyReferralCode,
+                                  icon: Icon(
+                                    _referralCopied ? Icons.check : Icons.copy,
+                                    color: Colors.white,
+                                  ),
+                                  tooltip: 'Copier le lien',
+                                ),
+                                // Share button
+                                IconButton(
+                                  onPressed: _shareReferralCode,
+                                  icon: const Icon(Icons.share, color: Colors.white),
+                                  tooltip: 'Partager',
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          // Stats row
+                          Row(
+                            children: [
+                              Icon(Icons.group_add, size: 16, color: Colors.white.withValues(alpha: 0.8)),
+                              const SizedBox(width: 6),
+                              Text(
+                                '$_referralCount filleul${_referralCount > 1 ? 's' : ''}',
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: Colors.white.withValues(alpha: 0.9),
+                                ),
+                              ),
+                              const SizedBox(width: 16),
+                              Icon(Icons.info_outline, size: 14, color: Colors.white.withValues(alpha: 0.6)),
+                              const SizedBox(width: 4),
+                              Expanded(
+                                child: Text(
+                                  '10 credits par filleul abonne',
+                                  style: TextStyle(
+                                    fontSize: 11,
+                                    color: Colors.white.withValues(alpha: 0.6),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+
                 // Menu Items with Animations
                 FadeInAnimation(
                   delay: const Duration(milliseconds: 100),

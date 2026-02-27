@@ -33,6 +33,13 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   bool _phoneAvailable = true;
   bool _checkingPhone = false;
 
+  // Referral / Parrainage state
+  bool _referralChecked = false;
+  bool _referralValid = false;
+  bool _checkingReferral = false;
+  String? _referralSponsorName;
+  String? _referralReferrerId;
+
   final Map<String, dynamic> _signupData = {
     'user_type': null, // 'company' or 'driver'
     'full_name': '',
@@ -51,6 +58,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
   final _phoneController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _referralCodeController = TextEditingController();
 
   @override
   void dispose() {
@@ -60,6 +68,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
     _phoneController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _referralCodeController.dispose();
     super.dispose();
   }
 
@@ -129,6 +138,52 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
       return true;
     } finally {
       if (mounted) setState(() => _checkingPhone = false);
+    }
+  }
+
+  // ==========================================
+  // REFERRAL CODE CHECK
+  // ==========================================
+
+  Future<void> _checkReferralCode() async {
+    final code = _referralCodeController.text.trim();
+    if (code.isEmpty) {
+      setState(() {
+        _referralChecked = false;
+        _referralValid = false;
+        _referralSponsorName = null;
+        _referralReferrerId = null;
+      });
+      return;
+    }
+
+    setState(() => _checkingReferral = true);
+    try {
+      final res = await supabase.rpc('validate_referral_code', params: {'p_code': code});
+      final list = res as List;
+      if (list.isNotEmpty && list[0]['valid'] == true) {
+        setState(() {
+          _referralChecked = true;
+          _referralValid = true;
+          _referralSponsorName = list[0]['referrer_name'] ?? '';
+          _referralReferrerId = list[0]['referrer_id'];
+        });
+      } else {
+        setState(() {
+          _referralChecked = true;
+          _referralValid = false;
+          _referralSponsorName = null;
+          _referralReferrerId = null;
+        });
+      }
+    } catch (e) {
+      debugPrint('Referral check error: $e');
+      setState(() {
+        _referralChecked = true;
+        _referralValid = false;
+      });
+    } finally {
+      if (mounted) setState(() => _checkingReferral = false);
     }
   }
 
@@ -272,6 +327,94 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
               },
               onChanged: (value) => _signupData['full_name'] = value,
             ),
+
+            const SizedBox(height: 16),
+
+            // Referral code (optional)
+            TextFormField(
+              controller: _referralCodeController,
+              decoration: InputDecoration(
+                labelText: 'Code parrainage (optionnel)',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                prefixIcon: const Icon(Icons.people),
+                hintText: 'Ex: MAH-7X3K',
+                suffixIcon: _checkingReferral
+                    ? const Padding(
+                        padding: EdgeInsets.all(12),
+                        child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2)),
+                      )
+                    : _referralChecked && _referralValid
+                        ? const Icon(Icons.check_circle, color: Color(0xFF10B981))
+                        : _referralChecked && !_referralValid
+                            ? const Icon(Icons.error, color: Colors.red)
+                            : null,
+              ),
+              textCapitalization: TextCapitalization.characters,
+              onChanged: (value) {
+                setState(() {
+                  _referralChecked = false;
+                  _referralValid = false;
+                  _referralSponsorName = null;
+                  _referralReferrerId = null;
+                });
+                // Debounce check
+                if (value.trim().length >= 4) {
+                  Future.delayed(const Duration(milliseconds: 600), () {
+                    if (_referralCodeController.text.trim() == value.trim()) {
+                      _checkReferralCode();
+                    }
+                  });
+                }
+              },
+            ),
+
+            if (_referralChecked && _referralValid && _referralSponsorName != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.purple[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.purple[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.handshake, color: Colors.purple[700], size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Parraine par $_referralSponsorName',
+                        style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: Colors.purple[800]),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+
+            if (_referralChecked && !_referralValid && _referralCodeController.text.trim().isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red[50],
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: Colors.red[200]!),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.warning_amber, color: Colors.red[700], size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Code parrainage invalide',
+                        style: TextStyle(fontSize: 13, color: Colors.red[800]),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
 
             const SizedBox(height: 24),
 
@@ -611,6 +754,44 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
 
           const SizedBox(height: 16),
 
+          // Referral info if applicable
+          if (_referralValid && _referralSponsorName != null) ...[
+            Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.purple[50],
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: Colors.purple[300]!),
+              ),
+              child: Row(
+                children: [
+                  const Text('🤝', style: TextStyle(fontSize: 28)),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Parraine par',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.purple[900],
+                          ),
+                        ),
+                        Text(
+                          _referralSponsorName!,
+                          style: TextStyle(fontSize: 12, color: Colors.purple[800]),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 16),
+          ],
+
           // Welcome gift — given after email verification
           Container(
             padding: const EdgeInsets.all(16),
@@ -795,10 +976,28 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
         debugPrint('Profile upsert warning (non-blocking): $profileErr');
       }
 
-      // 4. Credits de bienvenue donnés après validation email (via trigger SQL)
+      // 4. Link referral if valid
+      if (_referralValid && _referralReferrerId != null) {
+        try {
+          await supabase.from('profiles').update({
+            'referred_by': _referralReferrerId,
+          }).eq('id', userId);
+
+          await supabase.from('referrals').insert({
+            'referrer_id': _referralReferrerId,
+            'referred_id': userId,
+            'referral_code': _referralCodeController.text.trim().toUpperCase(),
+            'status': 'pending',
+          });
+        } catch (refErr) {
+          debugPrint('Referral link warning (non-blocking): $refErr');
+        }
+      }
+
+      // 5. Credits de bienvenue donnés après validation email (via trigger SQL)
       // Pas de crédits à l'inscription, ils seront ajoutés quand l'email est confirmé
 
-      // 5. Log successful signup
+      // 6. Log successful signup
       await _fraudService.logSignupAttempt(
         email: _signupData['email'],
         phone: _signupData['phone'] ?? '',
@@ -806,7 +1005,7 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
         success: true,
       );
 
-      // 6. Navigate to email verification screen
+      // 7. Navigate to email verification screen
       if (mounted) {
         setState(() => _isLoading = false);
         ScaffoldMessenger.of(context).showSnackBar(
