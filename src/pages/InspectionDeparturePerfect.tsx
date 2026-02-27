@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, Loader, Camera, CheckCircle, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Loader, Camera, CheckCircle, AlertCircle, Link, Copy, Share2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
 import SignatureCanvas from '../components/inspection/SignatureCanvas';
@@ -35,6 +35,7 @@ interface PhotoData {
   file: File | null;
   captured: boolean;
   damageState: 'RAS' | 'Rayures' | 'Cassé' | 'Abimé';
+  damageComment: string;
 }
 
 // 8 photos obligatoires avec images de guidance dynamiques
@@ -115,7 +116,8 @@ export default function InspectionDeparturePerfect() {
     url: null,
     file: null,
     captured: false,
-    damageState: 'RAS'
+    damageState: 'RAS',
+    damageComment: ''
   });
   const [mileage, setMileage] = useState('');
   const [fuelLevel, setFuelLevel] = useState('50');
@@ -133,6 +135,15 @@ export default function InspectionDeparturePerfect() {
   const [hasInflationKit, setHasInflationKit] = useState(false);
   const [hasFuelCard, setHasFuelCard] = useState(false);
   const [isVehicleLoaded, setIsVehicleLoaded] = useState(false);
+  const [loadedVehiclePhoto, setLoadedVehiclePhoto] = useState<PhotoData>({
+    type: 'loaded_vehicle',
+    label: 'Photo véhicule chargé',
+    url: null,
+    file: null,
+    captured: false,
+    damageState: 'RAS',
+    damageComment: ''
+  });
   const [hasConfidedObject, setHasConfidedObject] = useState(false);
   const [confidedObjectDescription, setConfidedObjectDescription] = useState('');
 
@@ -147,6 +158,10 @@ export default function InspectionDeparturePerfect() {
   const [showDocScanner, setShowDocScanner] = useState(false);
   const [scannerDocType, setScannerDocType] = useState<'registration' | 'insurance' | 'generic'>('registration');
   const [scannedDocs, setScannedDocs] = useState<{ type: string; file: File; preview: string }[]>([]);
+
+  // Share dialog state
+  const [showShareDialog, setShowShareDialog] = useState(false);
+  const [shareToken, setShareToken] = useState('');
 
   // Chargement initial
   useEffect(() => {
@@ -163,6 +178,7 @@ export default function InspectionDeparturePerfect() {
         file: null,
         captured: false,
         damageState: 'RAS' as const,
+        damageComment: '',
       }));
       setRequiredPhotos(photos);
 
@@ -174,6 +190,7 @@ export default function InspectionDeparturePerfect() {
         file: null,
         captured: false,
         damageState: 'RAS' as const,
+        damageComment: '',
       }));
       setOptionalPhotos(optional);
     }
@@ -230,6 +247,9 @@ export default function InspectionDeparturePerfect() {
     if (currentPhotoType === 'dashboard') {
       setDashboardPhoto(prev => ({ ...prev, file, url: imageUrl, captured: true }));
       showToast('success', 'Photo capturée', 'Photo du tableau de bord enregistrée');
+    } else if (currentPhotoType === 'loaded_vehicle') {
+      setLoadedVehiclePhoto(prev => ({ ...prev, file, url: imageUrl, captured: true }));
+      showToast('success', 'Photo capturée', 'Photo du véhicule chargé enregistrée');
     } else if (currentPhotoType.startsWith('optional_')) {
       setOptionalPhotos(prev =>
         prev.map(p => p.type === currentPhotoType ? { ...p, file, url: imageUrl, captured: true } : p)
@@ -298,10 +318,28 @@ export default function InspectionDeparturePerfect() {
           showToast('error', 'Photos manquantes', `Il manque ${missingPhotos.length} photo(s) obligatoire(s)`);
           return false;
         }
+        // Vérifier que chaque dommage ≠ RAS a un commentaire obligatoire
+        for (const photo of requiredPhotos) {
+          if (photo.damageState !== 'RAS' && !photo.damageComment.trim()) {
+            showToast('error', 'Commentaire requis', `Veuillez décrire le dommage pour "${photo.label}"`);
+            return false;
+          }
+        }
+        // Vérifier les photos optionnelles avec dommage
+        for (const photo of optionalPhotos) {
+          if (photo.captured && photo.damageState !== 'RAS' && !photo.damageComment.trim()) {
+            showToast('error', 'Commentaire requis', `Veuillez décrire le dommage pour "${photo.label}"`);
+            return false;
+          }
+        }
         return true;
 
       case 3:
-        // Pas de validation stricte pour la checklist
+        // Si véhicule chargé, photo obligatoire
+        if (isVehicleLoaded && !loadedVehiclePhoto.captured) {
+          showToast('error', 'Photo requise', 'Veuillez prendre une photo du véhicule chargé');
+          return false;
+        }
         return true;
 
       case 4:
@@ -365,14 +403,17 @@ export default function InspectionDeparturePerfect() {
           fuel_level: parseInt(fuelLevel),
           mileage_km: parseInt(mileage),
           notes: notes,
-          keys_count: keysCount,
-          has_security_kit: hasSecurityKit,
-          has_spare_wheel: hasSpareWheel,
-          has_inflation_kit: hasInflationKit,
-          has_fuel_card: hasFuelCard,
-          is_loaded: isVehicleLoaded,
-          has_confided_object: hasConfidedObject,
-          confided_object_description: confidedObjectDescription || null,
+          vehicle_info: {
+            keys_count: keysCount,
+            has_security_kit: hasSecurityKit,
+            has_spare_wheel: hasSpareWheel,
+            has_inflation_kit: hasInflationKit,
+            has_fuel_card: hasFuelCard,
+            is_loaded: isVehicleLoaded,
+            has_loaded_photo: loadedVehiclePhoto.captured,
+            has_confided_object: hasConfidedObject,
+            confided_object_description: hasConfidedObject ? confidedObjectDescription : null,
+          },
           client_name: clientName,
           client_signature: clientSignature,
           driver_name: driverName,
@@ -393,6 +434,11 @@ export default function InspectionDeparturePerfect() {
       // 2. Upload photo dashboard
       if (dashboardPhoto.file && dashboardPhoto.captured) {
         await uploadPhoto(createdInspection.id, dashboardPhoto);
+      }
+
+      // 2b. Upload photo véhicule chargé
+      if (loadedVehiclePhoto.file && loadedVehiclePhoto.captured) {
+        await uploadPhoto(createdInspection.id, loadedVehiclePhoto);
       }
 
       // 3. Upload photos obligatoires
@@ -421,12 +467,21 @@ export default function InspectionDeparturePerfect() {
           .eq('id', missionId);
       }
 
+      // 6. Créer le token de partage dans inspection_report_shares
+      const token = `${Date.now().toString(36)}${user.id.substring(0, 8)}`;
+      await supabase.from('inspection_report_shares').upsert({
+        mission_id: missionId!,
+        share_token: token,
+        user_id: user.id,
+        report_type: isRestitution ? 'restitution_departure' : 'departure',
+        is_active: true,
+      } as any, { onConflict: 'mission_id,report_type' });
+
       showToast('success', 'Inspection terminée', isRestitution ? 'L\'inspection de départ restitution a été enregistrée' : 'L\'inspection de départ a été enregistrée avec succès');
       
-      // Redirection vers la mission
-      setTimeout(() => {
-        navigate('/team-missions');
-      }, 1500);
+      // Afficher le dialogue de partage du rapport
+      setShareToken(token);
+      setShowShareDialog(true);
 
     } catch (error: any) {
       console.error('Erreur sauvegarde inspection:', error);
@@ -456,12 +511,14 @@ export default function InspectionDeparturePerfect() {
         .from('inspection-photos')
         .getPublicUrl(filePath);
 
-      // Enregistrer dans DB avec état de dommage
-      await supabase.from('inspection_photos').insert({
+      // Enregistrer dans inspection_photos_v2 (identique au Flutter)
+      await supabase.from('inspection_photos_v2').insert({
         inspection_id: inspectionId,
         photo_type: photo.type,
-        photo_url: urlData.publicUrl,
-        damage_state: photo.damageState,
+        full_url: urlData.publicUrl,
+        damage_status: photo.damageState,
+        damage_comment: (photo.damageState !== 'RAS' && photo.damageComment.trim()) ? photo.damageComment : null,
+        taken_at: new Date().toISOString(),
       } as any);
 
     } catch (error) {
@@ -485,57 +542,82 @@ export default function InspectionDeparturePerfect() {
     );
   }
 
-  const progressPercentage = (currentStep / 5) * 100;
+  const stepLabels = ['Compteur', 'Photos', 'Checklist', 'Signatures', 'Documents'];
+  const stepDescriptions = [
+    'Kilométrage, carburant, tableau de bord',
+    'Capturez les 8 vues requises du véhicule',
+    'Checklist complète de l\'inspection',
+    'Signatures convoyeur et client',
+    'Scanner les documents nécessaires',
+  ];
 
   return (
     <div className="min-h-screen bg-[#F0FDFA] pb-32">
-      {/* Header fixe */}
-      <div className="fixed top-0 left-0 right-0 bg-white border-b border-[#CCFBF1] z-20 shadow-sm">
-        <div className="flex items-center gap-4 p-4">
-          <button
-            onClick={() => navigate(`/missions/${missionId}`)}
-            className="p-2 hover:bg-[#F0FDFA] rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-6 h-6 text-[#2D2A3E]" />
-          </button>
-          <div className="flex-1">
-            <h1 className="text-lg font-bold text-[#2D2A3E]">{isRestitution ? '🔄 Inspection Départ Restitution' : 'Inspection Départ'}</h1>
-            <p className="text-sm text-gray-600">
-              {mission.vehicle_brand} {mission.vehicle_model} - {mission.vehicle_plate}
-            </p>
+      {/* Header fixe avec gradient */}
+      <div className="fixed top-0 left-0 right-0 z-20">
+        {/* Gradient header */}
+        <div className="bg-gradient-to-r from-[#14B8A6] to-[#0D9488] px-4 py-3">
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => navigate(`/missions/${missionId}`)}
+              className="p-2 hover:bg-white/20 rounded-lg transition-colors"
+            >
+              <ArrowLeft className="w-5 h-5 text-white" />
+            </button>
+            <div className="flex-1 text-center">
+              <h1 className="text-lg font-bold text-white">{isRestitution ? 'Inspection Départ Restitution' : 'Inspection de départ'}</h1>
+            </div>
+            <div className="w-9" />
           </div>
         </div>
 
-        {/* Barre de progression */}
-        <div className="px-4 pb-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm font-medium text-[#2D2A3E]">Étape {currentStep} / 5</span>
-            <span className="text-sm text-gray-600">{Math.round(progressPercentage)}%</span>
+        {/* Progress indicator card */}
+        <div className="bg-white px-6 py-4 shadow-md">
+          {/* Segmented progress bars */}
+          <div className="flex gap-1.5 mb-4">
+            {[1, 2, 3, 4, 5].map((step) => (
+              <div key={step} className="flex-1 h-1 rounded-full overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all duration-300 ${
+                    step <= currentStep
+                      ? 'bg-gradient-to-r from-[#14B8A6] to-[#0D9488]'
+                      : 'bg-gray-200'
+                  }`}
+                />
+              </div>
+            ))}
           </div>
-          <div className="h-2 bg-[#CCFBF1] rounded-full overflow-hidden">
-            <div
-              className="h-full bg-gradient-to-r from-[#14B8A6] to-[#0D9488] transition-all duration-300"
-              style={{ width: `${progressPercentage}%` }}
-            />
-          </div>
-          <div className="flex justify-between mt-2 text-xs text-gray-500">
-            <span className={currentStep >= 1 ? 'text-[#14B8A6] font-semibold' : ''}>Dashboard</span>
-            <span className={currentStep >= 2 ? 'text-[#14B8A6] font-semibold' : ''}>Photos</span>
-            <span className={currentStep >= 3 ? 'text-[#14B8A6] font-semibold' : ''}>Checklist</span>
-            <span className={currentStep >= 4 ? 'text-[#14B8A6] font-semibold' : ''}>Signatures</span>
-            <span className={currentStep >= 5 ? 'text-[#14B8A6] font-semibold' : ''}>Documents</span>
+
+          {/* Step badge + label */}
+          <div className="flex items-center gap-3">
+            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#14B8A6] to-[#0D9488] flex items-center justify-center shadow-md">
+              <span className="text-white font-bold text-lg">{currentStep}</span>
+            </div>
+            <div className="flex-1">
+              <p className="font-bold text-[#2D2A3E] text-[15px]">Étape {currentStep}: {stepLabels[currentStep - 1]}</p>
+              <p className="text-xs text-gray-500">{stepDescriptions[currentStep - 1]}</p>
+            </div>
+            <span className="text-[#14B8A6] font-bold text-sm">{currentStep}/5</span>
           </div>
         </div>
       </div>
 
       {/* Contenu principal */}
-      <div className="pt-44 px-4 pb-6">
+      <div className="pt-40 px-4 pb-6">
         {/* ÉTAPE 1: Dashboard + KM + Carburant */}
         {currentStep === 1 && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">📊 Tableau de bord</h2>
-              <p className="text-sm text-gray-600">Photo, kilométrage et niveau de carburant</p>
+            {/* Title card with icon */}
+            <div className="bg-gradient-to-br from-[#14B8A6]/10 to-[#14B8A6]/5 rounded-2xl p-4 border border-[#14B8A6]/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#14B8A6]/15 flex items-center justify-center">
+                  <span className="text-xl">📊</span>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-[#2D2A3E]">État initial du véhicule</h2>
+                  <p className="text-xs text-gray-500">Photographiez le tableau de bord et renseignez le kilométrage</p>
+                </div>
+              </div>
             </div>
 
             {/* Photo dashboard */}
@@ -626,9 +708,16 @@ export default function InspectionDeparturePerfect() {
         {/* ÉTAPE 2: 8 Photos obligatoires + 10 optionnelles */}
         {currentStep === 2 && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">📸 Photos du véhicule</h2>
-              <p className="text-sm text-gray-600">8 photos obligatoires + photos de dommages optionnelles</p>
+            <div className="bg-gradient-to-br from-[#14B8A6]/10 to-[#14B8A6]/5 rounded-2xl p-4 border border-[#14B8A6]/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#14B8A6]/15 flex items-center justify-center">
+                  <span className="text-xl">📸</span>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-[#2D2A3E]">Photos du véhicule</h2>
+                  <p className="text-xs text-gray-500">8 photos obligatoires + photos de dommages optionnelles</p>
+                </div>
+              </div>
             </div>
 
             {/* Photos obligatoires */}
@@ -700,13 +789,36 @@ export default function InspectionDeparturePerfect() {
                             prev.map(p => p.type === guide.type ? { ...p, damageState: newState } : p)
                           );
                         }}
-                        className="w-full px-2 py-1 text-xs rounded border border-[#CCFBF1] focus:border-[#14B8A6] focus:outline-none"
+                        className={`w-full px-2 py-1.5 text-xs rounded-lg border-2 focus:outline-none transition-colors ${
+                          photo.damageState !== 'RAS'
+                            ? 'border-orange-300 bg-orange-50 text-orange-700'
+                            : 'border-[#CCFBF1] text-gray-700'
+                        }`}
                       >
-                        <option value="RAS">RAS</option>
-                        <option value="Rayures">Rayures</option>
-                        <option value="Cassé">Cassé</option>
-                        <option value="Abimé">Abimé</option>
+                        <option value="RAS">✅ RAS</option>
+                        <option value="Rayures">⚠️ Rayures</option>
+                        <option value="Cassé">🔴 Cassé</option>
+                        <option value="Abimé">🟠 Abimé</option>
                       </select>
+
+                      {/* Commentaire obligatoire si dommage ≠ RAS */}
+                      {photo.damageState !== 'RAS' && (
+                        <textarea
+                          value={photo.damageComment}
+                          onChange={(e) => {
+                            setRequiredPhotos(prev =>
+                              prev.map(p => p.type === guide.type ? { ...p, damageComment: e.target.value } : p)
+                            );
+                          }}
+                          placeholder="Décrivez le dommage... (obligatoire)"
+                          rows={2}
+                          className={`w-full px-2 py-1.5 text-xs rounded-lg border-2 focus:outline-none resize-none ${
+                            !photo.damageComment.trim()
+                              ? 'border-red-300 bg-red-50'
+                              : 'border-orange-200 bg-orange-50'
+                          }`}
+                        />
+                      )}
                     </div>
                   );
                 })}
@@ -762,13 +874,36 @@ export default function InspectionDeparturePerfect() {
                             prev.map(p => p.type === photo.type ? { ...p, damageState: newState } : p)
                           );
                         }}
-                        className="w-full px-2 py-1 text-xs rounded border border-gray-300 focus:border-[#14B8A6] focus:outline-none"
+                        className={`w-full px-2 py-1.5 text-xs rounded-lg border-2 focus:outline-none ${
+                          photo.damageState !== 'RAS'
+                            ? 'border-orange-300 bg-orange-50 text-orange-700'
+                            : 'border-gray-200 text-gray-700'
+                        }`}
                       >
-                        <option value="RAS">RAS</option>
-                        <option value="Rayures">Rayures</option>
-                        <option value="Cassé">Cassé</option>
-                        <option value="Abimé">Abimé</option>
+                        <option value="RAS">✅ RAS</option>
+                        <option value="Rayures">⚠️ Rayures</option>
+                        <option value="Cassé">🔴 Cassé</option>
+                        <option value="Abimé">🟠 Abimé</option>
                       </select>
+                    )}
+
+                    {/* Commentaire obligatoire si dommage ≠ RAS */}
+                    {photo.captured && photo.damageState !== 'RAS' && (
+                      <textarea
+                        value={photo.damageComment}
+                        onChange={(e) => {
+                          setOptionalPhotos(prev =>
+                            prev.map(p => p.type === photo.type ? { ...p, damageComment: e.target.value } : p)
+                          );
+                        }}
+                        placeholder="Décrivez le dommage... (obligatoire)"
+                        rows={2}
+                        className={`w-full px-2 py-1.5 text-xs rounded-lg border-2 focus:outline-none resize-none ${
+                          !photo.damageComment.trim()
+                            ? 'border-red-300 bg-red-50'
+                            : 'border-orange-200 bg-orange-50'
+                        }`}
+                      />
                     )}
                   </div>
                 ))}
@@ -780,9 +915,16 @@ export default function InspectionDeparturePerfect() {
         {/* ÉTAPE 3: Checklist */}
         {currentStep === 3 && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">✅ État du véhicule</h2>
-              <p className="text-sm text-gray-600">Checklist complète et inventaire</p>
+            <div className="bg-gradient-to-br from-[#14B8A6]/10 to-[#14B8A6]/5 rounded-2xl p-4 border border-[#14B8A6]/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#14B8A6]/15 flex items-center justify-center">
+                  <span className="text-xl">✅</span>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-[#2D2A3E]">État du véhicule</h2>
+                  <p className="text-xs text-gray-500">Checklist complète et inventaire</p>
+                </div>
+              </div>
             </div>
 
             {/* État général */}
@@ -877,15 +1019,62 @@ export default function InspectionDeparturePerfect() {
                 />
               </div>
             )}
+
+            {/* Photo véhicule chargé (obligatoire si "Véhicule chargé" coché) */}
+            {isVehicleLoaded && (
+              <div className="bg-white rounded-xl p-6 shadow-sm border-2 border-blue-200">
+                <h3 className="font-semibold text-[#2D2A3E] mb-3 flex items-center gap-2">
+                  <span>📸</span> Photo du véhicule chargé <span className="text-red-500">*</span>
+                </h3>
+                <p className="text-sm text-gray-600 mb-4">
+                  Prenez une photo montrant le chargement du véhicule
+                </p>
+                
+                {loadedVehiclePhoto.captured && loadedVehiclePhoto.url ? (
+                  <div className="relative">
+                    <img
+                      src={loadedVehiclePhoto.url}
+                      alt="Véhicule chargé"
+                      className="w-full h-48 object-cover rounded-lg"
+                    />
+                    <button
+                      onClick={() => openCamera('loaded_vehicle')}
+                      className="absolute top-2 right-2 bg-white/90 backdrop-blur-sm p-2 rounded-lg shadow-lg hover:bg-white transition-colors"
+                    >
+                      <Camera className="w-5 h-5 text-[#14B8A6]" />
+                    </button>
+                    <div className="absolute bottom-2 left-2 bg-blue-500 text-white px-3 py-1 rounded-full text-sm font-medium flex items-center gap-1">
+                      <CheckCircle className="w-4 h-4" /> Capturée
+                    </div>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => openCamera('loaded_vehicle')}
+                    className="w-full h-48 border-2 border-dashed border-blue-400 rounded-lg flex flex-col items-center justify-center gap-2 hover:bg-blue-50 transition-colors"
+                  >
+                    <Camera className="w-12 h-12 text-blue-400" />
+                    <span className="text-blue-500 font-medium">Prendre la photo</span>
+                    <span className="text-xs text-blue-400">Obligatoire</span>
+                  </button>
+                )}
+              </div>
+            )}
           </div>
         )}
 
         {/* ÉTAPE 4: Signatures */}
         {currentStep === 4 && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">✍️ Signatures</h2>
-              <p className="text-sm text-gray-600">Validation client et convoyeur</p>
+            <div className="bg-gradient-to-br from-[#14B8A6]/10 to-[#14B8A6]/5 rounded-2xl p-4 border border-[#14B8A6]/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#14B8A6]/15 flex items-center justify-center">
+                  <span className="text-xl">✍️</span>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-[#2D2A3E]">Signatures</h2>
+                  <p className="text-xs text-gray-500">Validation client et convoyeur</p>
+                </div>
+              </div>
             </div>
 
             {/* Signature Client */}
@@ -967,9 +1156,16 @@ export default function InspectionDeparturePerfect() {
         {/* ÉTAPE 5: Scanner de documents */}
         {currentStep === 5 && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-bold text-[#2D2A3E] mb-2">📄 Documents</h2>
-              <p className="text-sm text-gray-600">Scanner les documents nécessaires (optionnel)</p>
+            <div className="bg-gradient-to-br from-[#14B8A6]/10 to-[#14B8A6]/5 rounded-2xl p-4 border border-[#14B8A6]/20">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#14B8A6]/15 flex items-center justify-center">
+                  <span className="text-xl">📄</span>
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-[#2D2A3E]">Documents</h2>
+                  <p className="text-xs text-gray-500">Scanner les documents nécessaires (optionnel)</p>
+                </div>
+              </div>
             </div>
 
             {/* Boutons de scan */}
@@ -1049,7 +1245,7 @@ export default function InspectionDeparturePerfect() {
             <button
               onClick={handlePreviousStep}
               disabled={saving}
-              className="flex-1 py-3 px-6 rounded-lg border-2 border-[#14B8A6] text-[#14B8A6] font-semibold hover:bg-[#F0FDFA] transition-colors disabled:opacity-50"
+              className="flex-1 py-3 px-6 rounded-xl border-2 border-[#14B8A6] text-[#14B8A6] font-semibold hover:bg-[#F0FDFA] transition-colors disabled:opacity-50"
             >
               Précédent
             </button>
@@ -1059,7 +1255,7 @@ export default function InspectionDeparturePerfect() {
             <button
               onClick={handleNextStep}
               disabled={saving}
-              className="flex-1 py-3 px-6 rounded-lg bg-[#14B8A6] text-white font-semibold hover:bg-[#0D9488] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-[#14B8A6] to-[#0D9488] text-white font-semibold hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               Suivant
             </button>
@@ -1067,7 +1263,7 @@ export default function InspectionDeparturePerfect() {
             <button
               onClick={handleComplete}
               disabled={saving}
-              className="flex-1 py-3 px-6 rounded-lg bg-[#14B8A6] text-white font-semibold hover:bg-[#0D9488] transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              className="flex-1 py-3 px-6 rounded-xl bg-gradient-to-r from-[#14B8A6] to-[#0D9488] text-white font-semibold hover:shadow-lg transition-all disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {saving ? (
                 <>
@@ -1084,6 +1280,79 @@ export default function InspectionDeparturePerfect() {
           )}
         </div>
       </div>
+
+      {/* Loading overlay pendant la soumission */}
+      {saving && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+          <div className="bg-white rounded-2xl p-8 flex flex-col items-center gap-4 mx-4 shadow-2xl">
+            <Loader className="w-10 h-10 animate-spin text-[#14B8A6]" />
+            <p className="text-lg font-semibold text-[#2D2A3E]">Envoi de l'inspection en cours…</p>
+            <p className="text-sm text-gray-500">Photos, signatures et documents</p>
+          </div>
+        </div>
+      )}
+
+      {/* Share dialog */}
+      {showShareDialog && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 max-w-md w-full shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-4">
+                <CheckCircle className="w-8 h-8 text-green-600" />
+              </div>
+              <h3 className="text-xl font-bold text-[#2D2A3E]">Inspection enregistrée !</h3>
+              <p className="text-sm text-gray-500 mt-2">Partagez le rapport d'inspection avec le client</p>
+            </div>
+
+            <div className="bg-gray-50 rounded-xl p-4 mb-4">
+              <p className="text-xs text-gray-500 mb-2">Lien du rapport :</p>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={`${window.location.origin}/inspection-report/${shareToken}`}
+                  className="flex-1 text-sm bg-white border border-gray-200 rounded-lg px-3 py-2 text-gray-700"
+                />
+                <button
+                  onClick={() => {
+                    navigator.clipboard.writeText(`${window.location.origin}/inspection-report/${shareToken}`);
+                    showToast('success', 'Copié !', 'Lien copié dans le presse-papiers');
+                  }}
+                  className="p-2 bg-[#14B8A6] text-white rounded-lg hover:bg-[#0D9488] transition-colors"
+                >
+                  <Copy className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+
+            {navigator.share && (
+              <button
+                onClick={() => {
+                  navigator.share({
+                    title: 'Rapport d\'inspection',
+                    text: 'Consultez le rapport d\'inspection du véhicule',
+                    url: `${window.location.origin}/inspection-report/${shareToken}`,
+                  });
+                }}
+                className="w-full py-3 rounded-xl bg-gradient-to-r from-[#14B8A6] to-[#0D9488] text-white font-semibold flex items-center justify-center gap-2 mb-3"
+              >
+                <Share2 className="w-5 h-5" />
+                Partager
+              </button>
+            )}
+
+            <button
+              onClick={() => {
+                setShowShareDialog(false);
+                navigate('/team-missions');
+              }}
+              className="w-full py-3 rounded-xl border-2 border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-colors"
+            >
+              Fermer
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* Input file caché */}
       <input
