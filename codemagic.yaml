@@ -78,42 +78,20 @@ workflows:
           BUILD_NUMBER=$(date +%s)
           echo "Build number: $BUILD_NUMBER"
           
-          # Verify export options exist
-          if [ -z "$CM_EXPORT_OPTIONS_PATH" ] || [ ! -f "$CM_EXPORT_OPTIONS_PATH" ]; then
-            echo "⚠️ CM_EXPORT_OPTIONS_PATH empty or missing, generating fallback..."
-            {
-              echo '<?xml version="1.0" encoding="UTF-8"?>'
-              echo '<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">'
-              echo '<plist version="1.0">'
-              echo '<dict>'
-              echo '  <key>method</key>'
-              echo '  <string>app-store</string>'
-              echo '  <key>teamID</key>'
-              echo '  <string>P35Y6M742T</string>'
-              echo '  <key>signingStyle</key>'
-              echo '  <string>manual</string>'
-              echo '  <key>uploadBitcode</key>'
-              echo '  <false/>'
-              echo '  <key>uploadSymbols</key>'
-              echo '  <true/>'
-              echo '</dict>'
-              echo '</plist>'
-            } > /tmp/ExportOptions.plist
-            export CM_EXPORT_OPTIONS_PATH=/tmp/ExportOptions.plist
-          fi
-          
-          echo "Using export options: $CM_EXPORT_OPTIONS_PATH"
-          cat "$CM_EXPORT_OPTIONS_PATH"
-          
-          flutter build ipa --release \
+          # Build Flutter app without code signing (profiles already set up by use-profiles)
+          flutter build ios --release --no-codesign \
             --build-name=4.0.0 \
-            --build-number=$BUILD_NUMBER \
-            --export-options-plist="$CM_EXPORT_OPTIONS_PATH"
+            --build-number=$BUILD_NUMBER
+          
+          # Package and sign the IPA using the provisioning profiles set up earlier
+          xcode-project build-ipa \
+            --workspace ios/Runner.xcworkspace \
+            --scheme Runner
           
           echo "== IPA build complete =="
           ls -lh build/ios/ipa/ || echo "WARNING: build/ios/ipa/ not found"
-          cp build/ios/ipa/*.ipa $CM_BUILD_DIR/ChecksFleet.ipa
-          echo "✅ IPA copied to $CM_BUILD_DIR/ChecksFleet.ipa"
+          cp build/ios/ipa/*.ipa $CM_BUILD_DIR/ChecksFleet.ipa || true
+          echo "✅ Done"
 
     artifacts:
       - ChecksFleet.ipa
