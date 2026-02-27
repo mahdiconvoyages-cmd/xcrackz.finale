@@ -355,16 +355,7 @@ function AppContent() {
             }
           />
 
-          <Route
-            path="/mobile-download"
-            element={
-              <ProtectedRoute>
-                <Layout>
-                  <MobileDownload />
-                </Layout>
-              </ProtectedRoute>
-            }
-          />
+          <Route path="/mobile-download" element={<MobileDownload />} />
 
           <Route
             path="/admin"
