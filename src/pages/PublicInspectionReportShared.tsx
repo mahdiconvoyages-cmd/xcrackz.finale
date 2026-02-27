@@ -1129,15 +1129,23 @@ function InspectionCard({ title, inspection, color, onOpenPhoto, vehicleLabel, p
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {inspection.photos.map((photo: any, i: number) => {
                 const hasDamage = photo.damage_status && photo.damage_status !== 'RAS';
+                const isLoadedVehicle = photo.photo_type?.includes('loaded_vehicle');
                 return (
-                <div key={i} className={`rounded-lg overflow-hidden border-2 ${hasDamage ? 'border-amber-400' : 'border-transparent'} print:break-inside-avoid`}>
+                <div key={i} className={`rounded-lg overflow-hidden border-2 ${isLoadedVehicle ? 'border-blue-400' : hasDamage ? 'border-amber-400' : 'border-transparent'} print:break-inside-avoid`}>
                   <div onClick={() => onOpenPhoto(inspection.photos, i)}
-                    className="aspect-square cursor-pointer hover:ring-4 ring-blue-500 transition">
+                    className="aspect-square cursor-pointer hover:ring-4 ring-blue-500 transition relative">
                     <img src={photo.url || photo.photo_url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                    {isLoadedVehicle && (
+                      <div className="absolute top-2 left-2 bg-blue-600 text-white text-[10px] font-bold px-2 py-0.5 rounded-full shadow-sm flex items-center gap-1">
+                        <span>📦</span> Chargement
+                      </div>
+                    )}
                   </div>
                   {/* Label du type de photo */}
-                  <div className="bg-gray-50 px-2 py-1">
-                    <p className="text-xs text-gray-500 truncate">{photo.photo_type?.replace(/_/g, ' ') || `Photo ${i + 1}`}</p>
+                  <div className={`px-2 py-1 ${isLoadedVehicle ? 'bg-blue-50' : 'bg-gray-50'}`}>
+                    <p className={`text-xs truncate ${isLoadedVehicle ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
+                      {isLoadedVehicle ? '📦 Photo du chargement' : (photo.photo_type?.replace(/_/g, ' ') || `Photo ${i + 1}`)}
+                    </p>
                   </div>
                   {/* Dommage + Commentaire */}
                   {hasDamage && (

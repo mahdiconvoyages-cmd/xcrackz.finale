@@ -59,6 +59,8 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
   // Step 3: Check-list d'arrivée (spécifique arrivée)
   bool _allKeysReturned = false;
   bool _documentsReturned = false;
+  bool _isVehicleLoaded = false;
+  String? _loadedVehiclePhoto; // Photo obligatoire quand véhicule chargé
   final _observationsController = TextEditingController();
 
   // Step 4: Signatures
@@ -170,70 +172,115 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
   Widget _buildProgressIndicator() {
     final progress = (_currentStep + 1) / 5;
     return Container(
-      padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 24),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            PremiumTheme.cardBg,
-            PremiumTheme.cardBg.withValues(alpha: 0.8),
-          ],
-          begin: Alignment.topCenter,
-          end: Alignment.bottomCenter,
-        ),
+        color: PremiumTheme.cardBg,
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withValues(alpha: 0.2),
-            blurRadius: 8,
-            offset: const Offset(0, 2),
+            color: Colors.black.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
         children: [
-          // Circular progress ring
-          SizedBox(
-            width: 60,
-            height: 60,
-            child: Stack(
-              alignment: Alignment.center,
-              children: [
-                ProgressRing(
-                  progress: progress,
-                  size: 60,
-                  strokeWidth: 4,
-                  color: PremiumTheme.primaryTeal,
+          // Step dots row
+          Row(
+            children: List.generate(5, (i) {
+              final isActive = i == _currentStep;
+              final isCompleted = i < _currentStep;
+              return Expanded(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: AnimatedContainer(
+                        duration: const Duration(milliseconds: 300),
+                        height: 4,
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(2),
+                          gradient: isCompleted || isActive
+                              ? const LinearGradient(
+                                  colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
+                                )
+                              : null,
+                          color: isCompleted || isActive ? null : const Color(0xFFE5E7EB),
+                        ),
+                      ),
+                    ),
+                    if (i < 4) const SizedBox(width: 6),
+                  ],
                 ),
-                Text(
-                  '${_currentStep + 1}/5',
-                  style: PremiumTheme.body.copyWith(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-              ],
-            ),
+              );
+            }),
           ),
-          const SizedBox(width: 16),
-          // Step labels
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _getStepTitle(_currentStep),
-                  style: PremiumTheme.body.copyWith(
-                    fontWeight: FontWeight.w600,
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              // Step number badge
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.circular(12),
+                  boxShadow: [
+                    BoxShadow(
+                      color: const Color(0xFF14B8A6).withValues(alpha: 0.3),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Center(
+                  child: Text(
+                    '${_currentStep + 1}',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  _getStepDescription(_currentStep),
-                  style: PremiumTheme.bodySmall.copyWith(
-                    color: PremiumTheme.textSecondary,
-                  ),
+              ),
+              const SizedBox(width: 14),
+              // Step labels
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _getStepTitle(_currentStep),
+                      style: PremiumTheme.body.copyWith(
+                        fontWeight: FontWeight.w700,
+                        fontSize: 15,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      _getStepDescription(_currentStep),
+                      style: PremiumTheme.bodySmall.copyWith(
+                        color: PremiumTheme.textSecondary,
+                        fontSize: 12,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+              // Mini progress
+              Text(
+                '${_currentStep + 1}/5',
+                style: const TextStyle(
+                  color: Color(0xFF14B8A6),
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -351,67 +398,90 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           // Navigation buttons avec SafeArea
           SafeArea(
             child: Container(
-              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-              decoration: const BoxDecoration(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
+              decoration: BoxDecoration(
                 color: PremiumTheme.cardBg,
-                border: Border(
-                  top: BorderSide(color: Color(0xFFE5E7EB), width: 1),
-                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: 0.06),
+                    blurRadius: 10,
+                    offset: const Offset(0, -4),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
                   // Previous button
                   if (_currentStep > 0)
                     Expanded(
-                      child: OutlinedButton(
+                      child: OutlinedButton.icon(
                         onPressed: () => setState(() => _currentStep--),
+                        icon: const Icon(Icons.arrow_back_ios, size: 16),
+                        label: const Text('Précédent'),
                         style: OutlinedButton.styleFrom(
-                          foregroundColor: const Color(0xFF14B8A6),
-                          side: const BorderSide(color: Color(0xFF14B8A6)),
+                          foregroundColor: PremiumTheme.textPrimary,
                           padding: const EdgeInsets.symmetric(vertical: 16),
+                          side: const BorderSide(color: Color(0xFFD1D5DB)),
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(14),
                           ),
                         ),
-                        child: const Text('Précédent'),
                       ),
                     ),
-                  if (_currentStep > 0) const SizedBox(width: 16),
+                  if (_currentStep > 0) const SizedBox(width: 12),
 
                   // Next/Submit button
                   Expanded(
-                    child: ElevatedButton(
-                      onPressed: _canContinue()
-                          ? (_currentStep < 4
-                              ? () => setState(() => _currentStep++)
-                              : _submitInspection)
-                          : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF14B8A6),
-                        foregroundColor: Colors.white,
-                        padding: const EdgeInsets.symmetric(vertical: 16),
-                        elevation: 0,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
+                    child: Container(
+                      decoration: _canContinue() ? BoxDecoration(
+                        borderRadius: BorderRadius.circular(14),
+                        gradient: _currentStep < 4
+                            ? const LinearGradient(
+                                colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
+                              )
+                            : const LinearGradient(
+                                colors: [Color(0xFF10B981), Color(0xFF059669)],
+                              ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: const Color(0xFF14B8A6).withValues(alpha: 0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ) : null,
+                      child: ElevatedButton.icon(
+                        onPressed: _canContinue()
+                            ? (_currentStep < 4
+                                ? () => setState(() => _currentStep++)
+                                : _submitInspection)
+                            : null,
+                        icon: _isSubmitting && _currentStep == 4
+                            ? const SizedBox(
+                                width: 18, height: 18,
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2))
+                            : Icon(
+                                _currentStep < 4 ? Icons.arrow_forward_ios : Icons.check_circle,
+                                size: _currentStep < 4 ? 16 : 20,
+                              ),
+                        label: Text(
+                          _currentStep < 4 ? 'Suivant' : (_isSubmitting ? 'Envoi...' : 'Terminer l\'inspection'),
+                          style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                        ),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _canContinue() ? Colors.transparent : null,
+                          foregroundColor: Colors.white,
+                          disabledBackgroundColor: const Color(0xFFD1D5DB),
+                          disabledForegroundColor: const Color(0xFF9CA3AF),
+                          elevation: 0,
+                          shadowColor: Colors.transparent,
+                          padding: const EdgeInsets.symmetric(vertical: 16),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(14),
+                          ),
                         ),
                       ),
-                      child: _isSubmitting && _currentStep == 4
-                          ? const Row(
-                              mainAxisSize: MainAxisSize.min,
-                              children: [
-                                SizedBox(
-                                    width: 18, height: 18,
-                                    child: CircularProgressIndicator(
-                                        color: Colors.white, strokeWidth: 2)),
-                                SizedBox(width: 10),
-                                Text('Envoi en cours…',
-                                    style: TextStyle(fontWeight: FontWeight.w600)),
-                              ],
-                            )
-                          : Text(
-                              _currentStep < 4 ? 'Suivant' : 'Terminer l\'inspection',
-                              style: const TextStyle(fontWeight: FontWeight.w600),
-                            ),
                     ),
                   ),
                 ],
@@ -532,6 +602,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
         }
         return true;
       case 2:
+        if (_isVehicleLoaded && _loadedVehiclePhoto == null) return false;
         return _allKeysReturned && _documentsReturned;
       case 3:
         return _driverSignature != null &&
@@ -567,6 +638,8 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
         'vehicle_info': {
           'keys_returned': _allKeysReturned,
           'documents_returned': _documentsReturned,
+          'is_loaded': _isVehicleLoaded,
+          'has_loaded_photo': _loadedVehiclePhoto != null,
         },
         'notes': _observationsController.text,
         'inspector_signature': _driverSignature != null
@@ -589,6 +662,8 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
       final allPhotos = <Map<String, dynamic>>[
         if (_dashboardPhoto != null)
           {'path': _dashboardPhoto!, 'type': 'dashboard_arrival', 'index': -1, 'damage': 'RAS', 'comment': ''},
+        if (_loadedVehiclePhoto != null)
+          {'path': _loadedVehiclePhoto!, 'type': 'loaded_vehicle_arrival', 'index': -2, 'damage': 'RAS', 'comment': ''},
         ..._photos.asMap().entries.where((e) => e.value != null).map((e) => {
               'path': e.value!,
               'type': '${_photoGuides[e.key].label}_arrival',
@@ -815,24 +890,56 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Title
-          const Text(
-            '📊 État final du véhicule',
-            style: TextStyle(
-              color: PremiumTheme.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+          // Title with icon card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF14B8A6).withValues(alpha: 0.08),
+                  const Color(0xFF14B8A6).withValues(alpha: 0.02),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF14B8A6).withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF14B8A6).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.speed, color: Color(0xFF14B8A6), size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'État final du véhicule',
+                        style: TextStyle(
+                          color: PremiumTheme.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Photographiez le tableau de bord et renseignez le kilométrage final',
+                        style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Photographiez le tableau de bord et renseignez le kilométrage final',
-            style: TextStyle(
-              color: PremiumTheme.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
 
           // Dashboard photo
           GestureDetector(
@@ -988,28 +1095,81 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
   }
 
   Widget _buildPhotosStep() {
+    final missingCount = _photos.where((p) => p == null).length;
+    final takenCount = 8 - missingCount;
+
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '📸 Photos obligatoires (8/8)',
-            style: TextStyle(
-              color: PremiumTheme.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
+          // Header with progress info
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: missingCount > 0
+                      ? const Color(0xFFF59E0B).withValues(alpha: 0.15)
+                      : const Color(0xFF14B8A6).withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  missingCount > 0 ? Icons.camera_alt : Icons.check_circle,
+                  color: missingCount > 0 ? const Color(0xFFF59E0B) : const Color(0xFF14B8A6),
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Photos du véhicule',
+                      style: TextStyle(
+                        color: PremiumTheme.textPrimary,
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      missingCount > 0
+                          ? 'Il manque $missingCount photo${missingCount > 1 ? 's' : ''} obligatoire${missingCount > 1 ? 's' : ''}'
+                          : 'Toutes les photos sont prises !',
+                      style: TextStyle(
+                        color: missingCount > 0 ? const Color(0xFFF59E0B) : const Color(0xFF14B8A6),
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Counter badge
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: missingCount > 0
+                        ? [const Color(0xFFF59E0B), const Color(0xFFD97706)]
+                        : [const Color(0xFF14B8A6), const Color(0xFF0D9488)],
+                  ),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  '$takenCount/8',
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 14,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Prenez une photo de chaque angle pour documenter l\'état d\'arrivée',
-            style: TextStyle(
-              color: PremiumTheme.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 24),
+          const SizedBox(height: 20),
 
           // Photos grid
           GridView.builder(
@@ -1201,23 +1361,56 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '✅ Vérifications d\'arrivée',
-            style: TextStyle(
-              color: PremiumTheme.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+          // Title card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF14B8A6).withValues(alpha: 0.08),
+                  const Color(0xFF14B8A6).withValues(alpha: 0.02),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF14B8A6).withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF14B8A6).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.checklist_rtl, color: Color(0xFF14B8A6), size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Vérifications d\'arrivée',
+                        style: TextStyle(
+                          color: PremiumTheme.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Vérifiez que tout est en ordre avant de finaliser',
+                        style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Vérifiez que tout est en ordre avant de finaliser',
-            style: TextStyle(
-              color: PremiumTheme.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
 
           // Keys returned
           _buildCheckItem(
@@ -1235,6 +1428,19 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
             _documentsReturned,
             (value) => setState(() => _documentsReturned = value),
           ),
+          const SizedBox(height: 16),
+
+          // Véhicule chargé
+          _buildCheckItem(
+            'Véhicule chargé',
+            'Le véhicule contient des objets/cargaison',
+            _isVehicleLoaded,
+            (value) => setState(() {
+              _isVehicleLoaded = value;
+              if (!value) _loadedVehiclePhoto = null;
+            }),
+          ),
+          if (_isVehicleLoaded) ..._buildLoadedVehiclePhotoSection(),
           const SizedBox(height: 32),
 
           // Observations
@@ -1326,29 +1532,215 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
     );
   }
 
+  List<Widget> _buildLoadedVehiclePhotoSection() {
+    return [
+      const SizedBox(height: 12),
+      Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: const Color(0xFFFFF7ED),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: const Color(0xFFF59E0B), width: 1.5),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: const Icon(Icons.camera_alt, color: Color(0xFFF59E0B), size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Photo du chargement',
+                        style: TextStyle(
+                          color: PremiumTheme.textPrimary,
+                          fontSize: 15,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Obligatoire — Photographiez les objets chargés',
+                        style: TextStyle(
+                          color: PremiumTheme.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_loadedVehiclePhoto != null)
+                  const Icon(Icons.check_circle, color: Color(0xFF14B8A6), size: 24),
+              ],
+            ),
+            const SizedBox(height: 12),
+            GestureDetector(
+              onTap: _takeLoadedVehiclePhoto,
+              child: Container(
+                height: 180,
+                decoration: BoxDecoration(
+                  color: const Color(0xFF1F2937),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: _loadedVehiclePhoto != null
+                        ? const Color(0xFF14B8A6)
+                        : const Color(0xFFF59E0B),
+                    width: 2,
+                  ),
+                ),
+                child: _loadedVehiclePhoto != null
+                    ? Stack(
+                        children: [
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(10),
+                            child: Image.file(
+                              File(_loadedVehiclePhoto!),
+                              width: double.infinity,
+                              height: double.infinity,
+                              fit: BoxFit.cover,
+                            ),
+                          ),
+                          Positioned(
+                            top: 8,
+                            right: 8,
+                            child: GestureDetector(
+                              onTap: () => setState(() => _loadedVehiclePhoto = null),
+                              child: Container(
+                                padding: const EdgeInsets.all(6),
+                                decoration: BoxDecoration(
+                                  color: Colors.red.withValues(alpha: 0.9),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Icon(Icons.delete_outline, color: Colors.white, size: 18),
+                              ),
+                            ),
+                          ),
+                          Positioned(
+                            bottom: 8,
+                            left: 8,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: const Color(0xFF14B8A6).withValues(alpha: 0.9),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: const Text(
+                                '📦 Chargement',
+                                style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                              ),
+                            ),
+                          ),
+                        ],
+                      )
+                    : Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.add_a_photo, size: 40, color: Color(0xFFF59E0B)),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Appuyez pour photographier le chargement',
+                            style: TextStyle(
+                              color: PremiumTheme.textSecondary,
+                              fontSize: 13,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    ];
+  }
+
+  Future<void> _takeLoadedVehiclePhoto() async {
+    try {
+      final XFile? image = await _picker.pickImage(
+        source: ImageSource.camera,
+        imageQuality: 85,
+        maxWidth: 1920,
+        maxHeight: 1080,
+      );
+      if (image != null) {
+        final safePath = await _copyToSafeLocation(image.path);
+        if (!mounted) return;
+        setState(() {
+          _loadedVehiclePhoto = safePath;
+        });
+      }
+    } catch (e) {
+      _showError('Erreur lors de la capture: $e');
+    }
+  }
+
   Widget _buildSignaturesStep() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '✍️ Signatures de restitution',
-            style: TextStyle(
-              color: PremiumTheme.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+          // Title card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF14B8A6).withValues(alpha: 0.08),
+                  const Color(0xFF14B8A6).withValues(alpha: 0.02),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF14B8A6).withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF14B8A6).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.draw, color: Color(0xFF14B8A6), size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Signatures',
+                        style: TextStyle(
+                          color: PremiumTheme.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Signatures du client et du convoyeur pour finaliser',
+                        style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Signatures du client et du convoyeur pour finaliser',
-            style: TextStyle(
-              color: PremiumTheme.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
 
           // Client name
           const Text(
@@ -1537,23 +1929,56 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text(
-            '📄 Documents',
-            style: TextStyle(
-              color: PremiumTheme.textPrimary,
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
+          // Title card
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFF14B8A6).withValues(alpha: 0.08),
+                  const Color(0xFF14B8A6).withValues(alpha: 0.02),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFF14B8A6).withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFF14B8A6).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.description, color: Color(0xFF14B8A6), size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Documents',
+                        style: TextStyle(
+                          color: PremiumTheme.textPrimary,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Scannez les documents du véhicule (optionnel)',
+                        style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
             ),
           ),
-          const SizedBox(height: 8),
-          const Text(
-            'Scannez les documents et nommez-les librement (optionnel)',
-            style: TextStyle(
-              color: PremiumTheme.textSecondary,
-              fontSize: 14,
-            ),
-          ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 28),
 
           // Scan button
           ElevatedButton.icon(
