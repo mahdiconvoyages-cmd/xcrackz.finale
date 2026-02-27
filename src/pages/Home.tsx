@@ -34,7 +34,6 @@ import {
   Banknote,
   FolderOpen,
   Download,
-  Globe,
 } from 'lucide-react';
 
 /* ─────────────── Animations ─────────────── */
@@ -690,13 +689,6 @@ const MobileSection: React.FC = () => (
             >
               <Download className="w-4 h-4" />
               Android — Télécharger APK
-            </Link>
-            <Link
-              to="/mobile-download"
-              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-full hover:shadow-lg hover:-translate-y-0.5 transition shadow-blue-500/25"
-            >
-              <Globe className="w-4 h-4" />
-              iOS — Web App (PWA)
             </Link>
           </motion.div>
         </motion.div>

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { Download, Smartphone, Apple, PlayCircle, FileDown, CheckCircle2, AlertCircle, Globe, Share2, Plus, Bookmark } from 'lucide-react';
+import { Download, Smartphone, Apple, PlayCircle, FileDown, CheckCircle2, AlertCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function MobileDownload() {
@@ -34,20 +34,12 @@ export default function MobileDownload() {
   // URLs de téléchargement
   const ENV_APK_URL = import.meta.env.VITE_ANDROID_APK_URL as string | undefined;
   const ENV_ANDROID_VERSION = (import.meta.env.VITE_ANDROID_VERSION as string | undefined) || '6.0.0';
-  const ENV_IOS_TESTFLIGHT_URL = import.meta.env.VITE_IOS_TESTFLIGHT_URL as string | undefined;
-  const ENV_IOS_VERSION = (import.meta.env.VITE_IOS_VERSION as string | undefined) || '1.0.0';
 
   // Utiliser la version depuis Supabase si disponible, sinon fallback
   const ANDROID_APK_URL = latestVersion?.apk_url || ENV_APK_URL || 'https://expo.dev/artifacts/eas/qteFd2oCGibKVEaNE9hLKD.apk';
   const VERSION = latestVersion?.version_name || ENV_ANDROID_VERSION;
-  
-  // iOS URLs (TestFlight ou Diawi)
-  const IOS_TESTFLIGHT_URL = latestVersion?.ios_testflight_url || ENV_IOS_TESTFLIGHT_URL || '';
-  const IOS_VERSION = latestVersion?.ios_version || ENV_IOS_VERSION;
-  const IOS_AVAILABLE = !!IOS_TESTFLIGHT_URL;
 
   const PLAY_STORE_URL = 'https://play.google.com/store/apps/details?id=com.checksfleet.app'; // À publier
-  const APP_STORE_URL = 'https://apps.apple.com/app/CHECKSFLEET/id123456789'; // À publier
 
   const handleDownloadAPK = async () => {
     setDownloading(true);
@@ -190,42 +182,24 @@ export default function MobileDownload() {
             </div>
           </div>
 
-          {/* iOS – PWA */}
+          {/* iOS – App Store bientôt */}
           <div className="bg-white rounded-3xl shadow-xl border border-slate-200 p-8 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
+              <div className="w-16 h-16 bg-gradient-to-br from-slate-400 to-slate-500 rounded-2xl flex items-center justify-center shadow-lg">
                 <Apple className="w-8 h-8 text-white" />
               </div>
               <div>
                 <h2 className="text-2xl font-black text-slate-900">iOS / iPhone</h2>
-                <p className="text-sm text-slate-600">Web App (PWA)</p>
+                <p className="text-sm text-slate-500">Bientôt disponible</p>
               </div>
             </div>
 
             <p className="text-slate-600 mb-6">
-              Compatible avec tous les iPhone (iOS 14+). Aucune installation depuis l'App Store requise.
+              L'application iOS native est en cours de développement et sera disponible prochainement sur l'App Store.
             </p>
 
-            {/* PWA – bouton principal */}
-            <a
-              href="https://app.checksfleet.com"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full block mb-4 px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-bold hover:shadow-xl transition-all duration-300 text-center"
-            >
-              <div className="flex items-center justify-center gap-2">
-                <Globe className="w-5 h-5" />
-                Ouvrir l'application
-              </div>
-            </a>
-
             {/* App Store (à venir) */}
-            <a
-              href={APP_STORE_URL}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="w-full block px-6 py-4 bg-slate-100 text-slate-700 rounded-xl font-bold hover:bg-slate-200 transition-all duration-300 text-center"
-            >
+            <div className="w-full px-6 py-4 bg-slate-100 text-slate-500 rounded-xl font-bold text-center cursor-not-allowed">
               <div className="flex items-center justify-center gap-2">
                 <Apple className="w-5 h-5" />
                 App Store
@@ -233,28 +207,13 @@ export default function MobileDownload() {
                   Bientôt
                 </span>
               </div>
-            </a>
+            </div>
 
-            {/* Instructions ajouter à l'écran d'accueil */}
-            <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
-              <p className="text-xs font-semibold text-blue-900 mb-3 flex items-center gap-2">
+            <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
+              <p className="text-xs text-slate-500 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4" />
-                Installer sur l'écran d'accueil (optionnel)
+                Vous serez notifié dès la disponibilité sur l'App Store.
               </p>
-              <ol className="text-xs text-blue-800 space-y-2 ml-2 list-none">
-                <li className="flex items-start gap-2">
-                  <Share2 className="w-3.5 h-3.5 mt-0.5 text-blue-600 flex-shrink-0" />
-                  Appuyer sur le bouton <strong>Partager</strong> en bas de Safari
-                </li>
-                <li className="flex items-start gap-2">
-                  <Plus className="w-3.5 h-3.5 mt-0.5 text-blue-600 flex-shrink-0" />
-                  Sélectionner <strong>«&nbsp;Sur l'écran d'accueil&nbsp;»</strong>
-                </li>
-                <li className="flex items-start gap-2">
-                  <Bookmark className="w-3.5 h-3.5 mt-0.5 text-blue-600 flex-shrink-0" />
-                  Appuyer sur <strong>Ajouter</strong> — l'app apparaît comme une icône native
-                </li>
-              </ol>
             </div>
           </div>
         </div>
