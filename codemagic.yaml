@@ -7,12 +7,11 @@ workflows:
       flutter: 3.38.2
       xcode: latest
       cocoapods: default
+      groups:
+        - signing
       vars:
         BUNDLE_ID: "com.checksfleet.app"
         APPLE_TEAM_ID: "P35Y6M742T"
-      # CM_CERTIFICATE_PRIVATE_KEY must be set in Codemagic dashboard (Team > Global variables)
-      # Generate once with: openssl genrsa 2048 | base64
-      # and store the result as CM_CERTIFICATE_PRIVATE_KEY (secure, non-expanded)
     integrations:
       app_store_connect: checksfleet
     scripts:
