@@ -56,7 +56,15 @@ workflows:
           keychain initialize
           echo "$CM_CERTIFICATE_PRIVATE_KEY" | base64 --decode > /tmp/cert_private_key.pem
           
-          # Fetch signing files — distribution certificate + provisioning profile
+          # Delete existing profiles to force re-creation with latest capabilities (incl. Push Notifications)
+          app-store-connect list-provisioning-profiles \
+            --bundle-id-identifier "$BUNDLE_ID" \
+            --profile-type IOS_APP_STORE \
+            --json 2>/dev/null \
+            | python3 -c "import sys,json; [print(p['id']) for p in json.load(sys.stdin).get('data',[])]" \
+            | xargs -I{} app-store-connect delete-provisioning-profile {} 2>/dev/null || true
+          
+          # Fetch signing files — re-creates profile with all current App ID capabilities
           app-store-connect fetch-signing-files "$BUNDLE_ID" \
             --type IOS_APP_STORE \
             --create \
