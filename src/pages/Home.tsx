@@ -33,6 +33,8 @@ import {
   PhoneOff,
   Banknote,
   FolderOpen,
+  Download,
+  Globe,
 } from 'lucide-react';
 
 /* ─────────────── Animations ─────────────── */
@@ -681,12 +683,28 @@ const MobileSection: React.FC = () => (
             ))}
           </div>
 
-          <motion.div variants={fadeUp} custom={9} className="mt-8">
-            <Link to="/register"
-              className="inline-flex items-center gap-2 text-teal-600 font-semibold hover:text-teal-700 transition group"
+          <motion.div variants={fadeUp} custom={9} className="mt-8 flex flex-col sm:flex-row flex-wrap gap-3 items-start">
+            <a
+              href="/mobile-download"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-green-500 to-emerald-600 text-white font-semibold rounded-full hover:shadow-lg hover:-translate-y-0.5 transition shadow-green-500/25"
             >
-              Télécharger l'application
-              <ChevronRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
+              <Download className="w-4 h-4" />
+              Android — Télécharger APK
+            </a>
+            <a
+              href="https://app.checksfleet.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center justify-center gap-2 px-5 py-3 bg-gradient-to-r from-blue-500 to-indigo-600 text-white font-semibold rounded-full hover:shadow-lg hover:-translate-y-0.5 transition shadow-blue-500/25"
+            >
+              <Globe className="w-4 h-4" />
+              iOS — Web App (PWA)
+            </a>
+            <Link to="/mobile-download"
+              className="self-center inline-flex items-center gap-1 text-sm text-slate-500 hover:text-teal-600 transition"
+            >
+              Toutes les options
+              <ChevronRight className="w-3.5 h-3.5" />
             </Link>
           </motion.div>
         </motion.div>
