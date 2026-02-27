@@ -201,23 +201,30 @@ const Hero: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Dashboard preview */}
-        <motion.div initial="hidden" animate="visible" variants={scaleIn} className="mt-16 max-w-5xl mx-auto">
-          <div className="relative rounded-2xl bg-white border border-slate-200/80 shadow-2xl shadow-slate-900/8 overflow-hidden">
-            <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border-b border-slate-100">
-              <div className="flex gap-1.5">
-                <div className="w-3 h-3 rounded-full bg-red-400" />
-                <div className="w-3 h-3 rounded-full bg-amber-400" />
-                <div className="w-3 h-3 rounded-full bg-green-400" />
-              </div>
-              <div className="flex-1 mx-3">
-                <div className="max-w-xs mx-auto h-7 bg-white rounded-lg border border-slate-200 flex items-center px-3">
-                  <Lock className="w-3 h-3 text-green-600 mr-1.5" />
-                  <span className="text-xs text-slate-400">checksfleet.com/dashboard</span>
-                </div>
+        {/* Dashboard preview – mobile phone mockup */}
+        <motion.div initial="hidden" animate="visible" variants={scaleIn} className="mt-16 flex justify-center">
+          <div className="relative w-[280px] sm:w-[320px]">
+            <div className="rounded-[2.8rem] bg-slate-900 p-3 shadow-2xl shadow-slate-900/40">
+              <div className="rounded-[2.3rem] overflow-hidden bg-black">
+                <img src="/dashboard-preview.png" alt="ChecksFleet Dashboard" className="w-full h-auto" />
               </div>
             </div>
-            <img src="/dashboard-preview.png" alt="ChecksFleet Dashboard" className="w-full h-auto" />
+            {/* Notch */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-28 h-7 bg-slate-900 rounded-b-2xl" />
+            {/* Floating badge */}
+            <motion.div animate={{ y: [0, -8, 0] }} transition={{ repeat: Infinity, duration: 3 }}
+              className="absolute -top-3 -right-8 sm:-right-12 bg-white rounded-2xl p-3 shadow-lg border border-slate-100"
+            >
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
+                  <Gauge className="w-4 h-4 text-teal-600" />
+                </div>
+                <div>
+                  <div className="text-xs font-semibold text-slate-900">Dashboard</div>
+                  <div className="text-[10px] text-slate-400">Toutes vos missions</div>
+                </div>
+              </div>
+            </motion.div>
           </div>
         </motion.div>
       </div>
@@ -281,56 +288,19 @@ const GPSSection: React.FC = () => (
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={scaleIn}
           className="relative flex justify-center"
         >
-          <div className="relative w-full max-w-md">
-            {/* Map card */}
-            <div className="rounded-2xl bg-white border border-slate-200 shadow-xl overflow-hidden">
-              <div className="h-56 bg-gradient-to-br from-teal-100 via-cyan-50 to-blue-50 relative">
-                {/* Simplified map illustration */}
-                <div className="absolute inset-0 opacity-20" style={{ backgroundImage: 'radial-gradient(circle, #0d9488 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
-                {/* Route line */}
-                <svg className="absolute inset-0 w-full h-full" viewBox="0 0 400 224">
-                  <path d="M60,180 C120,140 200,60 340,50" stroke="url(#gps-gradient)" strokeWidth="3" fill="none" strokeDasharray="8,4" />
-                  <defs><linearGradient id="gps-gradient" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stopColor="#14b8a6" /><stop offset="100%" stopColor="#3b82f6" /></linearGradient></defs>
-                  {/* Start marker */}
-                  <circle cx="60" cy="180" r="8" fill="#14b8a6" />
-                  <circle cx="60" cy="180" r="4" fill="white" />
-                  {/* End marker */}
-                  <circle cx="340" cy="50" r="8" fill="#3b82f6" />
-                  <circle cx="340" cy="50" r="4" fill="white" />
-                  {/* Moving dot */}
-                  <circle cx="200" cy="85" r="6" fill="#f59e0b">
-                    <animate attributeName="opacity" values="1;0.4;1" dur="2s" repeatCount="indefinite" />
-                  </circle>
-                </svg>
-              </div>
-              <div className="p-5">
-                <div className="flex items-center justify-between mb-3">
-                  <div>
-                    <p className="text-xs text-slate-400">Mission en cours</p>
-                    <p className="font-semibold text-slate-900">Paris → Marseille</p>
-                  </div>
-                  <div className="px-3 py-1 bg-green-50 text-green-700 text-xs font-medium rounded-full">En direct</div>
-                </div>
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  <div className="p-2 bg-slate-50 rounded-xl">
-                    <p className="text-xs text-slate-400">Vitesse</p>
-                    <p className="font-bold text-slate-900">127 km/h</p>
-                  </div>
-                  <div className="p-2 bg-slate-50 rounded-xl">
-                    <p className="text-xs text-slate-400">ETA</p>
-                    <p className="font-bold text-slate-900">2h15</p>
-                  </div>
-                  <div className="p-2 bg-slate-50 rounded-xl">
-                    <p className="text-xs text-slate-400">Restant</p>
-                    <p className="font-bold text-slate-900">285 km</p>
-                  </div>
-                </div>
+          <div className="relative w-[280px] sm:w-[300px]">
+            {/* Phone frame with real GPS screenshot */}
+            <div className="rounded-[2.8rem] bg-slate-900 p-3 shadow-2xl shadow-slate-900/30">
+              <div className="rounded-[2.3rem] overflow-hidden bg-black">
+                <img src="/gps-tracking-preview.png" alt="Suivi GPS en direct ChecksFleet" className="w-full h-auto" />
               </div>
             </div>
+            {/* Notch */}
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-28 h-7 bg-slate-900 rounded-b-2xl" />
 
             {/* Floating link badge */}
             <motion.div animate={{ y: [0, -8, 0] }} transition={{ repeat: Infinity, duration: 3 }}
-              className="absolute -top-4 -right-4 lg:right-0 bg-white rounded-2xl p-3 shadow-lg border border-slate-100"
+              className="absolute -top-3 -right-8 lg:-right-12 bg-white rounded-2xl p-3 shadow-lg border border-slate-100"
             >
               <div className="flex items-center gap-2">
                 <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
