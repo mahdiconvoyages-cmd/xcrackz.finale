@@ -73,13 +73,13 @@ android {
         }
     }
 
-    // Split APK per ABI — produces separate APKs for each architecture
+    // Split APK per ABI — DISABLED to avoid versionCode conflicts
     splits {
         abi {
-            enable true
+            enable false
             reset()
             include "armeabi-v7a", "arm64-v8a", "x86_64"
-            universalApk true  // Also build a universal APK as fallback
+            universalApk true
         }
     }
 }
