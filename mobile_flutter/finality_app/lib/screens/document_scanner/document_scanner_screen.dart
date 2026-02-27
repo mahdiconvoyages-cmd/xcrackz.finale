@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:cunning_document_scanner/cunning_document_scanner.dart';
 import 'package:edge_detection/edge_detection.dart';
@@ -36,8 +38,14 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
   bool _extracting = false;
   String _docName = 'Document';
 
+  // ── Web-only state (image_picker fallback on PWA) ────────────────
+  Uint8List? _webImageBytes;
+  XFile? _webXFile;
+  bool _webPicking = false;
+
   // ── Scan ─────────────────────────────────────────────────────
   Future<void> _scan() async {
+    if (kIsWeb) { await _scanWeb(); return; }
     setState(() => _processing = true);
     try {
       List<String>? images;
@@ -73,6 +81,34 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
         _snack('Impossible d\'ouvrir le scanner. Réessayez.', PremiumTheme.accentRed);
       }
     }
+  }
+
+  // ── Web scan (image_picker fallback) ───────────────────────────
+  Future<void> _scanWeb() async {
+    setState(() => _webPicking = true);
+    try {
+      final picked = await ImagePicker().pickImage(
+          source: ImageSource.gallery, imageQuality: 90);
+      if (picked != null && mounted) {
+        final bytes = await picked.readAsBytes();
+        setState(() {
+          _webImageBytes = bytes;
+          _webXFile = picked;
+          _webPicking = false;
+        });
+      } else {
+        if (mounted) setState(() => _webPicking = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _webPicking = false);
+    }
+  }
+
+  void _saveWeb() {
+    if (_webXFile != null && widget.onDocumentScanned != null) {
+      widget.onDocumentScanned!(_webXFile!.path, null);
+    }
+    Navigator.pop(context, _webXFile?.path);
   }
 
   void _showCameraSettingsDialog() {
@@ -332,6 +368,7 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
   // ══════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) return _buildWebScanner();
     return Scaffold(
       backgroundColor: PremiumTheme.lightBg,
       appBar: AppBar(
@@ -604,6 +641,167 @@ class _DocumentScannerScreenState extends State<DocumentScannerScreen> {
           ),
         ),
       ),
+    );
+  }
+
+  // ══ WEB SCANNER UI ══════════════════════════════════════════════
+  Widget _buildWebScanner() {
+    return Scaffold(
+      backgroundColor: PremiumTheme.lightBg,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        foregroundColor: PremiumTheme.textPrimary,
+        title: Row(children: [
+          Container(
+            width: 28, height: 28,
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              color: PremiumTheme.primaryTeal.withValues(alpha: .1),
+              borderRadius: BorderRadius.circular(8)),
+            child: const Icon(Icons.document_scanner_rounded,
+                color: PremiumTheme.primaryTeal, size: 18),
+          ),
+          const SizedBox(width: 10),
+          const Text('Scanner document',
+              style: TextStyle(fontSize: 17, fontWeight: FontWeight.w700)),
+        ]),
+        actions: [
+          if (_webImageBytes != null)
+            TextButton(
+              onPressed: _saveWeb,
+              child: const Text('Valider', style: TextStyle(
+                  color: PremiumTheme.primaryTeal, fontWeight: FontWeight.w700)),
+            ),
+        ],
+      ),
+      body: _webImageBytes == null ? _webEmpty() : _webPreview(),
+    );
+  }
+
+  Widget _webEmpty() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: PremiumTheme.primaryTeal.withValues(alpha: .08),
+                shape: BoxShape.circle,
+                border: Border.all(
+                    color: PremiumTheme.primaryTeal.withValues(alpha: .2), width: 2)),
+              child: const Icon(Icons.photo_library_rounded,
+                  size: 52, color: PremiumTheme.primaryTeal),
+            ),
+            const SizedBox(height: 24),
+            const Text('Importer un document',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.w700,
+                    color: PremiumTheme.textPrimary)),
+            const SizedBox(height: 10),
+            const Text(
+              'Le scanner automatique n\'est pas disponible sur navigateur.\nImportez une photo ou un scan depuis votre appareil.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: PremiumTheme.textSecondary,
+                  fontSize: 14, height: 1.5)),
+            const SizedBox(height: 32),
+            SizedBox(
+              height: 52,
+              child: ElevatedButton.icon(
+                onPressed: _webPicking ? null : _scanWeb,
+                icon: _webPicking
+                    ? const SizedBox(width: 18, height: 18,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
+                    : const Icon(Icons.upload_rounded, color: Colors.white),
+                label: Text(_webPicking ? 'Chargement...' : 'Choisir une image',
+                    style: const TextStyle(color: Colors.white,
+                        fontSize: 16, fontWeight: FontWeight.w700)),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: PremiumTheme.primaryTeal,
+                  padding: const EdgeInsets.symmetric(horizontal: 32),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14)),
+                  elevation: 0),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _webPreview() {
+    return Column(
+      children: [
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: .06),
+                    blurRadius: 16, offset: const Offset(0, 4)),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InteractiveViewer(
+              minScale: 0.5, maxScale: 4.0,
+              child: Image.memory(_webImageBytes!, fit: BoxFit.contain),
+            ),
+          ),
+        ),
+        Container(
+          padding: EdgeInsets.fromLTRB(
+              16, 16, 16, MediaQuery.of(context).padding.bottom + 16),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            boxShadow: [
+              BoxShadow(color: Colors.black.withValues(alpha: .05),
+                  blurRadius: 10, offset: const Offset(0, -4)),
+            ],
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  onPressed: _scanWeb,
+                  icon: const Icon(Icons.refresh_rounded, size: 20),
+                  label: const Text('Changer',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: PremiumTheme.textSecondary,
+                    side: const BorderSide(color: PremiumTheme.textTertiary),
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12))),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                  onPressed: _saveWeb,
+                  icon: const Icon(Icons.check_rounded,
+                      color: Colors.white, size: 20),
+                  label: const Text('Valider',
+                      style: TextStyle(color: Colors.white,
+                          fontSize: 16, fontWeight: FontWeight.w700)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: PremiumTheme.primaryTeal,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(12)),
+                    elevation: 0),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }

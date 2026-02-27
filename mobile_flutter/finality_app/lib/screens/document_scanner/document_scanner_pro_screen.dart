@@ -1,4 +1,6 @@
 import 'dart:io';
+import 'dart:typed_data';
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../main.dart';
@@ -41,11 +43,17 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
   SyncStatus _sync = SyncStatus.idle;
   double? _progress;
 
+  // ── Web-only state ───────────────────────────────────────────────
+  final List<({Uint8List bytes, XFile xfile})> _webPages = [];
+  bool _webScanning = false;
+  int _webIdx = 0;
+
   // ══════════════════════════════════════════════════════════════
   //  BUILD
   // ══════════════════════════════════════════════════════════════
   @override
   Widget build(BuildContext context) {
+    if (kIsWeb) return _buildWebScanner();
     return Scaffold(
       backgroundColor: PremiumTheme.lightBg,
       appBar: AppBar(
@@ -381,6 +389,7 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
   //  ACTIONS
   // ══════════════════════════════════════════════════════════════
   Future<void> _scanPage() async {
+    if (kIsWeb) { await _scanPageWeb(); return; }
     setState(() => _scanning = true);
     try {
       List<String>? images;
@@ -659,5 +668,226 @@ class _DocumentScannerProScreenState extends State<DocumentScannerProScreen> {
         backgroundColor: bg,
         behavior: SnackBarBehavior.floating,
         duration: const Duration(seconds: 2)));
+  }
+
+  // ══ WEB SCANNER UI ══════════════════════════════════════════════
+
+  Future<void> _scanPageWeb() async {
+    setState(() => _webScanning = true);
+    try {
+      final picked = await ImagePicker().pickImage(
+          source: ImageSource.gallery, imageQuality: 90);
+      if (picked != null && mounted) {
+        final bytes = await picked.readAsBytes();
+        setState(() {
+          _webPages.add((bytes: bytes, xfile: picked));
+          _webIdx = _webPages.length - 1;
+          _webScanning = false;
+        });
+        _snack('Page ajoutée', PremiumTheme.primaryTeal);
+      } else {
+        if (mounted) setState(() => _webScanning = false);
+      }
+    } catch (e) {
+      if (mounted) setState(() => _webScanning = false);
+    }
+  }
+
+  void _deleteWebPage(int i) {
+    setState(() {
+      _webPages.removeAt(i);
+      if (_webIdx >= _webPages.length && _webPages.isNotEmpty) {
+        _webIdx = _webPages.length - 1;
+      }
+    });
+  }
+
+  void _saveWeb() {
+    if (_webPages.isNotEmpty) {
+      widget.onDocumentScanned?.call(_webPages.first.xfile.path);
+    }
+    Navigator.pop(context, _webPages.isNotEmpty ? _webPages.first.xfile.path : null);
+  }
+
+  Widget _buildWebScanner() {
+    return Scaffold(
+      backgroundColor: PremiumTheme.lightBg,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        foregroundColor: PremiumTheme.textPrimary,
+        title: Row(children: [
+          Container(
+            padding: const EdgeInsets.all(7),
+            decoration: BoxDecoration(
+              gradient: PremiumTheme.tealGradient,
+              borderRadius: BorderRadius.circular(9)),
+            child: const Icon(Icons.document_scanner_rounded,
+                color: Colors.white, size: 18),
+          ),
+          const SizedBox(width: 10),
+          const Text('Scanner Pro',
+              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w700)),
+        ]),
+        actions: [
+          if (_webPages.isNotEmpty)
+            TextButton(
+              onPressed: _saveWeb,
+              child: const Text('Valider', style: TextStyle(
+                  color: PremiumTheme.primaryTeal,
+                  fontWeight: FontWeight.w700)),
+            ),
+        ],
+      ),
+      body: _webPages.isEmpty ? _webEmptyState() : _webPageView(),
+      floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'web_scan',
+        onPressed: _webScanning ? null : _scanPageWeb,
+        backgroundColor: PremiumTheme.primaryTeal,
+        elevation: 4,
+        icon: _webScanning
+            ? const SizedBox(width: 20, height: 20,
+                child: CircularProgressIndicator(
+                    strokeWidth: 2, color: Colors.white))
+            : Icon(_webPages.isEmpty ? Icons.upload_rounded : Icons.add_rounded,
+                color: Colors.white),
+        label: Text(
+          _webPages.isEmpty ? 'Importer' : 'Ajouter',
+          style: const TextStyle(
+              color: Colors.white, fontWeight: FontWeight.w700),
+        ),
+      ),
+    );
+  }
+
+  Widget _webEmptyState() {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: PremiumTheme.primaryTeal.withValues(alpha: .08),
+                shape: BoxShape.circle,
+                border: Border.all(
+                    color: PremiumTheme.primaryTeal.withValues(alpha: .2),
+                    width: 2),
+              ),
+              child: const Icon(Icons.photo_library_rounded,
+                  size: 64, color: PremiumTheme.primaryTeal),
+            ),
+            const SizedBox(height: 28),
+            const Text('Scanner Pro',
+                style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800,
+                    color: PremiumTheme.textPrimary)),
+            const SizedBox(height: 8),
+            const Text(
+              'Le scanner automatique n\'est pas disponible sur navigateur.\nImportez vos images une par une depuis votre galerie.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: PremiumTheme.textSecondary,
+                  fontSize: 14, height: 1.5)),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _webPageView() {
+    final page = _webPages[_webIdx];
+    return Column(
+      children: [
+        // Thumbnail strip
+        Container(
+          height: 110, color: Colors.white,
+          child: ListView.builder(
+            scrollDirection: Axis.horizontal,
+            padding: const EdgeInsets.all(12),
+            itemCount: _webPages.length,
+            itemBuilder: (_, i) {
+              final sel = i == _webIdx;
+              return GestureDetector(
+                onTap: () => setState(() => _webIdx = i),
+                child: Container(
+                  width: 72,
+                  margin: const EdgeInsets.only(right: 10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: sel ? PremiumTheme.primaryTeal : Colors.grey.shade200,
+                      width: sel ? 3 : 1.5),
+                  ),
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(10),
+                        child: Image.memory(_webPages[i].bytes,
+                            fit: BoxFit.cover, width: 72, height: 110),
+                      ),
+                      Positioned(top: 4, right: 4,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: sel ? PremiumTheme.primaryTeal : Colors.black54,
+                            borderRadius: BorderRadius.circular(6)),
+                          child: Text('${i + 1}',
+                              style: const TextStyle(color: Colors.white,
+                                  fontSize: 10, fontWeight: FontWeight.w700)),
+                        ),
+                      ),
+                      Positioned(bottom: 4, right: 4,
+                        child: GestureDetector(
+                          onTap: () => _deleteWebPage(i),
+                          child: Container(
+                            padding: const EdgeInsets.all(3),
+                            decoration: const BoxDecoration(
+                                color: PremiumTheme.accentRed,
+                                shape: BoxShape.circle),
+                            child: const Icon(Icons.close_rounded,
+                                size: 12, color: Colors.white),
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            },
+          ),
+        ),
+        Container(height: 1, color: Colors.grey.shade100),
+        Expanded(
+          child: Container(
+            margin: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(color: Colors.black.withValues(alpha: .05),
+                    blurRadius: 12, offset: const Offset(0, 4)),
+              ],
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: InteractiveViewer(
+              minScale: 0.5, maxScale: 4.0,
+              child: Image.memory(page.bytes, fit: BoxFit.contain),
+            ),
+          ),
+        ),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(20)),
+          child: Text('Page ${_webIdx + 1} / ${_webPages.length}',
+              style: const TextStyle(color: PremiumTheme.textSecondary,
+                  fontSize: 13, fontWeight: FontWeight.w600)),
+        ),
+        const SizedBox(height: 80),
+      ],
+    );
   }
 }
