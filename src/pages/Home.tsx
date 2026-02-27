@@ -201,30 +201,23 @@ const Hero: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* Dashboard preview – mobile phone mockup */}
-        <motion.div initial="hidden" animate="visible" variants={scaleIn} className="mt-16 flex justify-center">
-          <div className="relative w-[280px] sm:w-[320px]">
-            <div className="rounded-[2.8rem] bg-slate-900 p-3 shadow-2xl shadow-slate-900/40">
-              <div className="rounded-[2.3rem] overflow-hidden bg-black">
-                <img src="/dashboard-preview.png" alt="ChecksFleet Dashboard" className="w-full h-auto" />
+        {/* Dashboard preview */}
+        <motion.div initial="hidden" animate="visible" variants={scaleIn} className="mt-16 max-w-5xl mx-auto">
+          <div className="relative rounded-2xl bg-white border border-slate-200/80 shadow-2xl shadow-slate-900/8 overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-3 bg-slate-50 border-b border-slate-100">
+              <div className="flex gap-1.5">
+                <div className="w-3 h-3 rounded-full bg-red-400" />
+                <div className="w-3 h-3 rounded-full bg-amber-400" />
+                <div className="w-3 h-3 rounded-full bg-green-400" />
+              </div>
+              <div className="flex-1 mx-3">
+                <div className="max-w-xs mx-auto h-7 bg-white rounded-lg border border-slate-200 flex items-center px-3">
+                  <Lock className="w-3 h-3 text-green-600 mr-1.5" />
+                  <span className="text-xs text-slate-400">checksfleet.com/dashboard</span>
+                </div>
               </div>
             </div>
-            {/* Notch */}
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-28 h-7 bg-slate-900 rounded-b-2xl" />
-            {/* Floating badge */}
-            <motion.div animate={{ y: [0, -8, 0] }} transition={{ repeat: Infinity, duration: 3 }}
-              className="absolute -top-3 -right-8 sm:-right-12 bg-white rounded-2xl p-3 shadow-lg border border-slate-100"
-            >
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-teal-50 flex items-center justify-center">
-                  <Gauge className="w-4 h-4 text-teal-600" />
-                </div>
-                <div>
-                  <div className="text-xs font-semibold text-slate-900">Dashboard</div>
-                  <div className="text-[10px] text-slate-400">Toutes vos missions</div>
-                </div>
-              </div>
-            </motion.div>
+            <img src="/dashboard-preview.png" alt="ChecksFleet Dashboard" className="w-full h-auto" />
           </div>
         </motion.div>
       </div>
@@ -619,50 +612,13 @@ const MobileSection: React.FC = () => (
         <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={scaleIn}
           className="relative flex justify-center"
         >
-          <div className="relative w-[280px]">
-            <div className="rounded-[2.5rem] bg-slate-900 p-3 shadow-2xl shadow-slate-900/30">
-              <div className="rounded-[2rem] bg-gradient-to-b from-teal-500 to-cyan-600 overflow-hidden">
-                <div className="flex items-center justify-between px-6 pt-4 pb-2">
-                  <span className="text-[11px] text-white/80 font-medium">9:41</span>
-                  <div className="flex gap-1">
-                    <div className="w-4 h-2 rounded-sm bg-white/60" />
-                    <div className="w-3 h-2 rounded-sm bg-white/40" />
-                  </div>
-                </div>
-
-                <div className="px-5 pb-6 pt-2">
-                  <p className="text-white/70 text-xs mb-1">Bonjour</p>
-                  <p className="text-white text-lg font-bold mb-5">Mon tableau de bord</p>
-
-                  <div className="space-y-3">
-                    {[
-                      { label: 'Mission en cours', value: 'Paris → Lyon', color: 'bg-white/20' },
-                      { label: 'Inspection', value: 'BMW X3 — Départ', color: 'bg-white/15' },
-                      { label: 'Entraide', value: '3 convoyeurs proches', color: 'bg-white/10' },
-                    ].map((c, i) => (
-                      <div key={i} className={`${c.color} backdrop-blur rounded-xl p-3.5`}>
-                        <div className="text-[11px] text-white/60 mb-0.5">{c.label}</div>
-                        <div className="text-white text-sm font-semibold">{c.value}</div>
-                      </div>
-                    ))}
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 mt-4">
-                    {[
-                      { icon: Camera, text: 'Scanner' },
-                      { icon: Route, text: 'Missions' },
-                      { icon: Users, text: 'Entraide' },
-                    ].map((a, i) => (
-                      <div key={i} className="bg-white/10 backdrop-blur rounded-xl py-3 flex flex-col items-center gap-1.5">
-                        <a.icon className="w-5 h-5 text-white" />
-                        <span className="text-[10px] text-white/80 font-medium">{a.text}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
+          <div className="relative w-[280px] sm:w-[320px]">
+            <div className="rounded-[2.8rem] bg-slate-900 p-3 shadow-2xl shadow-slate-900/30">
+              <div className="rounded-[2.3rem] overflow-hidden bg-black">
+                <img src="/mobile-app-preview.jpg" alt="ChecksFleet Application Mobile" className="w-full h-auto" />
               </div>
             </div>
-            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-slate-900 rounded-b-2xl" />
+            <div className="absolute top-3 left-1/2 -translate-x-1/2 w-28 h-7 bg-slate-900 rounded-b-2xl" />
           </div>
 
           {/* Floating badges */}
