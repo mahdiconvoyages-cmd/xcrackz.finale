@@ -71,13 +71,40 @@ workflows:
         script: |
           cd mobile_flutter/finality_app
           set -e
-          # Numéro de build unique basé sur le timestamp Unix (garanti différent à chaque build)
+          # Numéro de build unique basé sur le timestamp Unix
           BUILD_NUMBER=$(date +%s)
           echo "Build number: $BUILD_NUMBER"
+          
+          # Vérifier que CM_EXPORT_OPTIONS_PATH est défini
+          if [ -z "$CM_EXPORT_OPTIONS_PATH" ]; then
+            echo "ERROR: CM_EXPORT_OPTIONS_PATH is not set. Code signing may have failed."
+            echo "Generating fallback ExportOptions.plist..."
+            cat > /tmp/ExportOptions.plist << EOPLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0">
+          <dict>
+            <key>method</key>
+            <string>app-store</string>
+            <key>teamID</key>
+            <string>${APPLE_TEAM_ID}</string>
+            <key>uploadBitcode</key>
+            <false/>
+            <key>uploadSymbols</key>
+            <true/>
+          </dict>
+          </plist>
+          EOPLIST
+            export CM_EXPORT_OPTIONS_PATH=/tmp/ExportOptions.plist
+          fi
+          
+          echo "Using export options: $CM_EXPORT_OPTIONS_PATH"
+          cat "$CM_EXPORT_OPTIONS_PATH"
+          
           flutter build ipa --release \
-            --build-name=3.8.1 \
+            --build-name=4.0.0 \
             --build-number=$BUILD_NUMBER \
-            --export-options-plist=$CM_EXPORT_OPTIONS_PATH
+            --export-options-plist="$CM_EXPORT_OPTIONS_PATH"
           
           echo "== IPA build complete, locating artifact =="
           ls -lh build/ios/ipa/ || echo "WARNING: build/ios/ipa/ not found"
