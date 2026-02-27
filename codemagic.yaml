@@ -88,7 +88,7 @@ workflows:
           
           # Build Flutter app without code signing (profiles already set up by use-profiles)
           flutter build ios --release --no-codesign \
-            --build-name=4.0.0 \
+            --build-name=4.0.1 \
             --build-number=$BUILD_NUMBER
           
           # Package and sign the IPA using the provisioning profiles set up earlier
