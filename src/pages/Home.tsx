@@ -35,6 +35,9 @@ import {
   FolderOpen,
   Download,
   Apple,
+  Receipt,
+  Send,
+  CreditCard,
 } from 'lucide-react';
 
 /* ─────────────── Animations ─────────────── */
@@ -533,6 +536,113 @@ const EntraideSection: React.FC = () => (
   </section>
 );
 
+/* ─────────────── Facturation Feature ─────────────── */
+const FacturationSection: React.FC = () => (
+  <section id="facturation" className="py-24 bg-white overflow-hidden">
+    <div className="max-w-6xl mx-auto px-5">
+
+      <div className="grid lg:grid-cols-2 gap-16 items-center">
+
+        {/* Left – text */}
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }}>
+          <motion.p variants={fadeUp} custom={0} className="text-sm font-semibold text-violet-600 uppercase tracking-wider mb-3">
+            Facturation
+          </motion.p>
+          <motion.h2 variants={fadeUp} custom={1} className="text-3xl sm:text-4xl font-bold text-slate-900">
+            Devis, factures et relances
+            <span className="block text-violet-600">en quelques secondes</span>
+          </motion.h2>
+          <motion.p variants={fadeUp} custom={2} className="mt-5 text-lg text-slate-500 leading-relaxed">
+            Créez des devis professionnels depuis une mission ou de zéro, convertissez-les en facture d'un clic, et envoyez-les directement depuis l'application.
+          </motion.p>
+
+          <div className="mt-8 space-y-4">
+            {[
+              { icon: FileText,    color: 'bg-violet-50 text-violet-600', title: 'Devis en un clic',          desc: 'Pré-rempli avec les infos de la mission, tarif HT/TTC, TVA configurée' },
+              { icon: Receipt,     color: 'bg-emerald-50 text-emerald-600', title: 'Factures numérotées auto', desc: 'Numérotation séquentielle, mentions légales SIRET/TVA, logo inclus' },
+              { icon: Send,        color: 'bg-blue-50 text-blue-600',    title: 'Envoi direct par email',    desc: 'PDF joint automatiquement, copie archivée dans votre espace' },
+              { icon: CreditCard,  color: 'bg-amber-50 text-amber-600',  title: 'Suivi des paiements',       desc: 'Statut payé / en attente / en retard visible d\'un coup d\'œil' },
+            ].map((item, i) => (
+              <motion.div key={i} variants={fadeUp} custom={i + 3} className="flex items-start gap-4">
+                <div className={`w-10 h-10 rounded-xl ${item.color} flex items-center justify-center flex-shrink-0`}>
+                  <item.icon className="w-5 h-5" />
+                </div>
+                <div>
+                  <p className="font-semibold text-slate-900">{item.title}</p>
+                  <p className="text-sm text-slate-500 mt-0.5">{item.desc}</p>
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        </motion.div>
+
+        {/* Right – visual cards */}
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true }} variants={scaleIn}
+          className="relative"
+        >
+          {/* Background glow */}
+          <div className="absolute inset-0 bg-gradient-to-br from-violet-100/50 to-blue-100/30 rounded-3xl" />
+
+          <div className="relative p-6 space-y-4">
+            {/* Invoice card */}
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-violet-100 rounded-xl flex items-center justify-center">
+                    <Receipt className="w-4 h-4 text-violet-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">Facture #2024-089</p>
+                    <p className="text-xs text-slate-400">Mission Lyon → Paris</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 bg-emerald-100 text-emerald-700 text-xs font-semibold rounded-full">Payée</span>
+              </div>
+              <div className="flex justify-between text-sm border-t border-slate-100 pt-3">
+                <span className="text-slate-500">Montant TTC</span>
+                <span className="font-bold text-slate-900">420,00 €</span>
+              </div>
+            </div>
+
+            {/* Quote card */}
+            <div className="bg-white rounded-2xl shadow-lg border border-slate-100 p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center">
+                    <FileText className="w-4 h-4 text-blue-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-slate-900">Devis #2024-034</p>
+                    <p className="text-xs text-slate-400">Bordeaux → Toulouse</p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-1 bg-amber-100 text-amber-700 text-xs font-semibold rounded-full">En attente</span>
+              </div>
+              <div className="flex justify-between text-sm border-t border-slate-100 pt-3">
+                <span className="text-slate-500">Montant HT</span>
+                <span className="font-bold text-slate-900">350,00 €</span>
+              </div>
+            </div>
+
+            {/* Stats row */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="bg-white rounded-2xl shadow border border-slate-100 p-4 text-center">
+                <p className="text-2xl font-black text-violet-600">94%</p>
+                <p className="text-xs text-slate-500 mt-1">Taux de recouvrement</p>
+              </div>
+              <div className="bg-white rounded-2xl shadow border border-slate-100 p-4 text-center">
+                <p className="text-2xl font-black text-emerald-600">{'<'} 2 min</p>
+                <p className="text-xs text-slate-500 mt-1">Pour créer une facture</p>
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+      </div>
+    </div>
+  </section>
+);
+
 /* ─────────────── Scanner + More Features ─────────────── */
 const features = [
   {
@@ -805,6 +915,7 @@ const Footer: React.FC = () => (
               ['#gps', 'Suivi GPS en direct'],
               ['#inspection', 'État des lieux'],
               ['#entraide', 'Réseau d\'entraide'],
+              ['#facturation', 'Facturation'],
               ['#features', 'Toutes les fonctionnalités'],
               ['#mobile', 'Application mobile'],
             ].map(([href, label]) => (
@@ -855,6 +966,7 @@ const Home: React.FC = () => (
     <GPSSection />
     <InspectionSection />
     <EntraideSection />
+    <FacturationSection />
     <FeaturesSection />
     <MobileSection />
     <SummarySection />
