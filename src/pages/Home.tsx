@@ -229,10 +229,10 @@ const Hero: React.FC = () => {
 
 /* ─────────────── Pain Points ─────────────── */
 const painPoints = [
-  { icon: PhoneOff, text: 'Un client qui appelle toutes les 30 minutes pour savoir où est son véhicule' },
-  { icon: Car, text: 'Un litige à l\'arrivée parce que "cette rayure n\'était pas là avant"' },
-  { icon: Banknote, text: 'Un trajet retour à vide alors qu\'un collègue passait dans votre zone' },
-  { icon: FolderOpen, text: 'Des papiers qui traînent, des photos floues, zéro preuve en cas de problème' },
+  { icon: PhoneOff, text: 'Impossible de donner une position précise à un client qui attend son véhicule' },
+  { icon: Car, text: 'Un désaccord sur l\'état du véhicule à la livraison, sans photos ni preuve contradictoire' },
+  { icon: Banknote, text: 'Des trajets retour à vide faute de coordination entre convoyeurs de la même zone' },
+  { icon: FolderOpen, text: 'Des documents éparpillés, difficiles à retrouver en cas de contrôle ou de litige' },
 ];
 
 const PainPointsSection: React.FC = () => (
