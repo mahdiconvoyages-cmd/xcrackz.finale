@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:async';
+import 'dart:io' show Platform;
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
@@ -154,7 +155,10 @@ class FCMService {
 
       await Supabase.instance.client
           .from('profiles')
-          .update({'fcm_token': token}).eq('id', user.id);
+          .update({
+            'fcm_token': token,
+            'device_platform': kIsWeb ? 'web' : (Platform.isIOS ? 'ios' : 'android'),
+          }).eq('id', user.id);
 
       logger.i('FCM: Token sauvegardé dans profiles');
     } catch (e) {

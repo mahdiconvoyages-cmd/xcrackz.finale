@@ -86,7 +86,8 @@ export default function AdminApk() {
         .from('profiles')
         .select('id, fcm_token')
         .not('fcm_token', 'is', null)
-        .neq('fcm_token', '');
+        .neq('fcm_token', '')
+        .neq('device_platform', 'ios'); // Ne pas envoyer le lien APK aux utilisateurs iOS
 
       if (!users || users.length === 0) {
         console.log('Aucun utilisateur avec FCM token');
