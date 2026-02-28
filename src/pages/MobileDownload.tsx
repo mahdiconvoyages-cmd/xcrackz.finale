@@ -182,21 +182,34 @@ export default function MobileDownload() {
             </div>
           </div>
 
-          {/* iOS – App Store bientôt */}
+          {/* iOS – TestFlight */}
           <div className="bg-white rounded-3xl shadow-xl border border-slate-200 p-8 hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
             <div className="flex items-center gap-4 mb-6">
-              <div className="w-16 h-16 bg-gradient-to-br from-slate-400 to-slate-500 rounded-2xl flex items-center justify-center shadow-lg">
+              <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl flex items-center justify-center shadow-lg">
                 <Apple className="w-8 h-8 text-white" />
               </div>
               <div>
                 <h2 className="text-2xl font-black text-slate-900">iOS / iPhone</h2>
-                <p className="text-sm text-slate-500">Bientôt disponible</p>
+                <p className="text-sm text-slate-600">TestFlight (bêta)</p>
               </div>
             </div>
 
             <p className="text-slate-600 mb-6">
-              L'application iOS native est en cours de développement et sera disponible prochainement sur l'App Store.
+              Compatible iPhone (iOS 16+). Accès bêta via TestFlight — installation en quelques secondes.
             </p>
+
+            {/* TestFlight – bouton principal */}
+            <a
+              href="https://testflight.apple.com/join/VErwSsQR"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full block mb-4 px-6 py-4 bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-xl font-bold hover:shadow-xl transition-all duration-300 text-center"
+            >
+              <div className="flex items-center justify-center gap-2">
+                <Apple className="w-5 h-5" />
+                Télécharger via TestFlight
+              </div>
+            </a>
 
             {/* App Store (à venir) */}
             <div className="w-full px-6 py-4 bg-slate-100 text-slate-500 rounded-xl font-bold text-center cursor-not-allowed">
@@ -209,11 +222,16 @@ export default function MobileDownload() {
               </div>
             </div>
 
-            <div className="mt-6 p-4 bg-slate-50 rounded-xl border border-slate-200">
-              <p className="text-xs text-slate-500 flex items-center gap-2">
+            <div className="mt-6 p-4 bg-blue-50 rounded-xl border border-blue-200">
+              <p className="text-xs font-semibold text-blue-900 mb-2 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4" />
-                Vous serez notifié dès la disponibilité sur l'App Store.
+                Comment installer
               </p>
+              <ol className="text-xs text-blue-800 space-y-1 ml-4 list-decimal">
+                <li>Installer l'app <strong>TestFlight</strong> depuis l'App Store</li>
+                <li>Appuyer sur le bouton ci-dessus</li>
+                <li>Accepter l'invitation et installer CHECKSFLEET</li>
+              </ol>
             </div>
           </div>
         </div>
