@@ -563,12 +563,19 @@ class _MissionsScreenState extends State<MissionsScreen>
             .eq('inspection_type', 'departure')
             .maybeSingle();
         if (existing != null) {
+          // Inspection de départ déjà faite (ex: par un chauffeur précédent)
+          // → Passer directement en in_progress et ouvrir l'inspection d'arrivée
           if (!mounted) return;
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: const Text('Inspection de depart deja validee'),
-                backgroundColor: PremiumTheme.accentAmber),
-          );
+          await supabase.from('missions').update({
+            'status': 'in_progress',
+            'updated_at': DateTime.now().toUtc().toIso8601String(),
+          }).eq('id', mission.id);
+          if (!mounted) return;
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+                builder: (_) => InspectionArrivalScreen(missionId: mission.id)),
+          ).then((_) => _loadMissions());
           return;
         }
         // La mission passera en in_progress uniquement après soumission de l'inspection de départ
