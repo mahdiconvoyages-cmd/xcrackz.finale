@@ -146,6 +146,9 @@ class MissionService {
         logger.w('MissionService: Offline - queueing create action');
         final tempId = 'temp_${DateTime.now().millisecondsSinceEpoch}';
         missionData['id'] = tempId;
+        missionData['created_at'] ??= DateTime.now().toUtc().toIso8601String();
+        missionData['updated_at'] ??= DateTime.now().toUtc().toIso8601String();
+        missionData['status'] ??= 'pending';
         
         await _offlineService.queueAction(OfflineAction(
           type: ActionType.create,
@@ -304,8 +307,9 @@ class MissionService {
       await _supabase
           .from('missions')
           .update({
+            'assigned_user_id': driverId,
             'driver_id': driverId,
-            'status': 'assigned',
+            'status': 'pending',
             'updated_at': DateTime.now().toUtc().toIso8601String(),
           })
           .eq('id', missionId);

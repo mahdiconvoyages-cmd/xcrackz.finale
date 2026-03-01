@@ -780,10 +780,21 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
           .eq('inspection_type', 'departure')
           .maybeSingle();
       if (existing != null) {
+        // Inspection déjà faite (ex: par un chauffeur précédent)
+        // → Passer en in_progress et ouvrir l'inspection d'arrivée
         if (!mounted) return;
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Inspection de depart deja validee'), backgroundColor: PremiumTheme.accentAmber),
+        await Supabase.instance.client.from('missions').update({
+          'status': 'in_progress',
+          'updated_at': DateTime.now().toUtc().toIso8601String(),
+        }).eq('id', _mission!.id);
+        if (!mounted) return;
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (_) => InspectionArrivalScreen(missionId: _mission!.id),
+          ),
         );
+        await _loadMission();
         return;
       }
 
@@ -1365,6 +1376,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
           .from('inspection_report_shares')
           .select('share_token')
           .eq('mission_id', _mission!.id)
+          .eq('report_type', 'complete')
           .eq('is_active', true)
           .maybeSingle();
 

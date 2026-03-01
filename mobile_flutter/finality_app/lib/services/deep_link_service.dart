@@ -51,7 +51,7 @@ class DeepLinkService {
 
     // Handle mission links: https://checksfleet.com/mission/{missionId} or CHECKSFLEET://mission/{missionId}
     if ((uri.host == 'checksfleet.com' || uri.host == 'www.checksfleet.com') && pathSegments.first == 'mission' ||
-        (uri.scheme == 'CHECKSFLEET' && uri.host == 'mission')) {
+        (uri.scheme == 'checksfleet' && uri.host == 'mission')) {
       
       final missionId = pathSegments.length > 1 
           ? pathSegments[1] 

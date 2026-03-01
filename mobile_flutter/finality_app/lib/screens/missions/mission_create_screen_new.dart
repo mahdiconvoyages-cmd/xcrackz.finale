@@ -238,6 +238,8 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
       _restitutionDeliveryAddressController, _restitutionDeliveryCityController,
       _restitutionDeliveryPostcodeController,
       _restitutionDeliveryContactNameController, _restitutionDeliveryContactPhoneController,
+      _restitutionVehicleBrandController, _restitutionVehicleModelController,
+      _restitutionVehiclePlateController,
     ]) {
       c.removeListener(_onFieldChanged);
       c.dispose();

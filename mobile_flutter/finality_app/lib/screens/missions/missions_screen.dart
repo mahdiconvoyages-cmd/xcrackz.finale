@@ -136,7 +136,10 @@ class _MissionsScreenState extends State<MissionsScreen>
   }
 
   List<Mission> _filtered(String status) {
-    var list = _missions.where((m) => m.status == status).toList();
+    var list = _missions.where((m) {
+      if (status == 'pending') return m.status == 'pending' || m.status == 'assigned';
+      return m.status == status;
+    }).toList();
     if (_searchQuery.isNotEmpty) {
       final q = _searchQuery.toLowerCase();
       list = list.where((m) {

@@ -79,7 +79,7 @@ void main() {
       await Firebase.initializeApp();
       if (!kIsWeb) {
         // Enable Crashlytics — records non-fatal + fatal errors (native only)
-        FlutterError.onError = FirebaseCrashlytics.instance.recordFlutterFatalError;
+        // Crashlytics sera configuré plus bas avec le handler complet
       }
       await FCMService().initialize();
     } catch (e) {
@@ -100,7 +100,7 @@ void main() {
     FlutterError.onError = (details) {
       logger.e('FlutterError: ${details.exceptionAsString()}');
       if (!kIsWeb) {
-        FirebaseCrashlytics.instance.recordFlutterError(details);
+        FirebaseCrashlytics.instance.recordFlutterFatalError(details);
       }
       FlutterError.presentError(details);
     };

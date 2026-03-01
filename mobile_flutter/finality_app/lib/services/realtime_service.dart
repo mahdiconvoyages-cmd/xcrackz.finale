@@ -147,7 +147,7 @@ class RealtimeService {
           table: 'vehicle_inspections',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'user_id',
+            column: 'inspector_id',
             value: userId,
           ),
           callback: (payload) {
@@ -161,7 +161,7 @@ class RealtimeService {
           table: 'vehicle_inspections',
           filter: PostgresChangeFilter(
             type: PostgresChangeFilterType.eq,
-            column: 'user_id',
+            column: 'inspector_id',
             value: userId,
           ),
           callback: (payload) {
