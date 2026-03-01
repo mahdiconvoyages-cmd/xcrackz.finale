@@ -247,7 +247,9 @@ class InvoiceService {
   // Supprimer une facture
   Future<void> deleteInvoice(String id) async {
     try {
-      await _supabase.from('invoices').delete().eq('id', id);
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
+      await _supabase.from('invoices').delete().eq('id', id).eq('user_id', userId);
     } catch (e) {
       throw Exception('Erreur suppression facture: $e');
     }
@@ -256,6 +258,8 @@ class InvoiceService {
   // Marquer une facture comme payée
   Future<Invoice> markAsPaid(String id, {String? paymentMethod}) async {
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
       final response = await _supabase
           .from('invoices')
           .update({
@@ -264,6 +268,7 @@ class InvoiceService {
             if (paymentMethod != null) 'payment_method': paymentMethod,
           })
           .eq('id', id)
+          .eq('user_id', userId)
           .select()
           .single();
 
@@ -276,10 +281,13 @@ class InvoiceService {
   // Annuler une facture
   Future<Invoice> cancelInvoice(String id) async {
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
       final response = await _supabase
           .from('invoices')
           .update({'status': 'cancelled'})
           .eq('id', id)
+          .eq('user_id', userId)
           .select()
           .single();
 
@@ -361,10 +369,15 @@ class InvoiceService {
       final lastInvoiceNumber = response.first['invoice_number'] as String;
       final parts = lastInvoiceNumber.split('-');
       if (parts.length == 3) {
-        final year = DateTime.now().year.toString();
+        final currentYear = DateTime.now().year.toString();
+        final lastYear = parts[1];
+        if (lastYear != currentYear) {
+          // Nouvelle année, repartir à 0001
+          return 'INV-$currentYear-0001';
+        }
         final lastNumber = int.tryParse(parts[2]) ?? 0;
         final newNumber = (lastNumber + 1).toString().padLeft(4, '0');
-        return 'INV-$year-$newNumber';
+        return 'INV-$currentYear-$newNumber';
       }
 
       return 'INV-${DateTime.now().year}-0001';

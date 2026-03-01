@@ -341,8 +341,18 @@ class SubscriptionService {
           final limit = features['missions_limit'] as int;
           if (limit == -1) return true; // unlimited
           
-          // Check current mission count (would need to implement)
-          return true; // Simplified for now
+          // Vérifier le nombre de missions actives
+          try {
+            final response = await Supabase.instance.client
+                .from('missions')
+                .select('id')
+                .eq('user_id', userId)
+                .inFilter('status', ['pending', 'in_progress', 'assigned']);
+            final count = (response as List).length;
+            return count < limit;
+          } catch (e) {
+            return true; // En cas d'erreur réseau, ne pas bloquer
+          }
           
         case 'gps_tracking':
           return features['gps_tracking'] == true;

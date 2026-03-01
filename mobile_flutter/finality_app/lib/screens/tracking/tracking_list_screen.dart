@@ -34,7 +34,7 @@ class _TrackingListScreenState extends State<TrackingListScreen> {
       var query = _supabase
           .from('missions')
           .select('*')
-          .eq('user_id', userId);
+          .or('user_id.eq.$userId,assigned_user_id.eq.$userId');
 
       // Appliquer filtres
       if (_filter == 'active') {

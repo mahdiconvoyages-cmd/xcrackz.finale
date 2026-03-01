@@ -115,11 +115,13 @@ class ClientService {
 
   /// Récupère un client par son ID
   Future<Client?> getClient(String clientId) async {
-    final response = await _supabase
+    final userId = _supabase.auth.currentUser?.id;
+    var query = _supabase
         .from('clients')
         .select()
-        .eq('id', clientId)
-        .maybeSingle();
+        .eq('id', clientId);
+    if (userId != null) query = query.eq('user_id', userId);
+    final response = await query.maybeSingle();
 
     if (response == null) return null;
     return Client.fromJson(response);
@@ -145,29 +147,39 @@ class ClientService {
 
   /// Met à jour un client existant
   Future<Client> updateClient(Client client) async {
+    final userId = _supabase.auth.currentUser?.id;
     final data = client.toJson();
     data['updated_at'] = DateTime.now().toUtc().toIso8601String();
     data.remove('created_at');
 
-    final response = await _supabase
+    var query = _supabase
         .from('clients')
         .update(data)
-        .eq('id', client.id)
-        .select()
-        .single();
+        .eq('id', client.id);
+    if (userId != null) query = query.eq('user_id', userId);
+    final response = await query.select().single();
 
     return Client.fromJson(response);
   }
 
   /// Supprime un client
   Future<void> deleteClient(String clientId) async {
-    await _supabase.from('clients').delete().eq('id', clientId);
+    final userId = _supabase.auth.currentUser?.id;
+    var query = _supabase.from('clients').delete().eq('id', clientId);
+    if (userId != null) query = query.eq('user_id', userId);
+    await query;
   }
 
   /// Toggle le statut favori d'un client
   Future<void> toggleFavorite(String clientId, bool isFavorite) async {
-    await _supabase
+    final userId = _supabase.auth.currentUser?.id;
+    var query = _supabase
         .from('clients')
+        .update({'is_favorite': isFavorite})
+        .eq('id', clientId);
+    if (userId != null) query = query.eq('user_id', userId);
+    await query;
+  }
         .update({'is_favorite': isFavorite, 'updated_at': DateTime.now().toUtc().toIso8601String()})
         .eq('id', clientId);
   }

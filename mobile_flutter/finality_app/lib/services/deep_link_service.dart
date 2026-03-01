@@ -103,12 +103,12 @@ class DeepLinkService {
 
   /// Generate custom scheme link for a trip (fallback)
   String generateTripDeepLink(String tripId) {
-    return 'finality://trip/$tripId';
+    return 'checksfleet://trip/$tripId';
   }
 
   /// Generate custom scheme link for a mission (fallback)
   String generateMissionDeepLink(String missionId) {
-    return 'finality://mission/$missionId';
+    return 'checksfleet://mission/$missionId';
   }
 
   void dispose() {

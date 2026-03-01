@@ -295,7 +295,9 @@ class MissionService {
   // Delete mission
   Future<void> deleteMission(String id) async {
     try {
-      await _supabase.from('missions').delete().eq('id', id);
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
+      await _supabase.from('missions').delete().eq('id', id).eq('user_id', userId);
     } catch (e) {
       throw Exception('Erreur lors de la suppression de la mission: $e');
     }
@@ -321,7 +323,10 @@ class MissionService {
   // Get missions count by status
   Future<Map<String, int>> getMissionsCountByStatus() async {
     try {
-      final response = await _supabase.from('missions').select('status');
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
+      final response = await _supabase.from('missions').select('status')
+          .or('user_id.eq.$userId,assigned_user_id.eq.$userId');
       
       final counts = <String, int>{
         'pending': 0,
@@ -347,9 +352,13 @@ class MissionService {
   // Search missions
   Future<List<Mission>> searchMissions(String query) async {
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
+      // RLS handles user scoping, but add filter for defense in depth
       final response = await _supabase
           .from('missions')
           .select()
+          .or('user_id.eq.$userId,assigned_user_id.eq.$userId')
           .or('pickup_address.ilike.%$query%,delivery_address.ilike.%$query%,client_name.ilike.%$query%')
           .order('created_at', ascending: false);
 

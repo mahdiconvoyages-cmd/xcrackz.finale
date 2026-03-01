@@ -278,9 +278,28 @@ class RealtimeService {
     }
   }
 
-  /// Sync missions stream.
-  Stream<List<Map<String, dynamic>>> syncMissions() =>
-      syncTable(channelName: 'missions_sync', table: 'missions');
+  /// Sync missions stream — includes both owned and assigned missions.
+  Stream<List<Map<String, dynamic>>> syncMissions() {
+    final userId = _currentUserId;
+    return syncTable(
+      channelName: 'missions_sync',
+      table: 'missions',
+      loader: () async {
+        if (userId == null) return [];
+        try {
+          final response = await _supabase
+              .from('missions')
+              .select()
+              .or('user_id.eq.$userId,assigned_user_id.eq.$userId')
+              .order('created_at', ascending: false);
+          return List<Map<String, dynamic>>.from(response as List);
+        } catch (e) {
+          logger.e('Error loading missions: $e');
+          return [];
+        }
+      },
+    );
+  }
 
   /// Sync inspections stream.
   Stream<List<Map<String, dynamic>>> syncInspections() =>

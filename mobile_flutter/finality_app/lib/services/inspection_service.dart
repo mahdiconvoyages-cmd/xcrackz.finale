@@ -4,12 +4,20 @@ import 'dart:io';
 import 'dart:typed_data';
 import 'offline_service.dart';
 import 'connectivity_service.dart';
+import '../main.dart' show connectivityService;
 import '../utils/logger.dart';
 
 class InspectionService {
   final SupabaseClient _supabase = Supabase.instance.client;
   final OfflineService _offlineService = OfflineService();
-  final ConnectivityService _connectivityService = ConnectivityService();
+  // Use the global ConnectivityService singleton
+  ConnectivityService get _connectivityService {
+    try {
+      return connectivityService;
+    } catch (_) {
+      return ConnectivityService();
+    }
+  }
   bool _isInitialized = false;
 
   Future<void> _ensureInitialized() async {
