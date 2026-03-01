@@ -148,9 +148,14 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         _assignedDriverName = driverName;
         _activeLiftOffer = liftOffer;
         _liftMatchCount = matchCount;
-        // Auto-load existing public tracking link from DB
-        if (mission.publicTrackingLink != null && mission.publicTrackingLink!.isNotEmpty) {
-          _publicTrackingLink = mission.publicTrackingLink;
+        // Tracking link: for active missions → refresh expiry; for completed → validate first
+        // (do NOT load cached link blindly — it may be expired)
+        if (mission.status == 'in_progress') {
+          // non-blocking: regenerate/refresh expiry via SQL UPSERT
+          Future.microtask(() => _generatePublicLink());
+        } else if (mission.publicTrackingLink != null && mission.publicTrackingLink!.isNotEmpty) {
+          // For completed missions: validate the cached token before showing it
+          Future.microtask(() => _validateAndLoadCachedLink(mission.publicTrackingLink!));
         }
       });
 
@@ -1535,6 +1540,35 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
       }
     } catch (e) {
       debugPrint('Erreur generation lien public: $e');
+    }
+  }
+
+  /// Valide le token dans public_tracking_links avant d'afficher le lien cached.
+  /// Si expiré ou inactif, ne charge pas le lien.
+  Future<void> _validateAndLoadCachedLink(String link) async {
+    try {
+      final uri = Uri.parse(link);
+      final token = uri.pathSegments.isNotEmpty ? uri.pathSegments.last : '';
+      if (token.isEmpty) return;
+
+      final res = await Supabase.instance.client
+          .from('public_tracking_links')
+          .select('is_active, expires_at')
+          .eq('token', token)
+          .maybeSingle();
+
+      if (res == null) return; // token inexistant en base
+      final isActive = res['is_active'] as bool? ?? false;
+      final expiresAtStr = res['expires_at'] as String?;
+      final expiresAt = expiresAtStr != null ? DateTime.tryParse(expiresAtStr) : null;
+      final isExpired = expiresAt != null && expiresAt.isBefore(DateTime.now().toUtc());
+
+      if (isActive && !isExpired) {
+        if (mounted) setState(() => _publicTrackingLink = link);
+      }
+      // sinon : lien expiré ou désactivé → ne pas l'afficher
+    } catch (e) {
+      debugPrint('Validation lien tracking: $e');
     }
   }
 

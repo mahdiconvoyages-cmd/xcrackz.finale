@@ -232,13 +232,8 @@ export default function MissionTracking() {
     if (!mission) return;
     setGeneratingLink(true);
     try {
-      if (mission.public_tracking_link) {
-        await navigator.clipboard.writeText(mission.public_tracking_link);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 3000);
-        return;
-      }
-
+      // Toujours régénérer via l'UPSERT SQL (rafraîchit l'expiration + réactive si désactivé)
+      // Ne pas copier le lien caché sans valider : il peut être expiré
       const { data: token, error } = await supabase
         .rpc('generate_public_tracking_link', { p_mission_id: mission.id });
       if (error) throw new Error(error.message);
