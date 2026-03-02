@@ -108,6 +108,11 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- ML Kit : télécharger le modèle OCR à la demande (évite 20-30MB dans l'APK) -->
+        <meta-data
+            android:name="com.google.mlkit.vision.DEPENDENCIES"
+            android:value="" />
         
         <!-- Background service for GPS tracking (override plugin to add foregroundServiceType) -->
         <service

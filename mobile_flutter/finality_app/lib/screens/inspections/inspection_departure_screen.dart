@@ -13,6 +13,7 @@ import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
 import 'widgets/inspection_shared_widgets.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/vehicle_body_map_widget.dart';
 
 /// Écran d'inspection de départ moderne avec 8 photos obligatoires
 /// Compatible avec les tables Expo mobile (vehicle_inspections + inspection_photos)
@@ -88,6 +89,9 @@ class _InspectionDepartureScreenState
 
   // Step 5: Documents avec nom manuel (optionnel)
   final List<Map<String, String>> _namedDocuments = []; // {url, title}
+
+  // Body map damages
+  List<DamageEntry> _bodyMapDamages = [];
 
   // Observations (notes de départ)
   final _observationsController = TextEditingController();
@@ -703,6 +707,19 @@ class _InspectionDepartureScreenState
         });
       }
       debugPrint('✅ STEP 4 OK: ${_namedDocuments.length} documents uploaded');
+
+      // 4b. Sauvegarder les dommages du body map
+      for (final damage in _bodyMapDamages) {
+        await supabase.from('inspection_damages').insert({
+          'inspection_id': inspectionId,
+          'damage_type': damage.type.name,
+          'severity': 'moderate',
+          'location': damage.zone.key,
+          'description': '${damage.zone.label} — ${damage.type.label}${damage.comment.isNotEmpty ? ': ${damage.comment}' : ''}',
+          'detected_by': 'manual',
+        });
+      }
+      debugPrint('✅ STEP 4b OK: ${_bodyMapDamages.length} damages saved');
 
       // 5. Mettre à jour le statut de la mission à 'in_progress' UNIQUEMENT après validation de l'inspection de départ
       if (!widget.isRestitution) {
@@ -1879,6 +1896,15 @@ class _InspectionDepartureScreenState
           ],
           const SizedBox(height: 32),
 
+          // Carte des dommages (body map)
+          VehicleBodyMapWidget(
+            damages: _bodyMapDamages,
+            onDamagesChanged: (damages) {
+              setState(() => _bodyMapDamages = damages);
+            },
+          ),
+          const SizedBox(height: 32),
+
           // Observations
           const Text(
             'Observations',
@@ -2446,6 +2472,8 @@ class _InspectionDepartureScreenState
             _buildRecapRow('Roue de secours', _hasSpareWheel ? '✅ Oui' : '❌ Non'),
             _buildRecapRow('Véhicule chargé', _isVehicleLoaded ? '✅ Oui' : '❌ Non'),
             _buildRecapRow('Objet confié', _hasConfidedObject ? '✅ Oui' : '❌ Non'),
+            if (_bodyMapDamages.isNotEmpty)
+              _buildRecapRow('Dommages carte', '${_bodyMapDamages.length}'),
             if (_observationsController.text.isNotEmpty)
               _buildRecapRow('Observations', _observationsController.text),
           ]),

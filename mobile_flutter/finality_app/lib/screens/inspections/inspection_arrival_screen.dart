@@ -1160,18 +1160,6 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
         });
       }
 
-      // 4c. Sauvegarder les dommages du body map
-      for (final damage in _bodyMapDamages) {
-        await supabase.from('inspection_damages').insert({
-          'inspection_id': inspectionId,
-          'damage_type': damage.type.name,
-          'severity': 'moderate',
-          'location': damage.zone.key,
-          'description': '${damage.zone.label} — ${damage.type.label}${damage.comment.isNotEmpty ? ': ${damage.comment}' : ''}',
-          'detected_by': 'manual',
-        });
-      }
-
       // 5. Check if this is restitution arrival or regular arrival with restitution pending
       if (widget.isRestitution) {
         // Restitution arrival → mark mission as completed
@@ -1959,38 +1947,6 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           ),
           const SizedBox(height: 28),
 
-          // État général du véhicule
-          const Text(
-            'État général du véhicule',
-            style: TextStyle(
-              color: Color(0xFF14B8A6),
-              fontSize: 16,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 12,
-            children: ['Excellent', 'Bon', 'Moyen', 'Mauvais']
-                .map((condition) => ChoiceChip(
-                      label: Text(condition),
-                      selected: _vehicleCondition == condition,
-                      onSelected: (selected) {
-                        setState(() => _vehicleCondition = condition);
-                      },
-                      selectedColor: const Color(0xFF14B8A6),
-                      backgroundColor: PremiumTheme.cardBgLight,
-                      labelStyle: TextStyle(
-                        color: _vehicleCondition == condition
-                            ? Colors.white
-                            : PremiumTheme.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ))
-                .toList(),
-          ),
-          const SizedBox(height: 24),
-
           // Keys returned
           _buildCheckItem(
             'Clés restituées',
@@ -2020,15 +1976,6 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
             }),
           ),
           if (_isVehicleLoaded) ..._buildLoadedVehiclePhotoSection(),
-          const SizedBox(height: 32),
-
-          // Carte des dommages (body map)
-          VehicleBodyMapWidget(
-            damages: _bodyMapDamages,
-            onDamagesChanged: (damages) {
-              setState(() => _bodyMapDamages = damages);
-            },
-          ),
           const SizedBox(height: 32),
 
           // Observations
@@ -2121,13 +2068,9 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
   }
 
   Widget _buildCleanlinessSelector(String label, String value, ValueChanged<String> onChanged) {
-    final levels = [
-      {'value': 'tres_sale', 'label': 'Très sale', 'icon': '😡', 'color': const Color(0xFFEF4444)},
-      {'value': 'sale', 'label': 'Sale', 'icon': '😟', 'color': const Color(0xFFF97316)},
-      {'value': 'correct', 'label': 'Correct', 'icon': '😐', 'color': const Color(0xFFEAB308)},
-      {'value': 'propre', 'label': 'Propre', 'icon': '😊', 'color': const Color(0xFF22C55E)},
-      {'value': 'tres_propre', 'label': 'Très propre', 'icon': '🤩', 'color': const Color(0xFF14B8A6)},
-    ];
+    const levels = ['très sale', 'sale', 'correct', 'propre', 'très propre'];
+    const icons = [Icons.sentiment_very_dissatisfied, Icons.sentiment_dissatisfied, Icons.sentiment_neutral, Icons.sentiment_satisfied, Icons.sentiment_very_satisfied];
+    const colors = [Color(0xFFEF4444), Color(0xFFF97316), Color(0xFFF59E0B), Color(0xFF10B981), Color(0xFF14B8A6)];
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2141,24 +2084,38 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: levels.map((level) {
-            final isSelected = value == level['value'];
-            final color = level['color'] as Color;
-            return ChoiceChip(
-              avatar: Text(level['icon'] as String, style: const TextStyle(fontSize: 16)),
-              label: Text(level['label'] as String),
-              selected: isSelected,
-              onSelected: (_) => onChanged(level['value'] as String),
-              selectedColor: color.withOpacity(0.2),
-              backgroundColor: PremiumTheme.cardBgLight,
-              side: BorderSide(color: isSelected ? color : Colors.transparent, width: 2),
-              labelStyle: TextStyle(
-                color: isSelected ? color : PremiumTheme.textSecondary,
-                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
-                fontSize: 12,
+          children: List.generate(levels.length, (i) {
+            final selected = value == levels[i];
+            return GestureDetector(
+              onTap: () => onChanged(levels[i]),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                decoration: BoxDecoration(
+                  color: selected ? colors[i].withValues(alpha: 0.15) : PremiumTheme.cardBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: selected ? colors[i] : const Color(0xFFE5E7EB),
+                    width: selected ? 2 : 1,
+                  ),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(icons[i], color: selected ? colors[i] : PremiumTheme.textTertiary, size: 22),
+                    const SizedBox(height: 4),
+                    Text(
+                      levels[i].substring(0, 1).toUpperCase() + levels[i].substring(1),
+                      style: TextStyle(
+                        color: selected ? colors[i] : PremiumTheme.textSecondary,
+                        fontSize: 11,
+                        fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             );
-          }).toList(),
+          }),
         ),
       ],
     );
@@ -2628,8 +2585,6 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
             _buildRecapRow('Clés restituées', _allKeysReturned ? '✅ Oui' : '❌ Non'),
             _buildRecapRow('Documents restitués', _documentsReturned ? '✅ Oui' : '❌ Non'),
             _buildRecapRow('Véhicule chargé', _isVehicleLoaded ? '✅ Oui' : '❌ Non'),
-            if (_bodyMapDamages.isNotEmpty)
-              _buildRecapRow('Dommages carte', '${_bodyMapDamages.length}'),
             if (_observationsController.text.isNotEmpty)
               _buildRecapRow('Observations', _observationsController.text),
           ]),

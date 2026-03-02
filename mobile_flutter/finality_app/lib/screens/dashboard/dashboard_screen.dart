@@ -1524,9 +1524,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: PremiumTheme.cardBackground,
+        color: PremiumTheme.cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: PremiumTheme.cardBorder),
+        border: Border.all(color: PremiumTheme.slate300),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1537,7 +1537,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               const SizedBox(width: 8),
               Text(
                 'Facturation',
-                style: PremiumTheme.headlineSmall.copyWith(
+                style: PremiumTheme.heading4.copyWith(
                   color: PremiumTheme.textPrimary,
                   fontSize: 16,
                 ),
@@ -1607,7 +1607,7 @@ class _DashboardScreenState extends State<DashboardScreen>
           const SizedBox(height: 8),
           Text(
             value,
-            style: PremiumTheme.headlineSmall.copyWith(
+            style: PremiumTheme.heading4.copyWith(
               color: PremiumTheme.textPrimary,
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -1638,9 +1638,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: PremiumTheme.cardBackground,
+        color: PremiumTheme.cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: PremiumTheme.cardBorder),
+        border: Border.all(color: PremiumTheme.slate300),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1651,7 +1651,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               const SizedBox(width: 8),
               Text(
                 'Tendance CA (6 mois)',
-                style: PremiumTheme.headlineSmall.copyWith(
+                style: PremiumTheme.heading4.copyWith(
                   color: PremiumTheme.textPrimary,
                   fontSize: 16,
                 ),
@@ -1726,9 +1726,9 @@ class _DashboardScreenState extends State<DashboardScreen>
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: PremiumTheme.cardBackground,
+        color: PremiumTheme.cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: PremiumTheme.cardBorder),
+        border: Border.all(color: PremiumTheme.slate300),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1739,7 +1739,7 @@ class _DashboardScreenState extends State<DashboardScreen>
               const SizedBox(width: 8),
               Text(
                 'Missions planifiées',
-                style: PremiumTheme.headlineSmall.copyWith(
+                style: PremiumTheme.heading4.copyWith(
                   color: PremiumTheme.textPrimary,
                   fontSize: 16,
                 ),
@@ -1765,7 +1765,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     children: [
                       Text(
                         _todayMissions.toString(),
-                        style: PremiumTheme.headlineSmall.copyWith(
+                        style: PremiumTheme.heading4.copyWith(
                           color: PremiumTheme.primaryPurple,
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
@@ -1800,7 +1800,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                     children: [
                       Text(
                         _weekMissions.toString(),
-                        style: PremiumTheme.headlineSmall.copyWith(
+                        style: PremiumTheme.heading4.copyWith(
                           color: PremiumTheme.accentGreen,
                           fontSize: 28,
                           fontWeight: FontWeight.bold,
