@@ -3,6 +3,8 @@ import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
@@ -11,6 +13,8 @@ import '../document_scanner/document_scanner_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
 import 'widgets/inspection_shared_widgets.dart';
+import '../../services/notification_service.dart';
+import '../../widgets/vehicle_body_map_widget.dart';
 
 /// Écran d'inspection d'arrivée moderne avec 8 photos obligatoires
 /// Compatible avec les tables Expo mobile (vehicle_inspections + inspection_photos)
@@ -39,10 +43,12 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
   bool _isSubmitting = false;
   String _vehicleType = 'VL'; // VL, VU, ou PL
 
-  // Step 1: KM, Carburant, Tableau de bord
+  // Step 1: KM, Carburant, Tableau de bord, Propreté
   String? _dashboardPhoto;
   final _kmController = TextEditingController();
   double _fuelLevel = 50;
+  String _internalCleanliness = 'propre';
+  String _externalCleanliness = 'propre';
 
   // Step 2: 8 Photos obligatoires avec guidage (initialisé selon le type de véhicule)
   late List<PhotoGuide> _photoGuides;
@@ -51,17 +57,29 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
   final List<String> _photoDamages = List.filled(8, 'RAS');
   final List<String> _photoComments = List.filled(8, '');
 
+  // Photo metadata (GPS + timestamp par photo)
+  final List<DateTime?> _photoTimestamps = List.filled(8, null);
+  final List<double?> _photoLatitudes = List.filled(8, null);
+  final List<double?> _photoLongitudes = List.filled(8, null);
+
   // Photos optionnelles (10 max, apparaissent progressivement)
   final List<String?> _optionalPhotos = List.filled(10, null);
   final List<String> _optionalPhotoDamages = List.filled(10, 'RAS');
   final List<String> _optionalPhotoComments = List.filled(10, '');
+  final List<DateTime?> _optionalPhotoTimestamps = List.filled(10, null);
+  final List<double?> _optionalPhotoLatitudes = List.filled(10, null);
+  final List<double?> _optionalPhotoLongitudes = List.filled(10, null);
 
   // Step 3: Check-list d'arrivée (spécifique arrivée)
+  String _vehicleCondition = 'Bon'; // État général (Excellent/Bon/Moyen/Mauvais)
   bool _allKeysReturned = false;
   bool _documentsReturned = false;
   bool _isVehicleLoaded = false;
   String? _loadedVehiclePhoto; // Photo obligatoire quand véhicule chargé
   final _observationsController = TextEditingController();
+
+  // Photos de départ pour comparaison
+  Map<int, String> _departurePhotoUrls = {}; // index -> url
 
   // Step 4: Signatures
   Uint8List? _driverSignature;
@@ -72,12 +90,29 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
   // Step 5: Documents (optionnel)
   final List<Map<String, String>> _namedDocuments = [];
 
+  // Expenses
+  final List<Map<String, dynamic>> _expenses = [];
+  static const _expenseTypes = [
+    'Péage',
+    'Carburant',
+    'Parking',
+    'Repas',
+    'Hébergement',
+    'Transport retour',
+    'Autre',
+  ];
+
+  // Body map damages
+  List<DamageEntry> _bodyMapDamages = [];
+
   @override
   void initState() {
     super.initState();
     _initializePhotoGuides();
     _loadMissionDetails();
     _loadDriverName();
+    _loadDraft();
+    _loadDeparturePhotos();
     // Listeners pour rafraîchir le bouton Suivant en temps réel
     _kmController.addListener(_onFieldChanged);
     _clientNameController.addListener(_onFieldChanged);
@@ -135,6 +170,116 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
     }
   }
 
+  /// Charger les photos de départ pour comparaison
+  Future<void> _loadDeparturePhotos() async {
+    try {
+      // Trouver l'inspection de départ pour cette mission
+      final departure = await supabase
+          .from('vehicle_inspections')
+          .select('id')
+          .eq('mission_id', widget.missionId)
+          .inFilter('inspection_type', ['departure', 'restitution_departure'])
+          .eq('status', 'completed')
+          .order('created_at', ascending: false)
+          .limit(1)
+          .maybeSingle();
+
+      if (departure == null) return;
+
+      // Charger les photos de départ
+      final photos = await supabase
+          .from('inspection_photos_v2')
+          .select('photo_type, full_url')
+          .eq('inspection_id', departure['id']);
+
+      if (!mounted) return;
+
+      final Map<int, String> urls = {};
+      for (final photo in photos) {
+        final type = photo['photo_type'] as String? ?? '';
+        final url = photo['full_url'] as String? ?? '';
+        if (url.isEmpty || type.contains('_arrival')) continue;
+
+        // Mapper le type de photo à un index
+        for (int i = 0; i < _photoGuides.length; i++) {
+          if (type == _photoGuides[i].label) {
+            urls[i] = url;
+            break;
+          }
+        }
+      }
+
+      setState(() => _departurePhotoUrls = urls);
+      debugPrint('📸 Loaded ${urls.length} departure photos for comparison');
+    } catch (e) {
+      debugPrint('⚠️ Error loading departure photos: $e');
+    }
+  }
+
+  // --- Brouillon auto-save ---
+  String get _draftKey => 'inspection_draft_arrival_${widget.missionId}';
+
+  Future<void> _saveDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final draft = {
+        'step': _currentStep,
+        'km': _kmController.text,
+        'fuel': _fuelLevel,
+        'internalCleanliness': _internalCleanliness,
+        'externalCleanliness': _externalCleanliness,
+        'vehicleCondition': _vehicleCondition,
+        'allKeysReturned': _allKeysReturned,
+        'documentsReturned': _documentsReturned,
+        'isVehicleLoaded': _isVehicleLoaded,
+        'observations': _observationsController.text,
+        'clientName': _clientNameController.text,
+      };
+      await prefs.setString(_draftKey, jsonEncode(draft));
+      debugPrint('💾 Brouillon arrivée sauvegardé (étape $_currentStep)');
+    } catch (e) {
+      debugPrint('⚠️ Erreur sauvegarde brouillon: $e');
+    }
+  }
+
+  Future<void> _loadDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final draftJson = prefs.getString(_draftKey);
+      if (draftJson == null) return;
+
+      final draft = jsonDecode(draftJson) as Map<String, dynamic>;
+      setState(() {
+        _currentStep = draft['step'] ?? 0;
+        if (draft['km'] != null && (draft['km'] as String).isNotEmpty) {
+          _kmController.text = draft['km'];
+        }
+        _fuelLevel = (draft['fuel'] ?? 50).toDouble();
+        _internalCleanliness = draft['internalCleanliness'] ?? 'propre';
+        _externalCleanliness = draft['externalCleanliness'] ?? 'propre';
+        _vehicleCondition = draft['vehicleCondition'] ?? 'Bon';
+        _allKeysReturned = draft['allKeysReturned'] ?? false;
+        _documentsReturned = draft['documentsReturned'] ?? false;
+        _isVehicleLoaded = draft['isVehicleLoaded'] ?? false;
+        if (draft['observations'] != null) _observationsController.text = draft['observations'];
+        if (draft['clientName'] != null) _clientNameController.text = draft['clientName'];
+      });
+      debugPrint('📂 Brouillon arrivée restauré (étape $_currentStep)');
+    } catch (e) {
+      debugPrint('⚠️ Erreur chargement brouillon: $e');
+    }
+  }
+
+  Future<void> _clearDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_draftKey);
+      debugPrint('🗑️ Brouillon arrivée supprimé');
+    } catch (e) {
+      debugPrint('⚠️ Erreur suppression brouillon: $e');
+    }
+  }
+
   String _getStepTitle(int step) {
     switch (step) {
       case 0:
@@ -147,6 +292,8 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
         return 'Étape 4: Signatures';
       case 4:
         return 'Étape 5: Documents (optionnel)';
+      case 5:
+        return 'Étape 6: Récapitulatif';
       default:
         return '';
     }
@@ -164,13 +311,15 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
         return 'Signatures convoyeur et client';
       case 4:
         return 'Scanner les documents nécessaires';
+      case 5:
+        return 'Vérifiez toutes les informations avant envoi';
       default:
         return '';
     }
   }
 
   Widget _buildProgressIndicator() {
-    final progress = (_currentStep + 1) / 5;
+    final progress = (_currentStep + 1) / 6;
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
       decoration: BoxDecoration(
@@ -185,30 +334,48 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
       ),
       child: Column(
         children: [
-          // Step dots row
+          // Step bars row with labels
           Row(
-            children: List.generate(5, (i) {
+            children: List.generate(6, (i) {
               final isActive = i == _currentStep;
               final isCompleted = i < _currentStep;
+              final labels = ['KM', 'Photos', 'État', 'Sign.', 'Docs', 'Recap'];
               return Expanded(
-                child: Row(
+                child: Column(
                   children: [
-                    Expanded(
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        height: 4,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(2),
-                          gradient: isCompleted || isActive
-                              ? const LinearGradient(
-                                  colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
-                                )
-                              : null,
-                          color: isCompleted || isActive ? null : const Color(0xFFE5E7EB),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            height: 4,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(2),
+                              gradient: isCompleted || isActive
+                                  ? const LinearGradient(
+                                      colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
+                                    )
+                                  : null,
+                              color: isCompleted || isActive ? null : const Color(0xFFE5E7EB),
+                            ),
+                          ),
                         ),
+                        if (i < 5) const SizedBox(width: 6),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      labels[i],
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                        color: isActive
+                            ? const Color(0xFF14B8A6)
+                            : isCompleted
+                                ? PremiumTheme.textPrimary
+                                : PremiumTheme.textSecondary,
                       ),
                     ),
-                    if (i < 4) const SizedBox(width: 6),
                   ],
                 ),
               );
@@ -273,7 +440,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
               ),
               // Mini progress
               Text(
-                '${_currentStep + 1}/5',
+                '${_currentStep + 1}/6',
                 style: const TextStyle(
                   color: Color(0xFF14B8A6),
                   fontSize: 13,
@@ -435,7 +602,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                     child: Container(
                       decoration: _canContinue() ? BoxDecoration(
                         borderRadius: BorderRadius.circular(14),
-                        gradient: _currentStep < 4
+                        gradient: _currentStep < 5
                             ? const LinearGradient(
                                 colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
                               )
@@ -452,21 +619,21 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                       ) : null,
                       child: ElevatedButton.icon(
                         onPressed: _canContinue()
-                            ? (_currentStep < 4
-                                ? () => setState(() => _currentStep++)
+                            ? (_currentStep < 5
+                                ? () { setState(() => _currentStep++); _saveDraft(); }
                                 : _submitInspection)
                             : null,
-                        icon: _isSubmitting && _currentStep == 4
+                        icon: _isSubmitting && _currentStep == 5
                             ? const SizedBox(
                                 width: 18, height: 18,
                                 child: CircularProgressIndicator(
                                     color: Colors.white, strokeWidth: 2))
                             : Icon(
-                                _currentStep < 4 ? Icons.arrow_forward_ios : Icons.check_circle,
-                                size: _currentStep < 4 ? 16 : 20,
+                                _currentStep < 5 ? Icons.arrow_forward_ios : Icons.check_circle,
+                                size: _currentStep < 5 ? 16 : 20,
                               ),
                         label: Text(
-                          _currentStep < 4 ? 'Suivant' : (_isSubmitting ? 'Envoi...' : 'Terminer l\'inspection'),
+                          _currentStep < 5 ? 'Suivant' : (_isSubmitting ? 'Envoi...' : 'Terminer l\'inspection'),
                           style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                         ),
                         style: ElevatedButton.styleFrom(
@@ -542,6 +709,13 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
   }
 
   Future<void> _takePhoto(int index, bool isOptional) async {
+    // Show guidance dialog for mandatory photos
+    if (!isOptional && index < _photoGuides.length) {
+      final guide = _photoGuides[index];
+      final shouldProceed = await _showPhotoGuidance(guide);
+      if (shouldProceed != true) return;
+    }
+
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.camera,
@@ -551,19 +725,213 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
       );
 
       if (image != null) {
+        final timestamp = DateTime.now().toUtc();
+        double? lat;
+        double? lng;
+        try {
+          final perm = await Geolocator.checkPermission();
+          if (perm == LocationPermission.whileInUse || perm == LocationPermission.always) {
+            final pos = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.high,
+            ).timeout(const Duration(seconds: 5));
+            lat = pos.latitude;
+            lng = pos.longitude;
+          }
+        } catch (_) {}
+
         final safePath = await _copyToSafeLocation(image.path);
         if (!mounted) return;
         setState(() {
           if (isOptional) {
             _optionalPhotos[index] = safePath;
+            _optionalPhotoTimestamps[index] = timestamp;
+            _optionalPhotoLatitudes[index] = lat;
+            _optionalPhotoLongitudes[index] = lng;
           } else {
             _photos[index] = safePath;
+            _photoTimestamps[index] = timestamp;
+            _photoLatitudes[index] = lat;
+            _photoLongitudes[index] = lng;
           }
         });
       }
     } catch (e) {
       _showError('Erreur lors de la capture: $e');
     }
+  }
+
+  /// Shows a photo guidance overlay before taking a photo
+  Future<bool?> _showPhotoGuidance(PhotoGuide guide) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 380),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Header
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(guide.icon, color: const Color(0xFF14B8A6), size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          guide.label,
+                          style: const TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          guide.description,
+                          style: TextStyle(
+                            fontSize: 13,
+                            color: Colors.grey.shade600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+
+              // Reference image
+              if (guide.image != null)
+                Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade200, width: 2),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.asset(
+                        guide.image!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey.shade100,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(guide.icon, size: 48, color: Colors.grey.shade400),
+                              const SizedBox(height: 8),
+                              Text(guide.label, style: TextStyle(color: Colors.grey.shade500)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      // Angle guide overlay
+                      Positioned(
+                        bottom: 0,
+                        left: 0,
+                        right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                Colors.black.withValues(alpha: 0.7),
+                                Colors.transparent,
+                              ],
+                            ),
+                          ),
+                          child: const Text(
+                            '📐 Prenez la photo sous cet angle',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.w600,
+                            ),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+              const SizedBox(height: 16),
+
+              // Tips
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lightbulb_outline, color: Color(0xFFF59E0B), size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Conseil : Photographiez à environ 2m du véhicule, en lumière naturelle si possible.',
+                        style: TextStyle(
+                          color: Colors.orange.shade900,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+
+              const SizedBox(height: 16),
+
+              // Buttons
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Annuler'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      icon: const Icon(Icons.camera_alt, size: 18),
+                      label: const Text('Prendre'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF14B8A6),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _takeDashboardPhoto() async {
@@ -610,6 +978,8 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
             _clientNameController.text.isNotEmpty;
       case 4:
         return true; // Documents optionnels
+      case 5:
+        return true; // Récapitulatif
       default:
         return false;
     }
@@ -627,21 +997,46 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('Utilisateur non connecté');
 
+      // 0. Capturer la position GPS
+      debugPrint('📍 STEP 0: Capturing GPS position...');
+      double? gpsLat;
+      double? gpsLng;
+      try {
+        final perm = await Geolocator.checkPermission();
+        if (perm == LocationPermission.whileInUse || perm == LocationPermission.always) {
+          final pos = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          ).timeout(const Duration(seconds: 10));
+          gpsLat = pos.latitude;
+          gpsLng = pos.longitude;
+          debugPrint('✅ GPS: $gpsLat, $gpsLng');
+        }
+      } catch (e) {
+        debugPrint('⚠️ GPS capture failed (non-blocking): $e');
+      }
+
       // 1. Créer l'inspection d'arrivée
+      final now = DateTime.now().toUtc().toIso8601String();
       final inspectionResponse = await supabase.from('vehicle_inspections').insert({
         'mission_id': widget.missionId,
         'inspector_id': userId,
         'inspection_type': widget.isRestitution ? 'restitution_arrival' : 'arrival',
         'status': 'completed',
+        'completed_at': now,
         'mileage_km': int.tryParse(_kmController.text) ?? 0,
         'fuel_level': _fuelLevel.round(),
+        'overall_condition': _vehicleCondition.toLowerCase(),
+        'internal_cleanliness': _internalCleanliness,
+        'external_cleanliness': _externalCleanliness,
+        'latitude': gpsLat,
+        'longitude': gpsLng,
         'vehicle_info': {
           'keys_returned': _allKeysReturned,
           'documents_returned': _documentsReturned,
           'is_loaded': _isVehicleLoaded,
           'has_loaded_photo': _loadedVehiclePhoto != null,
         },
-        'notes': _observationsController.text,
+        'notes': _observationsController.text.isNotEmpty ? _observationsController.text : null,
         'inspector_signature': _driverSignature != null
             ? 'data:image/png;base64,${base64Encode(_driverSignature!)}'
             : null,
@@ -653,7 +1048,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
             ? 'data:image/png;base64,${base64Encode(_clientSignature!)}'
             : null,
         'client_name': _clientNameController.text,
-        'created_at': DateTime.now().toUtc().toIso8601String(),
+        'created_at': now,
       }).select().single();
 
       final inspectionId = inspectionResponse['id'];
@@ -661,15 +1056,18 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
       // 2. Upload et sauvegarder toutes les photos (parallèle par batch de 3)
       final allPhotos = <Map<String, dynamic>>[
         if (_dashboardPhoto != null)
-          {'path': _dashboardPhoto!, 'type': 'dashboard_arrival', 'index': -1, 'damage': 'RAS', 'comment': ''},
+          {'path': _dashboardPhoto!, 'type': 'dashboard_arrival', 'index': -1, 'damage': 'RAS', 'comment': '', 'lat': null, 'lng': null, 'takenAt': null},
         if (_loadedVehiclePhoto != null)
-          {'path': _loadedVehiclePhoto!, 'type': 'loaded_vehicle_arrival', 'index': -2, 'damage': 'RAS', 'comment': ''},
+          {'path': _loadedVehiclePhoto!, 'type': 'loaded_vehicle_arrival', 'index': -2, 'damage': 'RAS', 'comment': '', 'lat': null, 'lng': null, 'takenAt': null},
         ..._photos.asMap().entries.where((e) => e.value != null).map((e) => {
               'path': e.value!,
               'type': '${_photoGuides[e.key].label}_arrival',
               'index': e.key,
               'damage': _photoDamages[e.key],
               'comment': _photoComments[e.key],
+              'lat': _photoLatitudes[e.key],
+              'lng': _photoLongitudes[e.key],
+              'takenAt': _photoTimestamps[e.key]?.toIso8601String(),
             }),
         ..._optionalPhotos.asMap().entries.where((e) => e.value != null).map((e) => {
               'path': e.value!,
@@ -677,6 +1075,9 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
               'index': e.key + 8,
               'damage': _optionalPhotoDamages[e.key],
               'comment': _optionalPhotoComments[e.key],
+              'lat': _optionalPhotoLatitudes[e.key],
+              'lng': _optionalPhotoLongitudes[e.key],
+              'takenAt': _optionalPhotoTimestamps[e.key]?.toIso8601String(),
             }),
       ];
 
@@ -712,7 +1113,9 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
             'photo_type': photo['type'],
             'damage_status': photo['damage'],
             'damage_comment': (photo['damage'] != 'RAS' && (photo['comment'] as String).isNotEmpty) ? photo['comment'] : null,
-            'taken_at': DateTime.now().toUtc().toIso8601String(),
+            'taken_at': photo['takenAt'] ?? DateTime.now().toUtc().toIso8601String(),
+            'latitude': photo['lat'],
+            'longitude': photo['lng'],
           });
         }));
       }
@@ -744,6 +1147,28 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           'document_url': publicUrl,
           'document_type': 'custom',
           'document_title': doc['title'] ?? 'Document',
+        });
+      }
+
+      // 4b. Sauvegarder les frais/dépenses
+      for (final expense in _expenses) {
+        await supabase.from('inspection_expenses').insert({
+          'inspection_id': inspectionId,
+          'expense_type': expense['type'],
+          'amount': expense['amount'],
+          'description': expense['description'],
+        });
+      }
+
+      // 4c. Sauvegarder les dommages du body map
+      for (final damage in _bodyMapDamages) {
+        await supabase.from('inspection_damages').insert({
+          'inspection_id': inspectionId,
+          'damage_type': damage.type.name,
+          'severity': 'moderate',
+          'location': damage.zone.key,
+          'description': '${damage.zone.label} — ${damage.type.label}${damage.comment.isNotEmpty ? ': ${damage.comment}' : ''}',
+          'detected_by': 'manual',
         });
       }
 
@@ -848,7 +1273,15 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           }
         }
 
+        // Push notification for completed inspection
+        NotificationService().showMissionNotification(
+          title: 'Inspection d\'arrivée terminée',
+          body: 'L\'inspection d\'arrivée a été enregistrée avec succès',
+          payload: 'mission:${widget.missionId}',
+        );
+
         if (mounted) Navigator.pop(context, true);
+        _clearDraft();
       }
     } catch (e) {
       if (mounted) setState(() => _isSubmitting = false);
@@ -867,6 +1300,95 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
     );
   }
 
+  /// Afficher la photo de départ pour comparaison côte à côte
+  void _showDeparturePhotoComparison(int index) {
+    final departureUrl = _departurePhotoUrls[index];
+    if (departureUrl == null) return;
+    final arrivalPath = _photos[index];
+    final label = _photoGuides[index].label;
+
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: PremiumTheme.cardBg,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text('Comparaison: $label', style: TextStyle(
+                color: PremiumTheme.textPrimary,
+                fontSize: 16,
+                fontWeight: FontWeight.bold,
+              )),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      children: [
+                        const Text('Départ', style: TextStyle(
+                          color: Color(0xFF14B8A6),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        )),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: Image.network(
+                            departureUrl,
+                            height: 200,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => Container(
+                              height: 200,
+                              color: const Color(0xFFE5E7EB),
+                              child: const Center(child: Icon(Icons.broken_image, size: 32)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      children: [
+                        const Text('Arrivée', style: TextStyle(
+                          color: Color(0xFFF59E0B),
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold,
+                        )),
+                        const SizedBox(height: 8),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(8),
+                          child: arrivalPath != null
+                              ? Image.file(File(arrivalPath), height: 200, fit: BoxFit.cover)
+                              : Container(
+                                  height: 200,
+                                  color: const Color(0xFFE5E7EB),
+                                  child: const Center(
+                                    child: Text('Pas encore prise', style: TextStyle(color: Color(0xFF9CA3AF), fontSize: 12)),
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Fermer', style: TextStyle(color: Color(0xFF14B8A6))),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
   Widget _buildStepContent() {
     switch (_currentStep) {
       case 0:
@@ -879,6 +1401,8 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
         return _buildSignaturesStep();
       case 4:
         return _buildDocumentsStep();
+      case 5:
+        return _buildRecapStep();
       default:
         return const SizedBox();
     }
@@ -1089,6 +1613,14 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
               ],
             ),
           ),
+          const SizedBox(height: 32),
+
+          // Propreté intérieure
+          _buildCleanlinessSelector('Propreté intérieure', _internalCleanliness, (v) => setState(() => _internalCleanliness = v)),
+          const SizedBox(height: 24),
+
+          // Propreté extérieure
+          _buildCleanlinessSelector('Propreté extérieure', _externalCleanliness, (v) => setState(() => _externalCleanliness = v)),
         ],
       ),
     );
@@ -1288,6 +1820,21 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                     ),
                     textAlign: TextAlign.center,
                   ),
+                  // Bouton comparaison départ
+                  if (!isOptional && _departurePhotoUrls.containsKey(index))
+                    GestureDetector(
+                      onTap: () => _showDeparturePhotoComparison(index),
+                      child: Container(
+                        margin: const EdgeInsets.only(top: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF14B8A6).withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: const Color(0xFF14B8A6), width: 1),
+                        ),
+                        child: const Text('📷 Voir départ', style: TextStyle(fontSize: 10, color: Color(0xFF14B8A6), fontWeight: FontWeight.w600)),
+                      ),
+                    ),
                   const SizedBox(height: 8),
                   if (hasPhoto)
                     DropdownButton<String>(
@@ -1412,6 +1959,38 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           ),
           const SizedBox(height: 28),
 
+          // État général du véhicule
+          const Text(
+            'État général du véhicule',
+            style: TextStyle(
+              color: Color(0xFF14B8A6),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 12,
+            children: ['Excellent', 'Bon', 'Moyen', 'Mauvais']
+                .map((condition) => ChoiceChip(
+                      label: Text(condition),
+                      selected: _vehicleCondition == condition,
+                      onSelected: (selected) {
+                        setState(() => _vehicleCondition = condition);
+                      },
+                      selectedColor: const Color(0xFF14B8A6),
+                      backgroundColor: PremiumTheme.cardBgLight,
+                      labelStyle: TextStyle(
+                        color: _vehicleCondition == condition
+                            ? Colors.white
+                            : PremiumTheme.textPrimary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ))
+                .toList(),
+          ),
+          const SizedBox(height: 24),
+
           // Keys returned
           _buildCheckItem(
             'Clés restituées',
@@ -1441,6 +2020,15 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
             }),
           ),
           if (_isVehicleLoaded) ..._buildLoadedVehiclePhotoSection(),
+          const SizedBox(height: 32),
+
+          // Carte des dommages (body map)
+          VehicleBodyMapWidget(
+            damages: _bodyMapDamages,
+            onDamagesChanged: (damages) {
+              setState(() => _bodyMapDamages = damages);
+            },
+          ),
           const SizedBox(height: 32),
 
           // Observations
@@ -1529,6 +2117,50 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildCleanlinessSelector(String label, String value, ValueChanged<String> onChanged) {
+    final levels = [
+      {'value': 'tres_sale', 'label': 'Très sale', 'icon': '😡', 'color': const Color(0xFFEF4444)},
+      {'value': 'sale', 'label': 'Sale', 'icon': '😟', 'color': const Color(0xFFF97316)},
+      {'value': 'correct', 'label': 'Correct', 'icon': '😐', 'color': const Color(0xFFEAB308)},
+      {'value': 'propre', 'label': 'Propre', 'icon': '😊', 'color': const Color(0xFF22C55E)},
+      {'value': 'tres_propre', 'label': 'Très propre', 'icon': '🤩', 'color': const Color(0xFF14B8A6)},
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: TextStyle(
+          color: PremiumTheme.textPrimary,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+        )),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: levels.map((level) {
+            final isSelected = value == level['value'];
+            final color = level['color'] as Color;
+            return ChoiceChip(
+              avatar: Text(level['icon'] as String, style: const TextStyle(fontSize: 16)),
+              label: Text(level['label'] as String),
+              selected: isSelected,
+              onSelected: (_) => onChanged(level['value'] as String),
+              selectedColor: color.withOpacity(0.2),
+              backgroundColor: PremiumTheme.cardBgLight,
+              side: BorderSide(color: isSelected ? color : Colors.transparent, width: 2),
+              labelStyle: TextStyle(
+                color: isSelected ? color : PremiumTheme.textSecondary,
+                fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+                fontSize: 12,
+              ),
+            );
+          }).toList(),
+        ),
+      ],
     );
   }
 
@@ -1923,6 +2555,186 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
     );
   }
 
+  Widget _buildRecapStep() {
+    final photoCount = _photos.where((p) => p != null).length;
+    final optionalPhotoCount = _optionalPhotos.where((p) => p != null).length;
+    final damageCount = _photoDamages.where((d) => d != 'RAS').length +
+        _optionalPhotoDamages.where((d) => d != 'RAS').length;
+    final docCount = _namedDocuments.length;
+
+    String cleanlinessLabel(String val) {
+      switch (val) {
+        case 'tres_propre': return 'Très propre';
+        case 'propre': return 'Propre';
+        case 'correct': return 'Correct';
+        case 'sale': return 'Sale';
+        case 'tres_sale': return 'Très sale';
+        default: return val;
+      }
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.checklist_rounded, color: Colors.white, size: 32),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text('Récapitulatif', style: TextStyle(
+                        color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                      SizedBox(height: 4),
+                      Text('Vérifiez les informations avant envoi',
+                        style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          _buildRecapSection('🚗 Compteur & Carburant', [
+            _buildRecapRow('Kilométrage', '${_kmController.text} km'),
+            _buildRecapRow('Carburant', '${_fuelLevel.toInt()}%'),
+            _buildRecapRow('Propreté intérieure', cleanlinessLabel(_internalCleanliness)),
+            _buildRecapRow('Propreté extérieure', cleanlinessLabel(_externalCleanliness)),
+            _buildRecapRow('Photo tableau de bord', _dashboardPhoto != null ? '✅' : '❌'),
+          ]),
+          const SizedBox(height: 16),
+
+          _buildRecapSection('📸 Photos', [
+            _buildRecapRow('Photos obligatoires', '$photoCount/8'),
+            _buildRecapRow('Photos optionnelles', '$optionalPhotoCount'),
+            _buildRecapRow('Dommages signalés', '$damageCount'),
+          ]),
+          const SizedBox(height: 16),
+
+          _buildRecapSection('📋 État du véhicule', [
+            _buildRecapRow('État général', _vehicleCondition),
+            _buildRecapRow('Clés restituées', _allKeysReturned ? '✅ Oui' : '❌ Non'),
+            _buildRecapRow('Documents restitués', _documentsReturned ? '✅ Oui' : '❌ Non'),
+            _buildRecapRow('Véhicule chargé', _isVehicleLoaded ? '✅ Oui' : '❌ Non'),
+            if (_bodyMapDamages.isNotEmpty)
+              _buildRecapRow('Dommages carte', '${_bodyMapDamages.length}'),
+            if (_observationsController.text.isNotEmpty)
+              _buildRecapRow('Observations', _observationsController.text),
+          ]),
+          const SizedBox(height: 16),
+
+          _buildRecapSection('✍️ Signatures', [
+            _buildRecapRow('Signature convoyeur', _driverSignature != null ? '✅' : '❌'),
+            _buildRecapRow('Signature client', _clientSignature != null ? '✅' : '❌'),
+            _buildRecapRow('Nom client', _clientNameController.text.isNotEmpty ? _clientNameController.text : '—'),
+          ]),
+          const SizedBox(height: 16),
+
+          _buildRecapSection('📄 Documents', [
+            _buildRecapRow('Documents scannés', '$docCount'),
+          ]),
+          const SizedBox(height: 16),
+
+          if (_expenses.isNotEmpty)
+            _buildRecapSection('💰 Frais de mission', [
+              ..._expenses.map((e) => _buildRecapRow(
+                e['type'] ?? 'Frais',
+                '${(e['amount'] ?? 0).toStringAsFixed(2)} €',
+              )),
+              _buildRecapRow('Total',
+                '${_expenses.fold<double>(0.0, (sum, e) => sum + ((e['amount'] ?? 0) as num).toDouble()).toStringAsFixed(2)} €',
+              ),
+            ]),
+
+          const SizedBox(height: 32),
+
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFF59E0B)),
+            ),
+            child: Row(
+              children: const [
+                Icon(Icons.info_outline, color: Color(0xFFF59E0B), size: 24),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Veuillez vérifier toutes les informations. Une fois envoyée, l\'inspection ne pourra plus être modifiée.',
+                    style: TextStyle(color: Color(0xFF92400E), fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecapSection(String title, List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: PremiumTheme.cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(title, style: TextStyle(
+              color: PremiumTheme.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            )),
+          ),
+          const Divider(height: 1),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecapRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Flexible(
+            child: Text(label, style: TextStyle(
+              color: PremiumTheme.textSecondary,
+              fontSize: 14,
+            )),
+          ),
+          const SizedBox(width: 16),
+          Flexible(
+            child: Text(value, style: TextStyle(
+              color: PremiumTheme.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ), textAlign: TextAlign.end),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDocumentsStep() {
     return SingleChildScrollView(
       padding: const EdgeInsets.all(24),
@@ -2066,6 +2878,182 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
               );
             }),
           ],
+
+          const SizedBox(height: 32),
+
+          // ── Section Frais / Dépenses ──
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                colors: [
+                  const Color(0xFFF59E0B).withValues(alpha: 0.08),
+                  const Color(0xFFF59E0B).withValues(alpha: 0.02),
+                ],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: const Color(0xFFF59E0B).withValues(alpha: 0.2)),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF59E0B).withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: const Icon(Icons.receipt, color: Color(0xFFF59E0B), size: 24),
+                ),
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Frais de mission',
+                        style: TextStyle(
+                          color: PremiumTheme.textPrimary,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Ajoutez vos dépenses (optionnel)',
+                        style: TextStyle(color: PremiumTheme.textSecondary, fontSize: 13),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+
+          ElevatedButton.icon(
+            onPressed: _addExpense,
+            icon: const Icon(Icons.add_circle_outline),
+            label: const Text('Ajouter un frais'),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: const Color(0xFFF59E0B),
+              foregroundColor: Colors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+
+          if (_expenses.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Text(
+              'Frais ajoutés (${_expenses.length})',
+              style: const TextStyle(
+                color: Color(0xFFF59E0B),
+                fontSize: 16,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 12),
+            ..._expenses.asMap().entries.map((entry) {
+              final expense = entry.value;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.all(14),
+                decoration: BoxDecoration(
+                  color: PremiumTheme.cardBg,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: const Color(0xFFE5E7EB)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFF59E0B).withValues(alpha: 0.1),
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.receipt, color: Color(0xFFF59E0B), size: 20),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            expense['type'] ?? 'Frais',
+                            style: const TextStyle(
+                              color: PremiumTheme.textPrimary,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          if ((expense['description'] ?? '').toString().isNotEmpty)
+                            Text(
+                              expense['description'],
+                              style: TextStyle(
+                                color: PremiumTheme.textSecondary,
+                                fontSize: 12,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      '${(expense['amount'] ?? 0).toStringAsFixed(2)} €',
+                      style: const TextStyle(
+                        color: PremiumTheme.textPrimary,
+                        fontSize: 15,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      onPressed: () {
+                        setState(() => _expenses.removeAt(entry.key));
+                      },
+                      icon: const Icon(Icons.delete_outline, color: Color(0xFFEF4444), size: 20),
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(maxWidth: 32, maxHeight: 32),
+                    ),
+                  ],
+                ),
+              );
+            }),
+            const SizedBox(height: 8),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              decoration: BoxDecoration(
+                color: const Color(0xFFF59E0B).withValues(alpha: 0.08),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text(
+                    'Total frais',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                  Text(
+                    '${_expenses.fold<double>(0.0, (sum, e) => sum + ((e['amount'] ?? 0) as num).toDouble()).toStringAsFixed(2)} €',
+                    style: const TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFFF59E0B),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ],
       ),
     );
@@ -2123,8 +3111,108 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
     }
   }
 
+  Future<void> _addExpense() async {
+    String selectedType = _expenseTypes.first;
+    final amountController = TextEditingController();
+    final descController = TextEditingController();
+
+    final expense = await showDialog<Map<String, dynamic>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setDialogState) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+          title: const Text('Ajouter un frais'),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Type de frais', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _expenseTypes.map((type) {
+                    final isSelected = selectedType == type;
+                    return GestureDetector(
+                      onTap: () => setDialogState(() => selectedType = type),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? const Color(0xFFF59E0B) : Colors.grey.shade100,
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          type,
+                          style: TextStyle(
+                            color: isSelected ? Colors.white : Colors.grey.shade700,
+                            fontWeight: isSelected ? FontWeight.w600 : FontWeight.w400,
+                            fontSize: 13,
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 16),
+                const Text('Montant (€)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: amountController,
+                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                  decoration: InputDecoration(
+                    hintText: '0.00',
+                    prefixText: '€ ',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Text('Description (optionnel)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                const SizedBox(height: 8),
+                TextField(
+                  controller: descController,
+                  decoration: InputDecoration(
+                    hintText: 'Ex: Autoroute A6, Station Total...',
+                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuler'),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                final amount = double.tryParse(amountController.text.replaceAll(',', '.'));
+                if (amount == null || amount <= 0) return;
+                Navigator.pop(ctx, {
+                  'type': selectedType,
+                  'amount': amount,
+                  'description': descController.text.trim(),
+                });
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFFF59E0B)),
+              child: const Text('Ajouter', style: TextStyle(color: Colors.white)),
+            ),
+          ],
+        ),
+      ),
+    );
+
+    amountController.dispose();
+    descController.dispose();
+
+    if (expense != null) {
+      setState(() => _expenses.add(expense));
+    }
+  }
+
   @override
   void dispose() {
+    _saveDraft();
     _kmController.removeListener(_onFieldChanged);
     _clientNameController.removeListener(_onFieldChanged);
     _kmController.dispose();

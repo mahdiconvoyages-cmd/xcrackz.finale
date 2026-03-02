@@ -112,6 +112,7 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
                       MaterialPageRoute(builder: (_) => InvoiceFormScreen(invoice: _inv)));
                     if (ok == true) { _changed = true; _load(); }
                   }),
+                IconButton(icon: const Icon(Icons.visibility_rounded), tooltip: 'Aperçu PDF', onPressed: _previewPdf),
                 IconButton(icon: const Icon(Icons.share_rounded), tooltip: 'Partager', onPressed: _share),
                 IconButton(icon: const Icon(Icons.print_rounded), tooltip: 'Imprimer', onPressed: _print),
               ],
@@ -354,6 +355,21 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
       ],
       SizedBox(
         width: double.infinity,
+        child: ElevatedButton.icon(
+          onPressed: _previewPdf,
+          icon: const Icon(Icons.visibility_rounded),
+          label: const Text('Aperçu PDF',
+              style: TextStyle(fontWeight: FontWeight.w600)),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: PremiumTheme.primaryBlue,
+            foregroundColor: Colors.white,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+        ),
+      ),
+      const SizedBox(height: 10),
+      SizedBox(
+        width: double.infinity,
         child: OutlinedButton.icon(
           onPressed: _download,
           icon: const Icon(Icons.download_rounded, color: PremiumTheme.primaryBlue),
@@ -437,8 +453,63 @@ class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
   }
 
   Future<void> _print() async {
-    final pdf = await _genPdf();
-    await Printing.layoutPdf(onLayout: (_) async => pdf.save());
+    try {
+      final pdf = await _genPdf();
+      await Printing.layoutPdf(onLayout: (_) async => pdf.save());
+    } catch (e) { _snack(ErrorHelper.cleanError(e), PremiumTheme.accentRed); }
+  }
+
+  /// Opens a full-screen PDF preview inside the app
+  Future<void> _previewPdf() async {
+    try {
+      final pdf = await _genPdf();
+      final bytes = await pdf.save();
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (_) => Scaffold(
+            backgroundColor: Colors.grey.shade200,
+            appBar: AppBar(
+              title: Text('Facture ${_inv!.invoiceNumber}'),
+              backgroundColor: Colors.white,
+              foregroundColor: PremiumTheme.textPrimary,
+              elevation: 0,
+              actions: [
+                IconButton(
+                  icon: const Icon(Icons.share_rounded),
+                  tooltip: 'Partager',
+                  onPressed: () async {
+                    final dir = await getTemporaryDirectory();
+                    final f = File('${dir.path}/${_inv!.invoiceNumber}.pdf');
+                    await f.writeAsBytes(bytes);
+                    await SharePlus.instance.share(ShareParams(
+                      files: [XFile(f.path)],
+                      text: 'Facture ${_inv!.invoiceNumber}',
+                    ));
+                  },
+                ),
+                IconButton(
+                  icon: const Icon(Icons.print_rounded),
+                  tooltip: 'Imprimer',
+                  onPressed: () {
+                    Printing.layoutPdf(onLayout: (_) async => bytes);
+                  },
+                ),
+              ],
+            ),
+            body: PdfPreview(
+              build: (_) async => bytes,
+              canChangePageFormat: false,
+              canChangeOrientation: false,
+              canDebug: false,
+              pdfFileName: '${_inv!.invoiceNumber}.pdf',
+            ),
+          ),
+        ),
+      );
+    } catch (e) { _snack(ErrorHelper.cleanError(e), PremiumTheme.accentRed); }
   }
 
   Future<void> _share() async {

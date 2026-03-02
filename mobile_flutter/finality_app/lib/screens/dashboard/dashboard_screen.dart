@@ -9,6 +9,7 @@ import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
 import '../missions/mission_create_screen_new.dart';
 import '../crm/crm_screen.dart';
+import '../notifications/notification_history_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
   final VoidCallback? onNavigateToMissions;
@@ -43,6 +44,19 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   // Real recent activity
   List<Map<String, dynamic>> _recentActivity = [];
+
+  // Invoice stats
+  int _totalInvoices = 0;
+  double _totalRevenue = 0.0;
+  int _unpaidInvoices = 0;
+  double _unpaidAmount = 0.0;
+
+  // Today/Week missions
+  int _todayMissions = 0;
+  int _weekMissions = 0;
+
+  // Monthly revenue trend (last 6 months)
+  List<Map<String, dynamic>> _monthlyTrend = [];
 
   @override
   void initState() {
@@ -265,6 +279,8 @@ class _DashboardScreenState extends State<DashboardScreen>
     }
 
     await _loadRecentActivityLegacy(userId);
+    await _loadInvoiceStats(userId);
+    await _loadTodayWeekMissions(userId);
   }
 
   /// Legacy: load recent activity with 4 separate queries.
@@ -476,6 +492,17 @@ class _DashboardScreenState extends State<DashboardScreen>
                                       ),
                                     ),
                                     IconButton(
+                                      icon: const Icon(Icons.notifications_outlined, color: PremiumTheme.primaryBlue, size: 22),
+                                      onPressed: () {
+                                        Navigator.push(
+                                          context,
+                                          MaterialPageRoute(
+                                            builder: (context) => const NotificationHistoryScreen(),
+                                          ),
+                                        );
+                                      },
+                                    ),
+                                    IconButton(
                                       icon: const Icon(Icons.person, color: PremiumTheme.primaryBlue, size: 22),
                                       onPressed: () {
                                         Navigator.push(
@@ -555,6 +582,21 @@ class _DashboardScreenState extends State<DashboardScreen>
 
                         // Graphique de progression
                         _buildProgressChart(l10n),
+
+                        const SizedBox(height: 24),
+
+                        // Statistiques facturation
+                        _buildInvoiceStats(l10n),
+
+                        const SizedBox(height: 24),
+
+                        // Tendance CA mensuelle
+                        _buildMonthlyTrend(l10n),
+
+                        const SizedBox(height: 24),
+
+                        // Missions aujourd'hui / cette semaine
+                        _buildTodayWeekMissions(l10n),
 
                         const SizedBox(height: 24),
 
@@ -1379,6 +1421,404 @@ class _DashboardScreenState extends State<DashboardScreen>
                 fontSize: 11,
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Invoice Stats Loading ──
+  Future<void> _loadInvoiceStats(String userId) async {
+    try {
+      final invoices = await Supabase.instance.client
+          .from('invoices')
+          .select('id, total_amount, status, created_at')
+          .eq('user_id', userId);
+
+      final list = invoices as List;
+      int total = list.length;
+      double revenue = 0.0;
+      int unpaid = 0;
+      double unpaidAmt = 0.0;
+
+      // Monthly trend – last 6 months
+      final now = DateTime.now();
+      final Map<String, double> monthMap = {};
+      for (int i = 5; i >= 0; i--) {
+        final m = DateTime(now.year, now.month - i, 1);
+        final key = '${m.year}-${m.month.toString().padLeft(2, '0')}';
+        monthMap[key] = 0.0;
+      }
+
+      for (final inv in list) {
+        final amount = (inv['total_amount'] ?? 0).toDouble();
+        revenue += amount;
+        final status = (inv['status'] ?? '').toString().toLowerCase();
+        if (status != 'paid' && status != 'payée' && status != 'payé') {
+          unpaid++;
+          unpaidAmt += amount;
+        }
+        // Aggregate monthly
+        final createdAt = inv['created_at'];
+        if (createdAt != null) {
+          final d = DateTime.tryParse(createdAt.toString());
+          if (d != null) {
+            final key = '${d.year}-${d.month.toString().padLeft(2, '0')}';
+            if (monthMap.containsKey(key)) {
+              monthMap[key] = monthMap[key]! + amount;
+            }
+          }
+        }
+      }
+
+      if (mounted) {
+        setState(() {
+          _totalInvoices = total;
+          _totalRevenue = revenue;
+          _unpaidInvoices = unpaid;
+          _unpaidAmount = unpaidAmt;
+          _monthlyTrend = monthMap.entries
+              .map((e) => {'month': e.key, 'revenue': e.value})
+              .toList();
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading invoice stats: $e');
+    }
+  }
+
+  // ── Today / Week Missions Loading ──
+  Future<void> _loadTodayWeekMissions(String userId) async {
+    try {
+      final now = DateTime.now();
+      final todayStart = DateTime(now.year, now.month, now.day).toIso8601String();
+      final weekStart = DateTime(now.year, now.month, now.day)
+          .subtract(Duration(days: now.weekday - 1))
+          .toIso8601String();
+
+      final todayResult = await Supabase.instance.client
+          .from('missions')
+          .select('id')
+          .eq('user_id', userId)
+          .gte('created_at', todayStart);
+
+      final weekResult = await Supabase.instance.client
+          .from('missions')
+          .select('id')
+          .eq('user_id', userId)
+          .gte('created_at', weekStart);
+
+      if (mounted) {
+        setState(() {
+          _todayMissions = (todayResult as List).length;
+          _weekMissions = (weekResult as List).length;
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading today/week missions: $e');
+    }
+  }
+
+  // ── Invoice Stats Widget ──
+  Widget _buildInvoiceStats(AppLocalizations l10n) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: PremiumTheme.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: PremiumTheme.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.receipt_long, color: PremiumTheme.accentGreen, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                'Facturation',
+                style: PremiumTheme.headlineSmall.copyWith(
+                  color: PremiumTheme.textPrimary,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: _buildMiniStat(
+                  'CA Total',
+                  '${_totalRevenue.toStringAsFixed(0)} €',
+                  PremiumTheme.accentGreen,
+                  Icons.euro,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildMiniStat(
+                  'Impayés',
+                  '${_unpaidAmount.toStringAsFixed(0)} €',
+                  _unpaidInvoices > 0 ? Colors.orange : PremiumTheme.accentGreen,
+                  Icons.warning_amber_rounded,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _buildMiniStat(
+                  'Total factures',
+                  _totalInvoices.toString(),
+                  PremiumTheme.primaryBlue,
+                  Icons.description,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildMiniStat(
+                  'Non payées',
+                  _unpaidInvoices.toString(),
+                  _unpaidInvoices > 0 ? Colors.red : PremiumTheme.accentGreen,
+                  Icons.pending_actions,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMiniStat(String label, String value, Color color, IconData icon) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, color: color, size: 18),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: PremiumTheme.headlineSmall.copyWith(
+              color: PremiumTheme.textPrimary,
+              fontSize: 18,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            label,
+            style: PremiumTheme.bodySmall.copyWith(
+              color: PremiumTheme.textSecondary,
+              fontSize: 11,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Monthly Revenue Trend Widget ──
+  Widget _buildMonthlyTrend(AppLocalizations l10n) {
+    if (_monthlyTrend.isEmpty) return const SizedBox.shrink();
+
+    final maxRevenue = _monthlyTrend
+        .map((e) => (e['revenue'] as double?) ?? 0.0)
+        .reduce((a, b) => a > b ? a : b);
+    final barMaxHeight = 80.0;
+
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: PremiumTheme.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: PremiumTheme.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.bar_chart, color: PremiumTheme.primaryBlue, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                'Tendance CA (6 mois)',
+                style: PremiumTheme.headlineSmall.copyWith(
+                  color: PremiumTheme.textPrimary,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            height: barMaxHeight + 30,
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: _monthlyTrend.map((data) {
+                final revenue = (data['revenue'] as double?) ?? 0.0;
+                final month = (data['month'] as String?) ?? '';
+                final height = maxRevenue > 0
+                    ? (revenue / maxRevenue) * barMaxHeight
+                    : 0.0;
+                final shortMonth = month.length >= 7
+                    ? month.substring(5)
+                    : month;
+
+                return Expanded(
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.end,
+                      children: [
+                        Text(
+                          revenue > 0 ? '${(revenue / 1000).toStringAsFixed(1)}k' : '0',
+                          style: PremiumTheme.bodySmall.copyWith(
+                            color: PremiumTheme.textSecondary,
+                            fontSize: 9,
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Container(
+                          height: height < 4 && revenue > 0 ? 4 : height,
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [
+                                PremiumTheme.primaryBlue,
+                                PremiumTheme.primaryBlue.withValues(alpha: 0.6),
+                              ],
+                            ),
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          shortMonth,
+                          style: PremiumTheme.bodySmall.copyWith(
+                            color: PremiumTheme.textSecondary,
+                            fontSize: 10,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Today / Week Missions Widget ──
+  Widget _buildTodayWeekMissions(AppLocalizations l10n) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: PremiumTheme.cardBackground,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: PremiumTheme.cardBorder),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.calendar_today, color: PremiumTheme.primaryPurple, size: 22),
+              const SizedBox(width: 8),
+              Text(
+                'Missions planifiées',
+                style: PremiumTheme.headlineSmall.copyWith(
+                  color: PremiumTheme.textPrimary,
+                  fontSize: 16,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        PremiumTheme.primaryPurple.withValues(alpha: 0.15),
+                        PremiumTheme.primaryPurple.withValues(alpha: 0.05),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        _todayMissions.toString(),
+                        style: PremiumTheme.headlineSmall.copyWith(
+                          color: PremiumTheme.primaryPurple,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        "Aujourd'hui",
+                        style: PremiumTheme.bodySmall.copyWith(
+                          color: PremiumTheme.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Container(
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        PremiumTheme.accentGreen.withValues(alpha: 0.15),
+                        PremiumTheme.accentGreen.withValues(alpha: 0.05),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    children: [
+                      Text(
+                        _weekMissions.toString(),
+                        style: PremiumTheme.headlineSmall.copyWith(
+                          color: PremiumTheme.accentGreen,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'Cette semaine',
+                        style: PremiumTheme.bodySmall.copyWith(
+                          color: PremiumTheme.textSecondary,
+                          fontSize: 12,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ],
       ),

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:io';
 import 'dart:typed_data';
 import 'dart:convert';
@@ -10,6 +12,7 @@ import '../document_scanner/document_scanner_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
 import 'widgets/inspection_shared_widgets.dart';
+import '../../services/notification_service.dart';
 
 /// Écran d'inspection de départ moderne avec 8 photos obligatoires
 /// Compatible avec les tables Expo mobile (vehicle_inspections + inspection_photos)
@@ -38,10 +41,12 @@ class _InspectionDepartureScreenState
   bool _isSubmitting = false;
   String _vehicleType = 'VL'; // VL, VU, ou PL
 
-  // Step 1: KM, Carburant, Tableau de bord
+  // Step 1: KM, Carburant, Tableau de bord, Propreté
   String? _dashboardPhoto;
   final _kmController = TextEditingController();
   double _fuelLevel = 50;
+  String _internalCleanliness = 'propre'; // très sale, sale, correct, propre, très propre
+  String _externalCleanliness = 'propre';
 
   // Step 2: 8 Photos obligatoires avec guidage (initialisé selon le type de véhicule)
   late List<PhotoGuide> _photoGuides;
@@ -50,10 +55,18 @@ class _InspectionDepartureScreenState
   final List<String> _photoDamages = List.filled(8, 'RAS');
   final List<String> _photoComments = List.filled(8, '');
 
+  // Photo metadata (GPS + timestamp par photo)
+  final List<DateTime?> _photoTimestamps = List.filled(8, null);
+  final List<double?> _photoLatitudes = List.filled(8, null);
+  final List<double?> _photoLongitudes = List.filled(8, null);
+
   // Photos optionnelles (10 max, apparaissent progressivement)
   final List<String?> _optionalPhotos = List.filled(10, null);
   final List<String> _optionalPhotoDamages = List.filled(10, 'RAS');
   final List<String> _optionalPhotoComments = List.filled(10, '');
+  final List<DateTime?> _optionalPhotoTimestamps = List.filled(10, null);
+  final List<double?> _optionalPhotoLatitudes = List.filled(10, null);
+  final List<double?> _optionalPhotoLongitudes = List.filled(10, null);
 
   // Step 3: État du véhicule & Checklist
   String _vehicleCondition = 'Bon';
@@ -76,12 +89,16 @@ class _InspectionDepartureScreenState
   // Step 5: Documents avec nom manuel (optionnel)
   final List<Map<String, String>> _namedDocuments = []; // {url, title}
 
+  // Observations (notes de départ)
+  final _observationsController = TextEditingController();
+
   @override
   void initState() {
     super.initState();
     _initializePhotoGuides();
     _loadMissionDetails();
     _loadDriverName();
+    _loadDraft();
     // Listeners pour rafraîchir le bouton Suivant en temps réel
     _kmController.addListener(_onFieldChanged);
     _clientNameController.addListener(_onFieldChanged);
@@ -93,12 +110,88 @@ class _InspectionDepartureScreenState
 
   @override
   void dispose() {
+    _saveDraft(); // Sauvegarder le brouillon avant de quitter
     _kmController.removeListener(_onFieldChanged);
     _clientNameController.removeListener(_onFieldChanged);
     _kmController.dispose();
     _confidedObjectController.dispose();
     _clientNameController.dispose();
+    _observationsController.dispose();
     super.dispose();
+  }
+
+  // --- Brouillon auto-save ---
+  String get _draftKey => 'inspection_draft_departure_${widget.missionId}';
+
+  Future<void> _saveDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final draft = {
+        'step': _currentStep,
+        'km': _kmController.text,
+        'fuel': _fuelLevel,
+        'internalCleanliness': _internalCleanliness,
+        'externalCleanliness': _externalCleanliness,
+        'vehicleCondition': _vehicleCondition,
+        'numberOfKeys': _numberOfKeys,
+        'hasSecurityKit': _hasSecurityKit,
+        'hasSpareWheel': _hasSpareWheel,
+        'hasInflationKit': _hasInflationKit,
+        'hasFuelCard': _hasFuelCard,
+        'isVehicleLoaded': _isVehicleLoaded,
+        'hasConfidedObject': _hasConfidedObject,
+        'confidedObject': _confidedObjectController.text,
+        'observations': _observationsController.text,
+        'clientName': _clientNameController.text,
+      };
+      await prefs.setString(_draftKey, jsonEncode(draft));
+      debugPrint('💾 Brouillon départ sauvegardé (étape $_currentStep)');
+    } catch (e) {
+      debugPrint('⚠️ Erreur sauvegarde brouillon: $e');
+    }
+  }
+
+  Future<void> _loadDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final draftJson = prefs.getString(_draftKey);
+      if (draftJson == null) return;
+
+      final draft = jsonDecode(draftJson) as Map<String, dynamic>;
+      setState(() {
+        _currentStep = draft['step'] ?? 0;
+        if (draft['km'] != null && (draft['km'] as String).isNotEmpty) {
+          _kmController.text = draft['km'];
+        }
+        _fuelLevel = (draft['fuel'] ?? 50).toDouble();
+        _internalCleanliness = draft['internalCleanliness'] ?? 'propre';
+        _externalCleanliness = draft['externalCleanliness'] ?? 'propre';
+        _vehicleCondition = draft['vehicleCondition'] ?? 'Bon';
+        _numberOfKeys = draft['numberOfKeys'] ?? 2;
+        _hasSecurityKit = draft['hasSecurityKit'] ?? false;
+        _hasSpareWheel = draft['hasSpareWheel'] ?? false;
+        _hasInflationKit = draft['hasInflationKit'] ?? false;
+        _hasFuelCard = draft['hasFuelCard'] ?? false;
+        _isVehicleLoaded = draft['isVehicleLoaded'] ?? false;
+        _hasConfidedObject = draft['hasConfidedObject'] ?? false;
+        if (draft['confidedObject'] != null) _confidedObjectController.text = draft['confidedObject'];
+        if (draft['observations'] != null) _observationsController.text = draft['observations'];
+        if (draft['clientName'] != null) _clientNameController.text = draft['clientName'];
+      });
+      debugPrint('📂 Brouillon départ restauré (étape $_currentStep)');
+    } catch (e) {
+      debugPrint('⚠️ Erreur chargement brouillon: $e');
+    }
+  }
+
+  Future<void> _clearDraft() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_draftKey);
+      debugPrint('🗑️ Brouillon départ supprimé');
+    } catch (e) {
+      debugPrint('⚠️ Erreur suppression brouillon: $e');
+    }
   }
 
   /// Initialiser les guides photos selon le type de véhicule
@@ -181,6 +274,13 @@ class _InspectionDepartureScreenState
   }
 
   Future<void> _takePhoto(int index, bool isOptional) async {
+    // Show guidance dialog for mandatory photos
+    if (!isOptional && index < _photoGuides.length) {
+      final guide = _photoGuides[index];
+      final shouldProceed = await _showPhotoGuidance(guide);
+      if (shouldProceed != true) return;
+    }
+
     try {
       final XFile? image = await _picker.pickImage(
         source: ImageSource.camera,
@@ -190,20 +290,181 @@ class _InspectionDepartureScreenState
       );
 
       if (image != null) {
+        // Capturer timestamp + GPS au moment de la prise
+        final timestamp = DateTime.now().toUtc();
+        double? lat;
+        double? lng;
+        try {
+          final perm = await Geolocator.checkPermission();
+          if (perm == LocationPermission.whileInUse || perm == LocationPermission.always) {
+            final pos = await Geolocator.getCurrentPosition(
+              desiredAccuracy: LocationAccuracy.high,
+            ).timeout(const Duration(seconds: 5));
+            lat = pos.latitude;
+            lng = pos.longitude;
+          }
+        } catch (_) {}
+
         // Copier immédiatement vers un emplacement permanent
         final safePath = await _copyToSafeLocation(image.path);
         if (!mounted) return;
         setState(() {
           if (isOptional) {
             _optionalPhotos[index] = safePath;
+            _optionalPhotoTimestamps[index] = timestamp;
+            _optionalPhotoLatitudes[index] = lat;
+            _optionalPhotoLongitudes[index] = lng;
           } else {
             _photos[index] = safePath;
+            _photoTimestamps[index] = timestamp;
+            _photoLatitudes[index] = lat;
+            _photoLongitudes[index] = lng;
           }
         });
       }
     } catch (e) {
       _showError('Erreur lors de la capture: $e');
     }
+  }
+
+  /// Shows a photo guidance overlay before taking a photo
+  Future<bool?> _showPhotoGuidance(PhotoGuide guide) async {
+    return showDialog<bool>(
+      context: context,
+      builder: (ctx) => Dialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Container(
+          constraints: const BoxConstraints(maxWidth: 380),
+          padding: const EdgeInsets.all(20),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF14B8A6).withValues(alpha: 0.12),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Icon(guide.icon, color: const Color(0xFF14B8A6), size: 24),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(guide.label, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                        const SizedBox(height: 2),
+                        Text(guide.description, style: TextStyle(fontSize: 13, color: Colors.grey.shade600)),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+              if (guide.image != null)
+                Container(
+                  height: 200,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: Colors.grey.shade200, width: 2),
+                  ),
+                  clipBehavior: Clip.antiAlias,
+                  child: Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      Image.asset(
+                        guide.image!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, __, ___) => Container(
+                          color: Colors.grey.shade100,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              Icon(guide.icon, size: 48, color: Colors.grey.shade400),
+                              const SizedBox(height: 8),
+                              Text(guide.label, style: TextStyle(color: Colors.grey.shade500)),
+                            ],
+                          ),
+                        ),
+                      ),
+                      Positioned(
+                        bottom: 0, left: 0, right: 0,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 12),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.bottomCenter,
+                              end: Alignment.topCenter,
+                              colors: [Colors.black.withValues(alpha: 0.7), Colors.transparent],
+                            ),
+                          ),
+                          child: const Text(
+                            '📐 Prenez la photo sous cet angle',
+                            style: TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.w600),
+                            textAlign: TextAlign.center,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              const SizedBox(height: 16),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: const Color(0xFFFEF3C7),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.lightbulb_outline, color: Color(0xFFF59E0B), size: 20),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Conseil : Photographiez à environ 2m du véhicule, en lumière naturelle si possible.',
+                        style: TextStyle(color: Colors.orange.shade900, fontSize: 12),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(ctx, false),
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                      child: const Text('Annuler'),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      icon: const Icon(Icons.camera_alt, size: 18),
+                      label: const Text('Prendre'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF14B8A6),
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   Future<void> _takeDashboardPhoto() async {
@@ -254,6 +515,8 @@ class _InspectionDepartureScreenState
             _clientNameController.text.isNotEmpty;
       case 4:
         return true; // Documents optionnels
+      case 5:
+        return true; // Récapitulatif - toujours OK
       default:
         return false;
     }
@@ -271,17 +534,42 @@ class _InspectionDepartureScreenState
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) throw 'Utilisateur non connecté';
 
+      // 0. Capturer la position GPS
+      debugPrint('📍 STEP 0: Capturing GPS position...');
+      double? gpsLat;
+      double? gpsLng;
+      try {
+        final perm = await Geolocator.checkPermission();
+        if (perm == LocationPermission.whileInUse || perm == LocationPermission.always) {
+          final pos = await Geolocator.getCurrentPosition(
+            desiredAccuracy: LocationAccuracy.high,
+          ).timeout(const Duration(seconds: 10));
+          gpsLat = pos.latitude;
+          gpsLng = pos.longitude;
+          debugPrint('✅ GPS: $gpsLat, $gpsLng');
+        }
+      } catch (e) {
+        debugPrint('⚠️ GPS capture failed (non-blocking): $e');
+      }
+
       // 1. Créer l'inspection dans vehicle_inspections
       debugPrint('📝 STEP 1: Creating vehicle_inspection...');
       final mileageKm = int.tryParse(_kmController.text) ?? 0;
+      final now = DateTime.now().toUtc().toIso8601String();
       final inspectionData = {
         'mission_id': widget.missionId,
         'inspector_id': userId,
         'inspection_type': widget.isRestitution ? 'restitution_departure' : 'departure',
         'status': 'completed',
+        'completed_at': now,
         'mileage_km': mileageKm,
         'fuel_level': _fuelLevel.toInt(),
         'overall_condition': _vehicleCondition.toLowerCase(),
+        'internal_cleanliness': _internalCleanliness,
+        'external_cleanliness': _externalCleanliness,
+        'notes': _observationsController.text.isNotEmpty ? _observationsController.text : null,
+        'latitude': gpsLat,
+        'longitude': gpsLng,
         'vehicle_info': {
           'keys_count': _numberOfKeys,
           'has_security_kit': _hasSecurityKit,
@@ -319,15 +607,18 @@ class _InspectionDepartureScreenState
       debugPrint('📸 STEP 2: Uploading photos...');
       final allPhotos = <Map<String, dynamic>>[
         if (_dashboardPhoto != null)
-          {'path': _dashboardPhoto!, 'type': 'dashboard', 'index': -1, 'damage': 'RAS', 'comment': ''},
+          {'path': _dashboardPhoto!, 'type': 'dashboard', 'index': -1, 'damage': 'RAS', 'comment': '', 'lat': null, 'lng': null, 'takenAt': null},
         if (_loadedVehiclePhoto != null)
-          {'path': _loadedVehiclePhoto!, 'type': 'loaded_vehicle', 'index': -2, 'damage': 'RAS', 'comment': ''},
+          {'path': _loadedVehiclePhoto!, 'type': 'loaded_vehicle', 'index': -2, 'damage': 'RAS', 'comment': '', 'lat': null, 'lng': null, 'takenAt': null},
         ..._photos.asMap().entries.where((e) => e.value != null).map((e) => {
               'path': e.value!,
               'type': _photoGuides[e.key].label,
               'index': e.key,
               'damage': _photoDamages[e.key],
               'comment': _photoComments[e.key],
+              'lat': _photoLatitudes[e.key],
+              'lng': _photoLongitudes[e.key],
+              'takenAt': _photoTimestamps[e.key]?.toIso8601String(),
             }),
         ..._optionalPhotos.asMap().entries.where((e) => e.value != null).map((e) => {
               'path': e.value!,
@@ -335,6 +626,9 @@ class _InspectionDepartureScreenState
               'index': e.key + 8,
               'damage': _optionalPhotoDamages[e.key],
               'comment': _optionalPhotoComments[e.key],
+              'lat': _optionalPhotoLatitudes[e.key],
+              'lng': _optionalPhotoLongitudes[e.key],
+              'takenAt': _optionalPhotoTimestamps[e.key]?.toIso8601String(),
             }),
       ];
 
@@ -370,7 +664,9 @@ class _InspectionDepartureScreenState
             'photo_type': photo['type'],
             'damage_status': photo['damage'],
             'damage_comment': (photo['damage'] != 'RAS' && (photo['comment'] as String).isNotEmpty) ? photo['comment'] : null,
-            'taken_at': DateTime.now().toUtc().toIso8601String(),
+            'taken_at': photo['takenAt'] ?? DateTime.now().toUtc().toIso8601String(),
+            'latitude': photo['lat'],
+            'longitude': photo['lng'],
           });
         }));
       }
@@ -451,7 +747,17 @@ class _InspectionDepartureScreenState
           ),
         );
 
+        // Push notification for completed inspection
+        NotificationService().showMissionNotification(
+          title: 'Inspection de départ terminée',
+          body: widget.isRestitution
+              ? 'L\'inspection de départ restitution a été enregistrée avec succès'
+              : 'L\'inspection de départ a été enregistrée avec succès',
+          payload: 'mission:${widget.missionId}',
+        );
+
         if (mounted) Navigator.pop(context, true);
+        _clearDraft();
       }
     } catch (e) {
       debugPrint('❌ INSPECTION DEPARTURE ERROR: $e');
@@ -610,7 +916,7 @@ class _InspectionDepartureScreenState
   }
 
   Widget _buildProgressIndicator() {
-    final progress = (_currentStep + 1) / 5;
+    final progress = (_currentStep + 1) / 6;
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
       decoration: BoxDecoration(
@@ -625,30 +931,48 @@ class _InspectionDepartureScreenState
       ),
       child: Column(
         children: [
-          // Step dots row
+          // Step bars row with labels
           Row(
-            children: List.generate(5, (i) {
+            children: List.generate(6, (i) {
               final isActive = i == _currentStep;
               final isCompleted = i < _currentStep;
+              final labels = ['KM', 'Photos', 'État', 'Sign.', 'Docs', 'Recap'];
               return Expanded(
-                child: Row(
+                child: Column(
                   children: [
-                    Expanded(
-                      child: AnimatedContainer(
-                        duration: const Duration(milliseconds: 300),
-                        height: 4,
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(2),
-                          gradient: isCompleted || isActive
-                              ? const LinearGradient(
-                                  colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
-                                )
-                              : null,
-                          color: isCompleted || isActive ? null : const Color(0xFFE5E7EB),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            height: 4,
+                            decoration: BoxDecoration(
+                              borderRadius: BorderRadius.circular(2),
+                              gradient: isCompleted || isActive
+                                  ? const LinearGradient(
+                                      colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
+                                    )
+                                  : null,
+                              color: isCompleted || isActive ? null : const Color(0xFFE5E7EB),
+                            ),
+                          ),
                         ),
+                        if (i < 5) const SizedBox(width: 6),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      labels[i],
+                      style: TextStyle(
+                        fontSize: 9,
+                        fontWeight: isActive ? FontWeight.bold : FontWeight.normal,
+                        color: isActive
+                            ? const Color(0xFF14B8A6)
+                            : isCompleted
+                                ? PremiumTheme.textPrimary
+                                : PremiumTheme.textSecondary,
                       ),
                     ),
-                    if (i < 4) const SizedBox(width: 6),
                   ],
                 ),
               );
@@ -713,7 +1037,7 @@ class _InspectionDepartureScreenState
               ),
               // Mini progress
               Text(
-                '${_currentStep + 1}/5',
+                '${_currentStep + 1}/6',
                 style: const TextStyle(
                   color: Color(0xFF14B8A6),
                   fontSize: 13,
@@ -739,6 +1063,8 @@ class _InspectionDepartureScreenState
         return 'Étape 4: Signatures';
       case 4:
         return 'Étape 5: Documents (optionnel)';
+      case 5:
+        return 'Étape 6: Récapitulatif';
       default:
         return '';
     }
@@ -756,6 +1082,8 @@ class _InspectionDepartureScreenState
         return 'Signatures convoyeur et client';
       case 4:
         return 'Scanner les documents nécessaires';
+      case 5:
+        return 'Vérifiez toutes les informations avant envoi';
       default:
         return '';
     }
@@ -773,6 +1101,8 @@ class _InspectionDepartureScreenState
         return _buildSignaturesStep();
       case 4:
         return _buildDocumentsStep();
+      case 5:
+        return _buildRecapStep();
       default:
         return const SizedBox();
     }
@@ -994,6 +1324,32 @@ class _InspectionDepartureScreenState
               ],
             ),
           ),
+          const SizedBox(height: 32),
+
+          // Propreté intérieure
+          const Text(
+            'Propreté intérieure',
+            style: TextStyle(
+              color: Color(0xFF14B8A6),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildCleanlinessSelector(_internalCleanliness, (v) => setState(() => _internalCleanliness = v)),
+          const SizedBox(height: 24),
+
+          // Propreté extérieure
+          const Text(
+            'Propreté extérieure',
+            style: TextStyle(
+              color: Color(0xFF14B8A6),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          _buildCleanlinessSelector(_externalCleanliness, (v) => setState(() => _externalCleanliness = v)),
         ],
       ),
     );
@@ -1521,8 +1877,86 @@ class _InspectionDepartureScreenState
               ),
             ),
           ],
+          const SizedBox(height: 32),
+
+          // Observations
+          const Text(
+            'Observations',
+            style: TextStyle(
+              color: Color(0xFF14B8A6),
+              fontSize: 16,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextField(
+            controller: _observationsController,
+            maxLines: 4,
+            style: TextStyle(color: PremiumTheme.textPrimary),
+            decoration: InputDecoration(
+              hintText: 'Notes particulières, incidents, remarques...',
+              hintStyle: TextStyle(color: PremiumTheme.textTertiary),
+              filled: true,
+              fillColor: PremiumTheme.cardBg,
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+              ),
+              enabledBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
+              ),
+              focusedBorder: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+                borderSide: const BorderSide(color: Color(0xFF14B8A6), width: 2),
+              ),
+            ),
+          ),
         ],
       ),
+    );
+  }
+
+  /// Sélecteur de propreté (5 niveaux)
+  Widget _buildCleanlinessSelector(String current, ValueChanged<String> onChanged) {
+    const levels = ['très sale', 'sale', 'correct', 'propre', 'très propre'];
+    const icons = [Icons.sentiment_very_dissatisfied, Icons.sentiment_dissatisfied, Icons.sentiment_neutral, Icons.sentiment_satisfied, Icons.sentiment_very_satisfied];
+    const colors = [Color(0xFFEF4444), Color(0xFFF97316), Color(0xFFF59E0B), Color(0xFF10B981), Color(0xFF14B8A6)];
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: List.generate(levels.length, (i) {
+        final selected = current == levels[i];
+        return GestureDetector(
+          onTap: () => onChanged(levels[i]),
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            decoration: BoxDecoration(
+              color: selected ? colors[i].withValues(alpha: 0.15) : PremiumTheme.cardBg,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: selected ? colors[i] : const Color(0xFFE5E7EB),
+                width: selected ? 2 : 1,
+              ),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(icons[i], color: selected ? colors[i] : PremiumTheme.textTertiary, size: 22),
+                const SizedBox(height: 4),
+                Text(
+                  levels[i].substring(0, 1).toUpperCase() + levels[i].substring(1),
+                  style: TextStyle(
+                    color: selected ? colors[i] : PremiumTheme.textSecondary,
+                    fontSize: 11,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      }),
     );
   }
 
@@ -1934,6 +2368,179 @@ class _InspectionDepartureScreenState
     );
   }
 
+  Widget _buildRecapStep() {
+    final photoCount = _photos.where((p) => p != null).length;
+    final optionalPhotoCount = _optionalPhotos.where((p) => p != null).length;
+    final damageCount = _photoDamages.where((d) => d != 'RAS').length +
+        _optionalPhotoDamages.where((d) => d != 'RAS').length;
+    final docCount = _namedDocuments.length;
+
+    String cleanlinessLabel(String val) {
+      switch (val) {
+        case 'tres_propre': return 'Très propre';
+        case 'propre': return 'Propre';
+        case 'correct': return 'Correct';
+        case 'sale': return 'Sale';
+        case 'tres_sale': return 'Très sale';
+        default: return val;
+      }
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Title
+          Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
+              ),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.checklist_rounded, color: Colors.white, size: 32),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: const [
+                      Text('Récapitulatif', style: TextStyle(
+                        color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                      SizedBox(height: 4),
+                      Text('Vérifiez les informations avant envoi',
+                        style: TextStyle(color: Colors.white70, fontSize: 14)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
+
+          // Compteur & Carburant
+          _buildRecapSection('🚗 Compteur & Carburant', [
+            _buildRecapRow('Kilométrage', '${_kmController.text} km'),
+            _buildRecapRow('Carburant', '${_fuelLevel.toInt()}%'),
+            _buildRecapRow('Propreté intérieure', cleanlinessLabel(_internalCleanliness)),
+            _buildRecapRow('Propreté extérieure', cleanlinessLabel(_externalCleanliness)),
+            _buildRecapRow('Photo tableau de bord', _dashboardPhoto != null ? '✅' : '❌'),
+          ]),
+          const SizedBox(height: 16),
+
+          // Photos
+          _buildRecapSection('📸 Photos', [
+            _buildRecapRow('Photos obligatoires', '$photoCount/8'),
+            _buildRecapRow('Photos optionnelles', '$optionalPhotoCount'),
+            _buildRecapRow('Dommages signalés', '$damageCount'),
+          ]),
+          const SizedBox(height: 16),
+
+          // Checklist
+          _buildRecapSection('📋 État du véhicule', [
+            _buildRecapRow('Clés remises', '$_numberOfKeys clé(s)'),
+            _buildRecapRow('Kit de sécurité', _hasSecurityKit ? '✅ Oui' : '❌ Non'),
+            _buildRecapRow('Roue de secours', _hasSpareWheel ? '✅ Oui' : '❌ Non'),
+            _buildRecapRow('Véhicule chargé', _isVehicleLoaded ? '✅ Oui' : '❌ Non'),
+            _buildRecapRow('Objet confié', _hasConfidedObject ? '✅ Oui' : '❌ Non'),
+            if (_observationsController.text.isNotEmpty)
+              _buildRecapRow('Observations', _observationsController.text),
+          ]),
+          const SizedBox(height: 16),
+
+          // Signatures
+          _buildRecapSection('✍️ Signatures', [
+            _buildRecapRow('Signature convoyeur', _driverSignature != null ? '✅' : '❌'),
+            _buildRecapRow('Signature client', _clientSignature != null ? '✅' : '❌'),
+            _buildRecapRow('Nom client', _clientNameController.text.isNotEmpty ? _clientNameController.text : '—'),
+          ]),
+          const SizedBox(height: 16),
+
+          // Documents
+          _buildRecapSection('📄 Documents', [
+            _buildRecapRow('Documents scannés', '$docCount'),
+          ]),
+          const SizedBox(height: 32),
+
+          // Warning
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: const Color(0xFFFEF3C7),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFF59E0B)),
+            ),
+            child: Row(
+              children: const [
+                Icon(Icons.info_outline, color: Color(0xFFF59E0B), size: 24),
+                SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    'Veuillez vérifier toutes les informations. Une fois envoyée, l\'inspection ne pourra plus être modifiée.',
+                    style: TextStyle(color: Color(0xFF92400E), fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecapSection(String title, List<Widget> children) {
+    return Container(
+      decoration: BoxDecoration(
+        color: PremiumTheme.cardBg,
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+            child: Text(title, style: TextStyle(
+              color: PremiumTheme.textPrimary,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            )),
+          ),
+          const Divider(height: 1),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecapRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        children: [
+          Flexible(
+            child: Text(label, style: TextStyle(
+              color: PremiumTheme.textSecondary,
+              fontSize: 14,
+            )),
+          ),
+          const SizedBox(width: 16),
+          Flexible(
+            child: Text(value, style: TextStyle(
+              color: PremiumTheme.textPrimary,
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+            ), textAlign: TextAlign.end),
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDocumentsStep() {
     return StatefulBuilder(
       builder: (context, setModalState) => SingleChildScrollView(
@@ -2176,7 +2783,7 @@ class _InspectionDepartureScreenState
               child: Container(
                 decoration: canProceed ? BoxDecoration(
                   borderRadius: BorderRadius.circular(14),
-                  gradient: _currentStep < 4
+                  gradient: _currentStep < 5
                       ? const LinearGradient(
                           colors: [Color(0xFF14B8A6), Color(0xFF0D9488)],
                         )
@@ -2194,24 +2801,25 @@ class _InspectionDepartureScreenState
                 child: ElevatedButton.icon(
                   onPressed: canProceed
                       ? () {
-                          if (_currentStep < 4) {
+                          if (_currentStep < 5) {
                             setState(() => _currentStep++);
+                            _saveDraft();
                           } else {
                             _submit();
                           }
                         }
                       : null,
-                  icon: _isSubmitting && _currentStep == 4
+                  icon: _isSubmitting && _currentStep == 5
                       ? const SizedBox(
                           width: 18, height: 18,
                           child: CircularProgressIndicator(
                               color: Colors.white, strokeWidth: 2))
                       : Icon(
-                          _currentStep < 4 ? Icons.arrow_forward_ios : Icons.check_circle,
-                          size: _currentStep < 4 ? 16 : 20,
+                          _currentStep < 5 ? Icons.arrow_forward_ios : Icons.check_circle,
+                          size: _currentStep < 5 ? 16 : 20,
                         ),
                   label: Text(
-                    _currentStep < 4 ? 'Suivant' : (_isSubmitting ? 'Envoi...' : 'Terminer l\'inspection'),
+                    _currentStep < 5 ? 'Suivant' : (_isSubmitting ? 'Envoi...' : 'Terminer l\'inspection'),
                     style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
                   ),
                   style: ElevatedButton.styleFrom(
