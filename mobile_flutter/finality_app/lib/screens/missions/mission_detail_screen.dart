@@ -972,13 +972,16 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         message = 'Mission demarree - Tracking GPS active';
       } else if (newStatus == 'completed') {
         message = 'Mission terminee';
-        // Proposer un lift retour
-        _showRetourLiftPopup();
       }
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(message), backgroundColor: PremiumTheme.accentGreen, behavior: SnackBarBehavior.floating),
       );
+
+      // Après la snackbar de succès, proposer un lift retour (non-intrusif)
+      if (newStatus == 'completed') {
+        _showRetourLiftSnackbar();
+      }
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
@@ -988,137 +991,43 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
   }
 
   // ==============================================
-  //  POPUP RETOUR LIFT (après mission terminée)
+  //  SNACKBAR RETOUR LIFT (non-intrusif)
   // ==============================================
-  Future<void> _showRetourLiftPopup() async {
+  Future<void> _showRetourLiftSnackbar() async {
     final prefs = await SharedPreferences.getInstance();
     if ((prefs.getBool('lift_popup_disabled') ?? false) || !mounted) return;
+
+    // Petit délai pour laisser la snackbar de succès disparaître
+    await Future.delayed(const Duration(seconds: 2));
+    if (!mounted) return;
+
     final deliveryCity = _mission?.deliveryCity ?? '';
-    bool neverAgain = false;
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => Container(
-        margin: const EdgeInsets.all(16),
-        padding: const EdgeInsets.all(24),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          deliveryCity.isNotEmpty
+              ? 'Besoin d\'un lift depuis $deliveryCity ?'
+              : 'Besoin d\'un lift retour ?',
         ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFD1FAE5),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Text('✅', style: TextStyle(fontSize: 24)),
+        backgroundColor: const Color(0xFF0D9488),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 6),
+        action: SnackBarAction(
+          label: 'Trouver un lift',
+          textColor: Colors.white,
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => RetourLiftScreen(
+                  fromCity: deliveryCity,
+                  missionId: _mission?.id,
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Mission terminée !',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
-                      if (deliveryCity.isNotEmpty)
-                        Text('Tu es à $deliveryCity',
-                            style: const TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF0FDF4),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: const Color(0xFF86EFAC)),
               ),
-              child: const Row(
-                children: [
-                  Icon(Icons.directions_car_outlined, color: Color(0xFF059669), size: 20),
-                  SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      'Un convoyeur dans la région peut peut-être te ramener !',
-                      style: TextStyle(fontSize: 13, color: Color(0xFF059669), height: 1.4),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-            Row(
-              children: [
-                Expanded(
-                  child: OutlinedButton(
-                    onPressed: () => Navigator.pop(ctx),
-                    style: OutlinedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                    child: const Text('Plus tard'),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: FilledButton.icon(
-                    onPressed: () {
-                      Navigator.pop(ctx);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => RetourLiftScreen(
-                            fromCity: deliveryCity,
-                            missionId: _mission?.id,
-                          ),
-                        ),
-                      );
-                    },
-                    icon: const Icon(Icons.search, size: 16),
-                    label: const Text('Trouver un lift'),
-                    style: FilledButton.styleFrom(
-                      backgroundColor: const Color(0xFF0D9488),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Transform.scale(
-                  scale: 0.85,
-                  child: Checkbox(
-                    value: neverAgain,
-                    activeColor: const Color(0xFF0D9488),
-                    onChanged: (v) {
-                      setLocal(() => neverAgain = v ?? false);
-                      if (v == true) prefs.setBool('lift_popup_disabled', true);
-                    },
-                  ),
-                ),
-                const Text('Ne plus afficher',
-                    style: TextStyle(fontSize: 13, color: Color(0xFF64748B))),
-              ],
-            ),
-          ],
+            );
+          },
         ),
       ),
-    ),
     );
   }
 

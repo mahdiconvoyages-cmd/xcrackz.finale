@@ -52,6 +52,13 @@ class UpdateService {
   /// Retourne [AppUpdate] si une version plus récente existe, null sinon
   Future<AppUpdate?> checkForUpdate() async {
     try {
+      // Sur iOS, les mises à jour passent par l'App Store / TestFlight
+      // Pas de vérification in-app pour éviter les faux positifs
+      if (Platform.isIOS) {
+        logger.i('⏭️ Vérification MAJ ignorée sur iOS (App Store / TestFlight)');
+        return null;
+      }
+
       final packageInfo = await PackageInfo.fromPlatform();
       final currentBuild = int.tryParse(packageInfo.buildNumber) ?? 0;
 
