@@ -118,10 +118,10 @@ export default function LeafletTracking({
           scrollWheelZoom: true,
         });
 
-        // Ajouter les tuiles OpenStreetMap (GRATUIT)
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-          maxZoom: 19,
+        // Ajouter les tuiles CartoDB Voyager (Design plus moderne et épuré)
+        L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+          attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+          maxZoom: 20,
         }).addTo(mapRef.current);
       } catch (error) {
         console.error('Error initializing map:', error);
@@ -140,54 +140,81 @@ export default function LeafletTracking({
     // Créer les icônes personnalisées
     const pickupIcon = L.divIcon({
       html: `
-        <div style="position: relative;">
+        <div style="position: relative; width: 48px; height: 48px;">
           <div style="
+            position: absolute;
+            bottom: 0; left: 50%;
+            transform: translateX(-50%);
+            width: 14px; height: 4px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 50%;
+            filter: blur(2px);
+          "></div>
+          <div style="
+            position: absolute;
+            top: 2px; left: 50%;
+            transform: translateX(-50%);
             background: linear-gradient(135deg, #10b981, #059669);
-            width: 40px;
-            height: 40px;
+            width: 36px; height: 36px;
             border-radius: 50% 50% 50% 0;
-            transform: rotate(-45deg);
+            transform: translateX(-50%) rotate(-45deg);
             border: 3px solid white;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-shadow: 0 8px 16px rgba(16, 185, 129, 0.4);
             display: flex;
             align-items: center;
             justify-content: center;
           ">
-            <svg style="transform: rotate(45deg);" width="20" height="20" viewBox="0 0 24 24" fill="white">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            <svg style="transform: rotate(45deg);" width="18" height="18" viewBox="0 0 24 24" fill="white">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+              <circle cx="12" cy="9" r="2.5" fill="rgba(255,255,255,0.9)"/>
             </svg>
           </div>
         </div>
       `,
       className: '',
-      iconSize: [40, 40],
-      iconAnchor: [20, 40],
+      iconSize: [48, 48],
+      iconAnchor: [24, 46],
+      popupAnchor: [0, -42],
     });
 
     const deliveryIcon = L.divIcon({
       html: `
-        <div style="position: relative;">
+        <div style="position: relative; width: 48px; height: 48px;">
+           <div style="
+            position: absolute;
+            bottom: 0; left: 50%;
+            transform: translateX(-50%);
+            width: 14px; height: 4px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 50%;
+            filter: blur(2px);
+          "></div>
           <div style="
+             position: absolute;
+            top: 2px; left: 50%;
+            transform: translateX(-50%);
             background: linear-gradient(135deg, #ef4444, #dc2626);
-            width: 40px;
-            height: 40px;
+            width: 36px; height: 36px;
             border-radius: 50% 50% 50% 0;
-            transform: rotate(-45deg);
+            transform: translateX(-50%) rotate(-45deg);
             border: 3px solid white;
-            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            box-shadow: 0 8px 16px rgba(239, 68, 68, 0.4);
             display: flex;
             align-items: center;
             justify-content: center;
           ">
-            <svg style="transform: rotate(45deg);" width="20" height="20" viewBox="0 0 24 24" fill="white">
-              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+            <svg style="transform: rotate(45deg);" width="18" height="18" viewBox="0 0 24 24" fill="white">
+              <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+              <path d="M11 8h2v4h-2zm0-2h2v2h-2z" fill="white" style="transform: rotate(45deg); display:none;"/> 
+              <circle cx="12" cy="9" r="2.5" fill="rgba(255,255,255,0.9)"/>
             </svg>
           </div>
         </div>
       `,
       className: '',
-      iconSize: [40, 40],
-      iconAnchor: [20, 40],
+      iconSize: [48, 48],
+      iconAnchor: [24, 46],
+      popupAnchor: [0, -42],
     });
 
     const driverIcon = L.divIcon({
@@ -304,11 +331,13 @@ export default function LeafletTracking({
 
           // Si on a un chemin GPS réel ET un chauffeur en mouvement
           if (gpsPath && gpsPath.length > 1 && driverLat && driverLng) {
-            // TRAJET PARCOURU (vert épais) - Style Uber Eats
+            
+            // TRAJET PARCOURU (Ombre + Ligne)
+            // Ligne du path (Gradient simulé)
             gpsTrailRef.current = L.polyline(gpsPath, {
-              color: '#10b981',
+              color: '#059669', // Emerald 600
               weight: 6,
-              opacity: 0.8,
+              opacity: 0.9,
               smoothFactor: 2,
               lineCap: 'round',
               lineJoin: 'round',
@@ -326,13 +355,13 @@ export default function LeafletTracking({
                   const coords = data.routes[0].geometry.coordinates.map((c: number[]) => [c[1], c[0]] as [number, number]);
                   setOsrmRoute(coords);
                   
-                  // Ligne pointillée pour le futur trajet
+                  // Ligne futur trajet épurée
                   futureRouteRef.current = L.polyline(coords, {
-                    color: '#94a3b8',
-                    weight: 4,
-                    opacity: 0.5,
-                    dashArray: '10, 10',
-                    smoothFactor: 2,
+                    color: '#94a3b8', // Slate 400
+                    weight: 5,
+                    opacity: 0.6,
+                    dashArray: '1, 10', // Pointillé serré moderne
+                    lineCap: 'round',
                   }).addTo(mapRef.current);
 
                   // Infos du trajet depuis OSRM
@@ -766,40 +795,38 @@ export default function LeafletTracking({
         </div>
       )}
 
-      {/* Informations de trajet */}
+      {/* Info Card - Moderne (Mobile friendly) */}
       {routeInfo && (
-        <div className="absolute bottom-4 left-4 backdrop-blur-xl bg-white/90 px-4 py-3 rounded-2xl shadow-2xl z-[1000] border border-slate-200">
-          <div className="flex items-center gap-4">
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-teal-500 to-cyan-500 rounded-xl flex items-center justify-center">
-                <Route className="w-5 h-5 text-white" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium">Distance</p>
-                <p className="text-lg font-black text-slate-900">{formatDistance(routeInfo.distance)}</p>
-              </div>
+        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 md:bottom-6 md:left-6 md:transform-none bg-white/95 backdrop-blur-md px-5 py-4 rounded-2xl shadow-2xl z-[1000] border border-slate-100 flex items-center justify-between min-w-[300px] max-w-[90vw]">
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center shrink-0 border border-emerald-100">
+              <Route className="w-6 h-6 text-emerald-600" />
             </div>
-            <div className="w-px h-10 bg-slate-200"></div>
-            <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 to-indigo-500 rounded-xl flex items-center justify-center">
-                <span className="text-lg">⏱️</span>
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 font-medium">Durée estimée</p>
-                <p className="text-lg font-black text-slate-900">{formatDuration(routeInfo.duration)}</p>
-              </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Distance</span>
+              <span className="text-xl font-black text-slate-900 leading-tight">{formatDistance(routeInfo.distance)}</span>
+            </div>
+          </div>
+          
+          <div className="w-px h-10 bg-gradient-to-b from-transparent via-slate-200 to-transparent mx-2"></div>
+        
+          <div className="flex items-center gap-3">
+            <div className="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center shrink-0 border border-sky-100">
+              <span className="text-xl">⏱️</span>
+            </div>
+            <div className="flex flex-col">
+              <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Estimé</span>
+              <span className="text-xl font-black text-slate-900 leading-tight">{formatDuration(routeInfo.duration)}</span>
             </div>
           </div>
         </div>
       )}
 
-      {/* Chargement du tracé */}
+      {/* Loading pill */}
       {routeLoading && (
-        <div className="absolute bottom-4 left-4 backdrop-blur-xl bg-white/90 px-4 py-3 rounded-2xl shadow-2xl z-[1000] border border-slate-200">
-          <div className="flex items-center gap-3">
-            <Loader2 className="w-5 h-5 text-teal-600 animate-spin" />
-            <span className="text-sm font-semibold text-slate-700">Calcul du tracé GPS...</span>
-          </div>
+        <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-white/90 backdrop-blur-sm px-4 py-2 rounded-full shadow-lg z-[1000] border border-slate-200 flex items-center gap-3 animate-fade-in-down">
+          <Loader2 className="w-4 h-4 text-emerald-600 animate-spin" />
+          <span className="text-sm font-semibold text-slate-700">Calcul d'itinéraire...</span>
         </div>
       )}
     </div>
