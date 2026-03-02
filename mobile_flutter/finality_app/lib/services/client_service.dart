@@ -3,6 +3,7 @@ import '../models/client.dart';
 import '../utils/logger.dart';
 import 'offline_service.dart';
 import 'connectivity_service.dart';
+import '../main.dart' show connectivityService;
 
 /// Service de gestion des clients
 /// CRUD complet avec recherche SIRET via API INSEE
@@ -10,7 +11,14 @@ import 'connectivity_service.dart';
 class ClientService {
   final SupabaseClient _supabase = Supabase.instance.client;
   final OfflineService _offlineService = OfflineService();
-  final ConnectivityService _connectivityService = ConnectivityService();
+  /// Use the global ConnectivityService singleton
+  ConnectivityService get _connectivityService {
+    try {
+      return connectivityService;
+    } catch (_) {
+      return ConnectivityService();
+    }
+  }
   bool _isInitialized = false;
 
   Future<void> _ensureInitialized() async {
@@ -179,9 +187,6 @@ class ClientService {
         .eq('id', clientId);
     if (userId != null) query = query.eq('user_id', userId);
     await query;
-  }
-        .update({'is_favorite': isFavorite, 'updated_at': DateTime.now().toUtc().toIso8601String()})
-        .eq('id', clientId);
   }
 
   /// Récupère les statistiques d'un client

@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:finality_app/config/api_config.dart';
+import 'package:checksfleet_app/config/api_config.dart';
 
 void main() {
   group('ApiConfig', () {

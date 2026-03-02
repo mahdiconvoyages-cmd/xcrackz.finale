@@ -355,11 +355,12 @@ class MissionService {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('Utilisateur non connecté');
       // RLS handles user scoping, but add filter for defense in depth
+      // Combine user filter and search filter in a single query
       final response = await _supabase
           .from('missions')
           .select()
           .or('user_id.eq.$userId,assigned_user_id.eq.$userId')
-          .or('pickup_address.ilike.%$query%,delivery_address.ilike.%$query%,client_name.ilike.%$query%')
+          .or('pickup_address.ilike.%$query%,delivery_address.ilike.%$query%,client_name.ilike.%$query%,vehicle_brand.ilike.%$query%,vehicle_plate.ilike.%$query%')
           .order('created_at', ascending: false);
 
       return (response as List).map((json) => Mission.fromJson(json)).toList();

@@ -153,12 +153,23 @@ class FCMService {
       final user = Supabase.instance.client.auth.currentUser;
       if (user == null) return;
 
+      // Toujours sauvegarder le token en priorité
       await Supabase.instance.client
           .from('profiles')
           .update({
             'fcm_token': token,
-            'device_platform': kIsWeb ? 'web' : (Platform.isIOS ? 'ios' : 'android'),
           }).eq('id', user.id);
+
+      // Tenter d'enregistrer la plateforme séparément (colonne peut ne pas exister encore)
+      try {
+        await Supabase.instance.client
+            .from('profiles')
+            .update({
+              'device_platform': kIsWeb ? 'web' : (Platform.isIOS ? 'ios' : 'android'),
+            }).eq('id', user.id);
+      } catch (_) {
+        logger.w('FCM: colonne device_platform non disponible');
+      }
 
       logger.i('FCM: Token sauvegardé dans profiles');
     } catch (e) {

@@ -145,7 +145,9 @@ class InspectionService {
   // Delete inspection
   Future<void> deleteInspection(String id) async {
     try {
-      await _supabase.from('vehicle_inspections').delete().eq('id', id);
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
+      await _supabase.from('vehicle_inspections').delete().eq('id', id).eq('inspector_id', userId);
     } catch (e) {
       throw Exception('Erreur lors de la suppression de l\'inspection: $e');
     }

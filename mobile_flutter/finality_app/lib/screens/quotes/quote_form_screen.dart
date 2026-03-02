@@ -205,6 +205,17 @@ class _QuoteFormScreenState extends State<QuoteFormScreen> {
                     _clientVatController.text = client.tvaNumber ?? '';
                   });
                 },
+                onClientDeselected: () {
+                  setState(() {
+                    _selectedClient = null;
+                    _clientNameController.clear();
+                    _clientEmailController.clear();
+                    _clientPhoneController.clear();
+                    _clientAddressController.clear();
+                    _clientSiretController.clear();
+                    _clientVatController.clear();
+                  });
+                },
               ),
               if (_selectedClient != null) ...[
                 const SizedBox(height: 12),

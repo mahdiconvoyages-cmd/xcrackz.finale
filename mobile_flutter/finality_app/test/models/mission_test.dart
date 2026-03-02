@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:finality_app/models/mission.dart';
+import 'package:checksfleet_app/models/mission.dart';
 
 void main() {
   group('Mission model', () {

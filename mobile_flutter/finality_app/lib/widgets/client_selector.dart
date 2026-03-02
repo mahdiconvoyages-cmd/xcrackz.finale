@@ -7,12 +7,14 @@ import '../screens/crm/client_detail_screen.dart';
 class ClientSelector extends StatefulWidget {
   final Client? selectedClient;
   final Function(Client) onClientSelected;
+  final VoidCallback? onClientDeselected;
   final bool showCreateButton;
 
   const ClientSelector({
     super.key,
     this.selectedClient,
     required this.onClientSelected,
+    this.onClientDeselected,
     this.showCreateButton = true,
   });
 
@@ -137,8 +139,7 @@ class _ClientSelectorState extends State<ClientSelector> {
                   IconButton(
                     icon: const Icon(Icons.close, size: 20),
                     onPressed: () {
-                      // Deselect - on passe un client vide pour signaler la désélection
-                      // L'appelant devrait gérer cela
+                      widget.onClientDeselected?.call();
                     },
                     padding: EdgeInsets.zero,
                     constraints: const BoxConstraints(),

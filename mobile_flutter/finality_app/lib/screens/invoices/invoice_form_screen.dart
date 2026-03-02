@@ -376,6 +376,17 @@ class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
                 _clientVat.text = c.tvaNumber ?? '';
               });
             },
+            onClientDeselected: () {
+              setState(() {
+                _selectedClient = null;
+                _clientName.clear();
+                _clientEmail.clear();
+                _clientPhone.clear();
+                _clientAddress.clear();
+                _clientSiret.clear();
+                _clientVat.clear();
+              });
+            },
           ),
           if (_selectedClient != null) ...[
             const SizedBox(height: 12),

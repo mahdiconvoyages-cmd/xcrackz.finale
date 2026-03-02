@@ -35,7 +35,7 @@ class InspectionPhotoService {
   ) async {
     try {
       final response = await _supabase
-          .from('inspection_photos')
+          .from('inspection_photos_v2')
           .select()
           .eq('inspection_id', inspectionId)
           .eq('category', category.value)
@@ -69,9 +69,9 @@ class InspectionPhotoService {
           .from('inspection-photos')
           .getPublicUrl(path);
 
-      // 3. Enregistrer dans la table inspection_photos
+      // 3. Enregistrer dans la table inspection_photos_v2
       final response = await _supabase
-          .from('inspection_photos')
+          .from('inspection_photos_v2')
           .insert({
             'inspection_id': inspectionId,
             'category': category.value,
@@ -107,9 +107,9 @@ class InspectionPhotoService {
           .from('inspection-photos')
           .getPublicUrl(path);
 
-      // 3. Enregistrer dans la table inspection_photos
+      // 3. Enregistrer dans la table inspection_photos_v2
       final response = await _supabase
-          .from('inspection_photos')
+          .from('inspection_photos_v2')
           .insert({
             'inspection_id': inspectionId,
             'category': category.value,

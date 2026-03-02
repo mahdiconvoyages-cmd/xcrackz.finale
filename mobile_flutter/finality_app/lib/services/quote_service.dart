@@ -43,7 +43,7 @@ class QuoteService {
 
       var query = _supabase
           .from('quotes')
-          .select('*')
+          .select('*, quote_items(*)')
           .eq('user_id', userId);
 
       if (status != null && status != 'all') {
@@ -56,18 +56,6 @@ class QuoteService {
       
       final quotes = <Quote>[];
       for (final json in response as List) {
-        final quoteId = json['id'] as String?;
-        if (quoteId != null) {
-          try {
-            final items = await _supabase
-                .from('quote_items')
-                .select('*')
-                .eq('quote_id', quoteId);
-            json['quote_items'] = items;
-          } catch (_) {
-            json['quote_items'] = [];
-          }
-        }
         quotes.add(Quote.fromJson(json));
       }
       
@@ -79,10 +67,14 @@ class QuoteService {
 
   Future<Quote> getQuoteById(String id) async {
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
+
       final response = await _supabase
           .from('quotes')
           .select('*')
           .eq('id', id)
+          .eq('user_id', userId)
           .single();
 
       // Charger les items séparément
@@ -101,13 +93,17 @@ class QuoteService {
   // Update
   Future<Quote> updateQuote(Quote quote) async {
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
+
       final quoteData = quote.toJson();
       quoteData['updated_at'] = DateTime.now().toUtc().toIso8601String();
 
       await _supabase
           .from('quotes')
           .update(quoteData)
-          .eq('id', quote.id!);
+          .eq('id', quote.id!)
+          .eq('user_id', userId);
 
       // Delete existing items
       await _supabase.from('quote_items').delete().eq('quote_id', quote.id!);
@@ -132,7 +128,9 @@ class QuoteService {
   // Delete
   Future<void> deleteQuote(String id) async {
     try {
-      await _supabase.from('quotes').delete().eq('id', id);
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
+      await _supabase.from('quotes').delete().eq('id', id).eq('user_id', userId);
     } catch (e) {
       throw Exception('Erreur lors de la suppression du devis: $e');
     }
@@ -141,11 +139,13 @@ class QuoteService {
   // Status actions
   Future<Quote> markAsSent(String id) async {
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
       await _supabase.from('quotes').update({
         'status': 'sent',
         'sent_at': DateTime.now().toUtc().toIso8601String(),
         'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', id);
+      }).eq('id', id).eq('user_id', userId);
 
       return getQuoteById(id);
     } catch (e) {
@@ -155,11 +155,13 @@ class QuoteService {
 
   Future<Quote> markAsAccepted(String id) async {
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
       await _supabase.from('quotes').update({
         'status': 'accepted',
         'accepted_at': DateTime.now().toUtc().toIso8601String(),
         'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', id);
+      }).eq('id', id).eq('user_id', userId);
 
       return getQuoteById(id);
     } catch (e) {
@@ -169,11 +171,13 @@ class QuoteService {
 
   Future<Quote> markAsRejected(String id) async {
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
       await _supabase.from('quotes').update({
         'status': 'rejected',
         'rejected_at': DateTime.now().toUtc().toIso8601String(),
         'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', id);
+      }).eq('id', id).eq('user_id', userId);
 
       return getQuoteById(id);
     } catch (e) {
@@ -234,13 +238,14 @@ class QuoteService {
         await _supabase.from('invoice_items').insert(itemsData);
       }
 
-      // Update quote status
+      // Update quote status (user_id already verified via getQuoteById above)
+      final userId = _supabase.auth.currentUser?.id;
       await _supabase.from('quotes').update({
         'status': 'converted',
         'converted_at': DateTime.now().toUtc().toIso8601String(),
         'converted_invoice_id': invoiceId,
         'updated_at': DateTime.now().toUtc().toIso8601String(),
-      }).eq('id', quoteId);
+      }).eq('id', quoteId).eq('user_id', userId!);
 
       // Fetch complete invoice with items
       final completeInvoiceResponse = await _supabase
@@ -258,7 +263,7 @@ class QuoteService {
   // Statistics
   Future<Map<String, dynamic>> getQuoteStats() async {
     try {
-      final quotes = await getQuotes();
+      final quotes = await getQuotes(limit: 10000);
       
       final total = quotes.length;
       final draft = quotes.where((q) => q.status == 'draft').length;
@@ -299,12 +304,16 @@ class QuoteService {
   // Generate quote number
   Future<String> generateQuoteNumber() async {
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
+
       final now = DateTime.now();
       final year = now.year;
       
       final response = await _supabase
           .from('quotes')
           .select('quote_number')
+          .eq('user_id', userId)
           .like('quote_number', 'DEV-$year-%')
           .order('quote_number', ascending: false)
           .limit(1);
@@ -327,12 +336,16 @@ class QuoteService {
 
   Future<String> _generateInvoiceNumber() async {
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
+
       final now = DateTime.now();
       final year = now.year;
       
       final response = await _supabase
           .from('invoices')
           .select('invoice_number')
+          .eq('user_id', userId)
           .like('invoice_number', 'INV-$year-%')
           .order('invoice_number', ascending: false)
           .limit(1);

@@ -282,11 +282,11 @@ class _QuoteListScreenState extends State<QuoteListScreen>
             ),
             const SizedBox(width: 8),
             _buildFilterChip(
-              label: 'En attente (${_stats['pending'] ?? 0})',
-              isSelected: _filter == 'pending',
+              label: 'Brouillons (${_stats['draft'] ?? 0})',
+              isSelected: _filter == 'draft',
               color: PremiumTheme.accentAmber,
               onSelected: () {
-                setState(() => _filter = 'pending');
+                setState(() => _filter = 'draft');
                 _loadQuotes();
               },
             ),

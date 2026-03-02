@@ -131,10 +131,13 @@ class InvoiceService {
   // Récupérer une facture par ID
   Future<Invoice?> getInvoiceById(String id) async {
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
       final response = await _supabase
           .from('invoices')
           .select()
           .eq('id', id)
+          .eq('user_id', userId)
           .single();
 
       return Invoice.fromJson(response);
@@ -145,10 +148,13 @@ class InvoiceService {
 
   Future<Invoice?> getInvoiceByIdWithItems(String id) async {
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
       final response = await _supabase
           .from('invoices')
           .select('*, invoice_items(*)')
           .eq('id', id)
+          .eq('user_id', userId)
           .single();
       
       // Convertir invoice_items en items pour le modèle
@@ -167,6 +173,8 @@ class InvoiceService {
   // Mettre à jour une facture
   Future<Invoice> updateInvoice(String id, Invoice invoice) async {
     try {
+      final userId = _supabase.auth.currentUser?.id;
+      if (userId == null) throw Exception('Utilisateur non connecté');
       logger.i('InvoiceService.updateInvoice - ID: $id');
       
       // Extraire les items
@@ -204,6 +212,7 @@ class InvoiceService {
           .from('invoices')
           .update(invoiceJson)
           .eq('id', id)
+          .eq('user_id', userId)
           .select()
           .single();
       
@@ -397,6 +406,7 @@ class InvoiceService {
           .from('missions')
           .select('*')
           .eq('id', missionId)
+          .or('user_id.eq.$userId,assigned_user_id.eq.$userId')
           .single();
 
       final mission = missionResponse;
