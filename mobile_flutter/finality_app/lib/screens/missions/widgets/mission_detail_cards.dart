@@ -30,9 +30,9 @@ class MissionCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: PremiumTheme.cardBg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.15)),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -120,7 +120,7 @@ class MissionShareCodeCard extends StatelessWidget {
         ),
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
-          BoxShadow(color: const Color(0xFF6366F1).withOpacity(0.3), blurRadius: 12, offset: const Offset(0, 4)),
+          BoxShadow(color: const Color(0xFF6366F1).withValues(alpha: 0.3), blurRadius: 12, offset: const Offset(0, 4)),
         ],
       ),
       child: Column(
@@ -147,9 +147,9 @@ class MissionShareCodeCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
                   decoration: BoxDecoration(
-                    color: Colors.white.withOpacity(0.15),
+                    color: Colors.white.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: Colors.white.withOpacity(0.3)),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
                   ),
                   child: Text(
                     mission.shareCode!,
@@ -176,7 +176,7 @@ class MissionShareCodeCard extends StatelessWidget {
                 },
                 icon: const Icon(Icons.copy, color: Colors.white),
                 style: IconButton.styleFrom(
-                  backgroundColor: Colors.white.withOpacity(0.2),
+                  backgroundColor: Colors.white.withValues(alpha: 0.2),
                   padding: const EdgeInsets.all(14),
                 ),
               ),
@@ -222,7 +222,7 @@ class MissionDriverCard extends StatelessWidget {
                 Container(
                   width: 40, height: 40,
                   decoration: BoxDecoration(
-                    color: PremiumTheme.primaryBlue.withOpacity(0.1),
+                    color: PremiumTheme.primaryBlue.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: const Icon(Icons.person, color: PremiumTheme.primaryBlue, size: 22),
@@ -263,7 +263,7 @@ class MissionDriverCard extends StatelessWidget {
                 label: const Text('Changer de chauffeur'),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: PremiumTheme.accentAmber,
-                  side: BorderSide(color: PremiumTheme.accentAmber.withOpacity(0.5)),
+                  side: BorderSide(color: PremiumTheme.accentAmber.withValues(alpha: 0.5)),
                   padding: const EdgeInsets.symmetric(vertical: 12),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                 ),
@@ -320,7 +320,7 @@ class MissionInspectionStatusCard extends StatelessWidget {
               decoration: BoxDecoration(
                 color: const Color(0xFFFFF3E0),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: const Color(0xFFE65100).withOpacity(0.2)),
+                border: Border.all(color: const Color(0xFFE65100).withValues(alpha: 0.2)),
               ),
               child: const Row(
                 children: [
@@ -341,9 +341,9 @@ class MissionInspectionStatusCard extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: PremiumTheme.accentAmber.withOpacity(0.1),
+                color: PremiumTheme.accentAmber.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: PremiumTheme.accentAmber.withOpacity(0.3)),
+                border: Border.all(color: PremiumTheme.accentAmber.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -354,7 +354,7 @@ class MissionInspectionStatusCard extends StatelessWidget {
                       mission.hasRestitution
                           ? 'Les 4 inspections (depart, arrivee, restitution depart, restitution arrivee) sont obligatoires.'
                           : 'Les deux inspections (depart et arrivee) sont obligatoires pour terminer la mission.',
-                      style: TextStyle(color: PremiumTheme.accentAmber.withOpacity(0.9), fontSize: 12),
+                      style: TextStyle(color: PremiumTheme.accentAmber.withValues(alpha: 0.9), fontSize: 12),
                     ),
                   ),
                 ],
@@ -372,7 +372,7 @@ class MissionInspectionStatusCard extends StatelessWidget {
         Container(
           width: 32, height: 32,
           decoration: BoxDecoration(
-            color: done ? PremiumTheme.accentGreen.withOpacity(0.1) : PremiumTheme.textTertiary.withOpacity(0.1),
+            color: done ? PremiumTheme.accentGreen.withValues(alpha: 0.1) : PremiumTheme.textTertiary.withValues(alpha: 0.1),
             borderRadius: BorderRadius.circular(8),
           ),
           child: Icon(
@@ -466,7 +466,7 @@ class MissionVehicleCard extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
-                color: PremiumTheme.primaryBlue.withOpacity(0.1),
+                color: PremiumTheme.primaryBlue.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(6),
               ),
               child: const Text('ALLER', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: PremiumTheme.primaryBlue)),
@@ -489,7 +489,7 @@ class MissionVehicleCard extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 10),
       child: Row(
         children: [
-          Icon(icon, color: PremiumTheme.primaryTeal.withOpacity(0.7), size: 18),
+          Icon(icon, color: PremiumTheme.primaryTeal.withValues(alpha: 0.7), size: 18),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -601,7 +601,7 @@ class MissionRestitutionCard extends StatelessWidget {
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(color: _restitutionOrange.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 4)),
+          BoxShadow(color: _restitutionOrange.withValues(alpha: 0.08), blurRadius: 15, offset: const Offset(0, 4)),
         ],
       ),
       child: ClipRRect(
@@ -625,7 +625,7 @@ class MissionRestitutionCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.2),
+                      color: Colors.white.withValues(alpha: 0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Text('PHASE 2', style: TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
@@ -690,16 +690,16 @@ class MissionRestitutionCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: _restitutionOrange.withOpacity(0.05),
+        color: _restitutionOrange.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _restitutionOrange.withOpacity(0.15)),
+        border: Border.all(color: _restitutionOrange.withValues(alpha: 0.15)),
       ),
       child: Row(
         children: [
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: _restitutionOrange.withOpacity(0.1),
+              color: _restitutionOrange.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
             ),
             child: const Icon(Icons.directions_car, color: _restitutionOrange, size: 22),
@@ -720,7 +720,7 @@ class MissionRestitutionCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: _restitutionOrange.withOpacity(0.12),
+                      color: _restitutionOrange.withValues(alpha: 0.12),
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -735,7 +735,7 @@ class MissionRestitutionCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
             decoration: BoxDecoration(
-              color: _restitutionOrange.withOpacity(0.15),
+              color: _restitutionOrange.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(6),
             ),
             child: const Text('RETOUR', style: TextStyle(color: _restitutionOrange, fontSize: 11, fontWeight: FontWeight.w700)),
@@ -818,10 +818,10 @@ class MissionTrackingCard extends StatelessWidget {
         color: PremiumTheme.cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: isActive ? PremiumTheme.accentGreen.withOpacity(0.5) : const Color(0xFFE5E7EB),
+          color: isActive ? PremiumTheme.accentGreen.withValues(alpha: 0.5) : const Color(0xFFE5E7EB),
         ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -925,9 +925,9 @@ class LocationBlock extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.05),
+        color: color.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.2)),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -945,7 +945,7 @@ class LocationBlock extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                Icon(Icons.calendar_today, color: color.withOpacity(0.7), size: 14),
+                Icon(Icons.calendar_today, color: color.withValues(alpha: 0.7), size: 14),
                 const SizedBox(width: 6),
                 Text(date!, style: const TextStyle(color: PremiumTheme.textSecondary, fontSize: 13)),
               ],
@@ -956,9 +956,9 @@ class LocationBlock extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.04),
+                color: color.withValues(alpha: 0.04),
                 borderRadius: BorderRadius.circular(10),
-                border: Border.all(color: color.withOpacity(0.15)),
+                border: Border.all(color: color.withValues(alpha: 0.15)),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -987,9 +987,9 @@ class LocationBlock extends StatelessWidget {
                         width: double.infinity,
                         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                         decoration: BoxDecoration(
-                          color: color.withOpacity(0.1),
+                          color: color.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: color.withOpacity(0.3)),
+                          border: Border.all(color: color.withValues(alpha: 0.3)),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.center,
@@ -1012,7 +1012,7 @@ class LocationBlock extends StatelessWidget {
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 12),
                       decoration: BoxDecoration(
-                        color: PremiumTheme.textTertiary.withOpacity(0.05),
+                        color: PremiumTheme.textTertiary.withValues(alpha: 0.05),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Row(
@@ -1060,9 +1060,9 @@ class ShareButton extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: color.withOpacity(0.1),
+          color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color.withOpacity(0.3)),
+          border: Border.all(color: color.withValues(alpha: 0.3)),
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,

@@ -275,7 +275,7 @@ class _PlanningMapViewState extends State<PlanningMapView> {
               children: [
                 CircleAvatar(
                   radius: 22,
-                  backgroundColor: _kTeal.withOpacity(0.1),
+                  backgroundColor: _kTeal.withValues(alpha: 0.1),
                   backgroundImage: profile['avatar_url'] != null
                       ? NetworkImage(profile['avatar_url'] as String)
                       : null,
@@ -317,7 +317,7 @@ class _PlanningMapViewState extends State<PlanningMapView> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                   decoration: BoxDecoration(
-                    color: _kTeal.withOpacity(0.1),
+                    color: _kTeal.withValues(alpha: 0.1),
                     borderRadius: BorderRadius.circular(20),
                   ),
                   child: Text(
@@ -460,8 +460,8 @@ class _PlanningMapViewState extends State<PlanningMapView> {
             maxZoom: 18,
             minZoom: 4,
             onPositionChanged: (pos, hasGesture) {
-              if (hasGesture && pos.zoom != null) {
-                _computeClusters(pos.zoom!);
+              if (hasGesture) {
+                _computeClusters(pos.zoom);
               }
             },
           ),
@@ -476,7 +476,7 @@ class _PlanningMapViewState extends State<PlanningMapView> {
                   .where((c) => !c.isCluster && c.markers.first.destPoint != null)
                   .map((c) => Polyline(
                         points: [c.markers.first.point, c.markers.first.destPoint!],
-                        color: _kTeal.withOpacity(0.5),
+                        color: _kTeal.withValues(alpha: 0.5),
                         strokeWidth: 2.5,
                         pattern: const StrokePattern.dotted(),
                       ))
@@ -498,12 +498,12 @@ class _PlanningMapViewState extends State<PlanningMapView> {
                       },
                       child: Container(
                         decoration: BoxDecoration(
-                          color: _kTeal.withOpacity(0.85),
+                          color: _kTeal.withValues(alpha: 0.85),
                           shape: BoxShape.circle,
                           border: Border.all(color: Colors.white, width: 2.5),
                           boxShadow: [
                             BoxShadow(
-                              color: _kTeal.withOpacity(0.3),
+                              color: _kTeal.withValues(alpha: 0.3),
                               blurRadius: 8,
                               spreadRadius: 2,
                             ),
@@ -541,7 +541,7 @@ class _PlanningMapViewState extends State<PlanningMapView> {
                           border: Border.all(color: Colors.white, width: 2),
                           boxShadow: [
                             BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
+                              color: Colors.black.withValues(alpha: 0.2),
                               blurRadius: 6,
                             ),
                           ],
@@ -573,7 +573,7 @@ class _PlanningMapViewState extends State<PlanningMapView> {
                       border: Border.all(color: Colors.white, width: 1.5),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.15),
+                          color: Colors.black.withValues(alpha: 0.15),
                           blurRadius: 4,
                         ),
                       ],
@@ -629,7 +629,7 @@ class _PlanningMapViewState extends State<PlanningMapView> {
                     borderRadius: BorderRadius.circular(20),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 8,
                       ),
                     ],
@@ -659,7 +659,7 @@ class _PlanningMapViewState extends State<PlanningMapView> {
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: [
                       BoxShadow(
-                        color: Colors.black.withOpacity(0.1),
+                        color: Colors.black.withValues(alpha: 0.1),
                         blurRadius: 8,
                       ),
                     ],

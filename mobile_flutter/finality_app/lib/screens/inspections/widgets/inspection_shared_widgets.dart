@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'dart:typed_data';
 import '../../../widgets/signature_pad_widget.dart';
 import '../../../theme/premium_theme.dart';
 

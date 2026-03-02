@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/premium_theme.dart';
-import '../../l10n/app_localizations.dart';
 
 /// Écran d'historique des notifications
 class NotificationHistoryScreen extends StatefulWidget {

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:path_provider/path_provider.dart';
@@ -10,7 +11,6 @@ import 'dart:convert';
 import '../../widgets/inspection_report_link_dialog.dart';
 import '../document_scanner/document_scanner_screen.dart';
 import '../../theme/premium_theme.dart';
-import '../../widgets/premium/premium_widgets.dart';
 import 'widgets/inspection_shared_widgets.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/vehicle_body_map_widget.dart';
@@ -38,7 +38,6 @@ class _InspectionDepartureScreenState
   final supabase = Supabase.instance.client;
 
   int _currentStep = 0;
-  bool _isLoading = false;
   bool _isSubmitting = false;
   String _vehicleType = 'VL'; // VL, VU, ou PL
 
@@ -114,7 +113,8 @@ class _InspectionDepartureScreenState
 
   @override
   void dispose() {
-    _saveDraft(); // Sauvegarder le brouillon avant de quitter
+    // Fire-and-forget draft save — data is best-effort on dispose
+    unawaited(_saveDraft());
     _kmController.removeListener(_onFieldChanged);
     _clientNameController.removeListener(_onFieldChanged);
     _kmController.dispose();
@@ -933,7 +933,6 @@ class _InspectionDepartureScreenState
   }
 
   Widget _buildProgressIndicator() {
-    final progress = (_currentStep + 1) / 6;
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
       decoration: BoxDecoration(
@@ -1509,7 +1508,7 @@ class _InspectionDepartureScreenState
           ),
           boxShadow: [
             BoxShadow(
-              color: Colors.black.withOpacity(0.05),
+              color: Colors.black.withValues(alpha: 0.05),
               blurRadius: 4,
               offset: const Offset(0, 2),
             ),
@@ -1543,7 +1542,7 @@ class _InspectionDepartureScreenState
                                 child: Icon(
                                   Icons.camera_alt,
                                   size: 32,
-                                  color: PremiumTheme.primaryTeal.withOpacity(0.7),
+                                  color: PremiumTheme.primaryTeal.withValues(alpha: 0.7),
                                 ),
                               ),
                             ],

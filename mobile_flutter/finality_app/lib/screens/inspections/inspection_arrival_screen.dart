@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
@@ -11,10 +12,8 @@ import 'dart:convert';
 import '../../widgets/inspection_report_link_dialog.dart';
 import '../document_scanner/document_scanner_screen.dart';
 import '../../theme/premium_theme.dart';
-import '../../widgets/premium/premium_widgets.dart';
 import 'widgets/inspection_shared_widgets.dart';
 import '../../services/notification_service.dart';
-import '../../widgets/vehicle_body_map_widget.dart';
 
 /// Écran d'inspection d'arrivée moderne avec 8 photos obligatoires
 /// Compatible avec les tables Expo mobile (vehicle_inspections + inspection_photos)
@@ -39,7 +38,6 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
   final supabase = Supabase.instance.client;
 
   int _currentStep = 0;
-  bool _isLoading = false;
   bool _isSubmitting = false;
   String _vehicleType = 'VL'; // VL, VU, ou PL
 
@@ -102,8 +100,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
     'Autre',
   ];
 
-  // Body map damages
-  List<DamageEntry> _bodyMapDamages = [];
+  // Body map damages tracked by VehicleBodyMapWidget callback
 
   @override
   void initState() {
@@ -319,7 +316,6 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
   }
 
   Widget _buildProgressIndicator() {
-    final progress = (_currentStep + 1) / 6;
     return Container(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 20),
       decoration: BoxDecoration(
@@ -1816,7 +1812,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
                         margin: const EdgeInsets.only(top: 4),
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
-                          color: const Color(0xFF14B8A6).withOpacity(0.1),
+                          color: const Color(0xFF14B8A6).withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(color: const Color(0xFF14B8A6), width: 1),
                         ),
@@ -3167,7 +3163,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
 
   @override
   void dispose() {
-    _saveDraft();
+    unawaited(_saveDraft());
     _kmController.removeListener(_onFieldChanged);
     _clientNameController.removeListener(_onFieldChanged);
     _kmController.dispose();

@@ -129,9 +129,9 @@ class _CRMScreenState extends State<CRMScreen>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
           decoration: BoxDecoration(
-            color: color.withOpacity(0.06),
+            color: color.withValues(alpha: 0.06),
             borderRadius: BorderRadius.circular(14),
-            border: Border.all(color: color.withOpacity(0.12)),
+            border: Border.all(color: color.withValues(alpha: 0.12)),
           ),
           child: Row(
             children: [
@@ -269,7 +269,7 @@ class _CRMScreenState extends State<CRMScreen>
                       borderRadius: BorderRadius.circular(10),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withOpacity(0.06),
+                          color: Colors.black.withValues(alpha: 0.06),
                           blurRadius: 4,
                           offset: const Offset(0, 1),
                         ),

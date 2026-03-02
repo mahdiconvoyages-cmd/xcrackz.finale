@@ -241,9 +241,6 @@ class _VehicleBodyMapWidgetState extends State<VehicleBodyMapWidget> {
     },
   };
 
-  Map<VehicleZone, Rect> get _currentZoneRects =>
-      _viewZoneRects[_currentView] ?? {};
-
   bool _hasZoneDamage(VehicleZone zone) {
     return widget.damages.any((d) => d.zone == zone);
   }
@@ -918,28 +915,8 @@ class _VehiclePainter extends CustomPainter {
     canvas.drawPath(Path()..moveTo(290 * sx, 240 * sy)..lineTo(270 * sx, 240 * sy)..lineTo(275 * sx, 255 * sy)..lineTo(288 * sx, 255 * sy)..close(),
        Paint()..color = Colors.red.withValues(alpha: 0.5));
 
-    // Mirror
-    final mirrorX = isLeft ? 105.0 : 195.0; // Wait, side is always left-to-right drawn? 
-    // Ah, logic is: paintSideView draws a side view. 'isLeft' only changes labels maybe?
-    // Actually my generic side view drawing assumes front is LEFT. 
-    // Usually side views: Left side (Driver) -> Front is Left. Right side (Passenger) -> Front is Right.
-    // I should flip the canvas for Right side!
-    
-    // Wait, the logic above draws Front at X=10..80 (Left). 
-    // This matches 'Left Side' view (Front is Left).
-    // For 'Right Side' view, front is usually Right.
-    
-    if (!isLeft) { 
-        // Need to flip for right side? No, standard blueprint often keeps front left, but 
-        // strictly speaking right side view has front on right.
-        // Let's rely on labels. But for high fidelity, mirrors should match.
-        // Let's draw standard front-left for both for simplicity unless user complained about orientation.
-        // Current implementation reuses same drawing. I will keep it but fix Mirror position.
-        // The drawing has A-pillar at 110. Side mirror is there.
-         canvas.drawOval(Rect.fromLTWH(95 * sx, 175 * sy, 20 * sx, 12 * sy), Paint()..color = const Color(0xFF64748B));
-    } else {
-         canvas.drawOval(Rect.fromLTWH(95 * sx, 175 * sy, 20 * sx, 12 * sy), Paint()..color = const Color(0xFF64748B));
-    }
+    // Mirror — positioned near A-pillar
+    canvas.drawOval(Rect.fromLTWH(95 * sx, 175 * sy, 20 * sx, 12 * sy), Paint()..color = const Color(0xFF64748B));
     
     // Labels
     _drawLabel(canvas, isLeft ? 'CÔTÉ GAUCHE' : 'CÔTÉ DROIT', 150 * sx, 380 * sy, size, 10 * sx);

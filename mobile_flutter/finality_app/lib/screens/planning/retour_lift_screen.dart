@@ -461,7 +461,7 @@ class _RetourLiftScreenState extends State<RetourLiftScreen>
                     const SizedBox(height: 2),
                     Text(
                       'Trouve un convoyeur qui passe par ta ville',
-                      style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 13),
+                      style: TextStyle(color: Colors.white.withValues(alpha: 0.85), fontSize: 13),
                     ),
                   ],
                 ),
@@ -827,7 +827,7 @@ class _CountBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.15),
+        color: color.withValues(alpha: 0.15),
         borderRadius: BorderRadius.circular(20),
       ),
       child: Text(
@@ -933,10 +933,10 @@ class _OfferCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: _kCard,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: isDirectMatch ? _kTeal.withOpacity(0.4) : _kBorder),
+        border: Border.all(color: isDirectMatch ? _kTeal.withValues(alpha: 0.4) : _kBorder),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.04),
+            color: Colors.black.withValues(alpha: 0.04),
             blurRadius: 8,
             offset: const Offset(0, 2),
           ),
@@ -1058,7 +1058,7 @@ class _OfferCard extends StatelessWidget {
                         children: [
                           Container(
                             width: 40, height: 1.5,
-                            color: _kGray.withOpacity(0.3),
+                            color: _kGray.withValues(alpha: 0.3),
                           ),
                           const Icon(Icons.arrow_forward,
                               size: 14, color: _kGray),
@@ -1169,7 +1169,7 @@ class _MatchCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _kBorder),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -1250,7 +1250,7 @@ class _Avatar extends StatelessWidget {
         : name.trim().split(' ').map((w) => w.isEmpty ? '' : w[0].toUpperCase()).take(2).join();
     return CircleAvatar(
       radius: 22,
-      backgroundColor: _kTeal.withOpacity(0.15),
+      backgroundColor: _kTeal.withValues(alpha: 0.15),
       backgroundImage: (url != null && url!.isNotEmpty) ? NetworkImage(url!) : null,
       child: (url == null || url!.isEmpty)
           ? Text(initials, style: const TextStyle(color: _kTeal, fontWeight: FontWeight.bold, fontSize: 13))

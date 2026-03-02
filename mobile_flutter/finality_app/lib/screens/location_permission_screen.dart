@@ -210,7 +210,7 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen>
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: const Color(0xFF14B8A6).withOpacity(0.4),
+                            color: const Color(0xFF14B8A6).withValues(alpha: 0.4),
                             blurRadius: 30,
                             spreadRadius: 5,
                           ),
@@ -242,7 +242,7 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen>
                       'Pour assurer le suivi de vos missions en temps réel',
                       textAlign: TextAlign.center,
                       style: TextStyle(
-                        color: Colors.white.withOpacity(0.7),
+                        color: Colors.white.withValues(alpha: 0.7),
                         fontSize: 16,
                         height: 1.4,
                       ),
@@ -300,13 +300,13 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen>
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFF14B8A6),
                           disabledBackgroundColor:
-                              const Color(0xFF14B8A6).withOpacity(0.5),
+                              const Color(0xFF14B8A6).withValues(alpha: 0.5),
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(16),
                           ),
                           elevation: 4,
                           shadowColor:
-                              const Color(0xFF14B8A6).withOpacity(0.4),
+                              const Color(0xFF14B8A6).withValues(alpha: 0.4),
                         ),
                         child: _requesting
                             ? const SizedBox(
@@ -344,7 +344,7 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen>
                       child: Text(
                         'Plus tard',
                         style: TextStyle(
-                          color: Colors.white.withOpacity(0.5),
+                          color: Colors.white.withValues(alpha: 0.5),
                           fontSize: 15,
                           fontWeight: FontWeight.w500,
                         ),
@@ -371,7 +371,7 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen>
           width: 44,
           height: 44,
           decoration: BoxDecoration(
-            color: color.withOpacity(0.15),
+            color: color.withValues(alpha: 0.15),
             borderRadius: BorderRadius.circular(12),
           ),
           child: Icon(icon, color: color, size: 22),
@@ -393,7 +393,7 @@ class _LocationPermissionScreenState extends State<LocationPermissionScreen>
               Text(
                 description,
                 style: TextStyle(
-                  color: Colors.white.withOpacity(0.55),
+                  color: Colors.white.withValues(alpha: 0.55),
                   fontSize: 13,
                   height: 1.4,
                 ),

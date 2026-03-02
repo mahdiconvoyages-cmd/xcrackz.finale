@@ -180,7 +180,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           }
         },
         backgroundColor: Colors.white,
-        indicatorColor: PremiumTheme.brandViolet.withOpacity(0.12),
+        indicatorColor: PremiumTheme.brandViolet.withValues(alpha: 0.12),
         destinations: [
           NavigationDestination(
             icon: const Icon(Icons.dashboard_outlined),

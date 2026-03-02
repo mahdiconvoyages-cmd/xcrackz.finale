@@ -1,4 +1,4 @@
-﻿import 'dart:io';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:permission_handler/permission_handler.dart';
 
@@ -106,7 +106,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
         actions: [
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
-            tooltip: 'Rafraîchir',
+            tooltip: 'Rafra�chir',
             onPressed: _checkAll,
           ),
         ],
@@ -125,7 +125,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                   _buildPermCard(
                     icon: Icons.camera_alt_rounded,
                     color: const Color(0xFF14B8A6),
-                    title: 'Caméra',
+                    title: 'Cam�ra',
                     subtitle: 'Scanner et photos d\'inspection',
                     status: _statuses['camera'] ?? PermissionStatus.denied,
                     onTap: (_statuses['camera']?.isPermanentlyDenied == true)
@@ -150,15 +150,15 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                         ? openAppSettings : _requestNotifications,
                   ),
                   const SizedBox(height: 16),
-                  _buildSectionTitle('Avancées'),
+                  _buildSectionTitle('Avanc�es'),
                   const SizedBox(height: 8),
                   _buildPermCard(
                     icon: Icons.my_location_rounded,
                     color: const Color(0xFF8B5CF6),
-                    title: 'Localisation arrière-plan',
+                    title: 'Localisation arri�re-plan',
                     subtitle: Platform.isIOS
-                        ? 'Réglages > ChecksFleet > Localisation > Toujours'
-                        : 'GPS continu en arrière-plan',
+                        ? 'R�glages > ChecksFleet > Localisation > Toujours'
+                        : 'GPS continu en arri�re-plan',
                     status: _statuses['locationAlways'] ?? PermissionStatus.denied,
                     onTap: openAppSettings,
                     viaSettings: true,
@@ -178,9 +178,9 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF6366F1).withOpacity(0.06),
+                        color: const Color(0xFF6366F1).withValues(alpha: 0.06),
                         borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: const Color(0xFF6366F1).withOpacity(0.2)),
+                        border: Border.all(color: const Color(0xFF6366F1).withValues(alpha: 0.2)),
                       ),
                       child: const Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -189,7 +189,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                           SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              'La page se rafraîchit automatiquement quand vous revenez des Réglages. Tirez vers le bas pour actualiser.',
+                              'La page se rafra�chit automatiquement quand vous revenez des R�glages. Tirez vers le bas pour actualiser.',
                               style: TextStyle(fontSize: 12, color: Color(0xFF475569), height: 1.5),
                             ),
                           ),
@@ -209,13 +209,13 @@ class _PermissionsScreenState extends State<PermissionsScreen>
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: _allCriticalGranted
-            ? const Color(0xFF10B981).withOpacity(0.08)
-            : const Color(0xFFF59E0B).withOpacity(0.08),
+            ? const Color(0xFF10B981).withValues(alpha: 0.08)
+            : const Color(0xFFF59E0B).withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
           color: _allCriticalGranted
-              ? const Color(0xFF10B981).withOpacity(0.3)
-              : const Color(0xFFF59E0B).withOpacity(0.3),
+              ? const Color(0xFF10B981).withValues(alpha: 0.3)
+              : const Color(0xFFF59E0B).withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -231,7 +231,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _allCriticalGranted ? 'Tout est autorisé ✓' : 'Autorisations requises',
+                  _allCriticalGranted ? 'Tout est autoris� ?' : 'Autorisations requises',
                   style: TextStyle(
                     fontWeight: FontWeight.bold,
                     fontSize: 14,
@@ -241,8 +241,8 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                 const SizedBox(height: 2),
                 Text(
                   _allCriticalGranted
-                      ? 'L\'app fonctionne de manière optimale.'
-                      : 'Activez les accès requis pour utiliser toutes les fonctions.',
+                      ? 'L\'app fonctionne de mani�re optimale.'
+                      : 'Activez les acc�s requis pour utiliser toutes les fonctions.',
                   style: const TextStyle(fontSize: 12, color: Color(0xFF64748B), height: 1.4),
                 ),
               ],
@@ -276,9 +276,9 @@ class _PermissionsScreenState extends State<PermissionsScreen>
     final granted = status.isGranted || status.isLimited;
     final permDenied = status.isPermanentlyDenied;
 
-    final statusLabel = granted ? 'Autorisé'
-        : permDenied ? 'Refusé — ouvrir Réglages'
-        : 'Non autorisé';
+    final statusLabel = granted ? 'Autoris�'
+        : permDenied ? 'Refus� � ouvrir R�glages'
+        : 'Non autoris�';
     final statusColor = granted ? const Color(0xFF10B981)
         : permDenied ? const Color(0xFFEF4444)
         : const Color(0xFFF59E0B);
@@ -287,7 +287,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
         : Icons.radio_button_unchecked_rounded;
 
     final btnLabel = granted ? ''
-        : (permDenied || viaSettings) ? 'Réglages'
+        : (permDenied || viaSettings) ? 'R�glages'
         : 'Autoriser';
 
     return Container(
@@ -296,9 +296,9 @@ class _PermissionsScreenState extends State<PermissionsScreen>
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(
-          color: granted ? const Color(0xFF10B981).withOpacity(0.25) : const Color(0xFFE2E8F0),
+          color: granted ? const Color(0xFF10B981).withValues(alpha: 0.25) : const Color(0xFFE2E8F0),
         ),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 6, offset: const Offset(0, 2))],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -306,7 +306,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
           children: [
             Container(
               width: 42, height: 42,
-              decoration: BoxDecoration(color: color.withOpacity(0.1), borderRadius: BorderRadius.circular(11)),
+              decoration: BoxDecoration(color: color.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(11)),
               child: Icon(icon, color: color, size: 21),
             ),
             const SizedBox(width: 12),
@@ -320,7 +320,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
                       const SizedBox(width: 6),
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-                        decoration: BoxDecoration(color: const Color(0xFF94A3B8).withOpacity(0.15), borderRadius: BorderRadius.circular(5)),
+                        decoration: BoxDecoration(color: const Color(0xFF94A3B8).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(5)),
                         child: const Text('Optionnel', style: TextStyle(fontSize: 10, color: Color(0xFF94A3B8))),
                       ),
                     ],
@@ -349,7 +349,7 @@ class _PermissionsScreenState extends State<PermissionsScreen>
             else
               Container(
                 padding: const EdgeInsets.all(5),
-                decoration: BoxDecoration(color: const Color(0xFF10B981).withOpacity(0.1), shape: BoxShape.circle),
+                decoration: BoxDecoration(color: const Color(0xFF10B981).withValues(alpha: 0.1), shape: BoxShape.circle),
                 child: const Icon(Icons.check_rounded, color: Color(0xFF10B981), size: 15),
               ),
           ],

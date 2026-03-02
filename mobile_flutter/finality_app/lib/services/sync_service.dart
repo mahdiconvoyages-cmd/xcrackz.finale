@@ -177,6 +177,7 @@ class SyncService {
   // ──────────────────────────────────────────────────────────────
 
   /// Clean up all realtime channels and stream controllers.
+  /// Call on logout to prevent stale data on re-login.
   void dispose() {
     for (var timer in _debounceTimers.values) {
       timer?.cancel();
@@ -191,6 +192,10 @@ class SyncService {
     _channels.clear();
     _controllers.clear();
   }
+
+  /// Reset all cached state — must be called on logout so the next
+  /// login gets fresh streams instead of stale cached controllers.
+  void reset() => dispose();
 
   /// Stop synchronisation for a specific channel.
   void stopSync(String channelName) {

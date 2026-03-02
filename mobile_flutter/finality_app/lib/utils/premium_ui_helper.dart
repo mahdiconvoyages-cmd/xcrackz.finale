@@ -39,7 +39,7 @@ class PremiumUIHelper {
     return baseStyle.copyWith(
       shadows: [
         Shadow(
-          color: Colors.black.withOpacity(shadowOpacity),
+          color: Colors.black.withValues(alpha: shadowOpacity),
           offset: shadowOffset,
           blurRadius: shadowBlur,
         ),

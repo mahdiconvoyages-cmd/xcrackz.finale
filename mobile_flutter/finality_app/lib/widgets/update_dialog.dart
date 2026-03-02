@@ -163,7 +163,7 @@ class _UpdateDialogState extends State<UpdateDialog> with SingleTickerProviderSt
                       borderRadius: BorderRadius.circular(20),
                       boxShadow: [
                         BoxShadow(
-                          color: const Color(0xFF14B8A6).withOpacity(0.3),
+                          color: const Color(0xFF14B8A6).withValues(alpha: 0.3),
                           blurRadius: 20,
                           offset: const Offset(0, 8),
                         ),

@@ -107,7 +107,7 @@ class _ClientSelectorState extends State<ClientSelector> {
               border: Border.all(color: Colors.grey.shade300),
               borderRadius: BorderRadius.circular(12),
               color: widget.selectedClient != null 
-                  ? Theme.of(context).primaryColor.withOpacity(0.05)
+                  ? Theme.of(context).primaryColor.withValues(alpha: 0.05)
                   : Colors.white,
             ),
             child: Row(
@@ -179,7 +179,7 @@ class _ClientSelectorState extends State<ClientSelector> {
               color: Colors.white,
               boxShadow: [
                 BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
+                  color: Colors.black.withValues(alpha: 0.05),
                   blurRadius: 10,
                   offset: const Offset(0, 4),
                 ),
@@ -316,7 +316,7 @@ class _ClientSelectorState extends State<ClientSelector> {
     final color = _getAvatarColor(client.name);
     return CircleAvatar(
       radius: 18,
-      backgroundColor: color.withOpacity(0.15),
+      backgroundColor: color.withValues(alpha: 0.15),
       child: Text(
         client.initials,
         style: TextStyle(

@@ -412,7 +412,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: PremiumTheme.cardBg,
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.08), blurRadius: 10, offset: const Offset(0, -3))],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.08), blurRadius: 10, offset: const Offset(0, -3))],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1598,10 +1598,10 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         color: PremiumTheme.cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: hasLink ? PremiumTheme.primaryBlue.withOpacity(0.4) : const Color(0xFFE5E7EB),
+          color: hasLink ? PremiumTheme.primaryBlue.withValues(alpha: 0.4) : const Color(0xFFE5E7EB),
         ),
         boxShadow: [
-          BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 2)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
         ],
       ),
       child: Column(
@@ -1613,7 +1613,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: PremiumTheme.primaryBlue.withOpacity(0.1),
+                  color: PremiumTheme.primaryBlue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: const Icon(Icons.share_location, color: PremiumTheme.primaryBlue, size: 24),

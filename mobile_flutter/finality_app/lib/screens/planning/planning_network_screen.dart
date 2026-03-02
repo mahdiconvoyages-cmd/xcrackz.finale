@@ -418,7 +418,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
             borderRadius: BorderRadius.circular(18),
             boxShadow: [
               BoxShadow(
-                color: _kTeal.withOpacity(0.3),
+                color: _kTeal.withValues(alpha: 0.3),
                 blurRadius: 12,
                 offset: const Offset(0, 4),
               ),
@@ -429,7 +429,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.2),
+                  color: Colors.white.withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: const Text('🚗', style: TextStyle(fontSize: 28)),
@@ -837,7 +837,7 @@ class _MatchTile extends StatelessWidget {
           color: Colors.white,
           borderRadius: BorderRadius.circular(14),
           border: Border.all(color: _kBorder),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+          boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -952,7 +952,7 @@ class _MatchTile extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: const Color(0xFFEFF6FF),
                   borderRadius: BorderRadius.circular(10),
-                  border: Border.all(color: _kBlue.withOpacity(0.2)),
+                  border: Border.all(color: _kBlue.withValues(alpha: 0.2)),
                 ),
                 child: Row(
                   children: [
@@ -1071,7 +1071,7 @@ class _OfferTile extends StatelessWidget {
         color: Colors.white,
         borderRadius: BorderRadius.circular(14),
         border: Border.all(color: _kBorder),
-        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.03), blurRadius: 6)],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.03), blurRadius: 6)],
       ),
       child: Row(
         children: [

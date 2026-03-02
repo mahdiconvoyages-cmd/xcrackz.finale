@@ -311,8 +311,8 @@ class BackgroundTrackingService {
   }
 
   /// Nettoie les ressources
-  void dispose() {
-    stopTracking();
+  Future<void> dispose() async {
+    await stopTracking();
   }
 }
 
