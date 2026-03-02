@@ -36,6 +36,7 @@ void main() {
   group('MissionService Tests', () {
     test('getMissions should return list of missions', () async {
       // Arrange
+      // ignore: unused_local_variable
       final mockData = [
         {
           'id': '1',
@@ -72,6 +73,7 @@ void main() {
 
     test('getMissions with status filter should return filtered missions', () async {
       // Arrange
+      // ignore: unused_local_variable
       const status = 'pending';
 
       // Act & Assert
@@ -80,6 +82,7 @@ void main() {
 
     test('createMission should return created mission', () async {
       // Arrange
+      // ignore: unused_local_variable
       final missionData = {
         'reference': 'MSN003',
         'status': 'pending',
@@ -95,7 +98,9 @@ void main() {
 
     test('updateMission should return updated mission', () async {
       // Arrange
+      // ignore: unused_local_variable
       const missionId = 'test-mission-id';
+      // ignore: unused_local_variable
       final updates = {
         'status': 'in_progress',
         'updated_at': DateTime.now().toIso8601String(),

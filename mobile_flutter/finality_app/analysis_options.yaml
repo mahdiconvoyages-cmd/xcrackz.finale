@@ -11,12 +11,19 @@ include: package:flutter_lints/flutter.yaml
 
 analyzer:
   errors:
-    # Traiter certains warnings comme des erreurs
+    # === CODE MORT → ERREUR (bloque le build) ===
+    dead_code: error
+    unused_import: error
+    unused_local_variable: error
+    unused_field: error
+    unused_element: error
+    unnecessary_null_comparison: warning
+    unnecessary_non_null_assertion: warning
+    # === AUTRES ERREURS ===
     missing_required_param: error
     missing_return: error
-    dead_code: warning
-    unused_import: warning
-    unused_local_variable: warning
+    # === DEPRECATIONS → WARNING (visible mais non bloquant) ===
+    deprecated_member_use: warning
   exclude:
     - "**/*.g.dart"
     - "**/*.freezed.dart"

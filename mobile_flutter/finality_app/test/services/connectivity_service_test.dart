@@ -32,6 +32,7 @@ void main() {
   group('ConnectivityService Notifications', () {
     test('should notify listeners on connectivity change', () async {
       // Arrange
+      // ignore: unused_local_variable
       int notificationCount = 0;
       connectivityService.addListener(() {
         notificationCount++;
