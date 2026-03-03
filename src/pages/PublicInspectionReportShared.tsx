@@ -31,6 +31,130 @@ const CLEANLINESS_MAP: Record<number, string> = {
   5: 'très propre',
 };
 
+// ═══════════════════════════════════════════════════
+// Traductions FR des zones et types de dommages
+// ═══════════════════════════════════════════════════
+const ZONE_LABELS_FR: Record<string, string> = {
+  front_bumper: 'Pare-chocs avant',
+  front_left_corner: 'Coin avant gauche',
+  front_right_corner: 'Coin avant droit',
+  hood: 'Capot',
+  windshield: 'Pare-brise',
+  left_headlight: 'Phare gauche',
+  right_headlight: 'Phare droit',
+  left_front_fender: 'Aile avant gauche',
+  left_front_door: 'Portière avant gauche',
+  left_rear_door: 'Portière arrière gauche',
+  left_rear_fender: 'Aile arrière gauche',
+  left_mirror: 'Rétroviseur gauche',
+  left_sill: 'Bas de caisse gauche',
+  right_front_fender: 'Aile avant droite',
+  right_front_door: 'Portière avant droite',
+  right_rear_door: 'Portière arrière droite',
+  right_rear_fender: 'Aile arrière droite',
+  right_mirror: 'Rétroviseur droit',
+  right_sill: 'Bas de caisse droit',
+  roof: 'Toit',
+  rear_bumper: 'Pare-chocs arrière',
+  rear_left_corner: 'Coin arrière gauche',
+  rear_right_corner: 'Coin arrière droit',
+  trunk: 'Coffre / Hayon',
+  rear_window: 'Lunette arrière',
+  left_taillight: 'Feu arrière gauche',
+  right_taillight: 'Feu arrière droit',
+  front_left: 'Avant gauche',
+  front_center: 'Pare-chocs avant',
+  front_right: 'Avant droit',
+  left_front: 'Aile avant gauche',
+  left_rear: 'Aile arrière gauche',
+  right_front: 'Aile avant droite',
+  right_rear: 'Aile arrière droite',
+  rear_left: 'Arrière gauche',
+  rear_center: 'Pare-chocs arrière',
+  rear_right: 'Arrière droit',
+};
+
+const DAMAGE_TYPE_LABELS_FR: Record<string, { label: string; emoji: string; color: string }> = {
+  scratch: { label: 'Rayure', emoji: '🔹', color: '#F97316' },
+  dent: { label: 'Bosse', emoji: '🔸', color: '#EF4444' },
+  crack: { label: 'Fissure', emoji: '💥', color: '#A855F7' },
+  broken: { label: 'Cassé', emoji: '🔧', color: '#DC2626' },
+  broken_part: { label: 'Pièce cassée', emoji: '🔧', color: '#DC2626' },
+  paint: { label: 'Peinture', emoji: '🎨', color: '#3B82F6' },
+  paint_damage: { label: 'Peinture endommagée', emoji: '🎨', color: '#3B82F6' },
+  missing: { label: 'Manquant', emoji: '⭕', color: '#92400E' },
+  missing_part: { label: 'Pièce manquante', emoji: '⭕', color: '#92400E' },
+  stain: { label: 'Tache', emoji: '💧', color: '#6366F1' },
+  rust: { label: 'Rouille', emoji: '🟤', color: '#B45309' },
+  tear: { label: 'Déchirure', emoji: '✂️', color: '#E11D48' },
+  chip: { label: 'Éclat', emoji: '⚡', color: '#F59E0B' },
+  other: { label: 'Autre', emoji: '📌', color: '#6B7280' },
+};
+
+const SEVERITY_LABELS_FR: Record<string, string> = {
+  minor: 'Mineur',
+  moderate: 'Modéré',
+  major: 'Majeur',
+  severe: 'Grave',
+  critical: 'Critique',
+};
+
+function translateZone(zone: string): string {
+  return ZONE_LABELS_FR[zone] || zone.replace(/_/g, ' ');
+}
+
+function translateDamageType(type: string): { label: string; emoji: string; color: string } {
+  return DAMAGE_TYPE_LABELS_FR[type] || { label: type.replace(/_/g, ' '), emoji: '📌', color: '#6B7280' };
+}
+
+function translateSeverity(severity: string): string {
+  return SEVERITY_LABELS_FR[severity] || severity;
+}
+
+// Zone positions on the 300×420 SVG top-down vehicle view
+function getZonePosition(zone: string): { x: number; y: number; w: number; h: number } | null {
+  const positions: Record<string, { x: number; y: number; w: number; h: number }> = {
+    front_bumper: { x: 90, y: 5, w: 120, h: 30 },
+    front_left_corner: { x: 40, y: 10, w: 50, h: 35 },
+    front_right_corner: { x: 210, y: 10, w: 50, h: 35 },
+    left_headlight: { x: 45, y: 35, w: 35, h: 25 },
+    right_headlight: { x: 220, y: 35, w: 35, h: 25 },
+    windshield: { x: 70, y: 50, w: 160, h: 40 },
+    hood: { x: 70, y: 90, w: 160, h: 45 },
+    left_mirror: { x: 22, y: 60, w: 20, h: 14 },
+    right_mirror: { x: 258, y: 60, w: 20, h: 14 },
+    left_front_fender: { x: 30, y: 75, w: 40, h: 50 },
+    right_front_fender: { x: 230, y: 75, w: 40, h: 50 },
+    left_front_door: { x: 30, y: 130, w: 40, h: 60 },
+    right_front_door: { x: 230, y: 130, w: 40, h: 60 },
+    roof: { x: 70, y: 140, w: 160, h: 100 },
+    left_rear_door: { x: 30, y: 195, w: 40, h: 60 },
+    right_rear_door: { x: 230, y: 195, w: 40, h: 60 },
+    left_rear_fender: { x: 30, y: 260, w: 40, h: 50 },
+    right_rear_fender: { x: 230, y: 260, w: 40, h: 50 },
+    trunk: { x: 70, y: 285, w: 160, h: 45 },
+    rear_window: { x: 70, y: 330, w: 160, h: 35 },
+    rear_left_corner: { x: 40, y: 355, w: 50, h: 35 },
+    rear_right_corner: { x: 210, y: 355, w: 50, h: 35 },
+    rear_bumper: { x: 90, y: 385, w: 120, h: 30 },
+    left_taillight: { x: 45, y: 360, w: 35, h: 25 },
+    right_taillight: { x: 220, y: 360, w: 35, h: 25 },
+    left_sill: { x: 30, y: 188, w: 40, h: 8 },
+    right_sill: { x: 230, y: 188, w: 40, h: 8 },
+    front_left: { x: 40, y: 10, w: 50, h: 35 },
+    front_center: { x: 90, y: 5, w: 120, h: 30 },
+    front_right: { x: 210, y: 10, w: 50, h: 35 },
+    left_front: { x: 30, y: 75, w: 40, h: 50 },
+    left_rear: { x: 30, y: 260, w: 40, h: 50 },
+    right_front: { x: 230, y: 75, w: 40, h: 50 },
+    right_rear: { x: 230, y: 260, w: 40, h: 50 },
+    rear_left: { x: 40, y: 355, w: 50, h: 35 },
+    rear_center: { x: 90, y: 385, w: 120, h: 30 },
+    rear_right: { x: 210, y: 355, w: 50, h: 35 },
+  };
+  return positions[zone] || null;
+}
+
 function formatFuelPercent(value: any): string {
   const num = typeof value === 'number' ? value : parseInt(value);
   return isNaN(num) ? 'N/A' : `${num}%`;
@@ -1250,47 +1374,172 @@ function InspectionCard({ title, inspection, color, onOpenPhoto, vehicleLabel, p
           </Section>
         )}
 
-        {/* Dommages / Dégâts */}
-        {inspection.damages && inspection.damages.length > 0 && (
+        {/* Dommages / Dégâts — Schéma véhicule + Liste traduite */}
+        {inspection.damages && inspection.damages.length > 0 && (() => {
+          // Grouper les dommages par zone pour le schéma
+          const byZone: Record<string, any[]> = {};
+          for (const d of inspection.damages) {
+            const zone = d.location || 'unknown';
+            if (!byZone[zone]) byZone[zone] = [];
+            byZone[zone].push(d);
+          }
+
+          return (
           <Section title={`⚠️ Dommages Constatés (${inspection.damages.length})`} icon={XCircle}>
+
+            {/* ── Schéma véhicule vue de dessus avec zones de dommages ── */}
+            <div className="mb-6">
+              <h4 className="text-sm font-semibold text-gray-600 mb-3 flex items-center gap-2">
+                🚗 Carte des dommages
+              </h4>
+              <div className="flex justify-center mb-4">
+                <svg viewBox="0 0 300 420" className="w-full max-w-[280px]" xmlns="http://www.w3.org/2000/svg">
+                  {/* Ombre */}
+                  <path transform="translate(0, 4)" d="M90,15 Q150,5 210,15 Q250,30 250,90 L255,100 L255,300 L250,310 Q250,380 210,395 Q150,405 90,395 Q50,380 50,310 L45,300 L45,100 L50,90 Q50,30 90,15 Z" fill="rgba(0,0,0,0.05)" filter="blur(4px)" />
+                  {/* Carrosserie */}
+                  <path d="M90,15 Q150,5 210,15 Q250,30 250,90 L255,100 L255,300 L250,310 Q250,380 210,395 Q150,405 90,395 Q50,380 50,310 L45,300 L45,100 L50,90 Q50,30 90,15 Z" fill="#F1F5F9" stroke="#94A3B8" strokeWidth="1.5" />
+                  {/* Pare-brise */}
+                  <path d="M80,75 Q150,65 220,75 L230,110 Q150,100 70,110 Z" fill="rgba(224, 242, 254, 0.8)" stroke="#94A3B8" strokeWidth="1.5" />
+                  {/* Lunette arrière */}
+                  <path d="M75,310 Q150,305 225,310 L215,345 Q150,350 85,345 Z" fill="rgba(224, 242, 254, 0.8)" stroke="#94A3B8" strokeWidth="1.5" />
+                  {/* Toit */}
+                  <path d="M70,110 L230,110 L225,310 L75,310 Z" fill="rgba(255,255,255,0.3)" />
+                  {/* Lignes capot */}
+                  <path d="M80,75 Q60,40 90,15" fill="none" stroke="#CBD5E1" strokeWidth="1" />
+                  <path d="M220,75 Q240,40 210,15" fill="none" stroke="#CBD5E1" strokeWidth="1" />
+                  {/* Lignes coffre */}
+                  <line x1="85" y1="345" x2="85" y2="395" stroke="#CBD5E1" strokeWidth="1" />
+                  <line x1="215" y1="345" x2="215" y2="395" stroke="#CBD5E1" strokeWidth="1" />
+                  {/* Rétroviseurs */}
+                  <path d="M50,85 L20,80 Q15,90 20,100 L50,95 Z" fill="#CBD5E1" />
+                  <path d="M250,85 L280,80 Q285,90 280,100 L250,95 Z" fill="#CBD5E1" />
+                  {/* Roues */}
+                  <rect x="25" y="95" width="16" height="42" rx="4" fill="#94A3B8" />
+                  <rect x="259" y="95" width="16" height="42" rx="4" fill="#94A3B8" />
+                  <rect x="25" y="270" width="16" height="42" rx="4" fill="#94A3B8" />
+                  <rect x="259" y="270" width="16" height="42" rx="4" fill="#94A3B8" />
+                  {/* Phares */}
+                  <ellipse cx="70" cy="27" rx="15" ry="7" fill="rgba(255,255,255,0.6)" />
+                  <ellipse cx="230" cy="27" rx="15" ry="7" fill="rgba(255,255,255,0.6)" />
+                  {/* Feux arrière */}
+                  <ellipse cx="70" cy="390" rx="15" ry="5" fill="rgba(254, 202, 202, 0.7)" />
+                  <ellipse cx="230" cy="390" rx="15" ry="5" fill="rgba(254, 202, 202, 0.7)" />
+                  {/* Labels orientation */}
+                  <text x="150" y="12" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#94A3B8">AVANT</text>
+                  <text x="150" y="418" textAnchor="middle" fontSize="10" fontWeight="bold" fill="#94A3B8">ARRIÈRE</text>
+                  <text x="12" y="204" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#94A3B8">G</text>
+                  <text x="288" y="204" textAnchor="middle" fontSize="9" fontWeight="bold" fill="#94A3B8">D</text>
+                  {/* Zones de dommages */}
+                  {Object.entries(byZone).map(([zone, damages]) => {
+                    const zonePos = getZonePosition(zone);
+                    if (!zonePos) return null;
+                    return (
+                      <g key={zone}>
+                        <rect
+                          x={zonePos.x} y={zonePos.y}
+                          width={zonePos.w} height={zonePos.h}
+                          rx="3"
+                          fill="rgba(239,68,68,0.2)"
+                          stroke="rgba(239,68,68,0.6)"
+                          strokeWidth="2"
+                        />
+                        <circle
+                          cx={zonePos.x + zonePos.w / 2}
+                          cy={zonePos.y + zonePos.h / 2}
+                          r="10"
+                          fill="#EF4444"
+                        />
+                        <text
+                          x={zonePos.x + zonePos.w / 2}
+                          y={zonePos.y + zonePos.h / 2 + 4}
+                          textAnchor="middle"
+                          fontSize="10"
+                          fontWeight="bold"
+                          fill="white"
+                        >
+                          {damages.length}
+                        </text>
+                      </g>
+                    );
+                  })}
+                </svg>
+              </div>
+
+              {/* Légende par zone */}
+              <div className="space-y-2">
+                {Object.entries(byZone).map(([zone, damages]) => (
+                  <div key={zone} className="bg-red-50 rounded-lg p-3 border border-red-100">
+                    <p className="text-sm font-semibold text-gray-800 mb-2">
+                      📍 {translateZone(zone)}
+                    </p>
+                    <div className="flex flex-wrap gap-2">
+                      {damages.map((d: any, i: number) => {
+                        const typeInfo = translateDamageType(d.damage_type);
+                        return (
+                          <div key={i} className="flex items-center gap-1.5 bg-white rounded px-2 py-1 border border-red-100">
+                            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: typeInfo.color }} />
+                            <span className="text-xs font-medium" style={{ color: typeInfo.color }}>
+                              {typeInfo.emoji} {typeInfo.label}
+                            </span>
+                            {d.severity && d.severity !== 'minor' && (
+                              <span className={`text-[10px] px-1 rounded ${
+                                d.severity === 'severe' || d.severity === 'critical'
+                                  ? 'bg-red-100 text-red-700'
+                                  : 'bg-orange-100 text-orange-700'
+                              }`}>
+                                {translateSeverity(d.severity)}
+                              </span>
+                            )}
+                            {d.description && (
+                              <span className="text-[10px] text-gray-400 ml-1">{d.description}</span>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* ── Liste détaillée des dommages ── */}
             <div className="space-y-4">
-              {inspection.damages.map((damage: any) => (
+              {inspection.damages.map((damage: any) => {
+                const typeInfo = translateDamageType(damage.damage_type);
+                return (
                 <div key={damage.id} className={`border-l-4 rounded-lg p-4 ${
-                  damage.severity === 'critical' ? 'border-red-500 bg-red-50' :
-                  damage.severity === 'major' ? 'border-orange-500 bg-orange-50' :
+                  damage.severity === 'critical' || damage.severity === 'severe' ? 'border-red-500 bg-red-50' :
+                  damage.severity === 'major' || damage.severity === 'moderate' ? 'border-orange-500 bg-orange-50' :
                   'border-yellow-500 bg-yellow-50'
                 }`}>
                   <div className="flex items-start gap-4">
                     {damage.photo_url && (
                       <img 
                         src={damage.photo_url} 
-                        alt={`Dommage ${damage.damage_type}`}
+                        alt={`Dommage — ${typeInfo.label}`}
                         className="w-24 h-24 object-cover rounded-lg cursor-pointer hover:ring-4 ring-blue-500 transition"
-                        onClick={() => openPhoto([{ url: damage.photo_url }], 0)}
+                        onClick={() => onOpenPhoto([{ url: damage.photo_url }], 0)}
                       />
                     )}
                     <div className="flex-1">
-                      <div className="flex items-center gap-3 mb-2">
+                      <div className="flex items-center gap-3 mb-2 flex-wrap">
                         <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                          damage.severity === 'critical' ? 'bg-red-600 text-white' :
-                          damage.severity === 'major' ? 'bg-orange-600 text-white' :
+                          damage.severity === 'critical' || damage.severity === 'severe' ? 'bg-red-600 text-white' :
+                          damage.severity === 'major' || damage.severity === 'moderate' ? 'bg-orange-600 text-white' :
                           'bg-yellow-600 text-white'
                         }`}>
                           {damage.severity === 'critical' ? '🚨 Critique' :
+                           damage.severity === 'severe' ? '🚨 Grave' :
                            damage.severity === 'major' ? '⚠️ Majeur' :
+                           damage.severity === 'moderate' ? '⚠️ Modéré' :
                            '⚡ Mineur'}
                         </span>
-                        <span className="text-sm font-semibold text-gray-700">
-                          {damage.damage_type === 'scratch' ? '🔹 Rayure' :
-                           damage.damage_type === 'dent' ? '🔸 Bosse' :
-                           damage.damage_type === 'crack' ? '💥 Fissure' :
-                           damage.damage_type === 'paint_damage' ? '🎨 Peinture' :
-                           damage.damage_type === 'broken_part' ? '🔧 Pièce cassée' :
-                           damage.damage_type}
+                        <span className="text-sm font-semibold" style={{ color: typeInfo.color }}>
+                          {typeInfo.emoji} {typeInfo.label}
                         </span>
                         {damage.location && (
                           <span className="text-xs px-2 py-1 bg-white rounded border border-gray-300">
-                            📍 {damage.location}
+                            📍 {translateZone(damage.location)}
                           </span>
                         )}
                       </div>
@@ -1305,10 +1554,12 @@ function InspectionCard({ title, inspection, color, onOpenPhoto, vehicleLabel, p
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
           </Section>
-        )}
+          );
+        })()}
 
         {/* Observations */}
         {inspection.notes && (
