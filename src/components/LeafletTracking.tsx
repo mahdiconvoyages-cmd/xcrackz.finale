@@ -66,6 +66,19 @@ export default function LeafletTracking({
     driverLngRef.current = driverLng;
   }, [driverLat, driverLng]);
 
+  // ResizeObserver: invalide la taille de la carte si le container change de dimensions
+  // Règle le problème de carte grise/invisible sur mobile (container à 0px au premier rendu)
+  useEffect(() => {
+    if (!mapContainerRef.current) return;
+    const obs = new ResizeObserver(() => {
+      if (mapRef.current) {
+        mapRef.current.invalidateSize();
+      }
+    });
+    obs.observe(mapContainerRef.current);
+    return () => obs.disconnect();
+  }, []);
+
   // Cleanup map on unmount only
   useEffect(() => {
     return () => {
@@ -516,7 +529,12 @@ export default function LeafletTracking({
         [deliveryLat, deliveryLng],
         ...(dLat && dLng ? [L.latLng(dLat, dLng)] : []),
       ] as L.LatLngExpression[]);
-      mapRef.current.fitBounds(bounds, { padding: [50, 50] });
+      // Padding adaptatif mobile vs desktop
+      const isMobile = window.innerWidth < 640;
+      const pad: [number, number] = isMobile ? [20, 20] : [50, 50];
+      // invalidateSize avant fitBounds pour que Leaflet connaisse la vraie taille
+      mapRef.current.invalidateSize();
+      mapRef.current.fitBounds(bounds, { padding: pad, maxZoom: 14 });
       isFirstRenderRef.current = false;
     }
 
@@ -757,10 +775,10 @@ export default function LeafletTracking({
   };
 
   return (
-    <div className="relative">
+    <div className="relative" style={{ height, width: '100%' }}>
       <div
         ref={mapContainerRef}
-        style={{ height, width: '100%' }}
+        style={{ height: '100%', width: '100%' }}
         className="rounded-lg shadow-lg overflow-hidden border-2 border-gray-200"
       />
 

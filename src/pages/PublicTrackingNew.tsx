@@ -482,26 +482,24 @@ export default function PublicTracking() {
                 </div>
               )}
             </div>
-            <div className="w-full h-[40vh] sm:h-[500px]">
-              <LeafletTracking
-                pickupLat={mission.pickup_lat!}
-                pickupLng={mission.pickup_lng!}
-                pickupAddress={mission.pickup_address}
-                deliveryLat={mission.delivery_lat!}
-                deliveryLng={mission.delivery_lng!}
-                deliveryAddress={mission.delivery_address}
-                driverLat={currentLocation?.latitude ?? mission.pickup_lat!}
-                driverLng={currentLocation?.longitude ?? mission.pickup_lng!}
-                driverSpeed={currentLocation?.speed ?? undefined}
-                driverHeading={currentLocation?.heading ?? undefined}
-                driverName={mission.driver ? `${mission.driver.first_name} ${mission.driver.last_name}` : 'Chauffeur'}
-                vehiclePlate={mission.vehicle_plate}
-                status={mission.status === 'in_progress' ? 'En cours' : mission.status === 'completed' ? 'Terminé' : 'En attente'}
-                height="100%"
-                showControls={true}
-                gpsPath={locations.length > 0 ? locations.map(loc => [loc.latitude, loc.longitude]) : []}
-              />
-            </div>
+            <LeafletTracking
+              pickupLat={mission.pickup_lat!}
+              pickupLng={mission.pickup_lng!}
+              pickupAddress={mission.pickup_address}
+              deliveryLat={mission.delivery_lat!}
+              deliveryLng={mission.delivery_lng!}
+              deliveryAddress={mission.delivery_address}
+              driverLat={currentLocation?.latitude ?? undefined}
+              driverLng={currentLocation?.longitude ?? undefined}
+              driverSpeed={currentLocation?.speed ?? undefined}
+              driverHeading={currentLocation?.heading ?? undefined}
+              driverName={mission.driver ? `${mission.driver.first_name} ${mission.driver.last_name}` : 'Chauffeur'}
+              vehiclePlate={mission.vehicle_plate}
+              status={mission.status === 'in_progress' ? 'En cours' : mission.status === 'completed' ? 'Terminé' : 'En attente'}
+              height={window.innerWidth < 640 ? '260px' : '480px'}
+              showControls={true}
+              gpsPath={locations.length > 0 ? locations.map(loc => [loc.latitude, loc.longitude]) : []}
+            />
           </div>
         )}
 
