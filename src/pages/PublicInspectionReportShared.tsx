@@ -99,6 +99,45 @@ const SEVERITY_LABELS_FR: Record<string, string> = {
   critical: 'Critique',
 };
 
+const PHOTO_TYPE_LABELS_FR: Record<string, string> = {
+  front: 'Avant',
+  front_left: 'Avant gauche',
+  front_right: 'Avant droit',
+  rear: 'Arrière',
+  rear_left: 'Arrière gauche',
+  rear_right: 'Arrière droit',
+  left_side: 'Côté gauche',
+  right_side: 'Côté droit',
+  dashboard: 'Tableau de bord',
+  interior: 'Intérieur',
+  interior_front: 'Intérieur avant',
+  interior_rear: 'Intérieur arrière',
+  trunk: 'Coffre',
+  roof: 'Toit',
+  windshield: 'Pare-brise',
+  wheel_front_left: 'Roue avant gauche',
+  wheel_front_right: 'Roue avant droite',
+  wheel_rear_left: 'Roue arrière gauche',
+  wheel_rear_right: 'Roue arrière droite',
+  mileage: 'Compteur kilométrique',
+  fuel_gauge: 'Jauge carburant',
+  vin_plate: 'Plaque VIN',
+  registration: 'Carte grise',
+  insurance: 'Assurance',
+  loaded_vehicle: 'Véhicule chargé',
+  damage: 'Dommage',
+  other: 'Autre',
+  optional: 'Photo complémentaire',
+};
+
+const OVERALL_CONDITION_FR: Record<string, { label: string; color: string; emoji: string }> = {
+  excellent: { label: 'Excellent', color: '#059669', emoji: '🌟' },
+  good: { label: 'Bon', color: '#10B981', emoji: '✅' },
+  fair: { label: 'Correct', color: '#F59E0B', emoji: '⚠️' },
+  poor: { label: 'Mauvais', color: '#EF4444', emoji: '❌' },
+  damaged: { label: 'Endommagé', color: '#DC2626', emoji: '🔴' },
+};
+
 function translateZone(zone: string): string {
   return ZONE_LABELS_FR[zone] || zone.replace(/_/g, ' ');
 }
@@ -109,6 +148,34 @@ function translateDamageType(type: string): { label: string; emoji: string; colo
 
 function translateSeverity(severity: string): string {
   return SEVERITY_LABELS_FR[severity] || severity;
+}
+
+function translatePhotoType(photoType: string): string {
+  // Strip _arrival / _departure / _restitution suffixes for lookup
+  const base = photoType.replace(/_(arrival|departure|restitution_departure|restitution_arrival)$/, '');
+  const label = PHOTO_TYPE_LABELS_FR[base] || PHOTO_TYPE_LABELS_FR[photoType];
+  if (label) return label;
+  // Fallback: capitalize and replace underscores
+  return photoType.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function translateOverallCondition(condition: string): { label: string; color: string; emoji: string } {
+  return OVERALL_CONDITION_FR[condition] || { label: condition, color: '#6B7280', emoji: '📋' };
+}
+
+const EXPENSE_TYPE_LABELS_FR: Record<string, string> = {
+  carburant: 'Carburant',
+  peage: 'Péage',
+  transport: 'Transport',
+  imprevu: 'Imprévu',
+  parking: 'Parking',
+  repas: 'Repas',
+  hebergement: 'Hébergement',
+  autre: 'Autre',
+};
+
+function translateExpenseType(type: string): string {
+  return EXPENSE_TYPE_LABELS_FR[type] || type.replace(/_/g, ' ');
 }
 
 // Zone positions on the 300×420 SVG top-down vehicle view
@@ -1171,6 +1238,19 @@ function InspectionCard({ title, inspection, color, onOpenPhoto, vehicleLabel, p
               value={formatCleanliness(inspection, 'external')} 
             />
           </div>
+          {/* État général du véhicule */}
+          {inspection.overall_condition && (() => {
+            const cond = translateOverallCondition(inspection.overall_condition);
+            return (
+              <div className="mt-4 flex items-center gap-3 bg-gray-50 rounded-lg px-4 py-3 border border-gray-200">
+                <span className="text-xl">{cond.emoji}</span>
+                <div>
+                  <p className="text-xs text-gray-500 font-medium">État général</p>
+                  <p className="text-sm font-bold" style={{ color: cond.color }}>{cond.label}</p>
+                </div>
+              </div>
+            );
+          })()}
         </Section>
 
         {/* Équipements & Accessoires — Tableau structuré */}
@@ -1268,7 +1348,7 @@ function InspectionCard({ title, inspection, color, onOpenPhoto, vehicleLabel, p
                   {/* Label du type de photo */}
                   <div className={`px-2 py-1 ${isLoadedVehicle ? 'bg-blue-50' : 'bg-gray-50'}`}>
                     <p className={`text-xs truncate ${isLoadedVehicle ? 'text-blue-600 font-semibold' : 'text-gray-500'}`}>
-                      {isLoadedVehicle ? '📦 Photo du chargement' : (photo.photo_type?.replace(/_/g, ' ') || `Photo ${i + 1}`)}
+                      {isLoadedVehicle ? '📦 Photo du chargement' : (photo.photo_type ? translatePhotoType(photo.photo_type) : `Photo ${i + 1}`)}
                     </p>
                   </div>
                   {/* Dommage + Commentaire */}
@@ -1361,7 +1441,7 @@ function InspectionCard({ title, inspection, color, onOpenPhoto, vehicleLabel, p
                   {inspection.expenses.map((exp: any) => (
                     <tr key={exp.id} className="border-b border-gray-100">
                       <td className="px-3 py-2 text-gray-800">{exp.description || exp.label || 'Frais'}</td>
-                      <td className="px-3 py-2 text-gray-500">{exp.expense_type || exp.category || '—'}</td>
+                      <td className="px-3 py-2 text-gray-500">{translateExpenseType(exp.expense_type || exp.category || '')}</td>
                       <td className="px-3 py-2 text-right font-medium text-gray-900">{Number(exp.amount || 0).toFixed(2)} €</td>
                       <td className="px-3 py-2 text-gray-500">
                         {exp.created_at ? new Date(exp.created_at).toLocaleDateString('fr-FR') : '—'}

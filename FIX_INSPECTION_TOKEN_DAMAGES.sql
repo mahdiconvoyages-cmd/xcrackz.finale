@@ -1,10 +1,11 @@
 -- ============================================================================
--- FIX: Add damages to get_inspection_report_by_token
+-- FIX: Complete get_inspection_report_by_token with ALL missing data
 -- ============================================================================
--- PROBLEM: The mobile app shares public report links using /rapport-inspection/{token}
--- which calls get_inspection_report_by_token. This function was missing damages data.
--- The previous migration (UPDATE_PUBLIC_REPORT_WITH_DAMAGES.sql) incorrectly updated
--- get_public_report_data instead.
+-- FIXES:
+-- 1. Add damages array (from inspection_damages table) to each inspection
+-- 2. Add damage_status + damage_comment to each photo (per-photo damage notes)
+-- 3. Add expenses array (from inspection_expenses table) to each inspection
+-- 4. Add per-photo GPS coordinates (latitude, longitude)
 -- ============================================================================
 
 CREATE OR REPLACE FUNCTION public.get_inspection_report_by_token(p_token text)
@@ -105,6 +106,10 @@ BEGIN
             'photo_url', ip.full_url,
             'thumbnail_url', ip.thumbnail_url,
             'photo_type', ip.photo_type,
+            'damage_status', ip.damage_status,
+            'damage_comment', ip.damage_comment,
+            'latitude', ip.latitude,
+            'longitude', ip.longitude,
             'taken_at', ip.taken_at
           ) ORDER BY ip.taken_at), '[]'::jsonb)
           FROM inspection_photos_v2 ip
@@ -135,6 +140,18 @@ BEGIN
           ) ORDER BY d.created_at), '[]'::jsonb)
           FROM inspection_damages d
           WHERE d.inspection_id = vi.id
+        ),
+        'expenses', (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'id', e.id,
+            'expense_type', e.expense_type,
+            'amount', e.amount,
+            'description', e.description,
+            'receipt_url', e.receipt_url,
+            'created_at', e.created_at
+          ) ORDER BY e.created_at), '[]'::jsonb)
+          FROM inspection_expenses e
+          WHERE e.inspection_id = vi.id
         )
       )
       FROM vehicle_inspections vi
@@ -167,6 +184,10 @@ BEGIN
             'photo_url', ip.full_url,
             'thumbnail_url', ip.thumbnail_url,
             'photo_type', ip.photo_type,
+            'damage_status', ip.damage_status,
+            'damage_comment', ip.damage_comment,
+            'latitude', ip.latitude,
+            'longitude', ip.longitude,
             'taken_at', ip.taken_at
           ) ORDER BY ip.taken_at), '[]'::jsonb)
           FROM inspection_photos_v2 ip
@@ -197,6 +218,18 @@ BEGIN
           ) ORDER BY d.created_at), '[]'::jsonb)
           FROM inspection_damages d
           WHERE d.inspection_id = vi.id
+        ),
+        'expenses', (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'id', e.id,
+            'expense_type', e.expense_type,
+            'amount', e.amount,
+            'description', e.description,
+            'receipt_url', e.receipt_url,
+            'created_at', e.created_at
+          ) ORDER BY e.created_at), '[]'::jsonb)
+          FROM inspection_expenses e
+          WHERE e.inspection_id = vi.id
         )
       )
       FROM vehicle_inspections vi
@@ -229,6 +262,10 @@ BEGIN
             'photo_url', ip.full_url,
             'thumbnail_url', ip.thumbnail_url,
             'photo_type', ip.photo_type,
+            'damage_status', ip.damage_status,
+            'damage_comment', ip.damage_comment,
+            'latitude', ip.latitude,
+            'longitude', ip.longitude,
             'taken_at', ip.taken_at
           ) ORDER BY ip.taken_at), '[]'::jsonb)
           FROM inspection_photos_v2 ip
@@ -259,6 +296,18 @@ BEGIN
           ) ORDER BY d.created_at), '[]'::jsonb)
           FROM inspection_damages d
           WHERE d.inspection_id = vi.id
+        ),
+        'expenses', (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'id', e.id,
+            'expense_type', e.expense_type,
+            'amount', e.amount,
+            'description', e.description,
+            'receipt_url', e.receipt_url,
+            'created_at', e.created_at
+          ) ORDER BY e.created_at), '[]'::jsonb)
+          FROM inspection_expenses e
+          WHERE e.inspection_id = vi.id
         )
       )
       FROM vehicle_inspections vi
@@ -291,6 +340,10 @@ BEGIN
             'photo_url', ip.full_url,
             'thumbnail_url', ip.thumbnail_url,
             'photo_type', ip.photo_type,
+            'damage_status', ip.damage_status,
+            'damage_comment', ip.damage_comment,
+            'latitude', ip.latitude,
+            'longitude', ip.longitude,
             'taken_at', ip.taken_at
           ) ORDER BY ip.taken_at), '[]'::jsonb)
           FROM inspection_photos_v2 ip
@@ -321,6 +374,18 @@ BEGIN
           ) ORDER BY d.created_at), '[]'::jsonb)
           FROM inspection_damages d
           WHERE d.inspection_id = vi.id
+        ),
+        'expenses', (
+          SELECT COALESCE(jsonb_agg(jsonb_build_object(
+            'id', e.id,
+            'expense_type', e.expense_type,
+            'amount', e.amount,
+            'description', e.description,
+            'receipt_url', e.receipt_url,
+            'created_at', e.created_at
+          ) ORDER BY e.created_at), '[]'::jsonb)
+          FROM inspection_expenses e
+          WHERE e.inspection_id = vi.id
         )
       )
       FROM vehicle_inspections vi
@@ -337,3 +402,15 @@ BEGIN
   RETURN v_result;
 END;
 $$;
+
+-- ============================================================================
+-- FIX: Update inspection_expenses constraint to accept all expense types
+-- ============================================================================
+-- The mobile app sends normalized French types. Widen the constraint.
+-- ============================================================================
+ALTER TABLE public.inspection_expenses DROP CONSTRAINT IF EXISTS inspection_expenses_expense_type_check;
+ALTER TABLE public.inspection_expenses ADD CONSTRAINT inspection_expenses_expense_type_check 
+  CHECK (expense_type = ANY (ARRAY[
+    'carburant', 'peage', 'transport', 'imprevu',
+    'parking', 'repas', 'hebergement', 'autre'
+  ]));

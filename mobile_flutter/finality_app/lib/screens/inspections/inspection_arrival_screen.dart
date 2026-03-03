@@ -14,6 +14,7 @@ import '../document_scanner/document_scanner_screen.dart';
 import '../../theme/premium_theme.dart';
 import 'widgets/inspection_shared_widgets.dart';
 import '../../services/notification_service.dart';
+import '../../widgets/vehicle_body_map_widget.dart';
 
 /// Écran d'inspection d'arrivée moderne avec 8 photos obligatoires
 /// Compatible avec les tables Expo mobile (vehicle_inspections + inspection_photos)
@@ -101,6 +102,7 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
   ];
 
   // Body map damages tracked by VehicleBodyMapWidget callback
+  List<DamageEntry> _bodyMapDamages = [];
 
   @override
   void initState() {
@@ -981,6 +983,20 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
     }
   }
 
+  /// Normalise les types de frais FR vers les clés DB
+  String _normalizeExpenseType(String type) {
+    const mapping = {
+      'Péage': 'peage',
+      'Carburant': 'carburant',
+      'Parking': 'parking',
+      'Repas': 'repas',
+      'Hébergement': 'hebergement',
+      'Transport retour': 'transport',
+      'Autre': 'autre',
+    };
+    return mapping[type] ?? type.toLowerCase().replaceAll(RegExp(r'[éè]'), 'e').replaceAll(' ', '_');
+  }
+
   Future<void> _submitInspection() async {
     if (!_canContinue()) {
       _showError('Veuillez compléter toutes les étapes obligatoires');
@@ -1148,13 +1164,29 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
 
       // 4b. Sauvegarder les frais/dépenses
       for (final expense in _expenses) {
+        // Normaliser le type pour correspondre à la contrainte DB
+        final rawType = (expense['type'] as String?) ?? 'autre';
+        final normalizedType = _normalizeExpenseType(rawType);
         await supabase.from('inspection_expenses').insert({
           'inspection_id': inspectionId,
-          'expense_type': expense['type'],
+          'expense_type': normalizedType,
           'amount': expense['amount'],
           'description': expense['description'],
         });
       }
+
+      // 4c. Sauvegarder les dommages du body map
+      for (final damage in _bodyMapDamages) {
+        await supabase.from('inspection_damages').insert({
+          'inspection_id': inspectionId,
+          'damage_type': damage.type.name,
+          'severity': 'moderate',
+          'location': damage.zone.key,
+          'description': '${damage.zone.label} — ${damage.type.label}${damage.comment.isNotEmpty ? ': ${damage.comment}' : ''}',
+          'detected_by': 'manual',
+        });
+      }
+      debugPrint('✅ STEP 4c OK: ${_bodyMapDamages.length} damages saved');
 
       // 5. Check if this is restitution arrival or regular arrival with restitution pending
       if (widget.isRestitution) {
@@ -1974,6 +2006,15 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
           if (_isVehicleLoaded) ..._buildLoadedVehiclePhotoSection(),
           const SizedBox(height: 32),
 
+          // Carte des dommages (body map)
+          VehicleBodyMapWidget(
+            damages: _bodyMapDamages,
+            onDamagesChanged: (damages) {
+              setState(() => _bodyMapDamages = damages);
+            },
+          ),
+          const SizedBox(height: 32),
+
           // Observations
           const Text(
             'Observations',
@@ -2581,6 +2622,8 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
             _buildRecapRow('Clés restituées', _allKeysReturned ? '✅ Oui' : '❌ Non'),
             _buildRecapRow('Documents restitués', _documentsReturned ? '✅ Oui' : '❌ Non'),
             _buildRecapRow('Véhicule chargé', _isVehicleLoaded ? '✅ Oui' : '❌ Non'),
+            if (_bodyMapDamages.isNotEmpty)
+              _buildRecapRow('Dommages carte', '${_bodyMapDamages.length}'),
             if (_observationsController.text.isNotEmpty)
               _buildRecapRow('Observations', _observationsController.text),
           ]),
