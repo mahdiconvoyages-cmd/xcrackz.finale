@@ -178,6 +178,58 @@ function translateExpenseType(type: string): string {
   return EXPENSE_TYPE_LABELS_FR[type] || type.replace(/_/g, ' ');
 }
 
+// ═══════════════════════════════════════════════════
+// Géocodage inversé : lat/lng → nom de ville (Nominatim)
+// ═══════════════════════════════════════════════════
+const _cityCache: Record<string, string> = {};
+
+function useCityName(lat?: number | null, lng?: number | null): string | null {
+  const [city, setCity] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!lat || !lng) return;
+    const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+    if (_cityCache[key]) {
+      setCity(_cityCache[key]);
+      return;
+    }
+    let cancelled = false;
+    fetch(
+      `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=fr`,
+      { headers: { 'Accept-Language': 'fr' } }
+    )
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        const addr = data?.address || {};
+        const name = addr.city || addr.town || addr.village || addr.municipality || addr.county || data?.display_name?.split(',')[0] || null;
+        if (name) {
+          _cityCache[key] = name;
+          setCity(name);
+        }
+      })
+      .catch(() => { /* silencieux */ });
+    return () => { cancelled = true; };
+  }, [lat, lng]);
+
+  return city;
+}
+
+function CityName({ lat, lng, prefix = '📍 ', className = '' }: { lat?: number | null; lng?: number | null; prefix?: string; className?: string }) {
+  const city = useCityName(lat, lng);
+  if (!lat || !lng) return null;
+  return (
+    <a
+      href={`https://www.google.com/maps?q=${lat},${lng}`}
+      target="_blank"
+      rel="noopener noreferrer"
+      className={`text-blue-500 hover:underline ${className}`}
+    >
+      {prefix}{city ?? `${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`}
+    </a>
+  );
+}
+
 // Zone positions on the 300×420 SVG top-down vehicle view
 function getZonePosition(zone: string): { x: number; y: number; w: number; h: number } | null {
   const positions: Record<string, { x: number; y: number; w: number; h: number }> = {
@@ -867,7 +919,7 @@ export default function PublicInspectionReportShared() {
                       }&layer=mapnik&marker=${departure.latitude},${departure.longitude}`}
                     />
                     <div className="flex items-center justify-between p-3 bg-gray-50 text-xs text-gray-600">
-                      <span>🟢 Départ: {departure.latitude.toFixed(5)}, {departure.longitude.toFixed(5)}</span>
+                      <span>🟢 Départ: <CityName lat={departure.latitude} lng={departure.longitude} prefix="" /></span>
                       <a
                         href={`https://www.google.com/maps/dir/${departure.latitude},${departure.longitude}/${arrival.latitude},${arrival.longitude}`}
                         target="_blank"
@@ -876,7 +928,7 @@ export default function PublicInspectionReportShared() {
                       >
                         Voir sur Google Maps →
                       </a>
-                      <span>🔵 Arrivée: {arrival.latitude.toFixed(5)}, {arrival.longitude.toFixed(5)}</span>
+                      <span>🔵 Arrivée: <CityName lat={arrival.latitude} lng={arrival.longitude} prefix="" /></span>
                     </div>
                   </div>
                 </div>
@@ -1711,6 +1763,7 @@ function Badge({ label, checked }: any) {
 }
 
 function SignatureBox({ title, signature, name, timestamp, latitude, longitude }: any) {
+  const city = useCityName(latitude, longitude);
   return (
     <div className="border border-gray-200 rounded-lg p-4">
       <h4 className="text-sm font-semibold text-gray-700 mb-3">{title}</h4>
@@ -1733,14 +1786,18 @@ function SignatureBox({ title, signature, name, timestamp, latitude, longitude }
       {latitude && longitude && (
         <div className="mt-1 text-xs text-gray-400 flex items-center gap-1">
           <MapPin className="w-3 h-3" />
-          <a 
-            href={`https://www.google.com/maps?q=${latitude},${longitude}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-blue-500 hover:underline"
-          >
-            {Number(latitude).toFixed(5)}, {Number(longitude).toFixed(5)}
-          </a>
+          {city ? (
+            <a
+              href={`https://www.google.com/maps?q=${latitude},${longitude}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-blue-500 hover:underline"
+            >
+              Signé à {city}
+            </a>
+          ) : (
+            <span className="text-gray-400">Localisation en cours...</span>
+          )}
         </div>
       )}
     </div>
