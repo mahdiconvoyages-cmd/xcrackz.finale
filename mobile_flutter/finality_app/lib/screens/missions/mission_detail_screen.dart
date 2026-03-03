@@ -274,20 +274,9 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
                     MissionNotesCard(notes: _mission!.notes!),
                     const SizedBox(height: 16),
                   ],
-                  // Partage lien de suivi client
+                  // Suivi GPS + partage (une seule carte unifiée)
                   if (_mission!.status == 'in_progress' || _publicTrackingLink != null) ...[
                     _buildClientTrackingShareCard(),
-                    const SizedBox(height: 16),
-                  ],
-                  // Tracking GPS
-                  if (_mission!.status == 'in_progress') ...[
-                    MissionTrackingCard(
-                      isActive: _isTrackingActive,
-                      publicLink: _publicTrackingLink,
-                      onToggle: _toggleTracking,
-                      onCopyLink: _copyLinkToClipboard,
-                      onShareLink: _shareTrackingLink,
-                    ),
                     const SizedBox(height: 16),
                   ],
                   const SizedBox(height: 80),
@@ -1084,21 +1073,28 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         ),
       );
     }
-    // Pas d'offre — proposer d'en créer une
+    // Pas d'offre — lien discret pour en créer une
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
-      child: SizedBox(
-        width: double.infinity,
-        child: OutlinedButton.icon(
-          onPressed: _openLiftOfferSheet,
-          icon: const Icon(Icons.people_alt_rounded, size: 18),
-          label: const Text('Proposer des places de lift',
-              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
-          style: OutlinedButton.styleFrom(
-            foregroundColor: PremiumTheme.primaryTeal,
-            side: const BorderSide(color: PremiumTheme.primaryTeal),
-            padding: const EdgeInsets.symmetric(vertical: 12),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      child: GestureDetector(
+        onTap: _openLiftOfferSheet,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            color: const Color(0xFFF8FAFC),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: const Color(0xFFE2E8F0)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: const [
+              Icon(Icons.people_alt_rounded, size: 16, color: Color(0xFF94A3B8)),
+              SizedBox(width: 8),
+              Text('Proposer un lift (optionnel)',
+                  style: TextStyle(fontSize: 13, color: Color(0xFF94A3B8))),
+              SizedBox(width: 4),
+              Icon(Icons.chevron_right, size: 16, color: Color(0xFF94A3B8)),
+            ],
           ),
         ),
       ),
@@ -1500,6 +1496,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
     final clientName = _mission?.clientName;
     final clientPhone = _mission?.clientPhone;
     final clientEmail = _mission?.clientEmail;
+    final isInProgress = _mission?.status == 'in_progress';
 
     return Container(
       padding: const EdgeInsets.all(16),
@@ -1507,7 +1504,7 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
         color: PremiumTheme.cardBg,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(
-          color: hasLink ? PremiumTheme.primaryBlue.withValues(alpha: 0.4) : const Color(0xFFE5E7EB),
+          color: _isTrackingActive ? PremiumTheme.accentGreen.withValues(alpha: 0.5) : hasLink ? PremiumTheme.primaryBlue.withValues(alpha: 0.4) : const Color(0xFFE5E7EB),
         ),
         boxShadow: [
           BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 2)),
@@ -1516,33 +1513,47 @@ class _MissionDetailScreenState extends State<MissionDetailScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header
+          // Header avec toggle GPS intégré
           Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
-                  color: PremiumTheme.primaryBlue.withValues(alpha: 0.1),
+                  color: _isTrackingActive ? PremiumTheme.accentGreen.withValues(alpha: 0.1) : PremiumTheme.primaryBlue.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: const Icon(Icons.share_location, color: PremiumTheme.primaryBlue, size: 24),
+                child: Icon(
+                  _isTrackingActive ? Icons.gps_fixed : Icons.share_location,
+                  color: _isTrackingActive ? PremiumTheme.accentGreen : PremiumTheme.primaryBlue,
+                  size: 24,
+                ),
               ),
               const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text(
-                      'Suivi en temps reel',
-                      style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: PremiumTheme.textPrimary),
+                    Text(
+                      _isTrackingActive ? 'Suivi GPS actif' : 'Suivi en temps réel',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold, fontSize: 16,
+                        color: _isTrackingActive ? PremiumTheme.accentGreen : PremiumTheme.textPrimary,
+                      ),
                     ),
                     Text(
-                      hasLink ? 'Lien pret a envoyer au client' : 'Generez un lien pour votre client',
+                      _isTrackingActive ? 'Position mise à jour en continu' : hasLink ? 'Lien prêt à envoyer au client' : 'Générez un lien pour votre client',
                       style: const TextStyle(color: PremiumTheme.textTertiary, fontSize: 12),
                     ),
                   ],
                 ),
               ),
+              if (isInProgress)
+                Switch(
+                  value: _isTrackingActive,
+                  onChanged: (_) => _toggleTracking(),
+                  activeTrackColor: PremiumTheme.accentGreen.withValues(alpha: 0.5),
+                  activeThumbColor: PremiumTheme.accentGreen,
+                ),
             ],
           ),
 

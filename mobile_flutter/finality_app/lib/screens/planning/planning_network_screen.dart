@@ -231,6 +231,9 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
   @override
   Widget build(BuildContext context) {
     final bottomPad = MediaQuery.of(context).padding.bottom;
+    final hasActivity = _myMatches.isNotEmpty || _myOffers.isNotEmpty || _myRequests.isNotEmpty;
+    final totalBadge = _myMatches.length + _myOffers.length + _myRequests.length;
+
     return Scaffold(
       backgroundColor: _kScaffold,
       body: _showMap
@@ -251,64 +254,266 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
                   child: Center(child: CircularProgressIndicator(color: _kTeal)),
                 ),
               ),
-            if (!_loading) SliverToBoxAdapter(child: _buildCTA()),
-            if (!_loading && _myMatches.isNotEmpty) ...[
-              _buildSection('Matchs en cours', Icons.handshake_outlined, _kBlue,
-                  _myMatches.map((m) => _MatchTile(
-                    match: m,
-                    myUid: _uid,
-                    unreadCount: _unreadCounts[m['id']] ?? 0,
-                    onTap: () => _openChat(m),
-                    onAccept: m['driver_id'] == _uid && m['status'] == 'proposed'
-                        ? () => _updateMatch(m['id'], 'accepted', match: m)
-                        : null,
-                    onDecline: m['driver_id'] == _uid && m['status'] == 'proposed'
-                        ? () => _updateMatch(m['id'], 'declined', match: m)
-                        : null,
-                    onStartTransit: m['driver_id'] == _uid && m['status'] == 'accepted'
-                        ? () => _startTransit(m)
-                        : null,
-                    onCancelAccepted: m['driver_id'] == _uid && m['status'] == 'accepted'
-                        ? () => _cancelAcceptedMatch(m)
-                        : null,
-                    onMarkCompleted: m['status'] == 'in_transit'
-                        ? () => _completeTransit(m)
-                        : null,
-                  )).toList()),
+            if (!_loading) ...[
+              // ── Explication simple ──
+              SliverToBoxAdapter(child: _buildExplanationCard()),
+              // ── 2 boutons d'action clairs ──
+              SliverToBoxAdapter(child: _buildActionButtons()),
+              // ── Activité en cours ──
+              if (hasActivity)
+                SliverToBoxAdapter(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.history, size: 18, color: _kDark),
+                        const SizedBox(width: 8),
+                        const Text('Mon activité',
+                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _kDark)),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: _kTeal.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text('$totalBadge',
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: _kTeal)),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              // Matchs — priorité d'affichage (interactions en cours)
+              if (_myMatches.isNotEmpty)
+                _buildSection('🤝 Lifts en cours', Icons.handshake_outlined, _kBlue,
+                    _myMatches.map((m) => _MatchTile(
+                      match: m,
+                      myUid: _uid,
+                      unreadCount: _unreadCounts[m['id']] ?? 0,
+                      onTap: () => _openChat(m),
+                      onAccept: m['driver_id'] == _uid && m['status'] == 'proposed'
+                          ? () => _updateMatch(m['id'], 'accepted', match: m)
+                          : null,
+                      onDecline: m['driver_id'] == _uid && m['status'] == 'proposed'
+                          ? () => _updateMatch(m['id'], 'declined', match: m)
+                          : null,
+                      onStartTransit: m['driver_id'] == _uid && m['status'] == 'accepted'
+                          ? () => _startTransit(m)
+                          : null,
+                      onCancelAccepted: m['driver_id'] == _uid && m['status'] == 'accepted'
+                          ? () => _cancelAcceptedMatch(m)
+                          : null,
+                      onMarkCompleted: m['status'] == 'in_transit'
+                          ? () => _completeTransit(m)
+                          : null,
+                    )).toList()),
+              // Offres publiées
+              if (_myOffers.isNotEmpty)
+                _buildSection('🚗 Mes places proposées', Icons.directions_car, _kTeal,
+                    _myOffers.map((o) => _OfferTile(
+                      offer: o,
+                      onCancel: () => _cancelOffer(o['id']),
+                    )).toList()),
+              // Demandes en attente
+              if (_myRequests.isNotEmpty)
+                _buildSection('🔍 Mes recherches de lift', Icons.hail, _kAmber,
+                    _myRequests.map((r) => _RequestTile(
+                      request: r,
+                      onCancel: () => _cancelRequest(r['id']),
+                      onSearch: () => _openLiftSearch(fromCity: r['pickup_city'], toCity: r['destination_city']),
+                    )).toList()),
+              // État vide
+              if (!hasActivity)
+                SliverToBoxAdapter(child: _buildEmptyActivity()),
             ],
-            if (!_loading && _myOffers.isNotEmpty)
-              _buildSection('Mes offres actives', Icons.directions_car, _kTeal,
-                  _myOffers.map((o) => _OfferTile(
-                    offer: o,
-                    onCancel: () => _cancelOffer(o['id']),
-                  )).toList()),
-            if (!_loading && _myRequests.isNotEmpty)
-              _buildSection('Mes demandes de lift', Icons.hail, _kAmber,
-                  _myRequests.map((r) => _RequestTile(
-                    request: r,
-                    onCancel: () => _cancelRequest(r['id']),
-                    onSearch: () => _openLiftSearch(fromCity: r['pickup_city'], toCity: r['destination_city']),
-                  )).toList()),
-            if (!_loading && _myMatches.isEmpty && _myOffers.isEmpty && _myRequests.isEmpty)
-              SliverFillRemaining(
-                hasScrollBody: false,
-                child: _EmptyHub(onSearch: () => _openLiftSearch()),
-              ),
-            // Extra padding so last item is not hidden behind FAB + Samsung nav bar
-            SliverToBoxAdapter(child: SizedBox(height: 80 + bottomPad)),
+            // Extra padding
+            SliverToBoxAdapter(child: SizedBox(height: 30 + bottomPad)),
           ],
         ),
       ),
-      floatingActionButton: _showMap ? null : Padding(
-        padding: EdgeInsets.only(bottom: bottomPad > 0 ? bottomPad - 8 : 0),
-        child: FloatingActionButton.extended(
-          onPressed: _publishOffer,
-          backgroundColor: _kTeal,
-          icon: const Icon(Icons.add),
-          label: const Text('Publier une offre'),
+    );
+  }
+
+  // ── Carte d'explication ─────────────────────────────────────────────────────
+
+  Widget _buildExplanationCard() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          gradient: const LinearGradient(
+            colors: [Color(0xFFF0FDFA), Color(0xFFECFDF5)],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+          ),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _kTeal.withValues(alpha: 0.2)),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Text('🚗', style: TextStyle(fontSize: 24)),
+                const SizedBox(width: 10),
+                const Expanded(
+                  child: Text('Comment ça marche ?',
+                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: _kDark)),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            _buildStep('1', 'Tu viens de livrer un véhicule', 'Tu es loin de chez toi et tu as besoin de rentrer'),
+            const SizedBox(height: 8),
+            _buildStep('2', 'Cherche un convoyeur', 'Un autre convoyeur qui passe par ta ville peut te déposer'),
+            const SizedBox(height: 8),
+            _buildStep('3', 'Ou propose tes places', 'Tu as de la place ? Propose un lift à d\'autres convoyeurs'),
+          ],
         ),
       ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+    );
+  }
+
+  Widget _buildStep(String num, String title, String subtitle) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 22, height: 22,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: _kTeal,
+            borderRadius: BorderRadius.circular(11),
+          ),
+          child: Text(num, style: const TextStyle(color: Colors.white, fontSize: 12, fontWeight: FontWeight.bold)),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(title, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: _kDark)),
+              Text(subtitle, style: const TextStyle(fontSize: 11, color: _kGray, height: 1.3)),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ── 2 boutons d'action ─────────────────────────────────────────────────────
+
+  Widget _buildActionButtons() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: GestureDetector(
+              onTap: () => _openLiftSearch(),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                decoration: BoxDecoration(
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF0D9488), Color(0xFF0891B2)],
+                  ),
+                  borderRadius: BorderRadius.circular(14),
+                  boxShadow: [BoxShadow(color: _kTeal.withValues(alpha: 0.25), blurRadius: 8, offset: const Offset(0, 3))],
+                ),
+                child: Column(
+                  children: const [
+                    Icon(Icons.search, color: Colors.white, size: 28),
+                    SizedBox(height: 6),
+                    Text('Chercher\nun lift', textAlign: TextAlign.center,
+                        style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold, height: 1.3)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: GestureDetector(
+              onTap: _publishOffer,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: _kTeal, width: 1.5),
+                  boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.04), blurRadius: 8, offset: const Offset(0, 3))],
+                ),
+                child: Column(
+                  children: const [
+                    Icon(Icons.add_circle_outline, color: _kTeal, size: 28),
+                    SizedBox(height: 6),
+                    Text('Proposer\ndes places', textAlign: TextAlign.center,
+                        style: TextStyle(color: _kTeal, fontSize: 13, fontWeight: FontWeight.bold, height: 1.3)),
+                  ],
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          GestureDetector(
+            onTap: () => setState(() => _showMap = !_showMap),
+            child: Container(
+              padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 14),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: _kBorder),
+              ),
+              child: Column(
+                children: const [
+                  Icon(Icons.map_rounded, color: _kGray, size: 28),
+                  SizedBox(height: 6),
+                  Text('Carte', style: TextStyle(color: _kGray, fontSize: 13, fontWeight: FontWeight.w600)),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ── Activité vide ──────────────────────────────────────────────────────────
+
+  Widget _buildEmptyActivity() {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 32, 16, 0),
+      child: Container(
+        padding: const EdgeInsets.all(24),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: _kBorder),
+        ),
+        child: Column(
+          children: [
+            Container(
+              width: 60, height: 60,
+              decoration: BoxDecoration(
+                color: _kTealBg,
+                borderRadius: BorderRadius.circular(30),
+              ),
+              child: const Center(child: Text('✨', style: TextStyle(fontSize: 28))),
+            ),
+            const SizedBox(height: 14),
+            const Text('Aucune activité',
+                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: _kDark)),
+            const SizedBox(height: 6),
+            const Text(
+              'Tes lifts, offres et demandes\napparaîtront ici.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 13, color: _kGray, height: 1.4),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -316,16 +521,11 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
 
   SliverAppBar _buildAppBar() {
     return SliverAppBar(
-      expandedHeight: 110,
+      expandedHeight: 100,
       pinned: true,
       backgroundColor: _kTeal,
       foregroundColor: Colors.white,
       actions: [
-        IconButton(
-          icon: Icon(_showMap ? Icons.list_rounded : Icons.map_rounded),
-          onPressed: () => setState(() => _showMap = !_showMap),
-          tooltip: _showMap ? 'Vue liste' : 'Vue carte',
-        ),
         IconButton(
           icon: const Icon(Icons.refresh_rounded),
           onPressed: _load,
@@ -353,7 +553,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
                     Text('Entraide Convoyeurs', style: TextStyle(
                         color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold)),
                     SizedBox(height: 2),
-                    Text('Partagez vos trajets retour entre convoyeurs',
+                    Text('Trouvez ou proposez un lift pour vos retours',
                         style: TextStyle(color: Colors.white70, fontSize: 13)),
                   ],
                 ),
@@ -400,70 +600,7 @@ class _PlanningNetworkScreenState extends State<PlanningNetworkScreen> {
     );
   }
 
-  // ── CTA principal ──────────────────────────────────────────────────────────
-
-  Widget _buildCTA() {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-      child: GestureDetector(
-        onTap: () => _openLiftSearch(),
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            gradient: const LinearGradient(
-              colors: [Color(0xFF0D9488), Color(0xFF0891B2)],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
-            ),
-            borderRadius: BorderRadius.circular(18),
-            boxShadow: [
-              BoxShadow(
-                color: _kTeal.withValues(alpha: 0.3),
-                blurRadius: 12,
-                offset: const Offset(0, 4),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(14),
-                ),
-                child: const Text('🚗', style: TextStyle(fontSize: 28)),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: const [
-                    Text('Tu viens de livrer ?',
-                        style: TextStyle(color: Colors.white,
-                            fontSize: 16, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 3),
-                    Text('Trouve un convoyeur qui passe par ta ville',
-                        style: TextStyle(color: Colors.white70, fontSize: 13)),
-                  ],
-                ),
-              ),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: const Text('Chercher',
-                    style: TextStyle(color: _kTeal,
-                        fontWeight: FontWeight.bold, fontSize: 13)),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  // ── CTA (remplacé par _buildActionButtons) ──────────────────────────────
 
   // ── Section helper ──────────────────────────────────────────────────────────
 
@@ -1236,49 +1373,4 @@ class _RequestTile extends StatelessWidget {
 
 // ── État vide ──────────────────────────────────────────────────────────────────
 
-class _EmptyHub extends StatelessWidget {
-  final VoidCallback onSearch;
-  const _EmptyHub({required this.onSearch});
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.all(32),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            width: 80, height: 80,
-            decoration: BoxDecoration(
-              color: _kTealBg,
-              borderRadius: BorderRadius.circular(40),
-            ),
-            child: const Center(
-              child: Text('🚗', style: TextStyle(fontSize: 36)),
-            ),
-          ),
-          const SizedBox(height: 20),
-          const Text('Tout est calme pour l\'instant',
-              style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold, color: _kDark)),
-          const SizedBox(height: 8),
-          const Text(
-            'Tes offres et demandes de lift\napparaîtront ici.',
-            textAlign: TextAlign.center,
-            style: TextStyle(fontSize: 14, color: _kGray, height: 1.5),
-          ),
-          const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: onSearch,
-            icon: const Icon(Icons.search),
-            label: const Text('Chercher un lift maintenant'),
-            style: FilledButton.styleFrom(
-              backgroundColor: _kTeal,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+// (Removed: _EmptyHub — replaced by inline _buildEmptyActivity)

@@ -406,41 +406,39 @@ export default function PublicTracking() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-teal-50/30 to-cyan-50/30">
-      {/* HEADER PUBLIC */}
+      {/* HEADER PUBLIC — compact sur mobile */}
       <div className="bg-gradient-to-r from-teal-600 via-cyan-600 to-blue-600 text-white shadow-xl">
-        <div className="container mx-auto px-6 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 py-4 sm:py-6">
           <div className="flex items-center justify-between">
-            <div>
-              <div className="flex items-center gap-3 mb-2">
-                <div className="p-3 bg-white/20 backdrop-blur rounded-xl">
-                  <Navigation className="w-8 h-8 animate-pulse" />
-                </div>
-                <div>
-                  <h1 className="text-3xl font-black">Suivi en Direct</h1>
-                  <p className="text-white/90 text-sm mt-1">{mission.reference}</p>
-                </div>
+            <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+              <div className="p-2 sm:p-3 bg-white/20 backdrop-blur rounded-lg sm:rounded-xl shrink-0">
+                <Navigation className="w-5 h-5 sm:w-8 sm:h-8 animate-pulse" />
+              </div>
+              <div className="min-w-0">
+                <h1 className="text-lg sm:text-2xl font-black truncate">Suivi en Direct</h1>
+                <p className="text-white/90 text-xs sm:text-sm truncate">{mission.reference}</p>
               </div>
             </div>
-            <div className="flex gap-3">
+            <div className="flex gap-2 shrink-0">
               {mission.status === 'in_progress' && (
-                <div className="flex items-center gap-2 px-4 py-2 bg-white/20 backdrop-blur rounded-xl">
-                  <Activity className="w-5 h-5 animate-pulse" />
+                <div className="flex items-center gap-1 px-2 sm:px-4 py-1.5 bg-white/20 backdrop-blur rounded-lg text-xs sm:text-sm">
+                  <Activity className="w-3.5 h-3.5 sm:w-5 sm:h-5 animate-pulse" />
                   <span className="font-bold">LIVE</span>
                 </div>
               )}
               <button
                 onClick={handleShare}
-                className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 backdrop-blur rounded-xl transition-colors"
+                className="flex items-center gap-1 px-2 sm:px-4 py-1.5 bg-white/20 hover:bg-white/30 backdrop-blur rounded-lg transition-colors text-xs sm:text-sm"
               >
                 {copied ? (
                   <>
-                    <Check className="w-5 h-5" />
-                    <span className="font-bold">Copié!</span>
+                    <Check className="w-4 h-4" />
+                    <span className="font-bold hidden sm:inline">Copié!</span>
                   </>
                 ) : (
                   <>
-                    <Share2 className="w-5 h-5" />
-                    <span className="font-bold">Partager</span>
+                    <Share2 className="w-4 h-4" />
+                    <span className="font-bold hidden sm:inline">Partager</span>
                   </>
                 )}
               </button>
@@ -449,146 +447,19 @@ export default function PublicTracking() {
         </div>
       </div>
 
-      <div className="container mx-auto px-6 py-8 space-y-6">
-        {/* STATS CARDS - Uniquement si en cours */}
-        {mission.status === 'in_progress' && currentLocation && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {/* VITESSE */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-blue-200 hover:shadow-xl transition-shadow">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-blue-500/10 rounded-xl">
-                  <Gauge className="w-7 h-7 text-blue-600" />
-                </div>
-                {currentLocation.speed && currentLocation.speed > 0 && (
-                  <div className="px-2 py-1 bg-green-500/20 rounded-lg">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-                  </div>
-                )}
-              </div>
-              <p className="text-sm font-semibold text-slate-600 uppercase mb-2">Vitesse actuelle</p>
-              <p className="text-4xl font-black text-blue-600">
-                {currentLocation.speed ? Math.round(currentLocation.speed * 3.6) : 0}
-                <span className="text-lg ml-1">km/h</span>
-              </p>
-              <p className="text-xs text-slate-500 mt-2">
-                MAJ: {new Date(currentLocation.recorded_at).toLocaleTimeString('fr-FR')}
-              </p>
-            </div>
+      <div className="max-w-4xl mx-auto px-3 sm:px-6 py-4 sm:py-8 space-y-4 sm:space-y-6">
 
-            {/* DISTANCE RESTANTE */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-amber-200 hover:shadow-xl transition-shadow">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-amber-500/10 rounded-xl">
-                  <MapPin className="w-7 h-7 text-amber-600" />
-                </div>
-              </div>
-              <p className="text-sm font-semibold text-slate-600 uppercase mb-2">Distance restante</p>
-              <p className="text-4xl font-black text-amber-600">
-                {distanceRemaining.toFixed(1)}
-                <span className="text-lg ml-1">km</span>
-              </p>
-              <p className="text-xs text-slate-500 mt-2">
-                {locations.length} points GPS enregistrés
-              </p>
-            </div>
-
-            {/* ETA */}
-            <div className="bg-white rounded-2xl p-6 shadow-lg border-2 border-green-200 hover:shadow-xl transition-shadow">
-              <div className="flex items-center justify-between mb-4">
-                <div className="p-3 bg-green-500/10 rounded-xl">
-                  <Clock className="w-7 h-7 text-green-600" />
-                </div>
-              </div>
-              <p className="text-sm font-semibold text-slate-600 uppercase mb-2">Temps d'arrivée estimé</p>
-              <p className="text-4xl font-black text-green-600">
-                {formatDuration(eta)}
-              </p>
-              {eta > 0 && (
-                <p className="text-xs text-slate-500 mt-2">
-                  Arrivée vers {new Date(Date.now() + eta * 60000).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
-                </p>
-              )}
-            </div>
-          </div>
-        )}
-
-        {/* INFOS MISSION */}
-        <div className="bg-white rounded-2xl p-6 shadow-lg">
-          <div className="flex items-start justify-between mb-6">
-            <div>
-              <h2 className="text-2xl font-black text-slate-900 mb-2">
-                {mission.vehicle_brand} {mission.vehicle_model}
-              </h2>
-              {mission.vehicle_plate && (
-                <p className="text-slate-600 font-mono text-lg">🚗 {mission.vehicle_plate}</p>
-              )}
-            </div>
-            <div className={`px-4 py-2 rounded-full text-sm font-bold ${
-              mission.status === 'in_progress'
-                ? 'bg-blue-500/10 text-blue-600 border-2 border-blue-200'
-                : mission.status === 'completed'
-                ? 'bg-green-500/10 text-green-600 border-2 border-green-200'
-                : 'bg-amber-500/10 text-amber-600 border-2 border-amber-200'
-            }`}>
-              {mission.status === 'in_progress' ? '🚗 En cours' : mission.status === 'completed' ? '✅ Terminé' : '⏳ En attente'}
-            </div>
-          </div>
-
-          <div className="grid md:grid-cols-2 gap-6">
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="p-2 bg-green-500/10 rounded-lg mt-1">
-                  <MapPin className="w-5 h-5 text-green-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-600">Point de départ</p>
-                  <p className="text-slate-900 font-medium">{mission.pickup_address}</p>
-                  <p className="text-xs text-slate-500 mt-1">
-                    📅 {new Date(mission.pickup_date).toLocaleString('fr-FR')}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <div className="p-2 bg-red-500/10 rounded-lg mt-1">
-                  <MapPin className="w-5 h-5 text-red-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-semibold text-slate-600">Destination</p>
-                  <p className="text-slate-900 font-medium">{mission.delivery_address}</p>
-                  {mission.delivery_date && (
-                    <p className="text-xs text-slate-500 mt-1">
-                      📅 {new Date(mission.delivery_date).toLocaleString('fr-FR')}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {mission.driver && (
-            <div className="mt-6 pt-6 border-t border-slate-200">
-              <p className="text-sm font-semibold text-slate-600 mb-2">Chauffeur</p>
-              <p className="text-lg font-bold text-slate-900">
-                {mission.driver.first_name} {mission.driver.last_name}
-              </p>
-            </div>
-          )}
-        </div>
-
-        {/* CARTE GPS */}
+        {/* CARTE GPS — en premier sur mobile pour visibilité maximale */}
         {mission.status === 'in_progress' && mission.pickup_lat && mission.delivery_lat && currentLocation && (
-          <div className="bg-white rounded-2xl p-6 shadow-lg">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-black text-slate-900">Position en temps réel</h3>
-              <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500 text-white rounded-lg text-sm font-bold">
-                <Activity className="w-4 h-4 animate-pulse" />
+          <div className="bg-white rounded-xl sm:rounded-2xl overflow-hidden shadow-lg">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-slate-100">
+              <h3 className="text-base sm:text-xl font-black text-slate-900">Position en temps réel</h3>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 bg-green-500 text-white rounded-lg text-xs font-bold">
+                <Activity className="w-3 h-3 sm:w-4 sm:h-4 animate-pulse" />
                 <span>LIVE</span>
               </div>
             </div>
-            <div className="w-full h-[500px] rounded-xl overflow-hidden border-2 border-slate-200">
+            <div className="w-full h-[45vh] sm:h-[500px]">
               <LeafletTracking
                 pickupLat={mission.pickup_lat!}
                 pickupLng={mission.pickup_lng!}
@@ -603,7 +474,7 @@ export default function PublicTracking() {
                 driverName={mission.driver ? `${mission.driver.first_name} ${mission.driver.last_name}` : 'Chauffeur'}
                 vehiclePlate={mission.vehicle_plate}
                 status={mission.status === 'in_progress' ? 'En cours' : 'En attente'}
-                height="500px"
+                height="100%"
                 showControls={true}
                 gpsPath={locations.map(loc => [loc.latitude, loc.longitude])}
               />
@@ -611,14 +482,126 @@ export default function PublicTracking() {
           </div>
         )}
 
+        {/* STATS CARDS — compactes sur mobile (une ligne horizontale scrollable) */}
+        {mission.status === 'in_progress' && currentLocation && (
+          <div className="grid grid-cols-3 gap-2 sm:gap-6">
+            {/* VITESSE */}
+            <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-md border border-blue-100 sm:border-2 sm:border-blue-200">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <div className="p-1.5 sm:p-3 bg-blue-500/10 rounded-lg sm:rounded-xl">
+                  <Gauge className="w-4 h-4 sm:w-7 sm:h-7 text-blue-600" />
+                </div>
+              </div>
+              <p className="text-[10px] sm:text-sm font-semibold text-slate-500 uppercase mb-1">Vitesse</p>
+              <p className="text-xl sm:text-4xl font-black text-blue-600">
+                {currentLocation.speed ? Math.round(currentLocation.speed * 3.6) : 0}
+                <span className="text-[10px] sm:text-lg ml-0.5">km/h</span>
+              </p>
+            </div>
+
+            {/* DISTANCE RESTANTE */}
+            <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-md border border-amber-100 sm:border-2 sm:border-amber-200">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <div className="p-1.5 sm:p-3 bg-amber-500/10 rounded-lg sm:rounded-xl">
+                  <MapPin className="w-4 h-4 sm:w-7 sm:h-7 text-amber-600" />
+                </div>
+              </div>
+              <p className="text-[10px] sm:text-sm font-semibold text-slate-500 uppercase mb-1">Distance</p>
+              <p className="text-xl sm:text-4xl font-black text-amber-600">
+                {distanceRemaining.toFixed(0)}
+                <span className="text-[10px] sm:text-lg ml-0.5">km</span>
+              </p>
+            </div>
+
+            {/* ETA */}
+            <div className="bg-white rounded-xl sm:rounded-2xl p-3 sm:p-6 shadow-md border border-green-100 sm:border-2 sm:border-green-200">
+              <div className="flex items-center justify-between mb-2 sm:mb-4">
+                <div className="p-1.5 sm:p-3 bg-green-500/10 rounded-lg sm:rounded-xl">
+                  <Clock className="w-4 h-4 sm:w-7 sm:h-7 text-green-600" />
+                </div>
+              </div>
+              <p className="text-[10px] sm:text-sm font-semibold text-slate-500 uppercase mb-1">ETA</p>
+              <p className="text-xl sm:text-4xl font-black text-green-600">
+                {formatDuration(eta)}
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* INFOS MISSION — collapsible sur mobile */}
+        <details className="bg-white rounded-xl sm:rounded-2xl shadow-lg group" open>
+          <summary className="flex items-center justify-between px-4 sm:px-6 py-3 sm:py-4 cursor-pointer list-none">
+            <div className="min-w-0">
+              <h2 className="text-base sm:text-2xl font-black text-slate-900 truncate">
+                {mission.vehicle_brand} {mission.vehicle_model}
+              </h2>
+              {mission.vehicle_plate && (
+                <p className="text-slate-600 font-mono text-sm sm:text-lg">🚗 {mission.vehicle_plate}</p>
+              )}
+            </div>
+            <div className="flex items-center gap-2 shrink-0">
+              <div className={`px-3 py-1 rounded-full text-xs font-bold ${
+                mission.status === 'in_progress'
+                  ? 'bg-blue-500/10 text-blue-600 border border-blue-200'
+                  : mission.status === 'completed'
+                  ? 'bg-green-500/10 text-green-600 border border-green-200'
+                  : 'bg-amber-500/10 text-amber-600 border border-amber-200'
+              }`}>
+                {mission.status === 'in_progress' ? '🚗 En cours' : mission.status === 'completed' ? '✅ Terminé' : '⏳ En attente'}
+              </div>
+              <svg className="w-4 h-4 text-slate-400 transition-transform group-open:rotate-180" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" /></svg>
+            </div>
+          </summary>
+          <div className="px-4 sm:px-6 pb-4 sm:pb-6 border-t border-slate-100">
+            <div className="grid sm:grid-cols-2 gap-4 mt-4">
+              <div className="flex items-start gap-3">
+                <div className="p-1.5 sm:p-2 bg-green-500/10 rounded-lg mt-0.5 shrink-0">
+                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-green-600" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-500">Départ</p>
+                  <p className="text-slate-900 font-medium text-sm sm:text-base break-words">{mission.pickup_address}</p>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    📅 {new Date(mission.pickup_date).toLocaleString('fr-FR')}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-3">
+                <div className="p-1.5 sm:p-2 bg-red-500/10 rounded-lg mt-0.5 shrink-0">
+                  <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-red-600" />
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-semibold text-slate-500">Destination</p>
+                  <p className="text-slate-900 font-medium text-sm sm:text-base break-words">{mission.delivery_address}</p>
+                  {mission.delivery_date && (
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      📅 {new Date(mission.delivery_date).toLocaleString('fr-FR')}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {mission.driver && (
+              <div className="mt-4 pt-4 border-t border-slate-100">
+                <p className="text-xs font-semibold text-slate-500 mb-1">Chauffeur</p>
+                <p className="text-base font-bold text-slate-900">
+                  {mission.driver.first_name} {mission.driver.last_name}
+                </p>
+              </div>
+            )}
+          </div>
+        </details>
+
         {/* MESSAGE SI PAS EN COURS */}
         {mission.status !== 'in_progress' && (
-          <div className="bg-white rounded-2xl p-8 shadow-lg text-center">
-            <div className="p-4 bg-amber-500/10 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
-              <Clock className="w-10 h-10 text-amber-600" />
+          <div className="bg-white rounded-xl sm:rounded-2xl p-6 sm:p-8 shadow-lg text-center">
+            <div className="p-3 bg-amber-500/10 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-3">
+              <Clock className="w-8 h-8 text-amber-600" />
             </div>
-            <h3 className="text-2xl font-black text-slate-900 mb-2">Mission en attente</h3>
-            <p className="text-slate-600">
+            <h3 className="text-lg sm:text-2xl font-black text-slate-900 mb-2">Mission en attente</h3>
+            <p className="text-slate-600 text-sm sm:text-base">
               Le suivi GPS sera disponible dès que la mission sera démarrée par le chauffeur.
             </p>
           </div>
