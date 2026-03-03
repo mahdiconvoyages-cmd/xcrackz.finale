@@ -14,6 +14,7 @@ import '../../theme/premium_theme.dart';
 import 'widgets/inspection_shared_widgets.dart';
 import '../../services/notification_service.dart';
 import '../../widgets/vehicle_body_map_widget.dart';
+import '../../widgets/photo_damage_map_dialog.dart';
 
 /// Écran d'inspection de départ moderne avec 8 photos obligatoires
 /// Compatible avec les tables Expo mobile (vehicle_inspections + inspection_photos)
@@ -89,8 +90,9 @@ class _InspectionDepartureScreenState
   // Step 5: Documents avec nom manuel (optionnel)
   final List<Map<String, String>> _namedDocuments = []; // {url, title}
 
-  // Body map damages
-  List<DamageEntry> _bodyMapDamages = [];
+  // Body map damages — stockés par index photo
+  // Clé = index photo (0-7 obligatoires, 8+ optionnelles)
+  final Map<int, List<DamageEntry>> _photoDamageEntries = {};
 
   // Observations (notes de départ)
   final _observationsController = TextEditingController();
@@ -500,13 +502,13 @@ class _InspectionDepartureScreenState
       case 1:
         // Vérifier que les 8 photos sont prises
         if (!_photos.every((photo) => photo != null)) return false;
-        // Vérifier que chaque dommage ≠ RAS a un commentaire
+        // Vérifier que chaque dommage ≠ RAS a au moins une zone cochée sur le schéma
         for (int i = 0; i < 8; i++) {
-          if (_photoDamages[i] != 'RAS' && _photoComments[i].trim().isEmpty) return false;
+          if (_photoDamages[i] != 'RAS' && (_photoDamageEntries[i]?.isEmpty ?? true)) return false;
         }
-        // Vérifier les photos optionnelles avec dommage
+        // Vérifier les photos optionnelles
         for (int i = 0; i < 10; i++) {
-          if (_optionalPhotos[i] != null && _optionalPhotoDamages[i] != 'RAS' && _optionalPhotoComments[i].trim().isEmpty) return false;
+          if (_optionalPhotos[i] != null && _optionalPhotoDamages[i] != 'RAS' && (_photoDamageEntries[i + 8]?.isEmpty ?? true)) return false;
         }
         return true;
       case 2:
@@ -708,8 +710,9 @@ class _InspectionDepartureScreenState
       }
       debugPrint('✅ STEP 4 OK: ${_namedDocuments.length} documents uploaded');
 
-      // 4b. Sauvegarder les dommages du body map
-      for (final damage in _bodyMapDamages) {
+      // 4b. Sauvegarder les dommages liés aux photos (body map intégré)
+      final allDamages = _photoDamageEntries.values.expand((list) => list).toList();
+      for (final damage in allDamages) {
         await supabase.from('inspection_damages').insert({
           'inspection_id': inspectionId,
           'damage_type': damage.type.name,
@@ -719,7 +722,7 @@ class _InspectionDepartureScreenState
           'detected_by': 'manual',
         });
       }
-      debugPrint('✅ STEP 4b OK: ${_bodyMapDamages.length} damages saved');
+      debugPrint('✅ STEP 4b OK: ${allDamages.length} damages saved');
 
       // 5. Mettre à jour le statut de la mission à 'in_progress' UNIQUEMENT après validation de l'inspection de départ
       if (!widget.isRestitution) {
@@ -1639,46 +1642,87 @@ class _InspectionDepartureScreenState
                             if (value == 'RAS') _photoComments[index] = '';
                           }
                         });
+                        // Si dommage signalé → ouvrir le schéma de la zone
+                        if (value != null && value != 'RAS') {
+                          final photoIdx = isOptional ? index + 8 : index;
+                          _openPhotoDamageMap(photoIdx, isOptional ? 'Photo optionnelle ${index + 1}' : _photoGuides[index].label);
+                        }
                       },
                     ),
-                    // Commentaire obligatoire si dommage ≠ RAS
+                    // Badge dommages + bouton schéma si dommages signalés
                     if (damage != 'RAS') ...[
                       const SizedBox(height: 6),
-                      TextField(
-                        style: TextStyle(color: PremiumTheme.textPrimary, fontSize: 11),
-                        maxLines: 2,
-                        decoration: InputDecoration(
-                          hintText: 'Décrivez le dommage...',
-                          hintStyle: TextStyle(color: PremiumTheme.textTertiary, fontSize: 11),
-                          contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-                          filled: true,
-                          fillColor: const Color(0xFFFEF3C7),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(6),
-                            borderSide: const BorderSide(color: Color(0xFFF59E0B)),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(6),
-                            borderSide: const BorderSide(color: Color(0xFFF59E0B)),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(6),
-                            borderSide: const BorderSide(color: Color(0xFFEF4444), width: 2),
-                          ),
-                        ),
-                        onChanged: (value) {
-                          if (isOptional) {
-                            _optionalPhotoComments[index] = value;
-                          } else {
-                            _photoComments[index] = value;
-                          }
-                          setState(() {}); // Refresh _canProceed
-                        },
-                        controller: null, // Stateless — uses onChanged
-                      ),
+                      _buildDamageMapButton(isOptional ? index + 8 : index, isOptional ? 'Photo optionnelle ${index + 1}' : _photoGuides[index].label),
                     ],
                   ],
                 ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Ouvre le dialog de schéma véhicule filtré par angle photo
+  Future<void> _openPhotoDamageMap(int photoIndex, String photoLabel) async {
+    final existing = _photoDamageEntries[photoIndex] ?? [];
+    final result = await showDialog<List<DamageEntry>>(
+      context: context,
+      barrierDismissible: false,
+      builder: (ctx) => PhotoDamageMapDialog(
+        photoIndex: photoIndex,
+        photoLabel: photoLabel,
+        existingDamages: existing,
+      ),
+    );
+    if (result != null) {
+      setState(() {
+        _photoDamageEntries[photoIndex] = result;
+        // Mettre à jour le commentaire photo avec le résumé des dommages
+        final summary = result.map((d) => '${d.zone.label}: ${d.type.label}').join(', ');
+        if (photoIndex < 8) {
+          _photoComments[photoIndex] = summary;
+        } else {
+          _optionalPhotoComments[photoIndex - 8] = summary;
+        }
+      });
+    }
+  }
+
+  /// Bouton pour ouvrir/rouvrir le schéma de dommages d'une photo
+  Widget _buildDamageMapButton(int photoIndex, String label) {
+    final damages = _photoDamageEntries[photoIndex] ?? [];
+    return GestureDetector(
+      onTap: () => _openPhotoDamageMap(photoIndex, label),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        decoration: BoxDecoration(
+          color: damages.isNotEmpty ? const Color(0xFFFEE2E2) : const Color(0xFFFEF3C7),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(
+            color: damages.isNotEmpty ? const Color(0xFFEF4444) : const Color(0xFFF59E0B),
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              damages.isNotEmpty ? Icons.warning_rounded : Icons.touch_app,
+              size: 14,
+              color: damages.isNotEmpty ? const Color(0xFFEF4444) : const Color(0xFFF59E0B),
+            ),
+            const SizedBox(width: 4),
+            Flexible(
+              child: Text(
+                damages.isNotEmpty
+                    ? '${damages.length} dommage(s) — Modifier'
+                    : '📍 Localiser sur le schéma',
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w600,
+                  color: damages.isNotEmpty ? const Color(0xFFDC2626) : const Color(0xFFD97706),
+                ),
               ),
             ),
           ],
@@ -1893,15 +1937,6 @@ class _InspectionDepartureScreenState
               ),
             ),
           ],
-          const SizedBox(height: 32),
-
-          // Carte des dommages (body map)
-          VehicleBodyMapWidget(
-            damages: _bodyMapDamages,
-            onDamagesChanged: (damages) {
-              setState(() => _bodyMapDamages = damages);
-            },
-          ),
           const SizedBox(height: 32),
 
           // Observations
@@ -2471,8 +2506,8 @@ class _InspectionDepartureScreenState
             _buildRecapRow('Roue de secours', _hasSpareWheel ? '✅ Oui' : '❌ Non'),
             _buildRecapRow('Véhicule chargé', _isVehicleLoaded ? '✅ Oui' : '❌ Non'),
             _buildRecapRow('Objet confié', _hasConfidedObject ? '✅ Oui' : '❌ Non'),
-            if (_bodyMapDamages.isNotEmpty)
-              _buildRecapRow('Dommages carte', '${_bodyMapDamages.length}'),
+            if (_photoDamageEntries.values.any((list) => list.isNotEmpty))
+              _buildRecapRow('Dommages signalés', '${_photoDamageEntries.values.expand((l) => l).length}'),
             if (_observationsController.text.isNotEmpty)
               _buildRecapRow('Observations', _observationsController.text),
           ]),
