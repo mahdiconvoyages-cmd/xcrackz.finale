@@ -18,28 +18,27 @@ class RealtimeSync {
   private channels: RealtimeChannel[] = [];
 
   /**
-   * 📋 Écouter les changements sur missions
+   * 📋 Écouter les changements sur missions — filtré par user_id
+   * Requiert userId pour éviter de recevoir toutes les missions de tous les utilisateurs
    */
-  subscribeToMissions(callback: (payload: MissionPayload) => void) {
-    console.log('🔄 Subscribing to missions realtime...');
+  subscribeToMissions(userId: string, callback: (payload: MissionPayload) => void) {
+    if (!userId) return null;
     
     const channel = supabase
-      .channel('missions-changes')
+      .channel(`missions-${userId}`)
       .on(
         'postgres_changes',
         {
-          event: '*', // INSERT, UPDATE, DELETE
+          event: '*',
           schema: 'public',
           table: 'missions',
+          filter: `user_id=eq.${userId}`,
         },
         (payload: RealtimePostgresChangesPayload<any>) => {
-          console.log('🔄 Mission changed:', payload.eventType, payload.new?.reference);
           callback(payload as MissionPayload);
         }
       )
-      .subscribe((status: any) => {
-        console.log('🔄 Missions subscription status:', status);
-      });
+      .subscribe();
 
     this.channels.push(channel);
     return channel;
@@ -85,86 +84,79 @@ class RealtimeSync {
   }
 
   /**
-   * 📍 Écouter les positions GPS pour des missions spécifiques
+   * 📍 Écouter les positions GPS — une souscription filtrée par mission
+   * Évite de recevoir les positions GPS de toutes les missions
    */
   subscribeToLocations(missionIds: string[], callback: (payload: MissionPayload) => void) {
-    if (missionIds.length === 0) {
-      console.log('⚠️ No mission IDs provided for location tracking');
-      return null;
-    }
+    if (missionIds.length === 0) return null;
 
-    console.log('🔄 Subscribing to locations for missions:', missionIds.length);
-    
-    const channel = supabase
-      .channel('locations-realtime')
-      .on(
-        'postgres_changes',
-        {
-          event: 'INSERT',
-          schema: 'public',
-          table: 'mission_locations',
-        },
-        (payload: RealtimePostgresChangesPayload<any>) => {
-          // Filtrer uniquement les missions qui nous intéressent
-          if (payload.new && missionIds.includes(payload.new.mission_id)) {
-            console.log('📍 New location for tracked mission:', payload.new.mission_id);
+    // Une souscription filtrée par mission_id au lieu d'une globale
+    const channels: RealtimeChannel[] = [];
+    for (const missionId of missionIds.slice(0, 5)) { // max 5 missions en simultané
+      const ch = supabase
+        .channel(`locations-${missionId}`)
+        .on(
+          'postgres_changes',
+          {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'mission_tracking_live',
+            filter: `mission_id=eq.${missionId}`,
+          },
+          (payload: RealtimePostgresChangesPayload<any>) => {
             callback(payload as MissionPayload);
           }
-        }
-      )
-      .subscribe((status: any) => {
-        console.log('🔄 Locations subscription status:', status);
-      });
-
-    this.channels.push(channel);
-    return channel;
+        )
+        .subscribe();
+      channels.push(ch);
+      this.channels.push(ch);
+    }
+    return channels[0] ?? null;
   }
 
   /**
-   * 👥 Écouter les changements sur profiles (statuts, disponibilités)
+   * 👥 Écouter les changements sur un profil spécifique uniquement
    */
-  subscribeToProfiles(callback: (payload: MissionPayload) => void) {
-    console.log('🔄 Subscribing to profiles realtime...');
-    
+  subscribeToProfiles(userId: string, callback: (payload: MissionPayload) => void) {
+    if (!userId) return null;
+
     const channel = supabase
-      .channel('profiles-changes')
+      .channel(`profile-${userId}`)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'profiles',
+          filter: `id=eq.${userId}`,
         },
         (payload: RealtimePostgresChangesPayload<any>) => {
-          console.log('👤 Profile updated:', payload.new?.id);
           callback(payload as MissionPayload);
         }
       )
-      .subscribe((status: any) => {
-        console.log('🔄 Profiles subscription status:', status);
-      });
+      .subscribe();
 
     this.channels.push(channel);
     return channel;
   }
 
   /**
-   * 🔄 Écouter TOUS les changements assignments (pour admin/créateur)
+   * 🔄 Écouter les changements assignments pour un créateur (filtré)
    */
-  subscribeToAllAssignments(callback: (payload: MissionPayload) => void) {
-    console.log('🔄 Subscribing to ALL assignments...');
-    
+  subscribeToAllAssignments(creatorId: string, callback: (payload: MissionPayload) => void) {
+    if (!creatorId) return null;
+
     const channel = supabase
-      .channel('all-assignments')
+      .channel(`all-assignments-${creatorId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'mission_assignments',
+          filter: `created_by=eq.${creatorId}`,
         },
         (payload: RealtimePostgresChangesPayload<any>) => {
-          console.log('🔔 Assignment status changed:', payload.eventType, payload.new?.status);
           callback(payload as MissionPayload);
           
           // Notification si acceptance/refus
@@ -185,9 +177,7 @@ class RealtimeSync {
           }
         }
       )
-      .subscribe((status: any) => {
-        console.log('🔄 All assignments subscription status:', status);
-      });
+      .subscribe();
 
     this.channels.push(channel);
     return channel;
@@ -197,7 +187,6 @@ class RealtimeSync {
    * 🧹 Nettoyer toutes les subscriptions
    */
   unsubscribeAll() {
-    console.log('🧹 Unsubscribing from all channels:', this.channels.length);
     
     this.channels.forEach(channel => {
       supabase.removeChannel(channel);

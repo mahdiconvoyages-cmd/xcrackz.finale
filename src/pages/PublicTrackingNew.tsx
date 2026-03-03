@@ -294,10 +294,23 @@ export default function PublicTracking() {
 
     channelRef.current = channel;
 
-    // Polling fallback toutes les 5s (car realtime peut échouer pour anon)
-    pollingRef.current = setInterval(() => {
-      loadMissionLocations();
-    }, 5000) as unknown as NodeJS.Timer;
+    // Polling fallback uniquement si le realtime est déconnecté (toutes les 30s)
+    // Évite 480 requêtes/minute avec 20 clients simultanés
+    channel.on('system' as any, {}, (payload: any) => {
+      if (payload.status === 'CLOSED' || payload.status === 'TIMED_OUT') {
+        if (!pollingRef.current) {
+          pollingRef.current = setInterval(() => {
+            loadMissionLocations();
+          }, 30000) as unknown as NodeJS.Timer;
+        }
+      } else if (payload.status === 'SUBSCRIBED') {
+        // Realtime rétabli — arrêter le polling
+        if (pollingRef.current) {
+          clearInterval(pollingRef.current as unknown as number);
+          pollingRef.current = null;
+        }
+      }
+    });
   };
 
   const calculateETAAndDistance = async () => {

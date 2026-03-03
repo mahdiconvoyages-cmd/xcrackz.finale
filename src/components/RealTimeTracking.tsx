@@ -34,11 +34,16 @@ export default function RealTimeTracking({ missionId, onClose }: RealTimeTrackin
   const markerRef = useRef<any>(null);
   const mapContainerRef = useRef<HTMLDivElement>(null);
 
+  const realtimeChannelRef = useRef<any>(null);
+
   useEffect(() => {
     loadSession();
-    const interval = setInterval(loadLatestLocation, 5000);
 
-    return () => clearInterval(interval);
+    return () => {
+      if (realtimeChannelRef.current) {
+        supabase.removeChannel(realtimeChannelRef.current);
+      }
+    };
   }, [missionId]);
 
   useEffect(() => {
@@ -46,6 +51,8 @@ export default function RealTimeTracking({ missionId, onClose }: RealTimeTrackin
       const position = { lat: latestLocation.latitude, lng: latestLocation.longitude };
       markerRef.current.setPosition(position);
       mapRef.current.panTo(position);
+    } else if (latestLocation && mapContainerRef.current && !mapLoaded) {
+      initializeMap(latestLocation.latitude, latestLocation.longitude);
     }
   }, [latestLocation]);
 
@@ -64,7 +71,34 @@ export default function RealTimeTracking({ missionId, onClose }: RealTimeTrackin
 
       if (data) {
         setSession(data);
-        await loadLatestLocation();
+        await loadLatestLocation(data.id);
+
+        // Realtime — souscription filtrée par session_id (remplace le polling 5s)
+        const channel = supabase
+          .channel(`gps-session-${data.id}`)
+          .on(
+            'postgres_changes',
+            {
+              event: 'INSERT',
+              schema: 'public',
+              table: 'gps_location_points',
+              filter: `session_id=eq.${data.id}`,
+            },
+            (payload: any) => {
+              const loc = payload.new;
+              if (!loc) return;
+              const point: LocationPoint = {
+                latitude: loc.latitude,
+                longitude: loc.longitude,
+                speed_kmh: loc.speed_kmh ?? 0,
+                recorded_at: loc.recorded_at,
+              };
+              setLatestLocation(point);
+            }
+          )
+          .subscribe();
+
+        realtimeChannelRef.current = channel;
       }
     } catch (error) {
       console.error('Error loading session:', error);
@@ -73,17 +107,15 @@ export default function RealTimeTracking({ missionId, onClose }: RealTimeTrackin
     }
   };
 
-  const loadLatestLocation = async () => {
-    if (!session) return;
-
+  const loadLatestLocation = async (sessionId: string) => {
     try {
       const { data, error } = await supabase
         .from('gps_location_points')
         .select('latitude, longitude, speed_kmh, recorded_at')
-        .eq('session_id', session.id)
+        .eq('session_id', sessionId)
         .order('recorded_at', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (error) throw error;
 
@@ -181,7 +213,7 @@ export default function RealTimeTracking({ missionId, onClose }: RealTimeTrackin
         <div className="flex items-center justify-between p-6 border-b border-slate-200">
           <div>
             <h2 className="text-2xl font-bold text-slate-900">Suivi GPS en temps réel</h2>
-            <p className="text-slate-600 text-sm mt-1">Mise à jour toutes les 5 secondes</p>
+            <p className="text-slate-600 text-sm mt-1">Mise à jour en temps réel</p>
           </div>
           <button
             onClick={onClose}
