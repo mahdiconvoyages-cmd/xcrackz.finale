@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { Truck, Navigation, Maximize2, Route, Loader2 } from 'lucide-react';
+import { Truck, Navigation, Maximize2, Loader2 } from 'lucide-react';
 
 // Fix pour les icônes Leaflet par défaut
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -813,32 +813,7 @@ export default function LeafletTracking({
         </div>
       )}
 
-      {/* Info Card - Moderne (Mobile friendly) */}
-      {routeInfo && (
-        <div className="absolute bottom-6 left-1/2 transform -translate-x-1/2 md:bottom-6 md:left-6 md:transform-none bg-white/95 backdrop-blur-md px-5 py-4 rounded-2xl shadow-2xl z-[1000] border border-slate-100 flex items-center justify-between min-w-[300px] max-w-[90vw]">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-emerald-50 rounded-xl flex items-center justify-center shrink-0 border border-emerald-100">
-              <Route className="w-6 h-6 text-emerald-600" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Distance</span>
-              <span className="text-xl font-black text-slate-900 leading-tight">{formatDistance(routeInfo.distance)}</span>
-            </div>
-          </div>
-          
-          <div className="w-px h-10 bg-gradient-to-b from-transparent via-slate-200 to-transparent mx-2"></div>
-        
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-sky-50 rounded-xl flex items-center justify-center shrink-0 border border-sky-100">
-              <span className="text-xl">⏱️</span>
-            </div>
-            <div className="flex flex-col">
-              <span className="text-xs text-slate-500 font-bold uppercase tracking-wider">Estimé</span>
-              <span className="text-xl font-black text-slate-900 leading-tight">{formatDuration(routeInfo.duration)}</span>
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Loading pill */}
       {routeLoading && (
