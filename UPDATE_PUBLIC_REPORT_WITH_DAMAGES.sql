@@ -41,6 +41,8 @@ BEGIN
         'pickup_location', m.pickup_location,
         'delivery_location', m.delivery_location,
         'status', m.status,
+        'mandataire_name', m.mandataire_name,
+        'mandataire_company', m.mandataire_company,
         'vehicle', (
           SELECT jsonb_build_object(
             'id', v.id,

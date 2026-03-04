@@ -45,6 +45,8 @@ interface ReportData {
     pickup_location: string;
     delivery_location: string;
     status: string;
+    mandataire_name: string | null;
+    mandataire_company: string | null;
     vehicle: {
       id: string;
       brand: string;
@@ -217,13 +219,22 @@ export default function PublicInspectionReport() {
                   </div>
                 </div>
               </div>
-              {mission.vehicle && (
-                <div className="bg-white/10 backdrop-blur-sm rounded-xl px-6 py-4">
-                  <p className="text-sm text-sky-100 mb-1">Véhicule</p>
-                  <p className="text-xl font-bold">{mission.vehicle.brand} {mission.vehicle.model}</p>
-                  <p className="text-lg font-mono">{mission.vehicle.plate}</p>
-                </div>
-              )}
+              <div className="flex flex-col sm:flex-row gap-3">
+                {(mission.mandataire_name || mission.mandataire_company) && (
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl px-6 py-4">
+                    <p className="text-sm text-sky-100 mb-1">Donneur d'ordre</p>
+                    {mission.mandataire_name && <p className="text-xl font-bold">{mission.mandataire_name}</p>}
+                    {mission.mandataire_company && <p className="text-base text-sky-100">{mission.mandataire_company}</p>}
+                  </div>
+                )}
+                {mission.vehicle && (
+                  <div className="bg-white/10 backdrop-blur-sm rounded-xl px-6 py-4">
+                    <p className="text-sm text-sky-100 mb-1">Véhicule</p>
+                    <p className="text-xl font-bold">{mission.vehicle.brand} {mission.vehicle.model}</p>
+                    <p className="text-lg font-mono">{mission.vehicle.plate}</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
