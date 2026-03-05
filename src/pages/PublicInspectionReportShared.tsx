@@ -15,7 +15,8 @@ import { useParams } from 'react-router-dom';
 import {
   FileText, Calendar, Car, MapPin, User, Phone, Clock, Gauge,
   Fuel, Download, Printer, Archive, X, ChevronLeft, ChevronRight,
-  Navigation, Package, CheckCircle, XCircle, FileSignature, Image as ImageIcon
+  Navigation, Package, CheckCircle, XCircle, FileSignature, Image as ImageIcon,
+  Building2, Briefcase
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { toast } from '../utils/toast';
@@ -666,17 +667,20 @@ export default function PublicInspectionReportShared() {
               )}
             </div>
 
-            {/* Métriques de transport */}
-            <div className={`grid grid-cols-2 ${hasMultipleDrivers ? 'md:grid-cols-5' : 'md:grid-cols-4'} gap-4 mb-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm`}>
+            {/* Donneur d'ordre + Convoyeur + Métriques */}
+            <div className={`grid grid-cols-2 ${hasMultipleDrivers ? 'md:grid-cols-6' : 'md:grid-cols-5'} gap-4 mb-8 p-6 bg-gradient-to-br from-blue-50 to-indigo-50 rounded-xl shadow-sm`}>
+              <MetricBox icon={Briefcase} label="Donneur d'ordre" value={mission?.donneur_ordre_name || 'N/A'} color="purple" />
+              {mission?.donneur_ordre_company && (
+                <MetricBox icon={Building2} label="Société" value={mission.donneur_ordre_company} color="indigo" />
+              )}
               {hasMultipleDrivers ? (
                 <>
                   <MetricBox icon={User} label="Convoyeur Départ" value={departureDriverName} color="blue" />
-                  <MetricBox icon={User} label="Convoyeur Arrivée" value={arrivalDriverName} color="indigo" />
+                  <MetricBox icon={User} label="Convoyeur Arrivée" value={arrivalDriverName} color="blue" />
                 </>
               ) : (
                 <MetricBox icon={User} label="Convoyeur" value={departureDriverName || arrivalDriverName || mission?.driver_name || 'N/A'} color="blue" />
               )}
-              <MetricBox icon={Phone} label="Téléphone" value={mission?.driver_phone || 'N/A'} color="indigo" />
               <MetricBox icon={Gauge} label="KM Parcourus" value={kmParcouru !== null ? `${kmParcouru.toLocaleString()} km` : 'N/A'} color="green" />
               <MetricBox icon={Clock} label="Temps Livraison" value={tempsLivraisonText} color="amber" />
             </div>
