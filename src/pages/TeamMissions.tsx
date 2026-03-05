@@ -53,7 +53,9 @@ interface Mission {
   pickup_contact_name?: string; pickup_contact_phone?: string;
   delivery_contact_name?: string; delivery_contact_phone?: string;
   pickup_city?: string; pickup_postcode?: string;
+  pickup_location_name?: string;
   delivery_city?: string; delivery_postcode?: string;
+  delivery_location_name?: string;
   distance?: number; status: string;
   vehicle_brand: string; vehicle_model: string; vehicle_plate: string;
   vehicle_image_url: string; vehicle_type?: 'VL' | 'VU' | 'PL';
@@ -254,8 +256,15 @@ export default function TeamMissions() {
      ═══════════════════════════════════════════ */
   return (
     <div className="min-h-screen" style={{ backgroundColor: T.lightBg }}>
-      {/* ── Sticky AppBar ── */}
-      <div className="sticky top-0 z-30 bg-white/95 backdrop-blur-sm" style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 1px rgba(0,0,0,0.04)' }}>
+      <style>{`
+        @keyframes slideIn { from { transform: translateX(100%); opacity: 0.8; } to { transform: translateX(0); opacity: 1; } }
+        @keyframes fadeUp { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-slideIn { animation: slideIn 0.3s cubic-bezier(0.22, 1, 0.36, 1); }
+      `}</style>
+      {/* ── Sticky AppBar with gradient accent ── */}
+      <div className="sticky top-0 z-30" style={{ background: 'linear-gradient(to bottom, rgba(255,255,255,0.98), rgba(255,255,255,0.95))', backdropFilter: 'blur(12px)', WebkitBackdropFilter: 'blur(12px)', boxShadow: '0 1px 3px rgba(0,0,0,0.06), 0 0 1px rgba(0,0,0,0.04)' }}>
+        {/* Thin gradient accent line at top */}
+        <div className="h-[3px]" style={{ background: `linear-gradient(90deg, ${T.primaryBlue}, ${T.primaryTeal}, ${T.accentGreen})` }} />
         <div className="max-w-7xl mx-auto px-4 lg:px-8 py-3 lg:py-4 flex items-center justify-between">
           <div>
             <h1 className="text-lg lg:text-2xl font-extrabold tracking-tight" style={{ color: T.textPrimary }}>Mes Convoyages</h1>
@@ -457,12 +466,12 @@ export default function TeamMissions() {
                       <div className="col-span-3 flex items-center gap-2 min-w-0">
                         <div className="flex items-center gap-1.5 min-w-0 flex-1">
                           <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: T.accentGreen }} />
-                          <span className="text-xs truncate" style={{ color: T.textSecondary }}>{m.pickup_city || m.pickup_address}</span>
+                          <span className="text-xs truncate font-medium" style={{ color: T.textSecondary }}>{m.pickup_location_name || m.pickup_city || m.pickup_address}</span>
                         </div>
                         <ChevronRight className="w-3.5 h-3.5 shrink-0" style={{ color: T.textTertiary }} />
                         <div className="flex items-center gap-1.5 min-w-0 flex-1">
                           <div className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: T.primaryBlue }} />
-                          <span className="text-xs truncate" style={{ color: T.textSecondary }}>{m.delivery_city || m.delivery_address}</span>
+                          <span className="text-xs truncate font-medium" style={{ color: T.textSecondary }}>{m.delivery_location_name || m.delivery_city || m.delivery_address}</span>
                         </div>
                       </div>
                       <div className="col-span-1 text-center">
@@ -528,7 +537,7 @@ export default function TeamMissions() {
                           {m.vehicle_plate && <span className="text-xs font-mono px-1.5 py-0.5 rounded" style={{ backgroundColor: T.fieldBg, color: T.textSecondary }}>{m.vehicle_plate}</span>}
                         </div>
                         <div className="flex items-center justify-between text-xs">
-                          <span style={{ color: T.textSecondary }}>{m.pickup_city || m.pickup_address} → {m.delivery_city || m.delivery_address}</span>
+                          <span style={{ color: T.textSecondary }}>{m.pickup_location_name || m.pickup_city || m.pickup_address} → {m.delivery_location_name || m.delivery_city || m.delivery_address}</span>
                           {m.price > 0 && <span className="font-bold" style={{ color: T.primaryTeal }}>{m.price.toLocaleString('fr-FR')} €</span>}
                         </div>
                       </div>
@@ -641,7 +650,8 @@ export default function TeamMissions() {
                             </div>
                             <div className="flex-1 min-w-0 pb-1">
                               <p className="text-[9px] font-extrabold tracking-[1.5px] uppercase mb-0.5" style={{ color: T.accentGreen }}>DÉPART</p>
-                              <p className="text-xs lg:text-sm font-semibold" style={{ color: T.textPrimary }}>{m.pickup_city || m.pickup_address}</p>
+                              {(m as any).pickup_location_name && <p className="text-xs lg:text-sm font-bold" style={{ color: T.textPrimary }}>{(m as any).pickup_location_name}</p>}
+                              <p className={`text-xs ${(m as any).pickup_location_name ? '' : 'lg:text-sm'} font-semibold`} style={{ color: (m as any).pickup_location_name ? T.textSecondary : T.textPrimary }}>{m.pickup_city || m.pickup_address}</p>
                               {m.pickup_address && m.pickup_city && <p className="hidden lg:block text-[11px] mt-0.5" style={{ color: T.textTertiary }}>{m.pickup_address}</p>}
                               {m.pickup_contact_name && (
                                 <p className="flex items-center gap-1 text-[10px] lg:text-xs mt-1" style={{ color: T.textSecondary }}>
@@ -658,7 +668,8 @@ export default function TeamMissions() {
                             </div>
                             <div className="flex-1 min-w-0">
                               <p className="text-[9px] font-extrabold tracking-[1.5px] uppercase mb-0.5" style={{ color: T.primaryBlue }}>ARRIVÉE</p>
-                              <p className="text-xs lg:text-sm font-semibold" style={{ color: T.textPrimary }}>{m.delivery_city || m.delivery_address}</p>
+                              {(m as any).delivery_location_name && <p className="text-xs lg:text-sm font-bold" style={{ color: T.textPrimary }}>{(m as any).delivery_location_name}</p>}
+                              <p className={`text-xs ${(m as any).delivery_location_name ? '' : 'lg:text-sm'} font-semibold`} style={{ color: (m as any).delivery_location_name ? T.textSecondary : T.textPrimary }}>{m.delivery_city || m.delivery_address}</p>
                               {m.delivery_address && m.delivery_city && <p className="hidden lg:block text-[11px] mt-0.5" style={{ color: T.textTertiary }}>{m.delivery_address}</p>}
                               {m.delivery_contact_name && (
                                 <p className="flex items-center gap-1 text-[10px] lg:text-xs mt-1" style={{ color: T.textSecondary }}>
@@ -805,11 +816,11 @@ export default function TeamMissions() {
             <div className="relative w-full lg:w-[520px] xl:w-[580px] h-full bg-white shadow-2xl overflow-auto animate-slideIn"
               style={{ animation: 'slideIn 0.25s ease-out' }}
               onClick={e => e.stopPropagation()}>
-              {/* ── Panel Header ── */}
-              <div className="sticky top-0 z-10 bg-white border-b" style={{ borderColor: T.borderDefault }}>
+              {/* ── Panel Header with gradient ── */}
+              <div className="sticky top-0 z-10" style={{ background: `linear-gradient(135deg, ${sc.color}0D, ${sc.color}04, #FFFFFF)`, borderBottom: `1px solid ${sc.color}20` }}>
                 <div className="px-5 lg:px-6 py-4 flex items-center gap-3">
                   <button onClick={() => { setShowDetailsModal(false); setSelectedMission(null); }}
-                    className="p-2 rounded-xl hover:bg-[#F8FAFC] transition">
+                    className="p-2 rounded-xl hover:bg-white/70 transition">
                     <X className="w-5 h-5" style={{ color: T.textSecondary }} />
                   </button>
                   <div className="flex-1 min-w-0">
@@ -983,7 +994,8 @@ export default function TeamMissions() {
                       <div className="w-2 h-2 rounded-full" style={{ backgroundColor: T.accentGreen }} />
                       <span className="text-[10px] font-bold tracking-wider" style={{ color: T.accentGreen }}>ENLÈVEMENT</span>
                     </div>
-                    <p className="text-sm font-medium mb-1" style={{ color: T.textPrimary }}>{sm.pickup_address}</p>
+                    {sm.pickup_location_name && <p className="text-sm font-bold mb-0.5" style={{ color: T.textPrimary }}>{sm.pickup_location_name}</p>}
+                    <p className="text-sm font-medium mb-1" style={{ color: sm.pickup_location_name ? T.textSecondary : T.textPrimary }}>{sm.pickup_address}</p>
                     {sm.pickup_date && <p className="text-xs mb-2" style={{ color: T.textSecondary }}>{new Date(sm.pickup_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>}
                     <div className="rounded-lg p-2" style={{ backgroundColor: `${T.accentGreen}06` }}>
                       <div className="flex items-center gap-2">
@@ -1007,7 +1019,8 @@ export default function TeamMissions() {
                       <div className="w-2 h-2 rounded-full" style={{ backgroundColor: T.primaryBlue }} />
                       <span className="text-[10px] font-bold tracking-wider" style={{ color: T.primaryBlue }}>LIVRAISON</span>
                     </div>
-                    <p className="text-sm font-medium mb-1" style={{ color: T.textPrimary }}>{sm.delivery_address}</p>
+                    {sm.delivery_location_name && <p className="text-sm font-bold mb-0.5" style={{ color: T.textPrimary }}>{sm.delivery_location_name}</p>}
+                    <p className="text-sm font-medium mb-1" style={{ color: sm.delivery_location_name ? T.textSecondary : T.textPrimary }}>{sm.delivery_address}</p>
                     {sm.delivery_date && <p className="text-xs mb-2" style={{ color: T.textSecondary }}>{new Date(sm.delivery_date).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</p>}
                     <div className="rounded-lg p-2" style={{ backgroundColor: `${T.primaryBlue}06` }}>
                       <div className="flex items-center gap-2">
