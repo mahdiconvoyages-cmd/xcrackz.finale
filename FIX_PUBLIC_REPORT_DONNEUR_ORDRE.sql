@@ -1,11 +1,69 @@
 -- ============================================================================
 -- FIX: Ajouter donneur d'ordre (nom + société) au rapport public
 --      Retirer le driver_phone du rapport
+--      Créer la fonction create_or_get_inspection_share (manquante = 404)
 -- ============================================================================
 -- Le rapport doit afficher:
 --   - Nom du donneur d'ordre (créateur de la mission) et sa société
 --   - Nom du convoyeur (sans téléphone)
 -- ============================================================================
+
+-- =============================================
+-- FONCTION 1: create_or_get_inspection_share
+-- Crée ou récupère un token de partage pour une mission
+-- =============================================
+DROP FUNCTION IF EXISTS create_or_get_inspection_share(UUID, UUID, TEXT);
+CREATE OR REPLACE FUNCTION create_or_get_inspection_share(
+  p_mission_id UUID,
+  p_user_id UUID,
+  p_report_type TEXT DEFAULT 'complete'
+)
+RETURNS TABLE (
+  share_url TEXT,
+  share_token TEXT,
+  created_at TIMESTAMPTZ
+) AS $$
+DECLARE
+  v_token TEXT;
+  v_existing_record RECORD;
+BEGIN
+  -- Chercher un partage existant actif
+  SELECT * INTO v_existing_record
+  FROM public.inspection_report_shares
+  WHERE mission_id = p_mission_id
+    AND report_type = p_report_type
+    AND is_active = TRUE
+  LIMIT 1;
+
+  IF FOUND THEN
+    RETURN QUERY SELECT 
+      'https://www.xcrackz.com/rapport-inspection/' || v_existing_record.share_token AS share_url,
+      v_existing_record.share_token,
+      v_existing_record.created_at;
+    RETURN;
+  END IF;
+
+  -- Générer un token unique
+  v_token := encode(gen_random_bytes(16), 'base64');
+  v_token := replace(replace(replace(v_token, '/', ''), '+', ''), '=', '');
+
+  -- Insérer le nouveau partage
+  INSERT INTO public.inspection_report_shares (mission_id, user_id, share_token, report_type)
+  VALUES (p_mission_id, p_user_id, v_token, p_report_type);
+
+  RETURN QUERY SELECT 
+    'https://www.xcrackz.com/rapport-inspection/' || v_token AS share_url,
+    v_token,
+    NOW();
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION create_or_get_inspection_share(UUID, UUID, TEXT) TO authenticated;
+
+-- =============================================
+-- FONCTION 2: get_inspection_report_by_token
+-- Récupère les données complètes du rapport par token
+-- =============================================
 
 DROP FUNCTION IF EXISTS get_inspection_report_by_token(TEXT);
 CREATE OR REPLACE FUNCTION get_inspection_report_by_token(
