@@ -354,124 +354,30 @@ export default function AdminUsers() {
     }
 
     // ═══════════════════════════════════════════════════════
-    // RÉCOMPENSE PARRAINAGE — si le filleul a un parrain
+    // RÉCOMPENSE PARRAINAGE via RPC (SECURITY DEFINER = bypass RLS)
     // ═══════════════════════════════════════════════════════
     if (isUpgradeFromFree || !existing) {
-      console.log('[PARRAINAGE] Upgrade détecté pour', subModal.email, '— vérification du parrainage...');
+      console.log('[PARRAINAGE] Upgrade détecté pour', subModal.email, '— appel RPC grant_referral_reward...');
       try {
-        // Vérifier si le filleul a un parrain
-        const { data: filleulProfile, error: filleulErr } = await supabase
-          .from('profiles')
-          .select('referred_by')
-          .eq('id', subModal.id)
-          .single();
+        const { data: rewardResult, error: rewardErr } = await supabase.rpc('grant_referral_reward', {
+          p_filleul_id: subModal.id,
+          p_reward_amount: 10,
+        });
 
-        console.log('[PARRAINAGE] referred_by =', filleulProfile?.referred_by, filleulErr ? `ERREUR: ${filleulErr.message}` : '');
+        console.log('[PARRAINAGE] Résultat RPC:', rewardResult, rewardErr ? `ERREUR: ${rewardErr.message}` : '');
 
-        if (filleulProfile?.referred_by) {
-          const referrerId = filleulProfile.referred_by;
-
-          // Vérifier si déjà récompensé
-          const { data: alreadyRewarded } = await supabase
-            .from('referrals')
-            .select('id')
-            .eq('referrer_id', referrerId)
-            .eq('referred_id', subModal.id)
-            .eq('status', 'rewarded')
-            .maybeSingle();
-
-          console.log('[PARRAINAGE] Déjà récompensé ?', !!alreadyRewarded);
-
-          if (!alreadyRewarded) {
-            // Récupérer infos parrain
-            const { data: parrain } = await supabase
-              .from('profiles')
-              .select('credits, full_name, email, referral_code')
-              .eq('id', referrerId)
-              .single();
-
-            if (parrain) {
-              const reward = 10;
-              const parrainName = parrain.full_name || parrain.email;
-              const filleulName = subModal.full_name || subModal.email;
-
-              // ── +10 crédits PARRAIN ──
-              const parrainNewCredits = (parrain.credits || 0) + reward;
-              const { error: e1 } = await supabase.from('profiles').update({ credits: parrainNewCredits, updated_at: new Date().toISOString() }).eq('id', referrerId);
-              if (e1) console.error('[PARRAINAGE] ERREUR update crédits parrain:', e1.message);
-              const { error: e2 } = await supabase.from('credit_transactions').insert({
-                user_id: referrerId,
-                amount: reward,
-                transaction_type: 'addition',
-                description: `Récompense parrainage — filleul ${filleulName}`,
-                balance_after: parrainNewCredits,
-              });
-              if (e2) console.error('[PARRAINAGE] ERREUR insert transaction parrain:', e2.message);
-              console.log('[PARRAINAGE] Parrain', parrainName, '→ +10 crédits =', parrainNewCredits, e1 ? 'ÉCHOUÉ' : 'OK');
-
-              // ── +10 crédits FILLEUL ──
-              const { data: filleulCurrent, error: e3 } = await supabase.from('profiles').select('credits').eq('id', subModal.id).single();
-              if (e3) console.error('[PARRAINAGE] ERREUR lecture crédits filleul:', e3.message);
-              const filleulCurrentCredits = filleulCurrent?.credits ?? subModal.credits ?? 0;
-              const filleulNewCredits = filleulCurrentCredits + reward;
-              console.log('[PARRAINAGE] Filleul crédits actuels:', filleulCurrentCredits, '→ nouveaux:', filleulNewCredits);
-
-              const { error: e4 } = await supabase.from('profiles').update({ credits: filleulNewCredits, updated_at: new Date().toISOString() }).eq('id', subModal.id);
-              if (e4) console.error('[PARRAINAGE] ERREUR update crédits filleul:', e4.message);
-              const { error: e5 } = await supabase.from('credit_transactions').insert({
-                user_id: subModal.id,
-                amount: reward,
-                transaction_type: 'addition',
-                description: `Bonus de bienvenue parrainage — parrainé par ${parrainName}`,
-                balance_after: filleulNewCredits,
-              });
-              if (e5) console.error('[PARRAINAGE] ERREUR insert transaction filleul:', e5.message);
-              console.log('[PARRAINAGE] Filleul', filleulName, '→ +10 crédits =', filleulNewCredits, e4 ? 'ÉCHOUÉ' : 'OK');
-
-              // ── Mettre à jour referrals ──
-              const { error: e6 } = await supabase.from('referrals').upsert({
-                referrer_id: referrerId,
-                referred_id: subModal.id,
-                referral_code: parrain.referral_code || '',
-                status: 'rewarded',
-                reward_credits: reward,
-                rewarded_at: new Date().toISOString(),
-              }, { onConflict: 'referrer_id,referred_id' });
-              if (e6) console.error('[PARRAINAGE] ERREUR upsert referrals:', e6.message);
-
-              // ── Notifications (non-bloquant) ──
-              const { error: e7 } = await supabase.from('notifications').insert([
-                {
-                  user_id: referrerId,
-                  notification_type: 'system',
-                  title: '🎉 +10 Crédits de parrainage !',
-                  message: `Votre filleul ${filleulName} a souscrit un abonnement. Vous recevez 10 crédits de récompense !`,
-                },
-                {
-                  user_id: subModal.id,
-                  notification_type: 'system',
-                  title: '🎁 +10 Crédits de bienvenue !',
-                  message: `Merci d'avoir rejoint ChecksFleet via un parrainage ! Vous recevez 10 crédits bonus.`,
-                },
-              ]);
-              if (e7) console.error('[PARRAINAGE] ERREUR insert notifications:', e7.message);
-
-              const hasError = e1 || e2 || e3 || e4 || e5;
-              if (hasError) {
-                showToast('warning', 'Parrainage partiel', 'Certaines récompenses ont échoué — voir console F12');
-              } else {
-                showToast('success', 'Parrainage récompensé', `+10 crédits pour ${parrainName} (parrain) et ${filleulName} (filleul)`);
-              }
-            }
-          } else {
-            console.log('[PARRAINAGE] Déjà récompensé, skip');
-          }
-        } else {
+        if (rewardErr) {
+          console.error('[PARRAINAGE] RPC échoué:', rewardErr.message);
+        } else if (rewardResult?.success) {
+          showToast('success', 'Parrainage récompensé',
+            `+10 crédits pour ${rewardResult.referrer_name} (parrain) et ${rewardResult.filleul_name} (filleul)`);
+        } else if (rewardResult?.reason === 'no_referrer') {
           console.log('[PARRAINAGE] Pas de parrain (referred_by = null)');
+        } else if (rewardResult?.reason === 'already_rewarded') {
+          console.log('[PARRAINAGE] Déjà récompensé, skip');
         }
       } catch (refErr) {
         console.error('[PARRAINAGE] ERREUR CRITIQUE:', refErr);
-        showToast('error', 'Erreur parrainage', String(refErr));
       }
     } else {
       console.log('[PARRAINAGE] Pas un upgrade (plan actuel:', existing?.plan, ')');
