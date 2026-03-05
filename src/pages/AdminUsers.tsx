@@ -357,13 +357,16 @@ export default function AdminUsers() {
     // RÉCOMPENSE PARRAINAGE — si le filleul a un parrain
     // ═══════════════════════════════════════════════════════
     if (isUpgradeFromFree || !existing) {
+      console.log('[PARRAINAGE] Upgrade détecté pour', subModal.email, '— vérification du parrainage...');
       try {
         // Vérifier si le filleul a un parrain
-        const { data: filleulProfile } = await supabase
+        const { data: filleulProfile, error: filleulErr } = await supabase
           .from('profiles')
           .select('referred_by')
           .eq('id', subModal.id)
           .single();
+
+        console.log('[PARRAINAGE] referred_by =', filleulProfile?.referred_by, filleulErr ? `ERREUR: ${filleulErr.message}` : '');
 
         if (filleulProfile?.referred_by) {
           const referrerId = filleulProfile.referred_by;
@@ -376,6 +379,8 @@ export default function AdminUsers() {
             .eq('referred_id', subModal.id)
             .eq('status', 'rewarded')
             .maybeSingle();
+
+          console.log('[PARRAINAGE] Déjà récompensé ?', !!alreadyRewarded);
 
           if (!alreadyRewarded) {
             // Récupérer infos parrain
@@ -390,31 +395,41 @@ export default function AdminUsers() {
               const parrainName = parrain.full_name || parrain.email;
               const filleulName = subModal.full_name || subModal.email;
 
-              // +10 crédits PARRAIN
+              // ── +10 crédits PARRAIN ──
               const parrainNewCredits = (parrain.credits || 0) + reward;
-              await supabase.from('profiles').update({ credits: parrainNewCredits, updated_at: new Date().toISOString() }).eq('id', referrerId);
-              await supabase.from('credit_transactions').insert({
+              const { error: e1 } = await supabase.from('profiles').update({ credits: parrainNewCredits, updated_at: new Date().toISOString() }).eq('id', referrerId);
+              if (e1) console.error('[PARRAINAGE] ERREUR update crédits parrain:', e1.message);
+              const { error: e2 } = await supabase.from('credit_transactions').insert({
                 user_id: referrerId,
                 amount: reward,
                 transaction_type: 'addition',
                 description: `Récompense parrainage — filleul ${filleulName}`,
                 balance_after: parrainNewCredits,
               });
+              if (e2) console.error('[PARRAINAGE] ERREUR insert transaction parrain:', e2.message);
+              console.log('[PARRAINAGE] Parrain', parrainName, '→ +10 crédits =', parrainNewCredits, e1 ? 'ÉCHOUÉ' : 'OK');
 
-              // +10 crédits FILLEUL (en plus des crédits d'abonnement)
-              const { data: filleulCurrent } = await supabase.from('profiles').select('credits').eq('id', subModal.id).single();
-              const filleulNewCredits = ((filleulCurrent?.credits) || 0) + reward;
-              await supabase.from('profiles').update({ credits: filleulNewCredits, updated_at: new Date().toISOString() }).eq('id', subModal.id);
-              await supabase.from('credit_transactions').insert({
+              // ── +10 crédits FILLEUL ──
+              const { data: filleulCurrent, error: e3 } = await supabase.from('profiles').select('credits').eq('id', subModal.id).single();
+              if (e3) console.error('[PARRAINAGE] ERREUR lecture crédits filleul:', e3.message);
+              const filleulCurrentCredits = filleulCurrent?.credits ?? subModal.credits ?? 0;
+              const filleulNewCredits = filleulCurrentCredits + reward;
+              console.log('[PARRAINAGE] Filleul crédits actuels:', filleulCurrentCredits, '→ nouveaux:', filleulNewCredits);
+
+              const { error: e4 } = await supabase.from('profiles').update({ credits: filleulNewCredits, updated_at: new Date().toISOString() }).eq('id', subModal.id);
+              if (e4) console.error('[PARRAINAGE] ERREUR update crédits filleul:', e4.message);
+              const { error: e5 } = await supabase.from('credit_transactions').insert({
                 user_id: subModal.id,
                 amount: reward,
                 transaction_type: 'addition',
                 description: `Bonus de bienvenue parrainage — parrainé par ${parrainName}`,
                 balance_after: filleulNewCredits,
               });
+              if (e5) console.error('[PARRAINAGE] ERREUR insert transaction filleul:', e5.message);
+              console.log('[PARRAINAGE] Filleul', filleulName, '→ +10 crédits =', filleulNewCredits, e4 ? 'ÉCHOUÉ' : 'OK');
 
-              // Mettre à jour referrals
-              await supabase.from('referrals').upsert({
+              // ── Mettre à jour referrals ──
+              const { error: e6 } = await supabase.from('referrals').upsert({
                 referrer_id: referrerId,
                 referred_id: subModal.id,
                 referral_code: parrain.referral_code || '',
@@ -422,9 +437,10 @@ export default function AdminUsers() {
                 reward_credits: reward,
                 rewarded_at: new Date().toISOString(),
               }, { onConflict: 'referrer_id,referred_id' });
+              if (e6) console.error('[PARRAINAGE] ERREUR upsert referrals:', e6.message);
 
-              // Notifications
-              await supabase.from('notifications').insert([
+              // ── Notifications (non-bloquant) ──
+              const { error: e7 } = await supabase.from('notifications').insert([
                 {
                   user_id: referrerId,
                   notification_type: 'system',
@@ -438,14 +454,27 @@ export default function AdminUsers() {
                   message: `Merci d'avoir rejoint ChecksFleet via un parrainage ! Vous recevez 10 crédits bonus.`,
                 },
               ]);
+              if (e7) console.error('[PARRAINAGE] ERREUR insert notifications:', e7.message);
 
-              showToast('success', 'Parrainage récompensé', `+10 crédits pour ${parrainName} (parrain) et ${filleulName} (filleul)`);
+              const hasError = e1 || e2 || e3 || e4 || e5;
+              if (hasError) {
+                showToast('warning', 'Parrainage partiel', 'Certaines récompenses ont échoué — voir console F12');
+              } else {
+                showToast('success', 'Parrainage récompensé', `+10 crédits pour ${parrainName} (parrain) et ${filleulName} (filleul)`);
+              }
             }
+          } else {
+            console.log('[PARRAINAGE] Déjà récompensé, skip');
           }
+        } else {
+          console.log('[PARRAINAGE] Pas de parrain (referred_by = null)');
         }
       } catch (refErr) {
-        console.error('Erreur récompense parrainage:', refErr);
+        console.error('[PARRAINAGE] ERREUR CRITIQUE:', refErr);
+        showToast('error', 'Erreur parrainage', String(refErr));
       }
+    } else {
+      console.log('[PARRAINAGE] Pas un upgrade (plan actuel:', existing?.plan, ')');
     }
 
     await loadUsers();
