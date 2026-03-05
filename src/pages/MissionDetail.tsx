@@ -2,17 +2,65 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { getMissionDeeplink } from '../lib/shareCode';
+import {
+  Package, User, Car, MapPin, Phone, Calendar, FileText, DollarSign, Ruler, Building2,
+  Truck, ArrowRight, Download, AlertTriangle,
+  CheckCircle2, Clock, XCircle, Loader2, Smartphone
+} from 'lucide-react';
 
-interface Mission {
-  id: string;
-  title?: string;
-  description?: string;
-  pickup_address?: string;
-  delivery_address?: string;
-  scheduled_date?: string;
-  status?: string;
-  [key: string]: any;
+/* ── PremiumTheme tokens ── */
+const T = {
+  primaryBlue: '#0066FF',
+  primaryIndigo: '#5B8DEF',
+  primaryPurple: '#8B7EE8',
+  primaryTeal: '#14B8A6',
+  accentGreen: '#10B981',
+  accentAmber: '#F59E0B',
+  accentRed: '#EF4444',
+  deepOrange: '#E65100',
+  lightBg: '#F8F9FA',
+  fieldBg: '#F8FAFC',
+  borderDefault: '#E5E7EB',
+  textPrimary: '#1A1A1A',
+  textSecondary: '#6B7280',
+  textTertiary: '#9CA3AF',
+};
+
+const STATUS_MAP: Record<string, { label: string; color: string; bg: string; icon: any }> = {
+  pending:     { label: 'En attente', color: T.accentAmber, bg: `${T.accentAmber}15`, icon: Clock },
+  in_progress: { label: 'En cours',   color: T.primaryBlue, bg: `${T.primaryBlue}15`, icon: Truck },
+  completed:   { label: 'Terminée',   color: T.accentGreen, bg: `${T.accentGreen}15`, icon: CheckCircle2 },
+  cancelled:   { label: 'Annulée',    color: T.accentRed,   bg: `${T.accentRed}15`,   icon: XCircle },
+};
+
+/* ── Section card component ── */
+function InfoCard({ color, icon: Icon, title, children }: { color: string; icon: any; title: string; children: React.ReactNode }) {
+  return (
+    <div className="rounded-2xl p-5" style={{ backgroundColor: '#FFFFFF', border: `1px solid ${color}25`, boxShadow: `0 2px 8px ${color}0A` }}>
+      <div className="flex items-center gap-3 mb-4">
+        <div className="p-2 rounded-xl" style={{ backgroundColor: `${color}12` }}>
+          <Icon className="w-5 h-5" style={{ color }} />
+        </div>
+        <h3 className="text-sm font-bold tracking-wide" style={{ color: T.textPrimary }}>{title}</h3>
+      </div>
+      {children}
+    </div>
+  );
 }
+
+/* ── Detail row ── */
+function DetailRow({ icon: Icon, label, value, color, href }: { icon: any; label: string; value: string; color?: string; href?: string }) {
+  const content = (
+    <div className="flex items-center gap-3 py-2">
+      <Icon className="w-4 h-4 flex-shrink-0" style={{ color: color || T.textTertiary }} />
+      <span className="text-xs flex-1" style={{ color: T.textSecondary }}>{label}</span>
+      <span className="text-sm font-semibold text-right" style={{ color: href ? T.primaryBlue : T.textPrimary }}>{value}</span>
+    </div>
+  );
+  return href ? <a href={href} className="block hover:opacity-80 transition-opacity">{content}</a> : content;
+}
+
+interface Mission { id: string; [key: string]: any; }
 
 export default function MissionDetail() {
   const { missionId } = useParams<{ missionId: string }>();
@@ -21,27 +69,14 @@ export default function MissionDetail() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // Détection mobile pour redirection automatique
   const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   useEffect(() => {
-    if (!missionId) {
-      setError('ID de mission manquant');
-      setLoading(false);
-      return;
-    }
-
+    if (!missionId) { setError('ID de mission manquant'); setLoading(false); return; }
     loadMission();
-
-    // Si mobile, tenter d'ouvrir l'app automatiquement
     if (isMobile) {
-      const deeplink = getMissionDeeplink(missionId);
-      window.location.href = deeplink;
-      
-      // Timeout: si l'app ne s'ouvre pas, afficher la page web
-      setTimeout(() => {
-        setLoading(false);
-      }, 2500);
+      window.location.href = getMissionDeeplink(missionId);
+      setTimeout(() => setLoading(false), 2500);
     } else {
       setLoading(false);
     }
@@ -49,33 +84,25 @@ export default function MissionDetail() {
 
   const loadMission = async () => {
     try {
-      const { data, error: err } = await supabase
-        .from('missions')
-        .select('*')
-        .eq('id', missionId!)
-        .single();
-
+      const { data, error: err } = await supabase.from('missions').select('*').eq('id', missionId!).single();
       if (err) throw err;
       setMission(data);
-    } catch (err) {
-      console.error('❌ Erreur chargement mission:', err);
+    } catch {
       setError('Mission introuvable ou inaccessible');
     }
   };
 
-  const handleOpenInApp = () => {
-    if (missionId) {
-      window.location.href = getMissionDeeplink(missionId);
-    }
-  };
+  const handleOpenInApp = () => { if (missionId) window.location.href = getMissionDeeplink(missionId); };
+
+  const statusCfg = mission ? (STATUS_MAP[mission.status] || STATUS_MAP.pending) : STATUS_MAP.pending;
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="min-h-screen flex items-center justify-center" style={{ backgroundColor: T.lightBg }}>
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">
-            {isMobile ? 'Ouverture dans l\'application...' : 'Chargement...'}
+          <Loader2 className="w-10 h-10 animate-spin mx-auto mb-4" style={{ color: T.primaryBlue }} />
+          <p className="text-sm font-medium" style={{ color: T.textSecondary }}>
+            {isMobile ? 'Ouverture dans l\'application...' : 'Chargement de la mission...'}
           </p>
         </div>
       </div>
@@ -84,19 +111,16 @@ export default function MissionDetail() {
 
   if (error || !mission) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-lg shadow-lg p-8 max-w-md w-full text-center">
-          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
+      <div className="min-h-screen flex items-center justify-center p-4" style={{ backgroundColor: T.lightBg }}>
+        <div className="bg-white rounded-2xl shadow-lg p-8 max-w-md w-full text-center" style={{ border: `1px solid ${T.accentRed}20` }}>
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4" style={{ backgroundColor: `${T.accentRed}12` }}>
+            <AlertTriangle className="w-8 h-8" style={{ color: T.accentRed }} />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Mission introuvable</h1>
-          <p className="text-gray-600 mb-6">{error || 'Cette mission n\'existe pas ou n\'est plus accessible.'}</p>
-          <button
-            onClick={() => navigate('/')}
-            className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
+          <h1 className="text-xl font-bold mb-2" style={{ color: T.textPrimary }}>Mission introuvable</h1>
+          <p className="text-sm mb-6" style={{ color: T.textSecondary }}>{error || 'Cette mission n\'existe pas ou n\'est plus accessible.'}</p>
+          <button onClick={() => navigate('/')}
+            className="px-6 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+            style={{ backgroundColor: T.primaryBlue }}>
             Retour à l'accueil
           </button>
         </div>
@@ -104,273 +128,177 @@ export default function MissionDetail() {
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-50 p-4">
-      <div className="max-w-2xl mx-auto">
-        {/* Header avec logo CHECKSFLEET */}
-        <div className="bg-white rounded-lg shadow-lg p-8 mb-4">
-          <div className="text-center mb-6">
-            <h1 className="text-3xl font-bold text-blue-600 mb-2">CHECKSFLEET</h1>
-            <p className="text-gray-600">Gestion de missions professionnelle</p>
-          </div>
+  const vehicleTypeLabel = mission.vehicle_type === 'VL' ? 'Véhicule Léger' : mission.vehicle_type === 'VU' ? 'Véhicule Utilitaire' : mission.vehicle_type === 'PL' ? 'Poids Lourd' : mission.vehicle_type;
 
-          {/* Informations mission */}
-          <div className="border-t pt-6">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-xl font-semibold text-gray-900">
-                📦 {mission.title || 'Mission'}
-              </h2>
-              {mission.status && (
-                <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                  mission.status === 'completed' ? 'bg-green-100 text-green-800' :
-                  mission.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
-                  mission.status === 'cancelled' ? 'bg-red-100 text-red-800' :
-                  'bg-gray-100 text-gray-800'
-                }`}>
-                  {mission.status === 'completed' ? '✅ Terminée' :
-                   mission.status === 'in_progress' ? '🚗 En cours' :
-                   mission.status === 'cancelled' ? '❌ Annulée' :
-                   '⏳ En attente'}
+  return (
+    <div className="min-h-screen" style={{ backgroundColor: T.lightBg }}>
+      {/* ── Header ── */}
+      <div className="sticky top-0 z-20 bg-white border-b" style={{ borderColor: T.borderDefault }}>
+        <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center" style={{ background: `linear-gradient(135deg, ${T.primaryBlue}, ${T.primaryTeal})` }}>
+              <Car className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-lg font-bold tracking-tight" style={{ color: T.textPrimary }}>CHECKSFLEET</span>
+          </div>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full" style={{ backgroundColor: statusCfg.bg }}>
+            <statusCfg.icon className="w-4 h-4" style={{ color: statusCfg.color }} />
+            <span className="text-xs font-bold" style={{ color: statusCfg.color }}>{statusCfg.label}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ── Content ── */}
+      <div className="max-w-5xl mx-auto p-4 lg:p-8">
+        {/* Title bar */}
+        <div className="mb-6">
+          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-2">
+            <div>
+              <h1 className="text-2xl lg:text-3xl font-bold" style={{ color: T.textPrimary }}>
+                {mission.title || `Mission ${mission.reference || ''}`}
+              </h1>
+              {mission.reference && (
+                <span className="inline-block mt-1 text-xs font-mono font-semibold px-3 py-1 rounded-lg"
+                  style={{ backgroundColor: T.fieldBg, border: `1px solid ${T.borderDefault}`, color: T.textSecondary }}>
+                  {mission.reference}
                 </span>
               )}
             </div>
-
-            {mission.reference && (
-              <div className="bg-gray-50 rounded-lg px-4 py-3 mb-4">
-                <p className="text-sm text-gray-600">Référence</p>
-                <p className="font-mono font-semibold text-gray-900">{mission.reference}</p>
+            {mission.price > 0 && (
+              <div className="flex items-center gap-2">
+                <DollarSign className="w-5 h-5" style={{ color: T.accentAmber }} />
+                <span className="text-2xl font-bold" style={{ color: T.primaryTeal }}>
+                  {Number(mission.price).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €
+                </span>
               </div>
             )}
-
-            {/* Section Mandataire */}
-            {(mission.mandataire_name || mission.mandataire_company) && (
-              <div className="bg-gradient-to-r from-purple-50 to-indigo-50 rounded-lg p-4 mb-4 border border-purple-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xl">👤</span>
-                  <p className="text-sm font-semibold text-purple-900">Mandataire</p>
-                </div>
-                {mission.mandataire_name && (
-                  <p className="text-gray-900 font-medium">{mission.mandataire_name}</p>
-                )}
-                {mission.mandataire_company && (
-                  <p className="text-gray-700 text-sm">{mission.mandataire_company}</p>
-                )}
-              </div>
-            )}
-
-            {(mission.vehicle_brand || mission.vehicle_model || mission.vehicle_plate) && (
-              <div className="bg-gradient-to-r from-teal-50 to-cyan-50 rounded-lg p-4 mb-4 border border-teal-200">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xl">🚗</span>
-                  <p className="text-sm font-semibold text-teal-900">Véhicule</p>
-                </div>
-                <p className="font-semibold text-gray-900">
-                  {mission.vehicle_brand} {mission.vehicle_model}
-                </p>
-                {mission.vehicle_plate && (
-                  <p className="text-gray-700 font-mono text-sm mt-1">
-                    📋 {mission.vehicle_plate}
-                  </p>
-                )}
-                {mission.vehicle_type && (
-                  <span className="inline-block mt-2 px-3 py-1 bg-teal-100 text-teal-800 rounded-full text-xs font-semibold">
-                    {mission.vehicle_type === 'VL' ? '🚗 Véhicule Léger' :
-                     mission.vehicle_type === 'VU' ? '🚐 Véhicule Utilitaire' :
-                     mission.vehicle_type === 'PL' ? '🚛 Poids Lourd' :
-                     mission.vehicle_type}
-                  </span>
-                )}
-              </div>
-            )}
-            
-            {mission.description && (
-              <p className="text-gray-700 mb-4 p-3 bg-gray-50 rounded-lg">{mission.description}</p>
-            )}
-
-            <div className="space-y-3 text-sm">
-              {mission.pickup_address && (
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg p-4 border border-green-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl">📍</span>
-                    <p className="font-semibold text-green-900">Point d'Enlèvement</p>
-                  </div>
-                  <p className="text-gray-900 font-medium mb-2">{mission.pickup_address}</p>
-                  {mission.pickup_contact_name && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-sm">👤</span>
-                      <p className="text-gray-700 text-sm">{mission.pickup_contact_name}</p>
-                    </div>
-                  )}
-                  {mission.pickup_contact_phone && (
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-sm">📞</span>
-                      <a href={`tel:${mission.pickup_contact_phone}`} className="text-green-700 font-medium text-sm hover:underline">
-                        {mission.pickup_contact_phone}
-                      </a>
-                    </div>
-                  )}
-                  {mission.pickup_date && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-sm">📅</span>
-                      <p className="text-gray-700 text-sm">
-                        {new Date(mission.pickup_date).toLocaleString('fr-FR', {
-                          weekday: 'long',
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-              {mission.delivery_address && (
-                <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-lg p-4 border border-blue-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-xl">🎯</span>
-                    <p className="font-semibold text-blue-900">Point de Livraison</p>
-                  </div>
-                  <p className="text-gray-900 font-medium mb-2">{mission.delivery_address}</p>
-                  {mission.delivery_contact_name && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-sm">👤</span>
-                      <p className="text-gray-700 text-sm">{mission.delivery_contact_name}</p>
-                    </div>
-                  )}
-                  {mission.delivery_contact_phone && (
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-sm">📞</span>
-                      <a href={`tel:${mission.delivery_contact_phone}`} className="text-blue-700 font-medium text-sm hover:underline">
-                        {mission.delivery_contact_phone}
-                      </a>
-                    </div>
-                  )}
-                  {mission.delivery_date && (
-                    <div className="flex items-center gap-2 mt-2">
-                      <span className="text-sm">📅</span>
-                      <p className="text-gray-700 text-sm">
-                        {new Date(mission.delivery_date).toLocaleString('fr-FR', {
-                          weekday: 'long',
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              )}
-              {mission.scheduled_date && (
-                <div className="flex items-center gap-3 p-3 bg-purple-50 rounded-lg">
-                  <span className="text-xl">📅</span>
-                  <div>
-                    <p className="font-medium text-gray-900">Date prévue</p>
-                    <p className="text-gray-700">
-                      {new Date(mission.scheduled_date).toLocaleDateString('fr-FR', {
-                        weekday: 'long',
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric'
-                      })}
-                    </p>
-                  </div>
-                </div>
-              )}
-              {mission.notes && (
-                <div className="bg-gray-50 rounded-lg p-4">
-                  <p className="text-sm font-semibold text-gray-900 mb-2">📝 Notes</p>
-                  <p className="text-gray-700 text-sm whitespace-pre-wrap">{mission.notes}</p>
-                </div>
-              )}
-              {mission.price && (
-                <div className="flex items-center gap-3 p-3 bg-yellow-50 rounded-lg">
-                  <span className="text-xl">💰</span>
-                  <div>
-                    <p className="font-medium text-gray-900">Prix</p>
-                    <p className="text-2xl font-bold text-gray-900">{mission.price}€</p>
-                  </div>
-                </div>
-              )}
-              {mission.distance_km && (
-                <div className="flex items-center gap-3 p-3 bg-indigo-50 rounded-lg">
-                  <span className="text-xl">📏</span>
-                  <div>
-                    <p className="font-medium text-gray-900">Distance</p>
-                    <p className="text-gray-700">{mission.distance_km} km</p>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
         </div>
 
-        {/* CTA Ouvrir dans l'app */}
-        <div className="bg-white rounded-lg shadow-lg p-6">
-          <button
-            onClick={handleOpenInApp}
-            className="w-full px-6 py-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-semibold text-lg flex items-center justify-center gap-2 mb-4"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" />
-            </svg>
-            Ouvrir dans l'application CHECKSFLEET
-          </button>
+        {/* ── Two-column layout on desktop ── */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          {/* LEFT COLUMN */}
+          <div className="space-y-5">
+            {/* Mandataire */}
+            {(mission.mandataire_name || mission.mandataire_company) && (
+              <InfoCard color={T.primaryPurple} icon={Building2} title="Mandataire">
+                <p className="text-sm font-semibold" style={{ color: T.textPrimary }}>{mission.mandataire_name || '—'}</p>
+                {mission.mandataire_company && <p className="text-xs mt-1" style={{ color: T.textSecondary }}>{mission.mandataire_company}</p>}
+              </InfoCard>
+            )}
 
-          <p className="text-center text-gray-500 text-sm mb-4">
-            {isMobile
-              ? 'Touchez le bouton pour ouvrir l\'application'
-              : 'Scannez ce lien avec votre téléphone pour ouvrir l\'application'}
-          </p>
+            {/* Vehicle */}
+            {(mission.vehicle_brand || mission.vehicle_model || mission.vehicle_plate) && (
+              <InfoCard color={T.primaryTeal} icon={Car} title="Véhicule">
+                <div className="space-y-1">
+                  <DetailRow icon={Car} label="Marque / Modèle" value={`${mission.vehicle_brand || ''} ${mission.vehicle_model || ''}`.trim()} />
+                  {mission.vehicle_plate && <DetailRow icon={Package} label="Immatriculation" value={mission.vehicle_plate} />}
+                  {mission.vehicle_type && <DetailRow icon={Truck} label="Type" value={vehicleTypeLabel} />}
+                  {mission.vehicle_vin && <DetailRow icon={Package} label="N° VIN" value={mission.vehicle_vin} />}
+                </div>
+              </InfoCard>
+            )}
 
-          {/* Avantages de rejoindre */}
-          <div className="mt-6 pt-6 border-t">
-            <h3 className="font-semibold text-gray-900 mb-3 text-center">
-              Pourquoi rejoindre cette mission ?
-            </h3>
-            <div className="space-y-2 mb-6">
-              <div className="flex items-center gap-3 text-sm">
-                <div className="w-8 h-8 bg-green-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                  </svg>
+            {/* Price / Distance / Date */}
+            {(mission.price || mission.distance_km || mission.scheduled_date) && (
+              <InfoCard color={T.accentAmber} icon={DollarSign} title="Détails">
+                <div className="space-y-1">
+                  {mission.price > 0 && <DetailRow icon={DollarSign} label="Prix" value={`${Number(mission.price).toLocaleString('fr-FR', { minimumFractionDigits: 2 })} €`} color={T.accentAmber} />}
+                  {mission.distance_km && <DetailRow icon={Ruler} label="Distance" value={`${mission.distance_km} km`} />}
+                  {mission.scheduled_date && (
+                    <DetailRow icon={Calendar} label="Date prévue" value={new Date(mission.scheduled_date).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' })} />
+                  )}
                 </div>
-                <span className="text-gray-700">Gagnez de l'argent en convoyant des véhicules</span>
+              </InfoCard>
+            )}
+
+            {/* Notes */}
+            {mission.notes && (
+              <InfoCard color={T.textSecondary} icon={FileText} title="Notes">
+                <p className="text-sm whitespace-pre-wrap" style={{ color: T.textSecondary }}>{mission.notes}</p>
+              </InfoCard>
+            )}
+          </div>
+
+          {/* RIGHT COLUMN */}
+          <div className="space-y-5">
+            {/* Pickup */}
+            {mission.pickup_address && (
+              <InfoCard color={T.accentGreen} icon={MapPin} title="Point d'Enlèvement">
+                <div className="rounded-xl p-3 mb-3" style={{ backgroundColor: `${T.accentGreen}08`, border: `1px solid ${T.accentGreen}15` }}>
+                  <p className="text-sm font-medium" style={{ color: T.textPrimary }}>{mission.pickup_address}</p>
+                </div>
+                {mission.pickup_contact_name && <DetailRow icon={User} label="Contact" value={mission.pickup_contact_name} color={T.accentGreen} />}
+                {mission.pickup_contact_phone && <DetailRow icon={Phone} label="Téléphone" value={mission.pickup_contact_phone} color={T.accentGreen} href={`tel:${mission.pickup_contact_phone}`} />}
+                {mission.pickup_date && (
+                  <DetailRow icon={Calendar} label="Date" value={new Date(mission.pickup_date).toLocaleString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />
+                )}
+              </InfoCard>
+            )}
+
+            {/* Route visualization */}
+            {mission.pickup_address && mission.delivery_address && (
+              <div className="flex items-center justify-center gap-3 py-2">
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: T.accentGreen }} />
+                <div className="flex-1 h-px" style={{ background: `linear-gradient(to right, ${T.accentGreen}, ${T.primaryBlue})` }} />
+                <ArrowRight className="w-5 h-5" style={{ color: T.primaryBlue }} />
+                <div className="w-3 h-3 rounded-full" style={{ backgroundColor: T.primaryBlue }} />
               </div>
-              <div className="flex items-center gap-3 text-sm">
-                <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
+            )}
+
+            {/* Delivery */}
+            {mission.delivery_address && (
+              <InfoCard color={T.primaryBlue} icon={MapPin} title="Point de Livraison">
+                <div className="rounded-xl p-3 mb-3" style={{ backgroundColor: `${T.primaryBlue}08`, border: `1px solid ${T.primaryBlue}15` }}>
+                  <p className="text-sm font-medium" style={{ color: T.textPrimary }}>{mission.delivery_address}</p>
                 </div>
-                <span className="text-gray-700">Inspections professionnelles avec photos</span>
-              </div>
-              <div className="flex items-center gap-3 text-sm">
-                <div className="w-8 h-8 bg-purple-100 rounded-full flex items-center justify-center flex-shrink-0">
-                  <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
-                  </svg>
-                </div>
-                <span className="text-gray-700">Suivi GPS en temps réel</span>
+                {mission.delivery_contact_name && <DetailRow icon={User} label="Contact" value={mission.delivery_contact_name} color={T.primaryBlue} />}
+                {mission.delivery_contact_phone && <DetailRow icon={Phone} label="Téléphone" value={mission.delivery_contact_phone} color={T.primaryBlue} href={`tel:${mission.delivery_contact_phone}`} />}
+                {mission.delivery_date && (
+                  <DetailRow icon={Calendar} label="Date" value={new Date(mission.delivery_date).toLocaleString('fr-FR', { day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' })} />
+                )}
+              </InfoCard>
+            )}
+          </div>
+        </div>
+
+        {/* ── CTA Section ── */}
+        <div className="mt-8 rounded-2xl bg-white p-6 lg:p-8" style={{ border: `1px solid ${T.borderDefault}`, boxShadow: '0 4px 16px rgba(0,0,0,0.06)' }}>
+          <div className="max-w-lg mx-auto text-center">
+            <button onClick={handleOpenInApp}
+              className="w-full py-4 rounded-xl text-base font-bold text-white transition-all hover:opacity-90 flex items-center justify-center gap-3"
+              style={{ background: `linear-gradient(135deg, ${T.primaryBlue}, ${T.primaryTeal})` }}>
+              <Smartphone className="w-5 h-5" />
+              Ouvrir dans CHECKSFLEET
+            </button>
+
+            <p className="mt-3 text-xs" style={{ color: T.textTertiary }}>
+              {isMobile ? 'Touchez le bouton pour ouvrir l\'application' : 'Scannez ce lien avec votre téléphone'}
+            </p>
+
+            <div className="mt-6 pt-6 border-t" style={{ borderColor: T.borderDefault }}>
+              <h4 className="text-sm font-bold mb-4" style={{ color: T.textPrimary }}>Pourquoi rejoindre ChecksFleet ?</h4>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {[
+                  { icon: DollarSign, color: T.accentGreen, text: 'Gagnez de l\'argent en convoyant' },
+                  { icon: CheckCircle2, color: T.primaryBlue, text: 'Inspections photo professionnelles' },
+                  { icon: MapPin, color: T.primaryPurple, text: 'Suivi GPS en temps réel' },
+                ].map((f, i) => (
+                  <div key={i} className="flex flex-col items-center gap-2 p-3 rounded-xl" style={{ backgroundColor: `${f.color}08` }}>
+                    <div className="p-2 rounded-lg" style={{ backgroundColor: `${f.color}15` }}>
+                      <f.icon className="w-4 h-4" style={{ color: f.color }} />
+                    </div>
+                    <span className="text-xs text-center font-medium" style={{ color: T.textSecondary }}>{f.text}</span>
+                  </div>
+                ))}
               </div>
             </div>
 
-            <p className="text-center text-gray-600 text-sm mb-4">
-              Téléchargez l'application pour accepter cette mission
-            </p>
-            <a
-              href="https://play.google.com/store/apps/details?id=com.checksfleet.app"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="block w-full px-4 py-3 bg-gradient-to-r from-green-500 to-green-600 text-white rounded-lg hover:from-green-600 hover:to-green-700 transition-all text-center font-semibold flex items-center justify-center gap-2"
-            >
-              <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M3,20.5V3.5C3,2.91 3.34,2.39 3.84,2.15L13.69,12L3.84,21.85C3.34,21.6 3,21.09 3,20.5M16.81,15.12L6.05,21.34L14.54,12.85L16.81,15.12M20.16,10.81C20.5,11.08 20.75,11.5 20.75,12C20.75,12.5 20.53,12.9 20.18,13.18L17.89,14.5L15.39,12L17.89,9.5L20.16,10.81M6.05,2.66L16.81,8.88L14.54,11.15L6.05,2.66Z" />
-              </svg>
+            <a href="https://play.google.com/store/apps/details?id=com.checksfleet.app"
+              target="_blank" rel="noopener noreferrer"
+              className="mt-5 inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white transition-all hover:opacity-90"
+              style={{ backgroundColor: T.accentGreen }}>
+              <Download className="w-4 h-4" />
               Télécharger sur Google Play
             </a>
           </div>

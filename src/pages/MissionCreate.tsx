@@ -661,30 +661,51 @@ export default function MissionCreate() {
      ═══════════════════════════════════ */
   return (
     <div className="min-h-screen" style={{ backgroundColor: T.lightBg }}>
-      {/* ── Sticky AppBar (identique Flutter) ── */}
+      {/* ── Sticky AppBar ── */}
       <div className="sticky top-0 z-30 bg-white shadow-sm">
         <div className="max-w-5xl mx-auto px-4 lg:px-8 py-3 lg:py-4 flex items-center gap-3">
           <button onClick={() => navigate('/team-missions')} className="p-2 rounded-xl hover:bg-[#F8FAFC] transition">
             <X className="w-5 h-5" style={{ color: T.textSecondary }} />
           </button>
           <h1 className="text-lg lg:text-xl font-bold flex-1" style={{ color: T.textPrimary }}>Nouvelle mission</h1>
+          <span className="text-xs font-medium px-3 py-1 rounded-full" style={{ backgroundColor: `${STEPS[currentStep].color}12`, color: STEPS[currentStep].color }}>
+            Étape {currentStep + 1}/{totalSteps}
+          </span>
         </div>
-        {/* 3 barres de progression (identique Flutter) */}
-        <div className="max-w-5xl mx-auto px-4 lg:px-8 pb-3 flex gap-2">
+        {/* ── Enhanced stepper ── */}
+        <div className="max-w-5xl mx-auto px-4 lg:px-8 pb-4 flex items-center gap-0">
           {STEPS.map((s, i) => (
-            <div key={i} className="flex-1">
-              <div className="h-1 rounded-full overflow-hidden" style={{ backgroundColor: T.borderDefault }}>
-                <div className="h-full rounded-full transition-all duration-500"
-                  style={{
-                    width: i < currentStep ? '100%' : i === currentStep ? '50%' : '0%',
-                    backgroundColor: i <= currentStep ? s.color : T.borderDefault,
-                    opacity: i === currentStep ? 0.6 : 1,
-                  }} />
+            <div key={i} className="flex items-center flex-1">
+              <div className="flex-1">
+                {/* Progress bar */}
+                <div className="h-1.5 rounded-full overflow-hidden" style={{ backgroundColor: `${T.borderDefault}80` }}>
+                  <div className="h-full rounded-full transition-all duration-700 ease-out"
+                    style={{
+                      width: i < currentStep ? '100%' : i === currentStep ? '50%' : '0%',
+                      background: i <= currentStep ? `linear-gradient(90deg, ${s.color}, ${s.color}CC)` : T.borderDefault,
+                    }} />
+                </div>
+                {/* Step label */}
+                <button type="button" onClick={() => { if (i < currentStep) setCurrentStep(i); }}
+                  className="flex items-center gap-2 mt-2.5 mx-auto justify-center transition-opacity"
+                  style={{ cursor: i < currentStep ? 'pointer' : 'default', opacity: i <= currentStep ? 1 : 0.45 }}>
+                  <div className="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold transition-all"
+                    style={{
+                      backgroundColor: i < currentStep ? s.color : i === currentStep ? `${s.color}18` : `${T.borderDefault}60`,
+                      color: i < currentStep ? '#fff' : i === currentStep ? s.color : T.textTertiary,
+                      border: i === currentStep ? `2px solid ${s.color}` : 'none',
+                    }}>
+                    {i < currentStep ? '✓' : i + 1}
+                  </div>
+                  <div className="hidden sm:flex items-center gap-1.5">
+                    <s.icon className="w-3.5 h-3.5" style={{ color: i <= currentStep ? s.color : T.textTertiary }} />
+                    <span className="text-xs font-semibold" style={{ color: i <= currentStep ? s.color : T.textTertiary }}>{s.label}</span>
+                  </div>
+                </button>
               </div>
-              <div className="flex items-center gap-1.5 mt-2 justify-center">
-                <s.icon className="w-3.5 h-3.5" style={{ color: i <= currentStep ? s.color : T.textTertiary }} />
-                <span className="text-[11px] font-medium hidden sm:inline" style={{ color: i <= currentStep ? s.color : T.textTertiary }}>{s.label}</span>
-              </div>
+              {i < STEPS.length - 1 && (
+                <div className="w-4 lg:w-8 h-px mx-1" style={{ backgroundColor: i < currentStep ? STEPS[i+1].color : T.borderDefault }} />
+              )}
             </div>
           ))}
         </div>
@@ -730,26 +751,33 @@ export default function MissionCreate() {
         </form>
       </div>
 
-      {/* ── Bottom nav bar (identique Flutter) ── */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t z-30" style={{ borderColor: T.borderDefault }}>
-        <div className="max-w-5xl mx-auto px-4 lg:px-8 py-3 lg:py-4 flex gap-3">
+      {/* ── Bottom nav bar ── */}
+      <div className="fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-md border-t z-30" style={{ borderColor: T.borderDefault }}>
+        <div className="max-w-5xl mx-auto px-4 lg:px-8 py-3 lg:py-4 flex gap-3 items-center">
           {currentStep > 0 && (
             <button type="button" onClick={handlePrevious}
-              className="flex-1 px-5 py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition hover:bg-[#F8FAFC]"
+              className="flex-1 lg:flex-none lg:w-40 px-5 py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center gap-2 transition hover:bg-[#F8FAFC]"
               style={{ border: `2px solid ${T.borderDefault}`, color: T.textSecondary }}>
               <ChevronLeft className="w-4 h-4" />Précédent
             </button>
           )}
+          <div className="hidden lg:flex items-center gap-2 flex-1 justify-center">
+            <span className="text-xs" style={{ color: T.textTertiary }}>
+              {currentStep === 0 ? 'Renseignez le mandataire et le véhicule' :
+               currentStep === 1 ? 'Renseignez le lieu d\'enlèvement' :
+               'Renseignez la livraison et les options'}
+            </span>
+          </div>
           {currentStep < totalSteps - 1 ? (
             <button type="button" onClick={handleNext} disabled={!canProceed()}
-              className="flex-1 px-5 py-3.5 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition disabled:opacity-40"
-              style={{ backgroundColor: T.primaryBlue, boxShadow: `0 4px 14px ${T.primaryBlue}40` }}>
+              className="flex-1 lg:flex-none lg:w-48 px-5 py-3.5 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition disabled:opacity-40"
+              style={{ backgroundColor: T.primaryBlue, boxShadow: canProceed() ? `0 4px 14px ${T.primaryBlue}40` : 'none' }}>
               Continuer<ChevronRight className="w-4 h-4" />
             </button>
           ) : (
             <button type="submit" onClick={handleSubmit} disabled={loading || !hasEnoughCredits(requiredCredits) || !canProceed()}
-              className="flex-1 px-5 py-3.5 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition disabled:opacity-40"
-              style={{ backgroundColor: T.accentGreen, boxShadow: `0 4px 14px ${T.accentGreen}40` }}>
+              className="flex-1 lg:flex-none lg:w-48 px-5 py-3.5 rounded-xl font-semibold text-sm text-white flex items-center justify-center gap-2 transition disabled:opacity-40"
+              style={{ backgroundColor: T.accentGreen, boxShadow: canProceed() ? `0 4px 14px ${T.accentGreen}40` : 'none' }}>
               {loading ? (
                 <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />Création...</>
               ) : (

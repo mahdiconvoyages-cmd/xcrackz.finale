@@ -337,32 +337,49 @@ export default function TeamMissions() {
       </div>
 
       {/* ── Content ── */}
-      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 space-y-3 lg:space-y-5">
-        {/* Join bar */}
-        <div className="rounded-2xl p-3 lg:p-4 flex items-center gap-3" style={{ backgroundColor: `${T.primaryBlue}08`, border: `1px solid ${T.primaryBlue}20` }}>
-          <div className="p-2 lg:p-3 rounded-xl" style={{ backgroundColor: `${T.primaryBlue}15` }}>
-            <LogIn className="w-5 h-5 lg:w-6 lg:h-6" style={{ color: T.primaryBlue }} />
+      <div className="max-w-7xl mx-auto px-4 lg:px-8 py-4 lg:py-6 space-y-3 lg:space-y-4">
+        {/* Join bar — desktop only (mobile uses AppBar button) */}
+        <div className="hidden lg:flex rounded-2xl p-4 items-center gap-4" style={{ backgroundColor: `${T.primaryBlue}06`, border: `1px solid ${T.primaryBlue}15` }}>
+          <div className="p-3 rounded-xl" style={{ backgroundColor: `${T.primaryBlue}12` }}>
+            <LogIn className="w-6 h-6" style={{ color: T.primaryBlue }} />
           </div>
           <div className="flex-1 min-w-0">
-            <p className="text-sm lg:text-base font-semibold" style={{ color: T.textPrimary }}>Rejoindre une mission</p>
-            <p className="text-xs lg:text-sm" style={{ color: T.textSecondary }}>Entrez le code reçu par le donneur d'ordre</p>
+            <p className="text-base font-semibold" style={{ color: T.textPrimary }}>Rejoindre une mission existante</p>
+            <p className="text-sm" style={{ color: T.textSecondary }}>Entrez le code reçu par le donneur d'ordre pour devenir chauffeur</p>
           </div>
           <button onClick={() => setShowJoinModal(true)}
-            className="px-4 lg:px-6 py-2 lg:py-2.5 rounded-xl text-sm font-semibold text-white shrink-0 hover:shadow-md transition"
+            className="px-6 py-2.5 rounded-xl text-sm font-bold text-white shrink-0 hover:shadow-lg transition"
+            style={{ backgroundColor: T.primaryBlue, boxShadow: `0 2px 8px ${T.primaryBlue}25` }}>
+            Rejoindre
+          </button>
+        </div>
+        {/* Mobile join bar */}
+        <div className="lg:hidden rounded-2xl p-3 flex items-center gap-3" style={{ backgroundColor: `${T.primaryBlue}08`, border: `1px solid ${T.primaryBlue}20` }}>
+          <div className="p-2 rounded-xl" style={{ backgroundColor: `${T.primaryBlue}15` }}>
+            <LogIn className="w-5 h-5" style={{ color: T.primaryBlue }} />
+          </div>
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold" style={{ color: T.textPrimary }}>Rejoindre une mission</p>
+            <p className="text-xs" style={{ color: T.textSecondary }}>Entrez le code du donneur d'ordre</p>
+          </div>
+          <button onClick={() => setShowJoinModal(true)}
+            className="px-4 py-2 rounded-xl text-sm font-semibold text-white shrink-0"
             style={{ backgroundColor: T.primaryBlue }}>
-            <span className="hidden lg:inline">Rejoindre</span>
-            <UserPlus className="w-4 h-4 lg:hidden" />
+            <UserPlus className="w-4 h-4" />
           </button>
         </div>
 
         {/* Toolbar */}
-        <div className="rounded-2xl p-3 lg:p-4 bg-white" style={{ border: `1px solid ${T.borderDefault}` }}>
+        <div className="rounded-2xl p-3 lg:p-4 bg-white" style={{ border: `1px solid ${T.borderDefault}`, boxShadow: '0 1px 4px rgba(0,0,0,0.03)' }}>
           <div className="flex gap-2 lg:gap-3 items-center">
             <div className="flex-1 relative">
               <Search className="absolute left-3 lg:left-4 top-1/2 -translate-y-1/2 w-4 h-4 lg:w-5 lg:h-5" style={{ color: T.textTertiary }} />
               <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)}
-                placeholder="Rechercher une mission..." className="w-full rounded-xl pl-10 lg:pl-12 pr-3 py-2.5 lg:py-3 text-sm lg:text-base outline-none border transition focus:border-[#0066FF]"
+                placeholder="Rechercher par référence, véhicule, adresse..." className="w-full rounded-xl pl-10 lg:pl-12 pr-3 py-2.5 lg:py-3 text-sm lg:text-base outline-none border transition focus:border-[#0066FF] focus:ring-2 focus:ring-[#0066FF]/10"
                 style={{ backgroundColor: T.fieldBg, borderColor: T.borderDefault, color: T.textPrimary }} />
+            </div>
+            <div className="hidden lg:flex items-center gap-2 text-xs font-medium px-3 py-2 rounded-xl" style={{ backgroundColor: T.fieldBg, color: T.textSecondary }}>
+              {filteredMissions.length} résultat{filteredMissions.length > 1 ? 's' : ''}
             </div>
             <button onClick={() => setShowArchived(!showArchived)}
               className="flex items-center gap-2 p-2.5 lg:px-4 lg:py-2.5 rounded-xl transition" title={showArchived ? 'Masquer archives' : 'Voir archives'}
@@ -370,16 +387,16 @@ export default function TeamMissions() {
                 ? { backgroundColor: `${T.accentAmber}15`, color: T.accentAmber, border: `1.5px solid ${T.accentAmber}60` }
                 : { backgroundColor: T.fieldBg, color: T.textTertiary, border: `1px solid ${T.borderDefault}` }}>
               <Archive className="w-4 h-4" />
-              <span className="hidden lg:inline text-sm font-medium">{showArchived ? 'Archives' : 'Archives'}</span>
+              <span className="hidden lg:inline text-sm font-medium">Archives</span>
             </button>
-            <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: T.fieldBg }}>
+            <div className="flex gap-1 p-1 rounded-xl" style={{ backgroundColor: T.fieldBg, border: `1px solid ${T.borderDefault}` }}>
               <button onClick={() => setViewMode('grid')} className="p-1.5 lg:p-2 rounded-lg transition"
                 style={viewMode === 'grid' ? { backgroundColor: '#FFF', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : {}}>
-                <Grid className="w-4 h-4" style={{ color: viewMode === 'grid' ? T.textPrimary : T.textTertiary }} />
+                <Grid className="w-4 h-4" style={{ color: viewMode === 'grid' ? T.primaryBlue : T.textTertiary }} />
               </button>
               <button onClick={() => setViewMode('list')} className="p-1.5 lg:p-2 rounded-lg transition"
                 style={viewMode === 'list' ? { backgroundColor: '#FFF', boxShadow: '0 1px 3px rgba(0,0,0,0.08)' } : {}}>
-                <List className="w-4 h-4" style={{ color: viewMode === 'list' ? T.textPrimary : T.textTertiary }} />
+                <List className="w-4 h-4" style={{ color: viewMode === 'list' ? T.primaryBlue : T.textTertiary }} />
               </button>
             </div>
           </div>
@@ -775,35 +792,53 @@ export default function TeamMissions() {
       </div>
 
       {/* ═══════════════════════════════════════
-         DETAIL MODAL (PremiumTheme)
+         DETAIL PANEL (Desktop: right side panel, Mobile: full overlay)
          ═══════════════════════════════════════ */}
       {showDetailsModal && selectedMission && (() => {
         const sm = selectedMission;
         const sc = scfg(sm.status);
         return (
-          <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-3 lg:p-8" onClick={() => { setShowDetailsModal(false); setSelectedMission(null); }}>
-            <div className="bg-white rounded-2xl shadow-2xl max-w-3xl lg:max-w-4xl w-full max-h-[90vh] overflow-auto" onClick={e => e.stopPropagation()}>
-              {/* Header */}
-              <div className="sticky top-0 z-10 bg-white border-b px-5 py-4 rounded-t-2xl" style={{ borderColor: T.borderDefault }}>
-                <div className="flex items-center gap-3">
+          <div className="fixed inset-0 z-50 flex justify-end" onClick={() => { setShowDetailsModal(false); setSelectedMission(null); }}>
+            {/* Backdrop */}
+            <div className="absolute inset-0 bg-black/30 backdrop-blur-[2px] transition-opacity" />
+            {/* Panel */}
+            <div className="relative w-full lg:w-[520px] xl:w-[580px] h-full bg-white shadow-2xl overflow-auto animate-slideIn"
+              style={{ animation: 'slideIn 0.25s ease-out' }}
+              onClick={e => e.stopPropagation()}>
+              {/* ── Panel Header ── */}
+              <div className="sticky top-0 z-10 bg-white border-b" style={{ borderColor: T.borderDefault }}>
+                <div className="px-5 lg:px-6 py-4 flex items-center gap-3">
                   <button onClick={() => { setShowDetailsModal(false); setSelectedMission(null); }}
                     className="p-2 rounded-xl hover:bg-[#F8FAFC] transition">
                     <X className="w-5 h-5" style={{ color: T.textSecondary }} />
                   </button>
-                  <div className="flex-1">
-                    <div className="flex items-center gap-2">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
                       <h2 className="text-lg font-bold" style={{ color: T.textPrimary }}>{sm.reference}</h2>
-                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>{sc.label}</span>
+                      <span className="text-[10px] font-bold px-2.5 py-1 rounded-full" style={{ backgroundColor: sc.bg, color: sc.text, border: `1px solid ${sc.border}` }}>{sc.label}</span>
                       {sm.has_restitution && <span className="text-[10px] font-bold px-2 py-0.5 rounded-full" style={{ backgroundColor: `${T.deepOrange}15`, color: T.deepOrange }}>Restitution</span>}
                     </div>
                     <p className="text-xs mt-0.5" style={{ color: T.textSecondary }}>
                       {sm.vehicle_brand} {sm.vehicle_model}{sm.vehicle_plate ? ` · ${sm.vehicle_plate}` : ''}
                     </p>
                   </div>
+                  {/* Quick actions in header */}
+                  <div className="flex items-center gap-1">
+                    {sm.user_id === user?.id && (
+                      <button onClick={() => navigate(`/missions/edit/${sm.id}`)}
+                        className="p-2 rounded-xl transition hover:bg-[#F8FAFC]" title="Modifier">
+                        <Edit className="w-4 h-4" style={{ color: T.primaryBlue }} />
+                      </button>
+                    )}
+                    <button onClick={async () => { try { await generateMissionPDF(sm); } catch (e) { console.error(e); } }}
+                      className="p-2 rounded-xl transition hover:bg-[#F8FAFC]" title="PDF">
+                      <FileText className="w-4 h-4" style={{ color: T.primaryPurple }} />
+                    </button>
+                  </div>
                 </div>
               </div>
 
-              <div className="p-5 space-y-4">
+              <div className="px-5 lg:px-6 py-5 space-y-4 pb-32">
                 {/* Share Code */}
                 {sm.share_code && sm.user_id === user?.id && (
                   <div className="rounded-2xl p-4" style={{ backgroundColor: `${T.primaryIndigo}0D`, border: `1px solid ${T.primaryIndigo}30` }}>
@@ -1093,21 +1128,23 @@ export default function TeamMissions() {
               </div>
 
               {/* Bottom Actions */}
-              <div className="sticky bottom-0 bg-white border-t p-4 rounded-b-2xl" style={{ borderColor: T.borderDefault }}>
+              <div className="fixed bottom-0 right-0 w-full lg:w-[520px] xl:w-[580px] bg-white/95 backdrop-blur-md border-t p-4" style={{ borderColor: T.borderDefault }}>
                 {sm.status === 'pending' && (
                   <button onClick={() => { setShowDetailsModal(false); handleStartInspection(sm); }}
-                    className="w-full py-3 rounded-xl text-sm font-bold text-white" style={{ backgroundColor: T.primaryTeal }}>
+                    className="w-full py-3.5 rounded-xl text-sm font-bold text-white transition hover:shadow-lg"
+                    style={{ background: `linear-gradient(135deg, ${T.primaryTeal}, #0F9D7A)`, boxShadow: `0 3px 12px ${T.primaryTeal}30` }}>
                     Démarrer la mission
                   </button>
                 )}
                 {sm.status === 'in_progress' && (
                   <div className="flex gap-3">
                     <button onClick={() => { setShowDetailsModal(false); handleStartInspection(sm); }}
-                      className="flex-1 py-3 rounded-xl text-sm font-bold text-white" style={{ backgroundColor: T.primaryBlue }}>
+                      className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white transition hover:shadow-lg"
+                      style={{ background: `linear-gradient(135deg, ${T.primaryBlue}, #0052CC)`, boxShadow: `0 3px 12px ${T.primaryBlue}30` }}>
                       Continuer Inspection
                     </button>
                     <button onClick={() => handleCompleteMission(sm)}
-                      className="flex-1 py-3 rounded-xl text-sm font-bold text-white"
+                      className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white transition"
                       style={{ backgroundColor: hasDepartureInspection(sm.id) && hasArrivalInspection(sm.id) ? T.accentGreen : T.textTertiary }}>
                       Terminer
                     </button>
@@ -1116,11 +1153,13 @@ export default function TeamMissions() {
                 {sm.status === 'completed' && (
                   <div className="flex gap-3">
                     <button onClick={() => { setShowDetailsModal(false); handleViewReport(sm.id); }}
-                      className="flex-1 py-3 rounded-xl text-sm font-bold text-white" style={{ backgroundColor: T.primaryBlue }}>
+                      className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white transition hover:shadow-lg"
+                      style={{ background: `linear-gradient(135deg, ${T.primaryBlue}, #0052CC)` }}>
                       Voir le rapport
                     </button>
                     <button onClick={() => { setShowDetailsModal(false); handleCreateInvoice(sm); }}
-                      className="flex-1 py-3 rounded-xl text-sm font-bold text-white" style={{ backgroundColor: T.accentGreen }}>
+                      className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white transition hover:shadow-lg"
+                      style={{ background: `linear-gradient(135deg, ${T.accentGreen}, #059669)` }}>
                       Créer facture
                     </button>
                   </div>

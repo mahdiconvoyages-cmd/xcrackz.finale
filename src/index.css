@@ -55,6 +55,12 @@ svg {
   display: block;
 }
 
+/* ── Panel slide-in animation ── */
+@keyframes slideIn {
+  from { transform: translateX(100%); opacity: 0.8; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
 /* Tableaux responsive */
 table {
   width: 100%;
