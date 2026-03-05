@@ -368,6 +368,18 @@ export default function AdminUsers() {
       console.warn('Push abonnement échoué (non-bloquant):', pushErr);
     }
 
+    // ── Insertion notification persistante dans la table notifications ──
+    try {
+      await supabase.from('notifications').insert({
+        user_id: subModal.id,
+        notification_type: 'system',
+        title: '🎉 Abonnement activé !',
+        message: `Votre abonnement ${subPlan.toUpperCase()} a été activé pour ${days} jours. Vous avez reçu ${creditsToAdd} crédits.`,
+      });
+    } catch (notifErr) {
+      console.warn('Notification persistante échouée (non-bloquant):', notifErr);
+    }
+
     // ═══════════════════════════════════════════════════════
     // RÉCOMPENSE PARRAINAGE via RPC (SECURITY DEFINER = bypass RLS)
     // ═══════════════════════════════════════════════════════

@@ -32,11 +32,12 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
 
     final List<Map<String, dynamic>> allNotifs = [];
 
-    // Run all 3 queries in parallel, each with its own error handling.
+    // Run all 4 queries in parallel, each with its own error handling.
     await Future.wait([
       _loadMissionNotifications(userId, allNotifs),
       _loadInvoiceNotifications(userId, allNotifs),
       _loadInspectionNotifications(userId, allNotifs),
+      _loadSystemNotifications(userId, allNotifs),
     ]);
 
     // Sort all by date descending
@@ -148,6 +149,64 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
     }
   }
 
+  /// Charge les notifications système (parrainage, abonnement, crédits, etc.) depuis la table notifications
+  Future<void> _loadSystemNotifications(String userId, List<Map<String, dynamic>> out) async {
+    try {
+      final notifications = await Supabase.instance.client
+          .from('notifications')
+          .select('id, notification_type, title, message, is_read, created_at')
+          .eq('user_id', userId)
+          .order('created_at', ascending: false)
+          .limit(30);
+
+      for (final n in (notifications as List)) {
+        final notifType = (n['notification_type'] ?? 'system').toString();
+        final title = (n['title'] ?? '').toString();
+        final message = (n['message'] ?? '').toString();
+        final isRead = n['is_read'] == true;
+
+        // Choisir l'icône et la couleur selon le contenu
+        IconData icon;
+        Color color;
+
+        if (title.contains('parrainage') || title.contains('Parrainage') ||
+            title.contains('bienvenue') || title.contains('Bienvenue') ||
+            title.contains('🎉') || title.contains('🎁')) {
+          icon = Icons.card_giftcard;
+          color = const Color(0xFFFF6B35); // Orange for referral
+        } else if (title.contains('Abonnement') || title.contains('abonnement') ||
+                   title.contains('souscrit') || title.contains('activé')) {
+          icon = Icons.workspace_premium;
+          color = PremiumTheme.primaryPurple;
+        } else if (title.contains('Crédit') || title.contains('crédit') ||
+                   title.contains('credit')) {
+          icon = Icons.monetization_on;
+          color = PremiumTheme.accentGreen;
+        } else if (notifType == 'mission') {
+          icon = Icons.local_shipping;
+          color = PremiumTheme.primaryBlue;
+        } else {
+          icon = Icons.notifications;
+          color = PremiumTheme.primaryBlue;
+        }
+
+        out.add({
+          'type': 'system',
+          'title': title,
+          'subtitle': message,
+          'icon': icon,
+          'color': color,
+          'date': n['created_at'],
+          'id': n['id'],
+          'isRead': isRead,
+          'isFromNotifTable': true,
+        });
+      }
+    } catch (e) {
+      debugPrint('Error loading system notifications: $e');
+    }
+  }
+
   List<Map<String, dynamic>> get _filteredNotifications {
     if (_filter == 'all') return _notifications;
     if (_filter == 'missions') {
@@ -157,6 +216,40 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
       return _notifications.where((n) => n['type'] == 'invoice').toList();
     }
     return _notifications.where((n) => n['type'] == 'system').toList();
+  }
+
+  /// Marque toutes les notifications de la table notifications comme lues
+  Future<void> _markAllAsRead() async {
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) return;
+
+    try {
+      await Supabase.instance.client
+          .from('notifications')
+          .update({'is_read': true})
+          .eq('user_id', userId)
+          .eq('is_read', false);
+
+      // Mettre à jour localement
+      setState(() {
+        for (final n in _notifications) {
+          if (n['isFromNotifTable'] == true) {
+            n['isRead'] = true;
+          }
+        }
+      });
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Toutes les notifications sont marquées comme lues'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      debugPrint('Error marking notifications as read: $e');
+    }
   }
 
   @override
@@ -173,15 +266,7 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
         actions: [
           if (_notifications.isNotEmpty)
             TextButton(
-              onPressed: () {
-                // Mark all as seen (visual only since we don't persist read state)
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Toutes les notifications sont marquées comme lues'),
-                    duration: Duration(seconds: 2),
-                  ),
-                );
-              },
+              onPressed: _markAllAsRead,
               child: Text(
                 'Tout lire',
                 style: TextStyle(color: PremiumTheme.primaryBlue, fontSize: 13),
@@ -265,13 +350,18 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
     final subtitle = notif['subtitle'] as String;
     final dateStr = notif['date']?.toString();
     final timeAgo = _formatTimeAgo(dateStr);
+    final isFromTable = notif['isFromNotifTable'] == true;
+    final isRead = notif['isRead'] == true;
+    final showUnreadDot = isFromTable && !isRead;
 
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: showUnreadDot ? PremiumTheme.primaryBlue.withValues(alpha: 0.04) : Colors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: Colors.grey.shade100),
+        border: Border.all(
+          color: showUnreadDot ? PremiumTheme.primaryBlue.withValues(alpha: 0.2) : Colors.grey.shade100,
+        ),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.03),
@@ -282,14 +372,32 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
       ),
       child: Row(
         children: [
-          Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(12),
-            ),
-            child: Icon(icon, color: color, size: 20),
+          Stack(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(icon, color: color, size: 20),
+              ),
+              if (showUnreadDot)
+                Positioned(
+                  top: 0,
+                  right: 0,
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      color: PremiumTheme.primaryBlue,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: Colors.white, width: 1.5),
+                    ),
+                  ),
+                ),
+            ],
           ),
           const SizedBox(width: 12),
           Expanded(
