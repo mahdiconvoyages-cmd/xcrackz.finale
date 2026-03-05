@@ -76,10 +76,7 @@ export default function PublicTrackingByCode() {
     if (pollingRef.current) clearInterval(pollingRef.current);
 
     try {
-      // Nettoyer le code saisi (enlever espaces, tirets, mettre en majuscule)
-      const cleanedCode = code.trim().toUpperCase().replace(/[^A-Z0-9]/g, '');
-
-      // Chercher la mission par share_code OU share_code_clean
+      // Chercher la mission par share_code
       const { data, error: fetchError } = await supabase
         .from('missions')
         .select(`
@@ -89,7 +86,7 @@ export default function PublicTrackingByCode() {
           share_code,
           driver:profiles!missions_assigned_user_id_fkey(first_name, last_name)
         `)
-        .or(`share_code.eq.${code.trim().toUpperCase()},share_code_clean.eq.${cleanedCode}`)
+        .eq('share_code', code.trim().toUpperCase())
         .maybeSingle()
         .then((res: { data: any; error: any }) => {
           // Fallback si la FK n'existe pas
@@ -102,7 +99,7 @@ export default function PublicTrackingByCode() {
                 pickup_lat, pickup_lng, delivery_lat, delivery_lng,
                 share_code
               `)
-              .or(`share_code.eq.${code.trim().toUpperCase()},share_code_clean.eq.${cleanedCode}`)
+              .eq('share_code', code.trim().toUpperCase())
               .maybeSingle();
           }
           return res;
