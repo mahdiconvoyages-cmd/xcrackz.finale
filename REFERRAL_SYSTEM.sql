@@ -110,20 +110,25 @@ CREATE OR REPLACE FUNCTION reward_referrer_on_subscription()
 RETURNS TRIGGER
 LANGUAGE plpgsql
 SECURITY DEFINER
+SET search_path = public
 AS $$
 DECLARE
   v_referrer_id UUID;
   v_referral_code TEXT;
   v_already_rewarded BOOLEAN;
-  v_current_credits INT;
-  v_new_credits INT;
+  v_referrer_credits INT;
+  v_referrer_new_credits INT;
+  v_filleul_credits INT;
+  v_filleul_new_credits INT;
+  v_referrer_name TEXT;
+  v_filleul_name TEXT;
   v_reward_amount INT := 10;
 BEGIN
   -- Seulement sur insertion OU sur update vers 'active'
   IF TG_OP = 'INSERT' OR (TG_OP = 'UPDATE' AND NEW.status = 'active' AND OLD.status != 'active') THEN
     -- Vérifier si le filleul a un parrain
     SELECT referred_by INTO v_referrer_id
-    FROM public.profiles
+    FROM profiles
     WHERE id = NEW.user_id;
     
     IF v_referrer_id IS NULL THEN
@@ -132,7 +137,7 @@ BEGIN
     
     -- Vérifier si ce parrainage a déjà été récompensé
     SELECT EXISTS(
-      SELECT 1 FROM public.referrals
+      SELECT 1 FROM referrals
       WHERE referrer_id = v_referrer_id
         AND referred_id = NEW.user_id
         AND status = 'rewarded'
@@ -142,35 +147,69 @@ BEGIN
       RETURN NEW; -- Déjà récompensé pour ce filleul
     END IF;
     
+    -- Récupérer les noms pour les notifications
+    SELECT COALESCE(full_name, first_name || ' ' || last_name, email) INTO v_referrer_name
+    FROM profiles WHERE id = v_referrer_id;
+    
+    SELECT COALESCE(full_name, first_name || ' ' || last_name, email) INTO v_filleul_name
+    FROM profiles WHERE id = NEW.user_id;
+    
     -- Récupérer le code parrainage utilisé
     SELECT referral_code INTO v_referral_code
-    FROM public.profiles
+    FROM profiles WHERE id = v_referrer_id;
+    
+    -- ═══════════════════════════════════════
+    -- RÉCOMPENSE PARRAIN : +10 crédits
+    -- ═══════════════════════════════════════
+    SELECT COALESCE(credits, 0) INTO v_referrer_credits
+    FROM profiles WHERE id = v_referrer_id;
+    
+    v_referrer_new_credits := v_referrer_credits + v_reward_amount;
+    
+    UPDATE profiles
+    SET credits = v_referrer_new_credits, updated_at = NOW()
     WHERE id = v_referrer_id;
     
-    -- Récompenser le parrain : +10 crédits
-    SELECT COALESCE(credits, 0) INTO v_current_credits
-    FROM public.profiles
-    WHERE id = v_referrer_id;
+    INSERT INTO credit_transactions (user_id, amount, transaction_type, description, balance_after)
+    VALUES (v_referrer_id, v_reward_amount, 'addition',
+      'Récompense parrainage — filleul ' || v_filleul_name,
+      v_referrer_new_credits);
     
-    v_new_credits := v_current_credits + v_reward_amount;
-    
-    UPDATE public.profiles
-    SET credits = v_new_credits,
-        updated_at = NOW()
-    WHERE id = v_referrer_id;
-    
-    -- Enregistrer la transaction de crédits
-    INSERT INTO public.credit_transactions (user_id, amount, transaction_type, description, balance_after)
-    VALUES (
-      v_referrer_id,
-      v_reward_amount,
-      'referral_reward',
-      'Récompense parrainage — filleul ' || (SELECT COALESCE(full_name, email) FROM public.profiles WHERE id = NEW.user_id),
-      v_new_credits
+    -- Notification au parrain
+    INSERT INTO notifications (user_id, notification_type, title, message)
+    VALUES (v_referrer_id, 'system',
+      '🎉 +10 Crédits de parrainage !',
+      'Votre filleul ' || v_filleul_name || ' a souscrit un abonnement. Vous recevez 10 crédits de récompense !'
     );
     
-    -- Mettre à jour ou créer l'entrée dans referrals
-    INSERT INTO public.referrals (referrer_id, referred_id, referral_code, status, reward_credits, rewarded_at, subscription_id)
+    -- ═══════════════════════════════════════
+    -- BONUS FILLEUL : +10 crédits
+    -- ═══════════════════════════════════════
+    SELECT COALESCE(credits, 0) INTO v_filleul_credits
+    FROM profiles WHERE id = NEW.user_id;
+    
+    v_filleul_new_credits := v_filleul_credits + v_reward_amount;
+    
+    UPDATE profiles
+    SET credits = v_filleul_new_credits, updated_at = NOW()
+    WHERE id = NEW.user_id;
+    
+    INSERT INTO credit_transactions (user_id, amount, transaction_type, description, balance_after)
+    VALUES (NEW.user_id, v_reward_amount, 'addition',
+      'Bonus de bienvenue parrainage — parrainé par ' || v_referrer_name,
+      v_filleul_new_credits);
+    
+    -- Notification au filleul
+    INSERT INTO notifications (user_id, notification_type, title, message)
+    VALUES (NEW.user_id, 'system',
+      '🎁 +10 Crédits de bienvenue !',
+      'Merci d''avoir rejoint ChecksFleet via un parrainage ! Vous recevez 10 crédits bonus.'
+    );
+    
+    -- ═══════════════════════════════════════
+    -- Mettre à jour referrals
+    -- ═══════════════════════════════════════
+    INSERT INTO referrals (referrer_id, referred_id, referral_code, status, reward_credits, rewarded_at, subscription_id)
     VALUES (v_referrer_id, NEW.user_id, COALESCE(v_referral_code, ''), 'rewarded', v_reward_amount, NOW(), NEW.id)
     ON CONFLICT (referrer_id, referred_id)
     DO UPDATE SET
@@ -179,7 +218,8 @@ BEGIN
       rewarded_at = NOW(),
       subscription_id = NEW.id;
     
-    RAISE NOTICE 'Parrainage récompensé: % reçoit % crédits pour le filleul %', v_referrer_id, v_reward_amount, NEW.user_id;
+    RAISE NOTICE 'Parrainage récompensé: parrain % (+% crédits = %), filleul % (+% crédits = %)', 
+      v_referrer_id, v_reward_amount, v_referrer_new_credits, NEW.user_id, v_reward_amount, v_filleul_new_credits;
   END IF;
   
   RETURN NEW;

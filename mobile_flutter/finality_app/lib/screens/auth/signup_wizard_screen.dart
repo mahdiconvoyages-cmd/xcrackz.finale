@@ -159,8 +159,20 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
 
     setState(() => _checkingReferral = true);
     try {
+      debugPrint('🔍 Checking referral code: "$code"');
       final res = await supabase.rpc('validate_referral_code', params: {'p_code': code});
-      final list = res as List;
+      debugPrint('🔍 Referral RPC response: $res (type: ${res.runtimeType})');
+      
+      // Handle both List and single-row responses
+      List<dynamic> list;
+      if (res is List) {
+        list = res;
+      } else if (res is Map) {
+        list = [res];
+      } else {
+        list = [];
+      }
+      
       if (list.isNotEmpty && list[0]['valid'] == true) {
         setState(() {
           _referralChecked = true;
@@ -168,7 +180,9 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           _referralSponsorName = list[0]['referrer_name'] ?? '';
           _referralReferrerId = list[0]['referrer_id'];
         });
+        debugPrint('✅ Referral valid! Sponsor: ${list[0]['referrer_name']}');
       } else {
+        debugPrint('❌ Referral invalid. Response: $list');
         setState(() {
           _referralChecked = true;
           _referralValid = false;
@@ -176,8 +190,9 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           _referralReferrerId = null;
         });
       }
-    } catch (e) {
-      debugPrint('Referral check error: $e');
+    } catch (e, stack) {
+      debugPrint('❌ Referral check ERROR: $e');
+      debugPrint('❌ Stack: $stack');
       setState(() {
         _referralChecked = true;
         _referralValid = false;
@@ -968,29 +983,39 @@ class _SignupWizardScreenState extends State<SignupWizardScreen> {
           'device_fingerprint': deviceFingerprint,
           'registration_ip': ipAddress,
           'app_role': _signupData['user_type'] == 'company' ? 'donneur_d_ordre' : 'convoyeur',
-          // NE PAS envoyer credits:0 ici — le trigger handle_email_confirmed gère les crédits
+          // Referral: inclure directement dans le upsert pour éviter les problèmes RLS
+          if (_referralValid && _referralReferrerId != null)
+            'referred_by': _referralReferrerId,
         });
       } catch (profileErr) {
-        // Profile upsert may fail (e.g. unique constraint on phone) but 
-        // the trigger already created the profile — don't block signup
         debugPrint('Profile upsert warning (non-blocking): $profileErr');
       }
 
-      // 4. Link referral if valid
+      // 4. Link referral if valid — use RPC to bypass RLS
       if (_referralValid && _referralReferrerId != null) {
         try {
-          await supabase.from('profiles').update({
-            'referred_by': _referralReferrerId,
-          }).eq('id', userId);
-
-          await supabase.from('referrals').insert({
-            'referrer_id': _referralReferrerId,
-            'referred_id': userId,
-            'referral_code': _referralCodeController.text.trim().toUpperCase(),
-            'status': 'pending',
+          await supabase.rpc('link_referral', params: {
+            'p_referrer_id': _referralReferrerId,
+            'p_referred_id': userId,
+            'p_code': _referralCodeController.text.trim().toUpperCase(),
           });
+          debugPrint('✅ Referral linked successfully');
         } catch (refErr) {
-          debugPrint('Referral link warning (non-blocking): $refErr');
+          debugPrint('❌ Referral link error: $refErr');
+          // Fallback: essayer l'ancien méthode
+          try {
+            await supabase.from('profiles').update({
+              'referred_by': _referralReferrerId,
+            }).eq('id', userId);
+            await supabase.from('referrals').insert({
+              'referrer_id': _referralReferrerId,
+              'referred_id': userId,
+              'referral_code': _referralCodeController.text.trim().toUpperCase(),
+              'status': 'pending',
+            });
+          } catch (refErr2) {
+            debugPrint('❌ Referral fallback also failed: $refErr2');
+          }
         }
       }
 

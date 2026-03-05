@@ -37,6 +37,10 @@ import {
   Receipt,
   Send,
   CreditCard,
+  Gift,
+  UserPlus,
+  Coins,
+  Heart,
 } from 'lucide-react';
 
 /* ─────────────── Animations ─────────────── */
@@ -858,6 +862,150 @@ const SummarySection: React.FC = () => {
   );
 };
 
+/* ─────────────── Parrainage ─────────────── */
+const ReferralSection: React.FC = () => {
+  const steps = [
+    {
+      step: '1',
+      icon: Share2,
+      color: 'from-teal-500 to-emerald-500',
+      bg: 'bg-teal-50',
+      title: 'Partagez votre code',
+      desc: 'Chaque utilisateur reçoit un code unique (ex: MAH-3DC7). Partagez-le à vos collègues convoyeurs.',
+    },
+    {
+      step: '2',
+      icon: UserPlus,
+      color: 'from-blue-500 to-indigo-500',
+      bg: 'bg-blue-50',
+      title: 'Votre filleul s\'inscrit',
+      desc: 'Il crée son compte avec votre code de parrainage. Simple, rapide, en 2 minutes.',
+    },
+    {
+      step: '3',
+      icon: CreditCard,
+      color: 'from-purple-500 to-pink-500',
+      bg: 'bg-purple-50',
+      title: 'Il souscrit un abonnement',
+      desc: 'Dès que votre filleul active son abonnement, la récompense se déclenche automatiquement.',
+    },
+    {
+      step: '4',
+      icon: Gift,
+      color: 'from-amber-500 to-orange-500',
+      bg: 'bg-amber-50',
+      title: '10 crédits pour chacun !',
+      desc: 'Vous recevez 10 crédits et votre filleul aussi. Gagnant-gagnant.',
+    },
+  ];
+
+  return (
+    <section id="parrainage" className="py-24 bg-gradient-to-br from-slate-50 via-teal-50/30 to-emerald-50/20 overflow-hidden">
+      <div className="max-w-6xl mx-auto px-5">
+        {/* Header */}
+        <motion.div initial="hidden" whileInView="visible" viewport={{ once: true, margin: '-80px' }} className="text-center mb-16">
+          <motion.div variants={fadeUp} custom={0} className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-teal-100 text-teal-700 text-sm font-medium mb-5">
+            <Gift className="w-4 h-4" />
+            Programme de parrainage
+          </motion.div>
+          <motion.h2 variants={fadeUp} custom={1} className="text-3xl sm:text-4xl font-bold text-slate-900">
+            Parrainez vos collègues,{' '}
+            <span className="bg-gradient-to-r from-teal-600 to-emerald-500 bg-clip-text text-transparent">gagnez des crédits</span>
+          </motion.h2>
+          <motion.p variants={fadeUp} custom={2} className="mt-4 text-lg text-slate-500 max-w-2xl mx-auto">
+            Invitez d'autres professionnels du convoyage à rejoindre ChecksFleet. À chaque parrainage réussi, vous recevez <strong className="text-slate-700">10 crédits gratuits</strong> — et votre filleul aussi.
+          </motion.p>
+        </motion.div>
+
+        {/* Steps */}
+        <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6 mb-16">
+          {steps.map((s, i) => (
+            <motion.div
+              key={i}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true }}
+              variants={fadeUp}
+              custom={i}
+              className="relative group"
+            >
+              <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300 h-full">
+                {/* Step number */}
+                <div className={`absolute -top-3 -left-1 w-8 h-8 rounded-full bg-gradient-to-br ${s.color} text-white text-sm font-bold flex items-center justify-center shadow-lg`}>
+                  {s.step}
+                </div>
+                {/* Icon */}
+                <div className={`w-12 h-12 ${s.bg} rounded-xl flex items-center justify-center mb-4 mt-2`}>
+                  <s.icon className="w-6 h-6 text-slate-700" />
+                </div>
+                <h3 className="font-bold text-slate-900 mb-2">{s.title}</h3>
+                <p className="text-sm text-slate-500 leading-relaxed">{s.desc}</p>
+              </div>
+              {/* Connector arrow (desktop) */}
+              {i < 3 && (
+                <div className="hidden lg:block absolute top-1/2 -right-3 -translate-y-1/2 z-10">
+                  <ArrowRight className="w-5 h-5 text-slate-300" />
+                </div>
+              )}
+            </motion.div>
+          ))}
+        </div>
+
+        {/* Highlight box */}
+        <motion.div
+          initial="hidden"
+          whileInView="visible"
+          viewport={{ once: true }}
+          variants={scaleIn}
+          className="relative max-w-3xl mx-auto"
+        >
+          <div className="bg-gradient-to-r from-teal-600 to-emerald-500 rounded-2xl p-8 sm:p-10 text-white shadow-2xl shadow-teal-500/20">
+            <div className="flex flex-col sm:flex-row items-center gap-6">
+              <div className="flex-shrink-0">
+                <div className="w-20 h-20 bg-white/20 backdrop-blur rounded-2xl flex items-center justify-center">
+                  <Coins className="w-10 h-10 text-white" />
+                </div>
+              </div>
+              <div className="text-center sm:text-left flex-1">
+                <h3 className="text-2xl font-bold mb-2">10 + 10 = Tout le monde y gagne</h3>
+                <p className="text-teal-100 text-sm leading-relaxed">
+                  Le parrain reçoit <strong className="text-white">10 crédits</strong> et le filleul reçoit aussi <strong className="text-white">10 crédits de bienvenue</strong>. 
+                  Plus vous parrainez, plus vous accumulez de crédits pour vos missions. Pas de limite de parrainages !
+                </p>
+              </div>
+              <Link
+                to="/register"
+                className="flex-shrink-0 inline-flex items-center gap-2 px-6 py-3 bg-white text-teal-700 font-semibold rounded-full hover:bg-teal-50 transition shadow-lg"
+              >
+                <UserPlus className="w-4 h-4" />
+                S'inscrire
+              </Link>
+            </div>
+          </div>
+
+          {/* Floating badges */}
+          <motion.div
+            animate={{ y: [0, -8, 0] }}
+            transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+            className="absolute -top-4 -right-4 bg-white rounded-full px-4 py-2 shadow-lg border border-slate-100 hidden sm:flex items-center gap-2"
+          >
+            <Gift className="w-4 h-4 text-amber-500" />
+            <span className="text-sm font-semibold text-slate-700">+10 crédits</span>
+          </motion.div>
+          <motion.div
+            animate={{ y: [0, 8, 0] }}
+            transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut', delay: 0.5 }}
+            className="absolute -bottom-4 -left-4 bg-white rounded-full px-4 py-2 shadow-lg border border-slate-100 hidden sm:flex items-center gap-2"
+          >
+            <Heart className="w-4 h-4 text-rose-500" />
+            <span className="text-sm font-semibold text-slate-700">Gagnant-gagnant</span>
+          </motion.div>
+        </motion.div>
+      </div>
+    </section>
+  );
+};
+
 /* ─────────────── CTA ─────────────── */
 const CTASection: React.FC = () => (
   <section className="py-24 bg-slate-900">
@@ -917,6 +1065,7 @@ const Footer: React.FC = () => (
               ['#facturation', 'Facturation'],
               ['#features', 'Toutes les fonctionnalités'],
               ['#mobile', 'Application mobile'],
+              ['#parrainage', 'Parrainage'],
             ].map(([href, label]) => (
               <li key={href}>
                 <a href={href} className="text-slate-400 text-sm hover:text-teal-400 transition">{label}</a>
@@ -969,6 +1118,7 @@ const Home: React.FC = () => (
     <FeaturesSection />
     <MobileSection />
     <SummarySection />
+    <ReferralSection />
     <CTASection />
     <Footer />
   </div>
