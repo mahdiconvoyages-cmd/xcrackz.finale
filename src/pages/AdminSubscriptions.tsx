@@ -175,7 +175,7 @@ export default function AdminSubscriptions() {
         await supabase.from('credit_transactions').insert({
           user_id: sub.user_id,
           amount: -sub.credits,
-          transaction_type: 'bulk_expiration',
+          transaction_type: 'deduction',
           description: 'Expiration automatique (action admin bulk)',
           balance_after: 0,
         });
@@ -199,7 +199,7 @@ export default function AdminSubscriptions() {
       await supabase.from('credit_transactions').insert({
         user_id: sub.user_id,
         amount: -sub.credits,
-        transaction_type: 'admin_expiration',
+        transaction_type: 'deduction',
         description: 'Abonnement expiré par admin — crédits à 0',
         balance_after: 0,
       });

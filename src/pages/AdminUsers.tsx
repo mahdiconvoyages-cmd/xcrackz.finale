@@ -282,7 +282,7 @@ export default function AdminUsers() {
     await supabase.from('credit_transactions').insert({
       user_id: user.id,
       amount: mode === 'add' ? amount : -amount,
-      transaction_type: mode === 'add' ? 'admin_grant' : 'admin_deduction',
+      transaction_type: mode === 'add' ? 'addition' : 'deduction',
       description: creditReason || (mode === 'add' ? 'Crédits ajoutés par admin' : 'Crédits retirés par admin'),
       balance_after: newBalance,
     });
@@ -311,10 +311,13 @@ export default function AdminUsers() {
       ? (parseInt(subCustomCredits) || 0)
       : (planInfo?.credits_amount || 0);
 
-    const { data: existing } = await supabase.from('subscriptions').select('id').eq('user_id', subModal.id).maybeSingle();
+    const { data: existing } = await supabase.from('subscriptions').select('id, plan').eq('user_id', subModal.id).maybeSingle();
+
+    // Déterminer si c'est un upgrade (pour le parrainage)
+    const isUpgradeFromFree = existing?.plan === 'free' && subPlan !== 'free';
 
     if (existing) {
-      await supabase.from('subscriptions').update({
+      const { error: updateErr } = await supabase.from('subscriptions').update({
         plan: subPlan,
         status: 'active',
         current_period_start: new Date().toISOString(),
@@ -323,8 +326,9 @@ export default function AdminUsers() {
         auto_renew: subAutoRenew,
         updated_at: new Date().toISOString(),
       }).eq('user_id', subModal.id);
+      if (updateErr) console.error('Subscription update error:', updateErr);
     } else {
-      await supabase.from('subscriptions').insert({
+      const { error: insertErr } = await supabase.from('subscriptions').insert({
         user_id: subModal.id,
         plan: subPlan,
         status: 'active',
@@ -333,6 +337,7 @@ export default function AdminUsers() {
         payment_method: 'admin_manual',
         auto_renew: subAutoRenew,
       });
+      if (insertErr) console.error('Subscription insert error:', insertErr);
     }
 
     // Add credits
@@ -342,10 +347,105 @@ export default function AdminUsers() {
       await supabase.from('credit_transactions').insert({
         user_id: subModal.id,
         amount: creditsToAdd,
-        transaction_type: 'subscription_grant',
+        transaction_type: 'addition',
         description: `Abonnement ${subPlan.toUpperCase()} attribué — ${days}j`,
         balance_after: newBal,
       });
+    }
+
+    // ═══════════════════════════════════════════════════════
+    // RÉCOMPENSE PARRAINAGE — si le filleul a un parrain
+    // ═══════════════════════════════════════════════════════
+    if (isUpgradeFromFree || !existing) {
+      try {
+        // Vérifier si le filleul a un parrain
+        const { data: filleulProfile } = await supabase
+          .from('profiles')
+          .select('referred_by')
+          .eq('id', subModal.id)
+          .single();
+
+        if (filleulProfile?.referred_by) {
+          const referrerId = filleulProfile.referred_by;
+
+          // Vérifier si déjà récompensé
+          const { data: alreadyRewarded } = await supabase
+            .from('referrals')
+            .select('id')
+            .eq('referrer_id', referrerId)
+            .eq('referred_id', subModal.id)
+            .eq('status', 'rewarded')
+            .maybeSingle();
+
+          if (!alreadyRewarded) {
+            // Récupérer infos parrain
+            const { data: parrain } = await supabase
+              .from('profiles')
+              .select('credits, full_name, email, referral_code')
+              .eq('id', referrerId)
+              .single();
+
+            if (parrain) {
+              const reward = 10;
+              const parrainName = parrain.full_name || parrain.email;
+              const filleulName = subModal.full_name || subModal.email;
+
+              // +10 crédits PARRAIN
+              const parrainNewCredits = (parrain.credits || 0) + reward;
+              await supabase.from('profiles').update({ credits: parrainNewCredits, updated_at: new Date().toISOString() }).eq('id', referrerId);
+              await supabase.from('credit_transactions').insert({
+                user_id: referrerId,
+                amount: reward,
+                transaction_type: 'addition',
+                description: `Récompense parrainage — filleul ${filleulName}`,
+                balance_after: parrainNewCredits,
+              });
+
+              // +10 crédits FILLEUL (en plus des crédits d'abonnement)
+              const { data: filleulCurrent } = await supabase.from('profiles').select('credits').eq('id', subModal.id).single();
+              const filleulNewCredits = ((filleulCurrent?.credits) || 0) + reward;
+              await supabase.from('profiles').update({ credits: filleulNewCredits, updated_at: new Date().toISOString() }).eq('id', subModal.id);
+              await supabase.from('credit_transactions').insert({
+                user_id: subModal.id,
+                amount: reward,
+                transaction_type: 'addition',
+                description: `Bonus de bienvenue parrainage — parrainé par ${parrainName}`,
+                balance_after: filleulNewCredits,
+              });
+
+              // Mettre à jour referrals
+              await supabase.from('referrals').upsert({
+                referrer_id: referrerId,
+                referred_id: subModal.id,
+                referral_code: parrain.referral_code || '',
+                status: 'rewarded',
+                reward_credits: reward,
+                rewarded_at: new Date().toISOString(),
+              }, { onConflict: 'referrer_id,referred_id' });
+
+              // Notifications
+              await supabase.from('notifications').insert([
+                {
+                  user_id: referrerId,
+                  notification_type: 'system',
+                  title: '🎉 +10 Crédits de parrainage !',
+                  message: `Votre filleul ${filleulName} a souscrit un abonnement. Vous recevez 10 crédits de récompense !`,
+                },
+                {
+                  user_id: subModal.id,
+                  notification_type: 'system',
+                  title: '🎁 +10 Crédits de bienvenue !',
+                  message: `Merci d'avoir rejoint ChecksFleet via un parrainage ! Vous recevez 10 crédits bonus.`,
+                },
+              ]);
+
+              showToast('success', 'Parrainage récompensé', `+10 crédits pour ${parrainName} (parrain) et ${filleulName} (filleul)`);
+            }
+          }
+        }
+      } catch (refErr) {
+        console.error('Erreur récompense parrainage:', refErr);
+      }
     }
 
     await loadUsers();
