@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:permission_handler/permission_handler.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -463,7 +464,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
           // Sign out
           await supabase.auth.signOut();
           if (mounted) {
-            Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+            context.go('/login');
           }
         }
       } catch (e) {

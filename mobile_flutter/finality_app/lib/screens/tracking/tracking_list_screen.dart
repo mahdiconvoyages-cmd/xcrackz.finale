@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../services/background_tracking_service.dart';
+import '../../providers/service_providers.dart';
 
-class TrackingListScreen extends StatefulWidget {
+class TrackingListScreen extends ConsumerStatefulWidget {
   const TrackingListScreen({super.key});
 
   @override
-  State<TrackingListScreen> createState() => _TrackingListScreenState();
+  ConsumerState<TrackingListScreen> createState() => _TrackingListScreenState();
 }
 
-class _TrackingListScreenState extends State<TrackingListScreen> {
+class _TrackingListScreenState extends ConsumerState<TrackingListScreen> {
   final _supabase = Supabase.instance.client;
-  final _gpsService = BackgroundTrackingService();
+  BackgroundTrackingService get _gpsService => ref.read(backgroundTrackingServiceProvider);
   
   List<Map<String, dynamic>> _trackedMissions = [];
   bool _isLoading = true;

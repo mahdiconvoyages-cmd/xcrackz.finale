@@ -5,6 +5,8 @@ class Mission {
   final String? shareCode;
   final String? mandataireName;
   final String? mandataireCompany;
+  final String? pickupLocationName;
+  final String? deliveryLocationName;
   final String? pickupAddress;
   final String? deliveryAddress;
   final String? pickupCity;
@@ -55,6 +57,8 @@ class Mission {
     this.shareCode,
     this.mandataireName,
     this.mandataireCompany,
+    this.pickupLocationName,
+    this.deliveryLocationName,
     this.pickupAddress,
     this.deliveryAddress,
     this.pickupCity,
@@ -101,12 +105,14 @@ class Mission {
 
   factory Mission.fromJson(Map<String, dynamic> json) {
     return Mission(
-      id: json['id'] as String,
+      id: json['id']?.toString() ?? '',
       userId: json['user_id'] as String?,
       reference: json['reference'] as String?,
       shareCode: json['share_code'] as String?,
       mandataireName: json['mandataire_name'] as String?,
       mandataireCompany: json['mandataire_company'] as String?,
+      pickupLocationName: json['pickup_location_name'] as String?,
+      deliveryLocationName: json['delivery_location_name'] as String?,
       pickupAddress: json['pickup_address'] as String?,
       deliveryAddress: json['delivery_address'] as String?,
       pickupCity: json['pickup_city'] as String?,
@@ -147,8 +153,8 @@ class Mission {
       restitutionVehicleBrand: json['restitution_vehicle_brand'] as String?,
       restitutionVehicleModel: json['restitution_vehicle_model'] as String?,
       restitutionVehiclePlate: json['restitution_vehicle_plate'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      createdAt: DateTime.parse(json['created_at']?.toString() ?? DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse(json['updated_at']?.toString() ?? DateTime.now().toIso8601String()),
     );
   }
 
@@ -160,6 +166,8 @@ class Mission {
       'share_code': shareCode,
       'mandataire_name': mandataireName,
       'mandataire_company': mandataireCompany,
+      'pickup_location_name': pickupLocationName,
+      'delivery_location_name': deliveryLocationName,
       'pickup_address': pickupAddress,
       'delivery_address': deliveryAddress,
       'pickup_city': pickupCity,
@@ -203,6 +211,15 @@ class Mission {
     };
   }
 
+  /// Returns JSON without server-generated fields, for INSERT operations.
+  Map<String, dynamic> toInsertJson() {
+    final json = toJson();
+    json.remove('id');
+    json.remove('created_at');
+    json.remove('updated_at');
+    return json;
+  }
+
   Mission copyWith({
     String? id,
     String? userId,
@@ -210,6 +227,8 @@ class Mission {
     String? shareCode,
     String? mandataireName,
     String? mandataireCompany,
+    String? pickupLocationName,
+    String? deliveryLocationName,
     String? pickupAddress,
     String? deliveryAddress,
     String? pickupCity,
@@ -260,6 +279,8 @@ class Mission {
       shareCode: shareCode ?? this.shareCode,
       mandataireName: mandataireName ?? this.mandataireName,
       mandataireCompany: mandataireCompany ?? this.mandataireCompany,
+      pickupLocationName: pickupLocationName ?? this.pickupLocationName,
+      deliveryLocationName: deliveryLocationName ?? this.deliveryLocationName,
       pickupAddress: pickupAddress ?? this.pickupAddress,
       deliveryAddress: deliveryAddress ?? this.deliveryAddress,
       pickupCity: pickupCity ?? this.pickupCity,

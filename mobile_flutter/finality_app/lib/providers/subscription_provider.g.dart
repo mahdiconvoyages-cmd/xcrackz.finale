@@ -34,7 +34,7 @@ String _$subscriptionHash() => r'cd9a5c57952a79b3bd4599aeafcbb7619863e798';
 /// Copied from [Subscription].
 @ProviderFor(Subscription)
 final subscriptionProvider =
-    AutoDisposeNotifierProvider<Subscription, SubscriptionState>.internal(
+    AutoDisposeAsyncNotifierProvider<Subscription, SubscriptionState>.internal(
       Subscription.new,
       name: r'subscriptionProvider',
       debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -44,6 +44,6 @@ final subscriptionProvider =
       allTransitiveDependencies: null,
     );
 
-typedef _$Subscription = AutoDisposeNotifier<SubscriptionState>;
+typedef _$Subscription = AutoDisposeAsyncNotifier<SubscriptionState>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

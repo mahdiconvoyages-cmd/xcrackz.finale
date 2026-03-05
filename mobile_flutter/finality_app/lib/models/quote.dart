@@ -140,6 +140,15 @@ class Quote {
     };
   }
 
+  /// Returns JSON without server-generated fields, for INSERT operations.
+  Map<String, dynamic> toInsertJson() {
+    final json = toJson();
+    json.remove('id');
+    json.remove('created_at');
+    json.remove('updated_at');
+    return json;
+  }
+
   Quote copyWith({
     String? id,
     String? quoteNumber,
@@ -231,7 +240,7 @@ class QuoteItem {
       quantity: (json['quantity'] ?? 1).toDouble(),
       unitPrice: (json['unit_price'] ?? 0).toDouble(),
       total: (json['total'] ?? 0).toDouble(),
-      sortOrder: json['sort_order'] as int?,
+      sortOrder: (json['sort_order'] as num?)?.toInt(),
     );
   }
 

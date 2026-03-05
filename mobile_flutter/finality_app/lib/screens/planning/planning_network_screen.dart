@@ -20,6 +20,7 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../theme/premium_theme.dart';
 import 'retour_lift_screen.dart';
 import '_offer_publish_sheet.dart';
 import '_match_chat_sheet.dart';
@@ -29,16 +30,16 @@ import '../../services/ride_tracking_service.dart';
 
 // ── Couleurs ──────────────────────────────────────────────────────────────────
 
-const _kTeal   = Color(0xFF0D9488);
+const _kTeal   = PremiumTheme.teal600;
 const _kTealBg = Color(0xFFE6FFFA);
-const _kAmber  = Color(0xFFF59E0B);
-const _kGreen  = Color(0xFF10B981);
-const _kRed    = Color(0xFFEF4444);
-const _kBlue   = Color(0xFF3B82F6);
-const _kDark   = Color(0xFF0F172A);
-const _kGray   = Color(0xFF64748B);
-const _kBorder = Color(0xFFE2E8F0);
-const _kScaffold = Color(0xFFF8FAFC);
+const _kAmber  = PremiumTheme.accentAmber;
+const _kGreen  = PremiumTheme.accentGreen;
+const _kRed    = PremiumTheme.accentRed;
+const _kBlue   = PremiumTheme.accentBlue;
+const _kDark   = PremiumTheme.slate900;
+const _kGray   = PremiumTheme.slate500;
+const _kBorder = PremiumTheme.slate200;
+const _kScaffold = PremiumTheme.scaffoldBg;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 

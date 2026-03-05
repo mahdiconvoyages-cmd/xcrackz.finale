@@ -1,18 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../services/subscription_service.dart';
+import '../../providers/subscription_provider.dart';
 import '../../models/user_subscription.dart';
 
-class SubscriptionScreen extends StatefulWidget {
+class SubscriptionScreen extends ConsumerStatefulWidget {
   const SubscriptionScreen({super.key});
 
   @override
-  State<SubscriptionScreen> createState() => _SubscriptionScreenState();
+  ConsumerState<SubscriptionScreen> createState() => _SubscriptionScreenState();
 }
 
-class _SubscriptionScreenState extends State<SubscriptionScreen> {
-  final SubscriptionService _subscriptionService = SubscriptionService();
+class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
+  SubscriptionService get _subscriptionService => ref.read(subscriptionServiceProvider);
   UserSubscription? _currentSubscription;
   bool _isLoading = true;
   String? _error;

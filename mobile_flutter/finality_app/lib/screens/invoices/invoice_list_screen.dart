@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../models/invoice.dart';
 import '../../services/invoice_service.dart';
+import '../../providers/invoices_provider.dart';
 import '../../theme/premium_theme.dart';
 import 'invoice_detail_screen.dart';
 import 'invoice_form_screen.dart';
 
-class InvoiceListScreen extends StatefulWidget {
+class InvoiceListScreen extends ConsumerStatefulWidget {
   const InvoiceListScreen({super.key});
 
   @override
-  State<InvoiceListScreen> createState() => _InvoiceListScreenState();
+  ConsumerState<InvoiceListScreen> createState() => _InvoiceListScreenState();
 }
 
-class _InvoiceListScreenState extends State<InvoiceListScreen> {
-  final InvoiceService _invoiceService = InvoiceService();
+class _InvoiceListScreenState extends ConsumerState<InvoiceListScreen> {
+  InvoiceService get _invoiceService => ref.read(invoiceServiceProvider);
   final _fmt = NumberFormat.currency(locale: 'fr_FR', symbol: '\u20AC');
   final _searchController = TextEditingController();
 
@@ -123,6 +125,12 @@ class _InvoiceListScreenState extends State<InvoiceListScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: PremiumTheme.lightBg,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        title: Text('Factures', style: PremiumTheme.heading4.copyWith(fontSize: 20)),
+      ),
       floatingActionButton: FloatingActionButton.extended(
         heroTag: 'invoice_fab',
         onPressed: () async {

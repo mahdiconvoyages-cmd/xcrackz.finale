@@ -19,12 +19,12 @@ class InspectionTimelineEvent {
 
   factory InspectionTimelineEvent.fromJson(Map<String, dynamic> json) {
     return InspectionTimelineEvent(
-      eventType: json['event_type'] as String,
-      timestamp: DateTime.parse(json['timestamp'] as String),
+      eventType: json['event_type']?.toString() ?? '',
+      timestamp: DateTime.parse(json['timestamp']?.toString() ?? DateTime.now().toIso8601String()),
       inspectionId: json['inspection_id'] as String?,
       documentId: json['document_id'] as String?,
       expenseId: json['expense_id'] as String?,
-      data: json['data'] as Map<String, dynamic>,
+      data: json['data'] as Map<String, dynamic>? ?? {},
     );
   }
 
@@ -89,8 +89,8 @@ class InspectionTimelineReport {
         .toList();
 
     return InspectionTimelineReport(
-      mission: json['mission'] as Map<String, dynamic>,
-      vehicle: json['vehicle'] as Map<String, dynamic>,
+      mission: json['mission'] as Map<String, dynamic>? ?? {},
+      vehicle: json['vehicle'] as Map<String, dynamic>? ?? {},
       timeline: timeline,
       reportType: json['report_type'] as String? ?? 'full',
     );

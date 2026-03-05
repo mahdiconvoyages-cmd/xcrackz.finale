@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/error_helper.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
@@ -9,9 +10,10 @@ import 'dart:io';
 import 'package:path_provider/path_provider.dart';
 import '../../models/quote.dart';
 import '../../services/quote_service.dart';
+import '../../providers/quotes_provider.dart';
 import 'quote_form_screen.dart';
 
-class QuoteDetailScreen extends StatefulWidget {
+class QuoteDetailScreen extends ConsumerStatefulWidget {
   final String quoteId;
 
   const QuoteDetailScreen({
@@ -20,11 +22,11 @@ class QuoteDetailScreen extends StatefulWidget {
   });
 
   @override
-  State<QuoteDetailScreen> createState() => _QuoteDetailScreenState();
+  ConsumerState<QuoteDetailScreen> createState() => _QuoteDetailScreenState();
 }
 
-class _QuoteDetailScreenState extends State<QuoteDetailScreen> {
-  final QuoteService _quoteService = QuoteService();
+class _QuoteDetailScreenState extends ConsumerState<QuoteDetailScreen> {
+  QuoteService get _quoteService => ref.read(quoteServiceProvider);
   Quote? _quote;
   bool _isLoading = true;
 

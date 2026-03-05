@@ -2,16 +2,10 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/inspection_timeline.dart';
 
 class InspectionTimelineService {
-  static final InspectionTimelineService _instance =
-      InspectionTimelineService._internal();
+  final SupabaseClient supabase;
 
-  factory InspectionTimelineService() {
-    return _instance;
-  }
-
-  InspectionTimelineService._internal();
-
-  final supabase = Supabase.instance.client;
+  InspectionTimelineService({SupabaseClient? client})
+      : supabase = client ?? Supabase.instance.client;
 
   /// Récupère le rapport complet avec timeline via le token de partage
   Future<InspectionTimelineReport> getTimelineReport(String token) async {

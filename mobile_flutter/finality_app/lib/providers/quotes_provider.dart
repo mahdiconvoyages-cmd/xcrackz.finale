@@ -3,13 +3,14 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../services/quote_service.dart';
 import '../models/quote.dart';
 import '../utils/logger.dart';
+import 'service_providers.dart';
 
 part 'quotes_provider.g.dart';
 
 /// Provider pour le service Quote (singleton).
 @riverpod
 QuoteService quoteService(Ref ref) {
-  return QuoteService();
+  return QuoteService(client: ref.read(supabaseClientProvider));
 }
 
 /// Provider pour la liste des devis avec filtrage.

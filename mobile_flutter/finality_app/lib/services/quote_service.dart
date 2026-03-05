@@ -3,7 +3,10 @@ import '../models/quote.dart';
 import '../models/invoice.dart';
 
 class QuoteService {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final SupabaseClient _supabase;
+
+  QuoteService({SupabaseClient? client})
+      : _supabase = client ?? Supabase.instance.client;
 
   // Create
   Future<Quote> createQuote(Quote quote) async {

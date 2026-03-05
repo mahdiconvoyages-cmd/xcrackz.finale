@@ -1,21 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import '../../utils/error_helper.dart';
 import '../../models/inspection.dart';
 import '../../services/inspection_service.dart';
-import 'inspection_departure_screen.dart';
-import 'inspection_arrival_screen.dart';
+import '../../providers/service_providers.dart';
 import '../../widgets/app_drawer.dart';
 import '../../theme/premium_theme.dart';
 
-class InspectionsScreen extends StatefulWidget {
+class InspectionsScreen extends ConsumerStatefulWidget {
   const InspectionsScreen({super.key});
 
   @override
-  State<InspectionsScreen> createState() => _InspectionsScreenState();
+  ConsumerState<InspectionsScreen> createState() => _InspectionsScreenState();
 }
 
-class _InspectionsScreenState extends State<InspectionsScreen> {
-  final InspectionService _inspectionService = InspectionService();
+class _InspectionsScreenState extends ConsumerState<InspectionsScreen> {
+  InspectionService get _inspectionService => ref.read(inspectionServiceProvider);
   List<Inspection> _inspections = [];
   bool _isLoading = true;
 
@@ -198,7 +199,7 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
                     : 'Inspection Arrivée',
               ),
               subtitle: Text(
-                inspection.createdAt.toString(),
+                DateFormat('dd/MM/yyyy \u00e0 HH:mm').format(inspection.createdAt),
               ),
               trailing: const Icon(Icons.chevron_right),
               onTap: () {
@@ -214,163 +215,31 @@ class _InspectionsScreenState extends State<InspectionsScreen> {
   void _showInspectionTypeDialog() {
     showDialog(
       context: context,
-      builder: (context) => Dialog(
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-        ),
-        child: Container(
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        icon: Container(
+          padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(16),
-            boxShadow: [
-              BoxShadow(
-                color: Colors.black.withValues(alpha: 0.1),
-                blurRadius: 20,
-                offset: const Offset(0, 10),
-              ),
-            ],
+            color: PremiumTheme.primaryBlue.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
           ),
-          padding: const EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                'Type d\'inspection',
-                style: TextStyle(
-                  fontSize: 22,
-                  fontWeight: FontWeight.bold,
-                  color: const Color(0xFF1A1A1A),
-                  shadows: [
-                    Shadow(
-                      color: Colors.black.withValues(alpha: 0.1),
-                      offset: const Offset(0, 1),
-                      blurRadius: 2,
-                    ),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              InkWell(
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const InspectionDepartureScreen(
-                        missionId: 'temp',
-                      ),
-                    ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFF14b8a6).withValues(alpha: 0.3)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF14b8a6).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.logout, color: Color(0xFF14b8a6)),
-                      ),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Inspection Départ',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Color(0xFF1A1A1A),
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'État avant le convoyage',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF6B7280),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.chevron_right, color: Color(0xFF14b8a6)),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 12),
-              InkWell(
-                onTap: () {
-                  Navigator.pop(context);
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => const InspectionArrivalScreen(
-                        missionId: 'temp',
-                      ),
-                    ),
-                  );
-                },
-                borderRadius: BorderRadius.circular(12),
-                child: Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: const Color(0xFF8B5CF6).withValues(alpha: 0.3)),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF8B5CF6).withValues(alpha: 0.15),
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: const Icon(Icons.login, color: Color(0xFF8B5CF6)),
-                      ),
-                      const SizedBox(width: 16),
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Inspection Arrivée',
-                              style: TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                                color: Color(0xFF1A1A1A),
-                              ),
-                            ),
-                            SizedBox(height: 4),
-                            Text(
-                              'État après le convoyage',
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: Color(0xFF6B7280),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      const Icon(Icons.chevron_right, color: Color(0xFF8B5CF6)),
-                    ],
-                  ),
-                ),
-              ),
-            ],
-          ),
+          child: Icon(Icons.info_outline_rounded, color: PremiumTheme.primaryBlue, size: 28),
         ),
+        title: const Text('Démarrer une inspection'),
+        content: const Text(
+          'Les inspections sont liées à une mission de convoyage.\n\n'
+          'Pour créer une inspection :\n'
+          '1. Allez dans « Mes Convoyages »\n'
+          '2. Ouvrez une mission en attente\n'
+          '3. Tapez « Démarrer » pour lancer l\'inspection de départ',
+          style: TextStyle(fontSize: 14, height: 1.5),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Compris'),
+          ),
+        ],
       ),
     );
   }

@@ -41,6 +41,7 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   String _vehicleType = 'VL';
 
   // -- Etape 2 : Enlevement --
+  final _pickupLocationNameController = TextEditingController();
   final _pickupAddressController = TextEditingController();
   final _pickupCityController = TextEditingController();
   final _pickupPostcodeController = TextEditingController();
@@ -52,6 +53,7 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
   TimeOfDay? _pickupTime;
 
   // -- Etape 3 : Livraison + Options --
+  final _deliveryLocationNameController = TextEditingController();
   final _deliveryAddressController = TextEditingController();
   final _deliveryCityController = TextEditingController();
   final _deliveryPostcodeController = TextEditingController();
@@ -120,9 +122,11 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
     for (final c in [
       _mandataireNameController, _mandataireCompanyController,
       _brandController, _modelController, _plateController, _vinController,
+      _pickupLocationNameController,
       _pickupAddressController, _pickupCityController,
       _pickupPostcodeController,
       _pickupContactNameController, _pickupContactPhoneController,
+      _deliveryLocationNameController,
       _deliveryAddressController, _deliveryCityController,
       _deliveryPostcodeController,
       _deliveryContactNameController, _deliveryContactPhoneController,
@@ -181,6 +185,7 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
     _vehicleType = m.vehicleType ?? 'VL';
 
     // Pickup - parse city/postal from address if available
+    _pickupLocationNameController.text = m.pickupLocationName ?? '';
     _pickupCityController.text = m.pickupCity ?? '';
     _pickupPostcodeController.text = m.pickupPostalCode ?? '';
     // Extract street part from full address (before the city)
@@ -197,6 +202,7 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
     _pickupContactPhoneController.text = m.pickupContactPhone ?? '';
 
     // Delivery
+    _deliveryLocationNameController.text = m.deliveryLocationName ?? '';
     _deliveryCityController.text = m.deliveryCity ?? '';
     _deliveryPostcodeController.text = m.deliveryPostalCode ?? '';
     final deliveryFull = m.deliveryAddress ?? '';
@@ -225,9 +231,11 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
     for (final c in [
       _mandataireNameController, _mandataireCompanyController,
       _brandController, _modelController, _plateController, _vinController,
+      _pickupLocationNameController,
       _pickupAddressController, _pickupCityController,
       _pickupPostcodeController,
       _pickupContactNameController, _pickupContactPhoneController,
+      _deliveryLocationNameController,
       _deliveryAddressController, _deliveryCityController,
       _deliveryPostcodeController,
       _deliveryContactNameController, _deliveryContactPhoneController,
@@ -471,6 +479,10 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
             ? _vinController.text.trim().toUpperCase()
             : null,
         'vehicle_type': _vehicleType,
+        'pickup_location_name':
+            _pickupLocationNameController.text.trim().isNotEmpty
+                ? _pickupLocationNameController.text.trim()
+                : null,
         'pickup_address': pickupAddr,
         'pickup_city': _pickupCityController.text.trim(),
         'pickup_postal_code': _pickupPostcodeController.text.trim(),
@@ -484,6 +496,10 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
         'pickup_contact_phone':
             _pickupContactPhoneController.text.trim().isNotEmpty
                 ? _pickupContactPhoneController.text.trim()
+                : null,
+        'delivery_location_name':
+            _deliveryLocationNameController.text.trim().isNotEmpty
+                ? _deliveryLocationNameController.text.trim()
                 : null,
         'delivery_address': deliveryAddr,
         'delivery_city': _deliveryCityController.text.trim(),
@@ -985,6 +1001,13 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
           color: PremiumTheme.accentGreen,
           children: [
             _field(
+              _pickupLocationNameController,
+              'Nom du lieu (ex: Renault Versailles, Garage Dupont...)',
+              Icons.store_rounded,
+              hint: 'Chez qui récupérer le véhicule ?',
+            ),
+            const SizedBox(height: 12),
+            _field(
               _pickupAddressController,
               'Adresse *',
               Icons.location_on_rounded,
@@ -1045,6 +1068,13 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
           title: 'Lieu de livraison',
           color: PremiumTheme.primaryBlue,
           children: [
+            _field(
+              _deliveryLocationNameController,
+              'Nom du lieu (ex: Domicile client, Garage Martin...)',
+              Icons.store_rounded,
+              hint: 'Chez qui livrer le véhicule ?',
+            ),
+            const SizedBox(height: 12),
             _field(
               _deliveryAddressController,
               'Adresse *',
@@ -1379,6 +1409,7 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
     bool caps = false,
     int maxLines = 1,
     void Function(String)? onChanged,
+    String? hint,
   }) {
     return TextField(
       controller: ctrl,
@@ -1390,6 +1421,11 @@ class _MissionCreateScreenNewState extends State<MissionCreateScreenNew> {
       onChanged: onChanged,
       decoration: InputDecoration(
         labelText: label,
+        hintText: hint,
+        hintStyle: PremiumTheme.bodySmall.copyWith(
+          color: PremiumTheme.textTertiary.withValues(alpha: 0.5),
+          fontSize: 13,
+        ),
         labelStyle: PremiumTheme.bodySmall.copyWith(
           color: isRequired
               ? PremiumTheme.primaryBlue

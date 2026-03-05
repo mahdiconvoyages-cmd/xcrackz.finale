@@ -1,23 +1,25 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../utils/error_helper.dart';
 import '../../models/quote.dart';
 import '../../models/client.dart';
 import '../../services/quote_service.dart';
+import '../../providers/quotes_provider.dart';
 import '../../widgets/siret_autocomplete_field.dart';
 import '../../widgets/client_selector.dart';
 
-class QuoteFormScreen extends StatefulWidget {
+class QuoteFormScreen extends ConsumerStatefulWidget {
   final Quote? quote;
 
   const QuoteFormScreen({super.key, this.quote});
 
   @override
-  State<QuoteFormScreen> createState() => _QuoteFormScreenState();
+  ConsumerState<QuoteFormScreen> createState() => _QuoteFormScreenState();
 }
 
-class _QuoteFormScreenState extends State<QuoteFormScreen> {
+class _QuoteFormScreenState extends ConsumerState<QuoteFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  final QuoteService _quoteService = QuoteService();
+  QuoteService get _quoteService => ref.read(quoteServiceProvider);
   
   final _clientNameController = TextEditingController();
   final _clientEmailController = TextEditingController();

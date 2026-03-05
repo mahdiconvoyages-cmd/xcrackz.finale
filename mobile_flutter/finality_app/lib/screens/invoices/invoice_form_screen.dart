@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../utils/error_helper.dart';
@@ -9,22 +10,24 @@ import '../../models/client.dart';
 import '../../models/mission.dart';
 import '../../services/invoice_service.dart';
 import '../../services/insee_service.dart';
+import '../../providers/invoices_provider.dart';
+import '../../providers/service_providers.dart';
 import '../../widgets/client_selector.dart';
 import '../../theme/premium_theme.dart';
 
-class InvoiceFormScreen extends StatefulWidget {
+class InvoiceFormScreen extends ConsumerStatefulWidget {
   final Invoice? invoice;
   final Mission? mission;
   const InvoiceFormScreen({super.key, this.invoice, this.mission});
 
   @override
-  State<InvoiceFormScreen> createState() => _InvoiceFormScreenState();
+  ConsumerState<InvoiceFormScreen> createState() => _InvoiceFormScreenState();
 }
 
-class _InvoiceFormScreenState extends State<InvoiceFormScreen> {
+class _InvoiceFormScreenState extends ConsumerState<InvoiceFormScreen> {
   final _formKey = GlobalKey<FormState>();
-  final InvoiceService _invoiceService = InvoiceService();
-  final InseeService _inseeService = InseeService();
+  InvoiceService get _invoiceService => ref.read(invoiceServiceProvider);
+  InseeService get _inseeService => ref.read(inseeServiceProvider);
 
   // Controllers
   final _clientName = TextEditingController();

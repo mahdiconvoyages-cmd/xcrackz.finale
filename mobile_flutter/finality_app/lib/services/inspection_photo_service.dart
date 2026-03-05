@@ -5,7 +5,10 @@ import '../models/inspection_photo.dart';
 import '../models/inspection_damage.dart';
 
 class InspectionPhotoService {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final SupabaseClient _supabase;
+
+  InspectionPhotoService({SupabaseClient? client})
+      : _supabase = client ?? Supabase.instance.client;
 
   // ============================================
   // GESTION DES PHOTOS

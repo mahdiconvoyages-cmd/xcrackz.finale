@@ -8,6 +8,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../theme/premium_theme.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:http/http.dart' as http;
@@ -18,10 +19,10 @@ import 'package:intl/intl.dart';
 import 'retour_lift_screen.dart';
 
 // ── Couleurs ─────────────────────────────────────────────────────────────────
-const _kTeal = Color(0xFF0D9488);
-const _kBlue = Color(0xFF3B82F6);
-const _kDark = Color(0xFF0F172A);
-const _kGray = Color(0xFF64748B);
+const _kTeal = PremiumTheme.teal600;
+const _kBlue = PremiumTheme.accentBlue;
+const _kDark = PremiumTheme.slate900;
+const _kGray = PremiumTheme.slate500;
 
 /// Carte des offres de lift disponibles autour de la position actuelle
 class PlanningMapView extends StatefulWidget {

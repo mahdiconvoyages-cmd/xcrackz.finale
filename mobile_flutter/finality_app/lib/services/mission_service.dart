@@ -7,11 +7,14 @@ import '../main.dart' show connectivityService;
 import '../utils/logger.dart';
 
 class MissionService {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final SupabaseClient _supabase;
   final BackgroundTrackingService _gpsService = BackgroundTrackingService();
   final OfflineService _offlineService = OfflineService();
   /// Use the global ConnectivityService singleton instead of creating a new one
   get _connectivityService => connectivityService;
+
+  MissionService({SupabaseClient? client})
+      : _supabase = client ?? Supabase.instance.client;
   
   bool _isInitialized = false;
   
@@ -64,10 +67,8 @@ class MissionService {
       
       logger.d('MissionService: ${missionsList.length} missions récupérées, ${missions.length} uniques après dédoublonnage');
       
-      // Mettre en cache pour offline
-      for (final mission in missions) {
-        await _offlineService.cacheMission(mission);
-      }
+      // Mettre en cache pour offline (batch — une seule transaction SQLite)
+      await _offlineService.cacheMissions(missions);
       logger.d('MissionService: Cached ${missions.length} missions');
       
       return missions;
@@ -83,9 +84,8 @@ class MissionService {
     await _ensureInitialized();
     
     try {
-      // Essayer le cache d'abord (plus rapide)
-      final cached = await _offlineService.getCachedMissions();
-      final cachedMission = cached.where((m) => m.id == id).firstOrNull;
+      // Essayer le cache d'abord (O(1) via SQLite index)
+      final cachedMission = await _offlineService.getCachedMissionById(id);
       
       if (_connectivityService.isOffline && cachedMission != null) {
         logger.w('MissionService: Offline - returning cached mission $id');
@@ -104,9 +104,8 @@ class MissionService {
       
       return mission;
     } catch (e) {
-      // Fallback sur cache si erreur
-      final cached = await _offlineService.getCachedMissions();
-      final cachedMission = cached.where((m) => m.id == id).firstOrNull;
+      // Fallback sur cache si erreur (O(1) lookup)
+      final cachedMission = await _offlineService.getCachedMissionById(id);
       if (cachedMission != null) {
         logger.w('MissionService: Error, returning cached mission');
         return cachedMission;
@@ -273,19 +272,47 @@ class MissionService {
   /// - Retourne le token pour construire l'URL publique
   Future<String> generatePublicTrackingLink(String missionId) async {
     try {
+      logger.i('🔗 Appel RPC generate_public_tracking_link pour mission: $missionId');
       final response = await _supabase.rpc('generate_public_tracking_link', params: {
         'p_mission_id': missionId,
       });
 
-      if (response == null || response.isEmpty) {
-        throw Exception('Token non généré');
+      if (response == null) {
+        throw Exception('La fonction SQL n\'a retourné aucun token. '
+            'Vérifiez que la table public_tracking_links existe '
+            'et que la fonction generate_public_tracking_link est déployée dans Supabase.');
       }
 
-      final token = response as String;
+      final token = response.toString();
+      if (token.isEmpty) {
+        throw Exception('Token vide retourné par la fonction SQL');
+      }
+
       final publicUrl = 'https://checksfleet.com/tracking/$token';
+
+      // Sauvegarder le lien dans la table missions (comme le web)
+      try {
+        await _supabase
+            .from('missions')
+            .update({'public_tracking_link': publicUrl})
+            .eq('id', missionId);
+        logger.i('✅ Lien sauvegardé dans missions: $publicUrl');
+      } catch (updateErr) {
+        logger.w('⚠️ Lien généré mais non sauvegardé dans missions: $updateErr');
+        // Ne pas bloquer — le lien est quand même utilisable
+      }
 
       logger.i('🔗 Lien public généré: $publicUrl');
       return publicUrl;
+    } on PostgrestException catch (e) {
+      if (e.message.contains('does not exist') || e.message.contains('function')) {
+        logger.e('❌ Fonction SQL manquante: $e');
+        throw Exception(
+          'Fonction SQL manquante dans Supabase. '
+          'Exécutez le fichier SETUP_TRACKING_GPS_BACKEND.sql dans l\'éditeur SQL Supabase.');
+      }
+      logger.e('❌ Erreur Supabase: ${e.message} (code: ${e.code})');
+      throw Exception('Erreur base de données: ${e.message}');
     } catch (e) {
       logger.e('❌ Erreur génération lien public: $e');
       rethrow;
@@ -325,22 +352,22 @@ class MissionService {
     try {
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('Utilisateur non connecté');
-      final response = await _supabase.from('missions').select('status')
-          .or('user_id.eq.$userId,assigned_user_id.eq.$userId');
-      
-      final counts = <String, int>{
-        'pending': 0,
-        'assigned': 0,
-        'in_progress': 0,
-        'completed': 0,
-        'cancelled': 0,
-      };
 
-      for (var mission in response as List) {
-        final status = mission['status'] as String?;
-        if (status != null && counts.containsKey(status)) {
-          counts[status] = (counts[status] ?? 0) + 1;
-        }
+      final statuses = ['pending', 'assigned', 'in_progress', 'completed', 'cancelled'];
+      final counts = <String, int>{};
+
+      // Parallel server-side count queries — no row data transferred
+      final futures = statuses.map((status) =>
+        _supabase.from('missions')
+          .select('id')
+          .or('user_id.eq.$userId,assigned_user_id.eq.$userId')
+          .eq('status', status)
+          .count(CountOption.exact)
+      );
+      final results = await Future.wait(futures);
+
+      for (var i = 0; i < statuses.length; i++) {
+        counts[statuses[i]] = results[i].count;
       }
 
       return counts;

@@ -19,13 +19,13 @@ class InspectionDamage {
 
   factory InspectionDamage.fromJson(Map<String, dynamic> json) {
     return InspectionDamage(
-      id: json['id'] as String,
-      inspectionId: json['inspection_id'] as String,
+      id: json['id']?.toString() ?? '',
+      inspectionId: json['inspection_id']?.toString() ?? '',
       damageLocation: json['damage_location'] as String?,
       damageSeverity: json['damage_severity'] as String?,
       description: json['description'] as String?,
       photoUrl: json['photo_url'] as String?,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: DateTime.parse(json['created_at']?.toString() ?? DateTime.now().toIso8601String()),
     );
   }
 
@@ -39,6 +39,14 @@ class InspectionDamage {
       'photo_url': photoUrl,
       'created_at': createdAt.toIso8601String(),
     };
+  }
+
+  /// Returns JSON without server-generated fields, for INSERT operations.
+  Map<String, dynamic> toInsertJson() {
+    final json = toJson();
+    json.remove('id');
+    json.remove('created_at');
+    return json;
   }
 }
 

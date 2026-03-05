@@ -17,6 +17,9 @@ import '../services/update_service.dart';
 import '../widgets/update_dialog.dart';
 import '../utils/logger.dart';
 
+/// Alias for backward compatibility — NotificationService is now merged into FCMService
+typedef NotificationService = FCMService;
+
 /// Background message handler (must be top-level function)
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -24,8 +27,8 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   logger.i('FCM background message: ${message.messageId}');
 }
 
-/// Firebase Cloud Messaging Service
-/// Gère les notifications push via FCM
+/// Firebase Cloud Messaging Service + Local Notifications (unified)
+/// Gère les notifications push via FCM et les notifications locales
 class FCMService {
   static final FCMService _instance = FCMService._internal();
   factory FCMService() => _instance;
@@ -39,6 +42,44 @@ class FCMService {
   StreamSubscription<RemoteMessage>? _onMessageSub;
   StreamSubscription<RemoteMessage>? _onMessageOpenedSub;
   StreamSubscription<String>? _onTokenRefreshSub;
+
+  // ─── Canaux Android dédiés ──────────────────────────────────────
+  static const _channelDefault = AndroidNotificationChannel(
+    'checksfleet_notifications',
+    'ChecksFleet Notifications',
+    description: 'Notifications de l\'application ChecksFleet',
+    importance: Importance.high,
+    playSound: true,
+  );
+
+  static const _channelMissions = AndroidNotificationChannel(
+    'checksfleet_missions',
+    'Missions',
+    description: 'Notifications liées aux missions de convoyage',
+    importance: Importance.high,
+  );
+
+  static const _channelChat = AndroidNotificationChannel(
+    'checksfleet_chat',
+    'Messages',
+    description: 'Nouveaux messages de la messagerie',
+    importance: Importance.high,
+  );
+
+  static const _channelSystem = AndroidNotificationChannel(
+    'checksfleet_system',
+    'Système',
+    description: 'Alertes système (crédits, abonnement, etc.)',
+    importance: Importance.defaultImportance,
+  );
+
+  static const _channelUpdates = AndroidNotificationChannel(
+    'app_updates',
+    'Mises à jour',
+    description: 'Notifications de nouvelles versions disponibles',
+    importance: Importance.high,
+    playSound: true,
+  );
 
   /// Initialise FCM et les notifications locales
   Future<void> initialize() async {
@@ -81,33 +122,25 @@ class FCMService {
         onDidReceiveNotificationResponse: _onNotificationTapped,
       );
 
-      // Create notification channel
-      const channel = AndroidNotificationChannel(
-        'checksfleet_notifications',
-        'ChecksFleet Notifications',
-        description: 'Notifications de l\'application ChecksFleet',
-        importance: Importance.high,
-        playSound: true,
-      );
-
-      await _localNotifications
+      // Create all notification channels
+      final androidPlugin = _localNotifications
           .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(channel);
+              AndroidFlutterLocalNotificationsPlugin>();
+      if (androidPlugin != null) {
+        await androidPlugin.createNotificationChannel(_channelDefault);
+        await androidPlugin.createNotificationChannel(_channelMissions);
+        await androidPlugin.createNotificationChannel(_channelChat);
+        await androidPlugin.createNotificationChannel(_channelSystem);
+        await androidPlugin.createNotificationChannel(_channelUpdates);
+      }
 
-      // Create update notification channel
-      const updateChannel = AndroidNotificationChannel(
-        'app_updates',
-        'Mises à jour',
-        description: 'Notifications de nouvelles versions disponibles',
-        importance: Importance.high,
-        playSound: true,
-      );
-
-      await _localNotifications
-          .resolvePlatformSpecificImplementation<
-              AndroidFlutterLocalNotificationsPlugin>()
-          ?.createNotificationChannel(updateChannel);
+      // Request iOS permissions
+      if (Platform.isIOS) {
+        await _localNotifications
+            .resolvePlatformSpecificImplementation<
+                IOSFlutterLocalNotificationsPlugin>()
+            ?.requestPermissions(alert: true, badge: true, sound: true);
+      }
 
       // Handle foreground messages
       _onMessageSub = FirebaseMessaging.onMessage.listen(_handleForegroundMessage);
@@ -224,12 +257,34 @@ class FCMService {
   /// Callback quand l'utilisateur tape sur une notification locale
   void _onNotificationTapped(NotificationResponse response) {
     logger.i('Notification tapped: ${response.payload}');
-    if (response.payload != null) {
-      try {
-        final data = jsonDecode(response.payload!) as Map<String, dynamic>;
-        _navigateFromPayload(data);
-      } catch (_) {}
+    if (response.payload == null) return;
+
+    final payload = response.payload!;
+
+    // Handle simple string payloads (from showMissionNotification etc.)
+    if (payload.startsWith('mission:')) {
+      final missionId = payload.substring(8);
+      final ctx = navigatorKey.currentContext;
+      if (ctx != null) {
+        Navigator.of(ctx).push(
+          MaterialPageRoute(
+            builder: (_) => MissionDetailScreen(missionId: missionId),
+          ),
+        );
+      }
+      return;
     }
+    if (payload.startsWith('chat:')) {
+      final conversationId = payload.substring(5);
+      logger.i('Navigation vers conversation: $conversationId');
+      return;
+    }
+
+    // Handle JSON payloads (from FCM foreground messages)
+    try {
+      final data = jsonDecode(payload) as Map<String, dynamic>;
+      _navigateFromPayload(data);
+    } catch (_) {}
   }
 
   /// Navigate based on notification payload data
@@ -358,6 +413,97 @@ class FCMService {
     } catch (e) {
       logger.e('FCM: Erreur suppression token: $e');
     }
+  }
+
+  // ─── Notifications locales par catégorie ─────────────────────────
+
+  /// Notification liée aux missions (assignation, progression, etc.)
+  Future<void> showMissionNotification({
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    await _showLocal(
+      title: title,
+      body: body,
+      channel: _channelMissions,
+      payload: payload,
+    );
+  }
+
+  /// Notification de nouveau message chat
+  Future<void> showChatNotification({
+    required String senderName,
+    required String message,
+    String? conversationId,
+  }) async {
+    await _showLocal(
+      title: 'Message de $senderName',
+      body: message,
+      channel: _channelChat,
+      payload: conversationId != null ? 'chat:$conversationId' : null,
+    );
+  }
+
+  /// Notification système (crédits faibles, abonnement, etc.)
+  Future<void> showSystemNotification({
+    required String title,
+    required String body,
+    String? payload,
+  }) async {
+    await _showLocal(
+      title: title,
+      body: body,
+      channel: _channelSystem,
+      payload: payload,
+    );
+  }
+
+  /// Helper — afficher une notification locale sur un canal donné
+  Future<void> _showLocal({
+    required String title,
+    required String body,
+    required AndroidNotificationChannel channel,
+    String? payload,
+  }) async {
+    if (kIsWeb) return;
+    if (!_initialized) await initialize();
+
+    // Use microseconds for unique IDs (avoids same-second collisions)
+    final id = DateTime.now().microsecondsSinceEpoch % 2147483647;
+
+    await _localNotifications.show(
+      id,
+      title,
+      body,
+      NotificationDetails(
+        android: AndroidNotificationDetails(
+          channel.id,
+          channel.name,
+          channelDescription: channel.description ?? '',
+          importance: channel.importance,
+          priority: Priority.high,
+          showWhen: true,
+          icon: '@mipmap/ic_launcher',
+        ),
+        iOS: const DarwinNotificationDetails(
+          presentAlert: true,
+          presentBadge: true,
+          presentSound: true,
+        ),
+      ),
+      payload: payload,
+    );
+  }
+
+  /// Annuler toutes les notifications
+  Future<void> cancelAll() async {
+    await _localNotifications.cancelAll();
+  }
+
+  /// Annuler une notification par ID
+  Future<void> cancel(int id) async {
+    await _localNotifications.cancel(id);
   }
 
   /// Libère les listeners

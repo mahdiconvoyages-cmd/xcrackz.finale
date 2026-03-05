@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import '../theme/premium_theme.dart';
@@ -12,7 +13,6 @@ import '../screens/planning/planning_network_screen.dart';
 import '../screens/profile/profile_screen.dart';
 import '../screens/profile/billing_profile_screen.dart';
 import '../screens/debug/debug_tools_screen.dart';
-import '../screens/login_screen.dart';
 import '../screens/permissions/permissions_screen.dart';
 import '../widgets/billing_gate.dart';
 
@@ -281,7 +281,7 @@ class _LogoutItem extends StatelessWidget {
           if (confirm == true && context.mounted) {
             await Supabase.instance.client.auth.signOut();
             if (context.mounted) {
-              Navigator.pushAndRemoveUntil(context, MaterialPageRoute(builder: (_) => LoginScreen()), (route) => false);
+              context.go('/login');
             }
           }
         },

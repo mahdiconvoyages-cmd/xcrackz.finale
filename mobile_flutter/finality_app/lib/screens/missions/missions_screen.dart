@@ -1,29 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:url_launcher/url_launcher.dart' as url_launcher;
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../models/mission.dart';
 import '../../services/mission_service.dart';
+import '../../providers/service_providers.dart';
 import '../../theme/premium_theme.dart';
 import '../invoices/invoice_form_screen.dart';
 import '../../utils/error_helper.dart';
 import '../../widgets/premium/premium_widgets.dart';
+import 'mission_create_screen_new.dart';
 import 'mission_detail_screen.dart';
 import '../inspections/inspection_departure_screen.dart';
 import '../inspections/inspection_arrival_screen.dart';
 import '../../widgets/empty_state_widget.dart';
 import '../../utils/logger.dart';
 
-class MissionsScreen extends StatefulWidget {
+class MissionsScreen extends ConsumerStatefulWidget {
   const MissionsScreen({super.key});
 
   @override
-  State<MissionsScreen> createState() => _MissionsScreenState();
+  ConsumerState<MissionsScreen> createState() => _MissionsScreenState();
 }
 
-class _MissionsScreenState extends State<MissionsScreen>
+class _MissionsScreenState extends ConsumerState<MissionsScreen>
     with SingleTickerProviderStateMixin {
-  final MissionService _missionService = MissionService();
+  MissionService get _missionService => ref.read(missionServiceProvider);
   final supabase = Supabase.instance.client;
   List<Mission> _missions = [];
   bool _isLoading = true;
@@ -215,6 +218,28 @@ class _MissionsScreenState extends State<MissionsScreen>
           'Mes Convoyages',
           style: PremiumTheme.heading4.copyWith(fontSize: 20),
         ),
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 12),
+            child: FilledButton.icon(
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const MissionCreateScreenNew()),
+                ).then((_) => _loadMissions());
+              },
+              icon: const Icon(Icons.add_rounded, size: 18),
+              label: const Text('Nouveau', style: TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+              style: FilledButton.styleFrom(
+                backgroundColor: PremiumTheme.brandViolet,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                elevation: 0,
+              ),
+            ),
+          ),
+        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(52),
           child: Container(
@@ -1169,6 +1194,8 @@ class _MissionTile extends StatelessWidget {
   Widget _routeTimeline() {
     final from = mission.pickupCity ?? mission.pickupAddress ?? 'Depart';
     final to = mission.deliveryCity ?? mission.deliveryAddress ?? 'Arrivee';
+    final fromLocationName = mission.pickupLocationName;
+    final toLocationName = mission.deliveryLocationName;
     final fromName = mission.pickupContactName;
     final toName = mission.deliveryContactName;
 
@@ -1228,7 +1255,7 @@ class _MissionTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('DÉPART',
+                    Text('ENLÈVEMENT',
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
@@ -1236,10 +1263,30 @@ class _MissionTile extends StatelessWidget {
                         color: PremiumTheme.accentGreen,
                       ),
                     ),
+                    if (fromLocationName != null && fromLocationName.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.store_rounded,
+                              color: PremiumTheme.accentGreen, size: 13),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(fromLocationName,
+                                style: PremiumTheme.body.copyWith(
+                                    fontSize: 13, fontWeight: FontWeight.w700,
+                                    color: PremiumTheme.textPrimary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 2),
                     Text(from,
                         style: PremiumTheme.body.copyWith(
-                            fontSize: 13, fontWeight: FontWeight.w600),
+                            fontSize: fromLocationName != null && fromLocationName.isNotEmpty ? 11 : 13,
+                            fontWeight: fromLocationName != null && fromLocationName.isNotEmpty ? FontWeight.w500 : FontWeight.w600,
+                            color: fromLocationName != null && fromLocationName.isNotEmpty ? PremiumTheme.textSecondary : PremiumTheme.textPrimary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                     if (fromName != null && fromName.isNotEmpty)
@@ -1293,7 +1340,7 @@ class _MissionTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('ARRIVÉE',
+                    Text('LIVRAISON',
                       style: TextStyle(
                         fontSize: 9,
                         fontWeight: FontWeight.w800,
@@ -1301,10 +1348,30 @@ class _MissionTile extends StatelessWidget {
                         color: PremiumTheme.primaryBlue,
                       ),
                     ),
+                    if (toLocationName != null && toLocationName.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Row(
+                        children: [
+                          Icon(Icons.store_rounded,
+                              color: PremiumTheme.primaryBlue, size: 13),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(toLocationName,
+                                style: PremiumTheme.body.copyWith(
+                                    fontSize: 13, fontWeight: FontWeight.w700,
+                                    color: PremiumTheme.textPrimary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis),
+                          ),
+                        ],
+                      ),
+                    ],
                     const SizedBox(height: 2),
                     Text(to,
                         style: PremiumTheme.body.copyWith(
-                            fontSize: 13, fontWeight: FontWeight.w600),
+                            fontSize: toLocationName != null && toLocationName.isNotEmpty ? 11 : 13,
+                            fontWeight: toLocationName != null && toLocationName.isNotEmpty ? FontWeight.w500 : FontWeight.w600,
+                            color: toLocationName != null && toLocationName.isNotEmpty ? PremiumTheme.textSecondary : PremiumTheme.textPrimary),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis),
                     if (toName != null && toName.isNotEmpty)
@@ -1349,12 +1416,15 @@ class _MissionTile extends StatelessWidget {
           Icon(Icons.business_rounded,
               color: PremiumTheme.primaryPurple, size: 16),
           const SizedBox(width: 8),
-          Text(
-            mission.mandataireName!,
-            style: PremiumTheme.bodySmall.copyWith(
-              color: PremiumTheme.primaryPurple,
-              fontWeight: FontWeight.w600,
-              fontSize: 12,
+          Flexible(
+            child: Text(
+              mission.mandataireName!,
+              style: PremiumTheme.bodySmall.copyWith(
+                color: PremiumTheme.primaryPurple,
+                fontWeight: FontWeight.w600,
+                fontSize: 12,
+              ),
+              overflow: TextOverflow.ellipsis,
             ),
           ),
           if (mission.mandataireCompany != null &&
@@ -1496,7 +1566,7 @@ class _MissionTile extends StatelessWidget {
       onTap: onTap,
       child: Container(
         padding:
-            const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+            const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           gradient: LinearGradient(
             colors: colors,

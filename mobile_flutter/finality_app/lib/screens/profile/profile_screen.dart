@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:share_plus/share_plus.dart';
 import '../../l10n/app_localizations.dart';
 import '../../main.dart';
@@ -504,7 +505,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     subtitle: l10n.manageSubscription,
                     gradientColors: [PremiumTheme.primaryTeal, PremiumTheme.accentGreen],
                     onTap: () {
-                      Navigator.of(context).pushNamed('/subscription');
+                      context.push('/subscription');
                     },
                   ),
                 ),
@@ -698,7 +699,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             onPressed: () async {
               await supabase.auth.signOut();
               if (!context.mounted) return;
-              Navigator.of(context).pushReplacementNamed('/login');
+              context.go('/login');
             },
             child: const Text('Déconnexion'),
           ),

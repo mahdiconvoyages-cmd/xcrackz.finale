@@ -4,13 +4,14 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../models/user_subscription.dart';
 import '../services/subscription_service.dart';
 import '../utils/logger.dart';
+import 'service_providers.dart';
 
 part 'subscription_provider.g.dart';
 
 /// Provider pour le service d'abonnement
 @riverpod
 SubscriptionService subscriptionService(Ref ref) {
-  return SubscriptionService();
+  return SubscriptionService(client: ref.read(supabaseClientProvider));
 }
 
 /// État de l'abonnement utilisateur
@@ -76,66 +77,34 @@ class Subscription extends _$Subscription {
   SupabaseClient get _supabase => Supabase.instance.client;
 
   @override
-  SubscriptionState build() {
-    // Schedule initialization after build() returns the initial state
+  Future<SubscriptionState> build() async {
     final user = _supabase.auth.currentUser;
-    if (user != null) {
-      Future.microtask(() => _initialize(user.id));
-    }
-    return const SubscriptionState();
-  }
+    if (user == null) return const SubscriptionState();
 
-  Future<void> _initialize(String userId) async {
-    state = state.copyWith(isLoading: true);
-    
-    try {
-      final subscription = await _service.getUserSubscription(userId);
-      final features = _service.getPlanFeatures(subscription.plan);
-      final stats = await _service.getSubscriptionStats(userId);
-      
-      state = SubscriptionState(
-        subscription: subscription,
-        stats: stats,
-        features: features,
-        isLoading: false,
-      );
-      
-      logger.i('✅ Subscription initialized: ${state.plan}');
-    } catch (e, stack) {
-      logger.e('❌ Failed to initialize subscription', e, stack);
-      state = state.copyWith(isLoading: false, error: e.toString());
-    }
-  }
-
-  /// Initialiser l'abonnement
-  Future<void> initialize() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
-    await _initialize(user.id);
-  }
-
-  /// Rafraîchir les données
-  Future<void> refresh() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
-    
-    state = state.copyWith(isLoading: true);
-    
     try {
       final subscription = await _service.getUserSubscription(user.id);
       final features = _service.getPlanFeatures(subscription.plan);
       final stats = await _service.getSubscriptionStats(user.id);
-      
-      state = SubscriptionState(
+
+      return SubscriptionState(
         subscription: subscription,
         stats: stats,
         features: features,
-        isLoading: false,
       );
     } catch (e, stack) {
-      logger.e('❌ Failed to refresh subscription', e, stack);
-      state = state.copyWith(isLoading: false, error: e.toString());
+      logger.e('❌ Failed to initialize subscription', e, stack);
+      return SubscriptionState(error: e.toString());
     }
+  }
+
+  /// Initialiser l'abonnement (alias for invalidate — kept for compat)
+  Future<void> initialize() async {
+    ref.invalidateSelf();
+  }
+
+  /// Rafraîchir les données
+  Future<void> refresh() async {
+    ref.invalidateSelf();
   }
 
   /// Vérifier si l'utilisateur a accès à une fonctionnalité
@@ -157,23 +126,24 @@ class Subscription extends _$Subscription {
     final user = _supabase.auth.currentUser;
     if (user == null) return false;
 
-    state = state.copyWith(isLoading: true, error: null);
+    final prev = state.valueOrNull ?? const SubscriptionState();
+    state = AsyncData(prev.copyWith(isLoading: true, error: null));
 
     try {
       final subscription = await _service.cancelSubscription(user.id);
       final stats = await _service.getSubscriptionStats(user.id);
 
-      state = state.copyWith(
+      state = AsyncData(prev.copyWith(
         subscription: subscription,
         stats: stats,
         isLoading: false,
-      );
+      ));
       
       logger.i('✅ Subscription cancelled');
       return true;
     } catch (e, stack) {
       logger.e('❌ Failed to cancel subscription', e, stack);
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = AsyncData(prev.copyWith(isLoading: false, error: e.toString()));
       return false;
     }
   }
@@ -183,30 +153,32 @@ class Subscription extends _$Subscription {
     final user = _supabase.auth.currentUser;
     if (user == null) return false;
 
-    state = state.copyWith(isLoading: true, error: null);
+    final prev = state.valueOrNull ?? const SubscriptionState();
+    state = AsyncData(prev.copyWith(isLoading: true, error: null));
 
     try {
       final subscription = await _service.reactivateSubscription(user.id);
       final stats = await _service.getSubscriptionStats(user.id);
 
-      state = state.copyWith(
+      state = AsyncData(prev.copyWith(
         subscription: subscription,
         stats: stats,
         isLoading: false,
-      );
+      ));
       
       logger.i('✅ Subscription reactivated');
       return true;
     } catch (e, stack) {
       logger.e('❌ Failed to reactivate subscription', e, stack);
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = AsyncData(prev.copyWith(isLoading: false, error: e.toString()));
       return false;
     }
   }
 
   /// Obtenir la valeur d'une fonctionnalité
   dynamic getFeature(String featureName) {
-    return state.features[featureName];
+    final current = state.valueOrNull ?? const SubscriptionState();
+    return current.features[featureName];
   }
 
   /// Obtenir tous les plans pour l'écran de comparaison
@@ -221,44 +193,12 @@ class Subscription extends _$Subscription {
 
   /// Effacer l'erreur
   void clearError() {
-    state = state.copyWith(error: null);
+    final prev = state.valueOrNull ?? const SubscriptionState();
+    state = AsyncData(prev.copyWith(error: null));
   }
 
   /// Réinitialiser le provider
   void reset() {
-    state = const SubscriptionState();
+    state = const AsyncData(SubscriptionState());
   }
-}
-
-// ==============================================
-// COMPATIBILITÉ AVEC L'ANCIEN CODE
-// ==============================================
-
-/// Wrapper pour compatibilité avec Provider (context.read/watch)
-/// À utiliser temporairement pendant la migration
-class SubscriptionProvider {
-  final WidgetRef _ref;
-  
-  SubscriptionProvider(this._ref);
-  
-  SubscriptionState get state => _ref.watch(subscriptionProvider);
-  UserSubscription? get subscription => state.subscription;
-  bool get isLoading => state.isLoading;
-  String? get error => state.error;
-  bool get hasActiveSubscription => state.hasActiveSubscription;
-  bool get isExpired => state.isExpired;
-  bool get isCancelled => state.isCancelled;
-  bool get isTrialing => state.isTrialing;
-  bool get isFree => state.isFree;
-  bool get isPremium => state.isPremium;
-  bool get isExpiringSoon => state.isExpiringSoon;
-  bool get autoRenew => state.autoRenew;
-  String get plan => state.plan;
-  String get planDisplayName => state.planDisplayName;
-  int get daysRemaining => state.daysRemaining;
-  
-  Future<void> initialize() => _ref.read(subscriptionProvider.notifier).initialize();
-  Future<void> refresh() => _ref.read(subscriptionProvider.notifier).refresh();
-  void clearError() => _ref.read(subscriptionProvider.notifier).clearError();
-  void reset() => _ref.read(subscriptionProvider.notifier).reset();
 }

@@ -109,6 +109,13 @@ class Invoice {
     };
   }
 
+  /// Returns JSON without server-generated fields, for INSERT operations.
+  Map<String, dynamic> toInsertJson() {
+    final json = toJson();
+    json.remove('id');
+    return json;
+  }
+
   Invoice copyWith({
     String? id,
     String? userId,

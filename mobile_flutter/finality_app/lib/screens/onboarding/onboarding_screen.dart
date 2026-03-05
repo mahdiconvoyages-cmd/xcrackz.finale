@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../l10n/app_localizations.dart';
 import '../../theme/premium_theme.dart';
@@ -53,7 +54,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
     
     if (!mounted) return;
     
-    Navigator.of(context).pushReplacementNamed('/login');
+    context.go('/login');
   }
 
   @override

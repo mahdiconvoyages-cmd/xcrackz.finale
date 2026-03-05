@@ -181,6 +181,56 @@ class OfflineService {
     }
   }
 
+  /// Récupérer une seule mission en cache par ID (O(1) via SQLite index)
+  Future<Mission?> getCachedMissionById(String id) async {
+    if (_database == null) return null;
+
+    try {
+      final results = await _database!.query(
+        'missions',
+        where: 'id = ?',
+        whereArgs: [id],
+        limit: 1,
+      );
+
+      if (results.isEmpty) return null;
+
+      final data = jsonDecode(results.first['data'] as String);
+      return Mission.fromJson(data);
+    } catch (e, stack) {
+      logger.e('Failed to load cached mission $id', e, stack);
+      return null;
+    }
+  }
+
+  /// Mettre en cache une liste de missions en batch (optimisé)
+  Future<void> cacheMissions(List<Mission> missions) async {
+    if (_database == null || missions.isEmpty) return;
+
+    try {
+      final batch = _database!.batch();
+      final now = DateTime.now().millisecondsSinceEpoch;
+
+      for (final mission in missions) {
+        batch.insert(
+          'missions',
+          {
+            'id': mission.id,
+            'data': jsonEncode(mission.toJson()),
+            'cached_at': now,
+            'status': mission.status,
+          },
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+
+      await batch.commit(noResult: true);
+      logger.d('💾 Batch cached ${missions.length} missions');
+    } catch (e, stack) {
+      logger.e('Failed to batch cache missions', e, stack);
+    }
+  }
+
   /// Nettoyer le cache ancien (> 7 jours)
   Future<void> cleanOldCache() async {
     if (_database == null) return;

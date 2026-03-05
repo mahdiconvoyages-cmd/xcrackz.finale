@@ -56,66 +56,34 @@ class Credits extends _$Credits {
   SupabaseClient get _supabase => Supabase.instance.client;
 
   @override
-  CreditsState build() {
-    // Schedule initialization after build() returns the initial state
+  Future<CreditsState> build() async {
     final user = _supabase.auth.currentUser;
-    if (user != null) {
-      Future.microtask(() => _initialize(user.id));
-    }
-    return const CreditsState();
-  }
+    if (user == null) return const CreditsState();
 
-  Future<void> _initialize(String userId) async {
-    state = state.copyWith(isLoading: true);
-    
-    try {
-      final userCredits = await _service.getUserCredits(userId);
-      final transactions = await _service.getTransactionHistory(userId: userId);
-      final stats = await _service.getTransactionStats(userId);
-      
-      state = CreditsState(
-        userCredits: userCredits,
-        transactions: transactions,
-        stats: stats,
-        isLoading: false,
-      );
-      
-      logger.i('✅ Credits initialized: ${state.credits} credits');
-    } catch (e, stack) {
-      logger.e('❌ Failed to initialize credits', e, stack);
-      state = state.copyWith(isLoading: false, error: e.toString());
-    }
-  }
-
-  /// Initialiser les crédits
-  Future<void> initialize() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
-    await _initialize(user.id);
-  }
-
-  /// Rafraîchir les données
-  Future<void> refresh() async {
-    final user = _supabase.auth.currentUser;
-    if (user == null) return;
-    
-    state = state.copyWith(isLoading: true);
-    
     try {
       final userCredits = await _service.getUserCredits(user.id);
       final transactions = await _service.getTransactionHistory(userId: user.id);
       final stats = await _service.getTransactionStats(user.id);
-      
-      state = CreditsState(
+
+      return CreditsState(
         userCredits: userCredits,
         transactions: transactions,
         stats: stats,
-        isLoading: false,
       );
     } catch (e, stack) {
-      logger.e('❌ Failed to refresh credits', e, stack);
-      state = state.copyWith(isLoading: false, error: e.toString());
+      logger.e('❌ Failed to initialize credits', e, stack);
+      return CreditsState(error: e.toString());
     }
+  }
+
+  /// Initialiser les crédits (alias for invalidate — kept for compat)
+  Future<void> initialize() async {
+    ref.invalidateSelf();
+  }
+
+  /// Rafraîchir les données
+  Future<void> refresh() async {
+    ref.invalidateSelf();
   }
 
   /// Ajouter des crédits
@@ -129,7 +97,8 @@ class Credits extends _$Credits {
     final user = _supabase.auth.currentUser;
     if (user == null) return false;
 
-    state = state.copyWith(isLoading: true, error: null);
+    final prev = state.valueOrNull ?? const CreditsState();
+    state = AsyncData(prev.copyWith(isLoading: true, error: null));
 
     try {
       final userCredits = await _service.addCredits(
@@ -147,18 +116,17 @@ class Credits extends _$Credits {
       );
       final stats = await _service.getTransactionStats(user.id);
 
-      state = CreditsState(
+      state = AsyncData(CreditsState(
         userCredits: userCredits,
         transactions: transactions,
         stats: stats,
-        isLoading: false,
-      );
+      ));
       
       logger.i('✅ Added $amount credits');
       return true;
     } catch (e, stack) {
       logger.e('❌ Failed to add credits', e, stack);
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = AsyncData(prev.copyWith(isLoading: false, error: e.toString()));
       return false;
     }
   }
@@ -173,7 +141,8 @@ class Credits extends _$Credits {
     final user = _supabase.auth.currentUser;
     if (user == null) return false;
 
-    state = state.copyWith(isLoading: true, error: null);
+    final prev = state.valueOrNull ?? const CreditsState();
+    state = AsyncData(prev.copyWith(isLoading: true, error: null));
 
     try {
       final userCredits = await _service.spendCredits(
@@ -190,18 +159,17 @@ class Credits extends _$Credits {
       );
       final stats = await _service.getTransactionStats(user.id);
 
-      state = CreditsState(
+      state = AsyncData(CreditsState(
         userCredits: userCredits,
         transactions: transactions,
         stats: stats,
-        isLoading: false,
-      );
+      ));
       
       logger.i('✅ Spent $amount credits');
       return true;
     } catch (e, stack) {
       logger.e('❌ Failed to spend credits', e, stack);
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = AsyncData(prev.copyWith(isLoading: false, error: e.toString()));
       return false;
     }
   }
@@ -221,7 +189,8 @@ class Credits extends _$Credits {
     final user = _supabase.auth.currentUser;
     if (user == null) return false;
 
-    state = state.copyWith(isLoading: true, error: null);
+    final prev = state.valueOrNull ?? const CreditsState();
+    state = AsyncData(prev.copyWith(isLoading: true, error: null));
 
     try {
       await _service.purchaseCredits(
@@ -236,7 +205,7 @@ class Credits extends _$Credits {
       return true;
     } catch (e, stack) {
       logger.e('❌ Failed to purchase credits', e, stack);
-      state = state.copyWith(isLoading: false, error: e.toString());
+      state = AsyncData(prev.copyWith(isLoading: false, error: e.toString()));
       return false;
     }
   }
@@ -261,44 +230,20 @@ class Credits extends _$Credits {
       return true;
     } catch (e, stack) {
       logger.e('❌ Failed to add bonus credits', e, stack);
-      state = state.copyWith(error: e.toString());
+      final prev = state.valueOrNull ?? const CreditsState();
+      state = AsyncData(prev.copyWith(error: e.toString()));
       return false;
     }
   }
 
   /// Effacer l'erreur
   void clearError() {
-    state = state.copyWith(error: null);
+    final prev = state.valueOrNull ?? const CreditsState();
+    state = AsyncData(prev.copyWith(error: null));
   }
 
   /// Réinitialiser le provider
   void reset() {
-    state = const CreditsState();
+    state = const AsyncData(CreditsState());
   }
-}
-
-// ==============================================
-// COMPATIBILITÉ AVEC L'ANCIEN CODE
-// ==============================================
-
-/// Wrapper pour compatibilité avec Provider (context.read/watch)
-/// À utiliser temporairement pendant la migration
-class CreditsProvider {
-  final WidgetRef _ref;
-  
-  CreditsProvider(this._ref);
-  
-  CreditsState get state => _ref.watch(creditsProvider);
-  int get credits => state.credits;
-  bool get isLoading => state.isLoading;
-  String? get error => state.error;
-  bool get hasCredits => state.hasCredits;
-  UserCredits? get userCredits => state.userCredits;
-  List<CreditTransaction> get transactions => state.transactions;
-  Map<String, dynamic> get stats => state.stats;
-  
-  Future<void> initialize() => _ref.read(creditsProvider.notifier).initialize();
-  Future<void> refresh() => _ref.read(creditsProvider.notifier).refresh();
-  void clearError() => _ref.read(creditsProvider.notifier).clearError();
-  void reset() => _ref.read(creditsProvider.notifier).reset();
 }

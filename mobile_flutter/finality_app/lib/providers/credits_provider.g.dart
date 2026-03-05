@@ -32,7 +32,7 @@ String _$creditsHash() => r'82a06b3c822c080b7f8c5a1c9fd2454fb3efcec1';
 /// Copied from [Credits].
 @ProviderFor(Credits)
 final creditsProvider =
-    AutoDisposeNotifierProvider<Credits, CreditsState>.internal(
+    AutoDisposeAsyncNotifierProvider<Credits, CreditsState>.internal(
       Credits.new,
       name: r'creditsProvider',
       debugGetCreateSourceHash: const bool.fromEnvironment('dart.vm.product')
@@ -42,6 +42,6 @@ final creditsProvider =
       allTransitiveDependencies: null,
     );
 
-typedef _$Credits = AutoDisposeNotifier<CreditsState>;
+typedef _$Credits = AutoDisposeAsyncNotifier<CreditsState>;
 // ignore_for_file: type=lint
 // ignore_for_file: subtype_of_sealed_class, invalid_use_of_internal_member, invalid_use_of_visible_for_testing_member, deprecated_member_use_from_same_package

@@ -67,18 +67,18 @@ class VehicleInspection {
 
   factory VehicleInspection.fromJson(Map<String, dynamic> json) {
     return VehicleInspection(
-      id: json['id'] as String,
-      missionId: json['mission_id'] as String,
-      inspectorId: json['inspector_id'] as String?,
-      inspectionType: json['inspection_type'] as String,
+      id: json['id']?.toString() ?? '',
+      missionId: json['mission_id']?.toString() ?? '',
+      inspectorId: json['inspector_id']?.toString(),
+      inspectionType: json['inspection_type']?.toString() ?? 'departure',
       vehicleInfo: json['vehicle_info'] as Map<String, dynamic>?,
       overallCondition: json['overall_condition'] as String?,
-      fuelLevel: json['fuel_level'] as int?,
-      fuelLevelPercentage: json['fuel_level_percentage'] as int?,
-      mileageKm: json['mileage_km'] as int?,
-      odometerKm: json['odometer_km'] as int? ?? (json['mileage_km'] as int?),
-      mileageKmStart: json['mileage_km_start'] as int?,
-      mileageKmEnd: json['mileage_km_end'] as int?,
+      fuelLevel: (json['fuel_level'] as num?)?.toInt(),
+      fuelLevelPercentage: (json['fuel_level_percentage'] as num?)?.toInt(),
+      mileageKm: (json['mileage_km'] as num?)?.toInt(),
+      odometerKm: (json['odometer_km'] as num?)?.toInt() ?? (json['mileage_km'] as num?)?.toInt(),
+      mileageKmStart: (json['mileage_km_start'] as num?)?.toInt(),
+      mileageKmEnd: (json['mileage_km_end'] as num?)?.toInt(),
       damages: json['damages'] != null
           ? List<Map<String, dynamic>>.from(json['damages'] as List)
           : null,
@@ -99,8 +99,8 @@ class VehicleInspection {
       startedAt: json['started_at'] != null
           ? DateTime.parse(json['started_at'] as String)
           : null,
-      createdAt: DateTime.parse(json['created_at'] as String),
-      updatedAt: DateTime.parse(json['updated_at'] as String),
+      createdAt: DateTime.parse(json['created_at']?.toString() ?? DateTime.now().toIso8601String()),
+      updatedAt: DateTime.parse(json['updated_at']?.toString() ?? DateTime.now().toIso8601String()),
     );
   }
 
@@ -135,6 +135,16 @@ class VehicleInspection {
       'created_at': createdAt.toIso8601String(),
       'updated_at': updatedAt.toIso8601String(),
     };
+  }
+
+  /// Returns JSON without server-generated fields, for INSERT operations.
+  Map<String, dynamic> toInsertJson() {
+    final json = toJson();
+    json.remove('id');
+    json.remove('created_at');
+    json.remove('updated_at');
+    json.remove('completed_at');
+    return json;
   }
 
   @override

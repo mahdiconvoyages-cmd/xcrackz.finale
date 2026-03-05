@@ -593,7 +593,7 @@ class MissionRestitutionCard extends StatelessWidget {
     required this.onPhoneCall,
   });
 
-  static const Color _restitutionOrange = Color(0xFFE65100);
+  static const Color _restitutionOrange = PremiumTheme.deepOrange;
 
   @override
   Widget build(BuildContext context) {

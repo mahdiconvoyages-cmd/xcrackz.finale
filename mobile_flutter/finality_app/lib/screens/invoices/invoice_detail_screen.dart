@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:printing/printing.dart';
@@ -11,19 +12,20 @@ import '../../utils/error_helper.dart';
 import '../../models/invoice.dart';
 import '../../models/company_info.dart';
 import '../../services/invoice_service.dart';
+import '../../providers/invoices_provider.dart';
 import '../../theme/premium_theme.dart';
 import 'invoice_form_screen.dart';
 
-class InvoiceDetailScreen extends StatefulWidget {
+class InvoiceDetailScreen extends ConsumerStatefulWidget {
   final String invoiceId;
   const InvoiceDetailScreen({super.key, required this.invoiceId});
 
   @override
-  State<InvoiceDetailScreen> createState() => _InvoiceDetailScreenState();
+  ConsumerState<InvoiceDetailScreen> createState() => _InvoiceDetailScreenState();
 }
 
-class _InvoiceDetailScreenState extends State<InvoiceDetailScreen> {
-  final InvoiceService _svc = InvoiceService();
+class _InvoiceDetailScreenState extends ConsumerState<InvoiceDetailScreen> {
+  InvoiceService get _svc => ref.read(invoiceServiceProvider);
   final _fmt = NumberFormat.currency(locale: 'fr_FR', symbol: '\u20AC');
   Invoice? _inv;
   bool _loading = true;

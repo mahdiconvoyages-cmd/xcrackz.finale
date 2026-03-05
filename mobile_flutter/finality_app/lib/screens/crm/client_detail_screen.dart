@@ -1,12 +1,14 @@
 import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:http/http.dart' as http;
 import '../../models/client.dart';
 import '../../services/client_service.dart';
+import '../../providers/clients_provider.dart';
 
 /// Écran de création/édition de client style TimeInvoice
-class ClientDetailScreen extends StatefulWidget {
+class ClientDetailScreen extends ConsumerStatefulWidget {
   final Client? client;
 
   const ClientDetailScreen({super.key, this.client});
@@ -14,12 +16,12 @@ class ClientDetailScreen extends StatefulWidget {
   bool get isEditing => client != null;
 
   @override
-  State<ClientDetailScreen> createState() => _ClientDetailScreenState();
+  ConsumerState<ClientDetailScreen> createState() => _ClientDetailScreenState();
 }
 
-class _ClientDetailScreenState extends State<ClientDetailScreen> {
+class _ClientDetailScreenState extends ConsumerState<ClientDetailScreen> {
   final _formKey = GlobalKey<FormState>();
-  final ClientService _clientService = ClientService();
+  ClientService get _clientService => ref.read(clientServiceProvider);
 
   // Controllers
   final _nameController = TextEditingController();

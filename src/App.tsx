@@ -68,6 +68,7 @@ const AdminSupport = lazyRetry(() => import('./pages/AdminSupport'));
 const AccountSecurity = lazyRetry(() => import('./pages/AccountSecurity'));
 const AdminLayout = lazyRetry(() => import('./components/AdminLayout'));
 const PublicTrackingNew = lazyRetry(() => import('./pages/PublicTrackingNew'));
+const PublicTrackingByCode = lazyRetry(() => import('./pages/PublicTrackingByCode'));
 const TrackingCommand = lazyRetry(() => import('./pages/TrackingCommand'));
 const TeamMissions = lazyRetry(() => import('./pages/TeamMissions'));
 const InspectionDeparturePerfect = lazyRetry(() => import('./pages/InspectionDeparturePerfect'));
@@ -106,6 +107,7 @@ function AppContent() {
         <Route path="/inscription" element={<SignupWizard />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password" element={<ResetPassword />} />
+        <Route path="/suivi" element={<PublicTrackingByCode />} />
         <Route path="/tracking/:token" element={<PublicTrackingNew />} />
         <Route path="/rapport/:token" element={<PublicInspectionReport />} />
         <Route path="/rapport-inspection/:token" element={<PublicInspectionReportShared />} />

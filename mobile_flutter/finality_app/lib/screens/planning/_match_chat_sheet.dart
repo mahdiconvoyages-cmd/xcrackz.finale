@@ -1,14 +1,15 @@
 // MatchChatSheet — chat entre conducteur et passager pour un match de lift
 
 import 'package:flutter/material.dart';
+import '../../theme/premium_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
-const _kTeal   = Color(0xFF0D9488);
+const _kTeal   = PremiumTheme.teal600;
 const _kTealBg = Color(0xFFE6FFFA);
-const _kDark   = Color(0xFF0F172A);
-const _kGray   = Color(0xFF64748B);
-const _kBorder = Color(0xFFE2E8F0);
+const _kDark   = PremiumTheme.slate900;
+const _kGray   = PremiumTheme.slate500;
+const _kBorder = PremiumTheme.slate200;
 
 class MatchChatSheet extends StatefulWidget {
   final Map<String, dynamic> match;

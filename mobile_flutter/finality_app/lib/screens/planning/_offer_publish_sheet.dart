@@ -1,14 +1,15 @@
 // OfferPublishSheet — bottom sheet pour publier une offre de lift
 
 import 'package:flutter/material.dart';
+import '../../theme/premium_theme.dart';
 import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../widgets/city_search_field.dart';
 
-const _kTeal   = Color(0xFF0D9488);
-const _kDark   = Color(0xFF0F172A);
-const _kGray   = Color(0xFF64748B);
-const _kBorder = Color(0xFFE2E8F0);
+const _kTeal   = PremiumTheme.teal600;
+const _kDark   = PremiumTheme.slate900;
+const _kGray   = PremiumTheme.slate500;
+const _kBorder = PremiumTheme.slate200;
 
 class OfferPublishSheet extends StatefulWidget {
   final VoidCallback onPublished;

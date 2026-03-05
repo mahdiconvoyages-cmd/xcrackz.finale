@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../main.dart';
 import '../l10n/app_localizations.dart';
@@ -53,7 +54,7 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     final onboardingCompleted = prefs.getBool('onboarding_completed') ?? false;
 
     if (!onboardingCompleted) {
-      Navigator.of(context).pushReplacementNamed('/onboarding');
+      context.go('/onboarding');
       return;
     }
 
@@ -61,12 +62,12 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
     if (supabaseInitialized) {
       final session = supabase.auth.currentSession;
       if (session != null) {
-        Navigator.of(context).pushReplacementNamed('/home');
+        context.go('/home');
       } else {
-        Navigator.of(context).pushReplacementNamed('/login');
+        context.go('/login');
       }
     } else {
-      Navigator.of(context).pushReplacementNamed('/login');
+      context.go('/login');
     }
   }
 

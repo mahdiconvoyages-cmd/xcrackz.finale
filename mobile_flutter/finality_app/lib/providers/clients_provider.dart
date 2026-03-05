@@ -3,13 +3,14 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../services/client_service.dart';
 import '../models/client.dart';
 import '../utils/logger.dart';
+import 'service_providers.dart';
 
 part 'clients_provider.g.dart';
 
 /// Provider pour le service Client (singleton).
 @riverpod
 ClientService clientService(Ref ref) {
-  return ClientService();
+  return ClientService(client: ref.read(supabaseClientProvider));
 }
 
 /// Provider pour la liste des clients avec filtrage.

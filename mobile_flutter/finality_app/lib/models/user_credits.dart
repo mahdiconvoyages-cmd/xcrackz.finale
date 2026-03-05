@@ -16,8 +16,8 @@ class UserCredits {
   factory UserCredits.fromJson(Map<String, dynamic> json) {
     return UserCredits(
       id: json['id'] as String?,
-      userId: json['user_id'] as String,
-      credits: json['credits'] as int? ?? 0,
+      userId: json['user_id']?.toString() ?? '',
+      credits: (json['credits'] as num?)?.toInt() ?? 0,
       lastUpdated: json['last_updated'] != null
           ? DateTime.parse(json['last_updated'] as String)
           : null,
@@ -35,6 +35,15 @@ class UserCredits {
       if (lastUpdated != null) 'last_updated': lastUpdated!.toIso8601String(),
       if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
     };
+  }
+
+  /// Returns JSON without server-generated fields, for INSERT operations.
+  Map<String, dynamic> toInsertJson() {
+    final json = toJson();
+    json.remove('id');
+    json.remove('created_at');
+    json.remove('last_updated');
+    return json;
   }
 
   UserCredits copyWith({
@@ -87,13 +96,13 @@ class CreditTransaction {
   factory CreditTransaction.fromJson(Map<String, dynamic> json) {
     return CreditTransaction(
       id: json['id'] as String?,
-      userId: json['user_id'] as String,
-      amount: json['amount'] as int,
+      userId: json['user_id']?.toString() ?? '',
+      amount: (json['amount'] as num?)?.toInt() ?? 0,
       type: json['transaction_type'] as String? ?? json['type'] as String? ?? 'unknown',
       description: json['description'] as String?,
       referenceType: json['reference_type'] as String?,
       referenceId: json['reference_id'] as String?,
-      balanceAfter: json['balance_after'] as int? ?? 0,
+      balanceAfter: (json['balance_after'] as num?)?.toInt() ?? 0,
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : null,
@@ -112,6 +121,14 @@ class CreditTransaction {
       'balance_after': balanceAfter,
       if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
     };
+  }
+
+  /// Returns JSON without server-generated fields, for INSERT operations.
+  Map<String, dynamic> toInsertJson() {
+    final json = toJson();
+    json.remove('id');
+    json.remove('created_at');
+    return json;
   }
 
   bool get isPositive => amount > 0;

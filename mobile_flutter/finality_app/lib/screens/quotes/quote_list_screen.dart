@@ -1,21 +1,23 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../models/quote.dart';
 import '../../services/quote_service.dart';
+import '../../providers/quotes_provider.dart';
 import 'quote_detail_screen.dart';
 import '../../theme/premium_theme.dart';
 import '../../widgets/premium/premium_widgets.dart';
 
-class QuoteListScreen extends StatefulWidget {
+class QuoteListScreen extends ConsumerStatefulWidget {
   const QuoteListScreen({super.key});
 
   @override
-  State<QuoteListScreen> createState() => _QuoteListScreenState();
+  ConsumerState<QuoteListScreen> createState() => _QuoteListScreenState();
 }
 
-class _QuoteListScreenState extends State<QuoteListScreen>
+class _QuoteListScreenState extends ConsumerState<QuoteListScreen>
     with SingleTickerProviderStateMixin {
-  final QuoteService _quoteService = QuoteService();
+  QuoteService get _quoteService => ref.read(quoteServiceProvider);
   late AnimationController _animationController;
 
   List<Quote> _quotes = [];
@@ -107,6 +109,12 @@ class _QuoteListScreenState extends State<QuoteListScreen>
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: PremiumTheme.lightBg,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 0,
+        title: Text('Devis', style: PremiumTheme.heading4.copyWith(fontSize: 20)),
+      ),
       body: Column(
         children: [
           // Stats Cards

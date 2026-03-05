@@ -1,20 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../models/client.dart';
 import '../../services/client_service.dart';
+import '../../providers/clients_provider.dart';
 import 'client_detail_screen.dart';
 
 /// Écran de liste des clients style TimeInvoice
-class ClientListScreen extends StatefulWidget {
+class ClientListScreen extends ConsumerStatefulWidget {
   final VoidCallback? onClientCreated;
 
   const ClientListScreen({super.key, this.onClientCreated});
 
   @override
-  State<ClientListScreen> createState() => _ClientListScreenState();
+  ConsumerState<ClientListScreen> createState() => _ClientListScreenState();
 }
 
-class _ClientListScreenState extends State<ClientListScreen> {
-  final ClientService _clientService = ClientService();
+class _ClientListScreenState extends ConsumerState<ClientListScreen> {
+  ClientService get _clientService => ref.read(clientServiceProvider);
   final TextEditingController _searchController = TextEditingController();
 
   List<Client> _clients = [];

@@ -24,157 +24,127 @@ class _NotificationHistoryScreenState extends State<NotificationHistoryScreen> {
 
   Future<void> _loadNotifications() async {
     setState(() => _isLoading = true);
+    final userId = Supabase.instance.client.auth.currentUser?.id;
+    if (userId == null) {
+      if (mounted) setState(() => _isLoading = false);
+      return;
+    }
+
+    final List<Map<String, dynamic>> allNotifs = [];
+
+    // Run all 3 queries in parallel, each with its own error handling.
+    await Future.wait([
+      _loadMissionNotifications(userId, allNotifs),
+      _loadInvoiceNotifications(userId, allNotifs),
+      _loadInspectionNotifications(userId, allNotifs),
+    ]);
+
+    // Sort all by date descending
+    allNotifs.sort((a, b) {
+      final dateA = DateTime.tryParse(a['date']?.toString() ?? '') ?? DateTime(2000);
+      final dateB = DateTime.tryParse(b['date']?.toString() ?? '') ?? DateTime(2000);
+      return dateB.compareTo(dateA);
+    });
+
+    if (mounted) {
+      setState(() {
+        _notifications = allNotifs;
+        _isLoading = false;
+      });
+    }
+  }
+
+  Future<void> _loadMissionNotifications(String userId, List<Map<String, dynamic>> out) async {
     try {
-      final userId = Supabase.instance.client.auth.currentUser?.id;
-      if (userId == null) return;
-
-      // Aggregate recent events as notifications from various tables
-      final List<Map<String, dynamic>> allNotifs = [];
-
-      // 1. Mission status changes (recent missions)
       final missions = await Supabase.instance.client
           .from('missions')
-          .select('id, title, status, created_at, updated_at, pickup_city, delivery_city')
-          .eq('user_id', userId)
+          .select('id, title, reference, status, created_at, updated_at, pickup_city, delivery_city')
+          .or('user_id.eq.$userId,assigned_user_id.eq.$userId')
           .order('updated_at', ascending: false)
           .limit(30);
 
       for (final m in (missions as List)) {
         final status = (m['status'] ?? '').toString();
-        String message;
-        IconData icon;
-        Color color;
-        
-        switch (status) {
-          case 'completed':
-            message = 'Mission terminée';
-            icon = Icons.check_circle;
-            color = PremiumTheme.accentGreen;
-            break;
-          case 'in_progress':
-            message = 'Mission en cours';
-            icon = Icons.local_shipping;
-            color = PremiumTheme.primaryBlue;
-            break;
-          case 'cancelled':
-            message = 'Mission annulée';
-            icon = Icons.cancel;
-            color = Colors.red;
-            break;
-          default:
-            message = 'Nouvelle mission';
-            icon = Icons.assignment;
-            color = PremiumTheme.primaryPurple;
-        }
+        final (message, icon, color) = switch (status) {
+          'completed' => ('Mission terminée', Icons.check_circle, PremiumTheme.accentGreen),
+          'in_progress' => ('Mission en cours', Icons.local_shipping, PremiumTheme.primaryBlue),
+          'cancelled' => ('Mission annulée', Icons.cancel, Colors.red as Color),
+          _ => ('Nouvelle mission', Icons.assignment, PremiumTheme.primaryPurple),
+        };
 
-        final title = m['title'] ?? 
+        final title = m['title'] ?? m['reference'] ??
             '${m['pickup_city'] ?? '?'} → ${m['delivery_city'] ?? '?'}';
 
-        allNotifs.add({
-          'type': 'mission',
-          'title': message,
-          'subtitle': title,
-          'icon': icon,
-          'color': color,
-          'date': m['updated_at'] ?? m['created_at'],
-          'id': m['id'],
+        out.add({
+          'type': 'mission', 'title': message, 'subtitle': title,
+          'icon': icon, 'color': color,
+          'date': m['updated_at'] ?? m['created_at'], 'id': m['id'],
         });
       }
+    } catch (e) {
+      debugPrint('Error loading mission notifications: $e');
+    }
+  }
 
-      // 2. Invoice events
+  Future<void> _loadInvoiceNotifications(String userId, List<Map<String, dynamic>> out) async {
+    try {
       final invoices = await Supabase.instance.client
           .from('invoices')
-          .select('id, invoice_number, status, total_amount, created_at, updated_at')
+          .select('id, invoice_number, status, total, client_name, created_at, updated_at')
           .eq('user_id', userId)
           .order('updated_at', ascending: false)
           .limit(20);
 
       for (final inv in (invoices as List)) {
         final status = (inv['status'] ?? '').toString().toLowerCase();
-        String message;
-        IconData icon;
-        Color color;
+        final (message, icon, color) = switch (status) {
+          'paid' || 'payée' || 'payé' => ('Facture payée', Icons.payments, PremiumTheme.accentGreen),
+          'overdue' || 'en retard' => ('Facture en retard', Icons.warning_amber_rounded, Colors.red as Color),
+          _ => ('Facture créée', Icons.receipt_long, PremiumTheme.primaryBlue),
+        };
 
-        if (status == 'paid' || status == 'payée' || status == 'payé') {
-          message = 'Facture payée';
-          icon = Icons.payments;
-          color = PremiumTheme.accentGreen;
-        } else if (status == 'overdue' || status == 'en retard') {
-          message = 'Facture en retard';
-          icon = Icons.warning_amber_rounded;
-          color = Colors.red;
-        } else {
-          message = 'Facture créée';
-          icon = Icons.receipt_long;
-          color = PremiumTheme.primaryBlue;
-        }
-
-        final amount = (inv['total_amount'] ?? 0).toDouble();
-        allNotifs.add({
-          'type': 'invoice',
-          'title': message,
+        final amount = (inv['total'] ?? 0).toDouble();
+        out.add({
+          'type': 'invoice', 'title': message,
           'subtitle': '${inv['invoice_number'] ?? 'Facture'} — ${amount.toStringAsFixed(2)} €',
-          'icon': icon,
-          'color': color,
-          'date': inv['updated_at'] ?? inv['created_at'],
-          'id': inv['id'],
+          'icon': icon, 'color': color,
+          'date': inv['updated_at'] ?? inv['created_at'], 'id': inv['id'],
         });
       }
+    } catch (e) {
+      debugPrint('Error loading invoice notifications: $e');
+    }
+  }
 
-      // 3. Inspection events
+  Future<void> _loadInspectionNotifications(String userId, List<Map<String, dynamic>> out) async {
+    try {
       final inspections = await Supabase.instance.client
           .from('vehicle_inspections')
-          .select('id, type, status, created_at, vehicle_brand, vehicle_model')
-          .eq('user_id', userId)
+          .select('id, inspection_type, status, created_at, vehicle_brand, vehicle_model')
+          .eq('inspector_id', userId)
           .order('created_at', ascending: false)
           .limit(20);
 
       for (final insp in (inspections as List)) {
-        final type = (insp['type'] ?? '').toString();
+        final type = (insp['inspection_type'] ?? '').toString();
         final status = (insp['status'] ?? '').toString();
         final vehicle = '${insp['vehicle_brand'] ?? ''} ${insp['vehicle_model'] ?? ''}'.trim();
 
-        String message;
-        IconData icon;
-        Color color;
+        final (message, icon, color) = status == 'completed'
+            ? (type == 'departure' ? 'Inspection départ terminée' : 'Inspection arrivée terminée',
+               Icons.fact_check, PremiumTheme.accentGreen)
+            : (type == 'departure' ? 'Inspection départ créée' : 'Inspection arrivée créée',
+               Icons.car_repair, PremiumTheme.primaryTeal);
 
-        if (status == 'completed') {
-          message = type == 'departure' ? 'Inspection départ terminée' : 'Inspection arrivée terminée';
-          icon = Icons.fact_check;
-          color = PremiumTheme.accentGreen;
-        } else {
-          message = type == 'departure' ? 'Inspection départ créée' : 'Inspection arrivée créée';
-          icon = Icons.car_repair;
-          color = PremiumTheme.primaryTeal;
-        }
-
-        allNotifs.add({
-          'type': 'system',
-          'title': message,
+        out.add({
+          'type': 'system', 'title': message,
           'subtitle': vehicle.isNotEmpty ? vehicle : 'Véhicule',
-          'icon': icon,
-          'color': color,
-          'date': insp['created_at'],
-          'id': insp['id'],
-        });
-      }
-
-      // Sort all by date descending
-      allNotifs.sort((a, b) {
-        final dateA = DateTime.tryParse(a['date']?.toString() ?? '') ?? DateTime(2000);
-        final dateB = DateTime.tryParse(b['date']?.toString() ?? '') ?? DateTime(2000);
-        return dateB.compareTo(dateA);
-      });
-
-      if (mounted) {
-        setState(() {
-          _notifications = allNotifs;
-          _isLoading = false;
+          'icon': icon, 'color': color,
+          'date': insp['created_at'], 'id': insp['id'],
         });
       }
     } catch (e) {
-      debugPrint('Error loading notifications: $e');
-      if (mounted) setState(() => _isLoading = false);
+      debugPrint('Error loading inspection notifications: $e');
     }
   }
 

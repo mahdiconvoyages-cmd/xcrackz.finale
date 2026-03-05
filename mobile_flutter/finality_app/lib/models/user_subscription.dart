@@ -39,7 +39,7 @@ class UserSubscription {
     
     return UserSubscription(
       id: json['id'] as String?,
-      userId: json['user_id'] as String,
+      userId: json['user_id']?.toString() ?? '',
       plan: json['plan'] as String? ?? 'free',
       status: json['status'] as String? ?? 'expired',
       startDate: startDateValue != null
@@ -52,7 +52,7 @@ class UserSubscription {
           ? DateTime.parse(cancelledAtValue)
           : null,
       autoRenew: json['auto_renew'] as bool? ?? !(cancelAtPeriodEnd is bool ? cancelAtPeriodEnd : false),
-      creditsPerMonth: json['credits_per_month'] as int?,
+      creditsPerMonth: (json['credits_per_month'] as num?)?.toInt(),
       createdAt: json['created_at'] != null
           ? DateTime.parse(json['created_at'] as String)
           : null,
@@ -75,6 +75,15 @@ class UserSubscription {
       if (createdAt != null) 'created_at': createdAt!.toIso8601String(),
       if (updatedAt != null) 'updated_at': updatedAt!.toIso8601String(),
     };
+  }
+
+  /// Returns JSON without server-generated fields, for INSERT operations.
+  Map<String, dynamic> toInsertJson() {
+    final json = toJson();
+    json.remove('id');
+    json.remove('created_at');
+    json.remove('updated_at');
+    return json;
   }
 
   UserSubscription copyWith({

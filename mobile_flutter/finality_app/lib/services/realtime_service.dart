@@ -10,11 +10,14 @@ import '../utils/logger.dart';
 ///
 /// Replaces both the old RealtimeService and SyncService.
 class RealtimeService {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final SupabaseClient _supabase;
   final Map<String, RealtimeChannel> _channels = {};
   final Map<String, StreamController> _controllers = {};
   final Map<String, Timer?> _debounceTimers = {};
   static const _debounceDuration = Duration(milliseconds: 500);
+
+  RealtimeService({SupabaseClient? client})
+      : _supabase = client ?? Supabase.instance.client;
 
   String? get _currentUserId => _supabase.auth.currentUser?.id;
 

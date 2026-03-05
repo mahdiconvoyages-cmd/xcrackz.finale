@@ -3,13 +3,14 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../services/invoice_service.dart';
 import '../models/invoice.dart';
 import '../utils/logger.dart';
+import 'service_providers.dart';
 
 part 'invoices_provider.g.dart';
 
 /// Provider pour le service Invoice (singleton).
 @riverpod
 InvoiceService invoiceService(Ref ref) {
-  return InvoiceService();
+  return InvoiceService(client: ref.read(supabaseClientProvider));
 }
 
 /// Provider pour la liste des factures avec filtrage.

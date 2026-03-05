@@ -1,8 +1,11 @@
 ﻿import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
 import '../../l10n/app_localizations.dart';
 import '../../services/realtime_service.dart';
+import '../../providers/service_providers.dart';
 import '../../utils/logger.dart';
 import '../profile/profile_screen.dart';
 import '../../theme/premium_theme.dart';
@@ -11,18 +14,18 @@ import '../missions/mission_create_screen_new.dart';
 import '../crm/crm_screen.dart';
 import '../notifications/notification_history_screen.dart';
 
-class DashboardScreen extends StatefulWidget {
+class DashboardScreen extends ConsumerStatefulWidget {
   final VoidCallback? onNavigateToMissions;
   const DashboardScreen({super.key, this.onNavigateToMissions});
 
   @override
-  State<DashboardScreen> createState() => _DashboardScreenState();
+  ConsumerState<DashboardScreen> createState() => _DashboardScreenState();
 }
 
-class _DashboardScreenState extends State<DashboardScreen> 
+class _DashboardScreenState extends ConsumerState<DashboardScreen> 
     with SingleTickerProviderStateMixin {
   SupabaseClient get supabase => Supabase.instance.client;
-  final RealtimeService _realtimeService = RealtimeService();
+  RealtimeService get _realtimeService => ref.read(realtimeServiceProvider);
   late AnimationController _animationController;
 
   bool _isLoading = true;
@@ -252,15 +255,14 @@ class _DashboardScreenState extends State<DashboardScreen>
 
   /// Legacy multi-query fallback (used if RPC not deployed yet).
   Future<void> _loadDashboardLegacy(String userId, User? currentUser) async {
-    final results = await Future.wait<dynamic>([
+    // Profile & subscription – these are simple selects that should always work.
+    final profileAndSub = await Future.wait<dynamic>([
       supabase.from('profiles').select('first_name, last_name, credits').eq('id', userId).maybeSingle(),
       supabase.from('subscriptions').select('plan, status, current_period_end, auto_renew').eq('user_id', userId).eq('status', 'active').maybeSingle(),
-      supabase.rpc('get_dashboard_stats', params: {'p_user_id': userId}),
     ]);
 
-    final profile = results[0] as Map<String, dynamic>?;
-    final subscription = results[1] as Map<String, dynamic>?;
-    final statsRes = results[2];
+    final profile = profileAndSub[0] as Map<String, dynamic>?;
+    final subscription = profileAndSub[1] as Map<String, dynamic>?;
 
     if (profile != null) {
       _firstName = profile['first_name'] ?? '';
@@ -270,17 +272,43 @@ class _DashboardScreenState extends State<DashboardScreen>
 
     _parseSubscription(subscription, currentUser);
 
-    if (statsRes != null) {
-      _totalMissions = statsRes['total_missions'] ?? 0;
-      _activeMissions = statsRes['active_missions'] ?? 0;
-      _completedMissions = statsRes['completed_missions'] ?? 0;
-      _completionRate = (statsRes['completion_rate'] ?? 0).toDouble();
-      _totalContacts = statsRes['total_contacts'] ?? 0;
+    // Stats RPC – optional, may not be deployed yet.
+    try {
+      final statsRes = await supabase.rpc('get_dashboard_stats', params: {'p_user_id': userId});
+      if (statsRes != null) {
+        _totalMissions = statsRes['total_missions'] ?? 0;
+        _activeMissions = statsRes['active_missions'] ?? 0;
+        _completedMissions = statsRes['completed_missions'] ?? 0;
+        _completionRate = (statsRes['completion_rate'] ?? 0).toDouble();
+        _totalContacts = statsRes['total_contacts'] ?? 0;
+      }
+    } catch (e) {
+      logger.w('get_dashboard_stats RPC unavailable, computing from table: $e');
+      // Fallback: compute basic stats from direct counts
+      try {
+        final missionsList = await supabase.from('missions')
+            .select('status')
+            .or('user_id.eq.$userId,assigned_user_id.eq.$userId');
+        _totalMissions = (missionsList as List).length;
+        _activeMissions = missionsList.where((m) => m['status'] == 'in_progress' || m['status'] == 'pending').length;
+        _completedMissions = missionsList.where((m) => m['status'] == 'completed').length;
+        _completionRate = _totalMissions > 0 ? (_completedMissions / _totalMissions * 100) : 0.0;
+
+        final contactsCount = await supabase.from('clients')
+            .select('id')
+            .eq('user_id', userId);
+        _totalContacts = (contactsCount as List).length;
+      } catch (e2) {
+        logger.e('Stats fallback failed: $e2');
+      }
     }
 
-    await _loadRecentActivityLegacy(userId);
-    await _loadInvoiceStats(userId);
-    await _loadTodayWeekMissions(userId);
+    // These are all independent – run in parallel, each with its own error handling.
+    await Future.wait([
+      _loadRecentActivityLegacy(userId),
+      _loadInvoiceStats(userId),
+      _loadTodayWeekMissions(userId),
+    ]);
   }
 
   /// Legacy: load recent activity with 4 separate queries.
@@ -920,7 +948,7 @@ class _DashboardScreenState extends State<DashboardScreen>
                   ),
                   ElevatedButton(
                     onPressed: () {
-                      Navigator.of(context).pushNamed('/subscription');
+                      context.push('/subscription');
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.white,
@@ -1496,22 +1524,26 @@ class _DashboardScreenState extends State<DashboardScreen>
           .subtract(Duration(days: now.weekday - 1))
           .toIso8601String();
 
-      final todayResult = await Supabase.instance.client
-          .from('missions')
-          .select('id')
-          .eq('user_id', userId)
-          .gte('created_at', todayStart);
-
-      final weekResult = await Supabase.instance.client
-          .from('missions')
-          .select('id')
-          .eq('user_id', userId)
-          .gte('created_at', weekStart);
+      // Server-side counts — no row data transferred
+      final results = await Future.wait([
+        Supabase.instance.client
+            .from('missions')
+            .select('id')
+            .eq('user_id', userId)
+            .gte('created_at', todayStart)
+            .count(CountOption.exact),
+        Supabase.instance.client
+            .from('missions')
+            .select('id')
+            .eq('user_id', userId)
+            .gte('created_at', weekStart)
+            .count(CountOption.exact),
+      ]);
 
       if (mounted) {
         setState(() {
-          _todayMissions = (todayResult as List).length;
-          _weekMissions = (weekResult as List).length;
+          _todayMissions = results[0].count;
+          _weekMissions = results[1].count;
         });
       }
     } catch (e) {

@@ -1,5 +1,6 @@
 ﻿import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
@@ -103,7 +104,7 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
       if (mounted) {
         HapticFeedback.lightImpact();
-        Navigator.pushReplacementNamed(context, '/home');
+        context.go('/home');
       }
     } on AuthException catch (e) {
       if (!mounted) return;

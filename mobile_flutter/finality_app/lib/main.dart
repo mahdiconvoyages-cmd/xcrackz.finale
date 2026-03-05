@@ -8,11 +8,6 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_crashlytics/firebase_crashlytics.dart'
     if (dart.library.html) 'utils/crashlytics_stub.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
-import 'screens/splash_screen.dart';
-import 'screens/onboarding/onboarding_screen.dart';
-import 'screens/login_screen.dart';
-import 'screens/home_screen.dart';
-import 'screens/subscription/subscription_screen.dart';
 import 'providers/locale_provider.dart';
 import 'providers/theme_provider.dart';
 import 'services/offline_service.dart';
@@ -24,6 +19,7 @@ import 'theme/premium_theme.dart';
 import 'utils/logger.dart';
 import 'l10n/app_localizations.dart';
 import 'config/api_config.dart';
+import 'router/app_router.dart';
 
 /// Whether Supabase has been initialized successfully
 bool supabaseInitialized = false;
@@ -34,8 +30,8 @@ String? startupError;
 /// Global connectivity service (singleton)
 final connectivityService = ConnectivityService();
 
-/// Global navigator key for services to navigate
-final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
+/// Global navigator key for services to navigate (from app_router.dart)
+GlobalKey<NavigatorState> get navigatorKey => rootNavigatorKey;
 
 void main() {
   // Wrap absolutely everything in try-catch
@@ -218,10 +214,10 @@ class CHECKSFLEETApp extends ConsumerWidget {
     final themeMode = ref.watch(themeModeProvider);
 
     // Build the app with OfflineSyncManager wrapping all screens
-    return MaterialApp(
+    return MaterialApp.router(
       title: 'CHECKSFLEET',
       debugShowCheckedModeBanner: false,
-      navigatorKey: navigatorKey,
+      routerConfig: appRouter,
       theme: PremiumTheme.lightTheme,
       darkTheme: PremiumTheme.darkTheme,
       themeMode: themeMode,
@@ -239,19 +235,6 @@ class CHECKSFLEETApp extends ConsumerWidget {
           connectivityService: connectivityService,
           child: child ?? const SizedBox.shrink(),
         );
-      },
-      initialRoute: '/',
-      routes: {
-        '/': (context) => const SplashScreen(),
-        '/onboarding': (context) => const OnboardingScreen(),
-        '/login': (context) => const LoginScreen(),
-        '/home': (context) {
-          // Auth guard — redirect to login if no session
-          final user = Supabase.instance.client.auth.currentUser;
-          if (user == null) return const LoginScreen();
-          return const HomeScreen();
-        },
-        '/subscription': (context) => const SubscriptionScreen(),
       },
     );
   }

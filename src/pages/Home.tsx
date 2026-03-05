@@ -20,7 +20,6 @@ import {
   MapPinned,
   Gauge,
   Lock,
-  ChevronRight,
   Share2,
   Users,
   Moon,

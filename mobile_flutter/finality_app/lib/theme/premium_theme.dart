@@ -29,6 +29,25 @@ class PremiumTheme {
   static const Color darkSlate = Color(0xFF1E293B);
   static const Color textMuted = Color(0xFF94A3B8);
   static const Color slate300 = Color(0xFFCBD5E1);
+
+  // Slate palette — borders, backgrounds, text
+  static const Color slate900 = Color(0xFF0F172A);
+  static const Color slate700 = Color(0xFF334155);
+  static const Color slate500 = Color(0xFF64748B);
+  static const Color slate400 = Color(0xFF94A3B8);
+  static const Color slate200 = Color(0xFFE2E8F0);
+  static const Color borderLight = Color(0xFFE5E7EB);
+  static const Color scaffoldBg = Color(0xFFF8FAFC);
+
+  // Deeper accent shades
+  static const Color teal600 = Color(0xFF0D9488);
+  static const Color emerald600 = Color(0xFF059669);
+  static const Color amber700 = Color(0xFFD97706);
+  static const Color red600 = Color(0xFFDC2626);
+  static const Color violet600 = Color(0xFF7C3AED);
+  static const Color blue600 = Color(0xFF2563EB);
+  static const Color deepOrange = Color(0xFFE65100);
+  static const Color cyan500 = Color(0xFF06B6D4);
   
   // Backgrounds - Thème clair
   static const Color lightBg = Color(0xFFF8F9FA);

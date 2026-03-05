@@ -3,7 +3,10 @@ import '../models/user_subscription.dart';
 import '../utils/logger.dart';
 
 class SubscriptionService {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final SupabaseClient _supabase;
+
+  SubscriptionService({SupabaseClient? client})
+      : _supabase = client ?? Supabase.instance.client;
 
   /// Vérifie l'état de l'abonnement et reset les crédits si expiré
   /// Appeler cette méthode au démarrage de l'app ou lors de la connexion
@@ -341,15 +344,15 @@ class SubscriptionService {
           final limit = features['missions_limit'] as int;
           if (limit == -1) return true; // unlimited
           
-          // Vérifier le nombre de missions actives
+          // Count active missions server-side (no row data transferred)
           try {
-            final response = await Supabase.instance.client
+            final result = await _supabase
                 .from('missions')
                 .select('id')
                 .eq('user_id', userId)
-                .inFilter('status', ['pending', 'in_progress', 'assigned']);
-            final count = (response as List).length;
-            return count < limit;
+                .inFilter('status', ['pending', 'in_progress', 'assigned'])
+                .count(CountOption.exact);
+            return result.count < limit;
           } catch (e) {
             return true; // En cas d'erreur réseau, ne pas bloquer
           }

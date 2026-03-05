@@ -9,17 +9,14 @@ import '../main.dart' show connectivityService;
 /// CRUD complet avec recherche SIRET via API INSEE
 /// Supporte le mode hors-ligne avec cache SQLite
 class ClientService {
-  final SupabaseClient _supabase = Supabase.instance.client;
+  final SupabaseClient _supabase;
   final OfflineService _offlineService = OfflineService();
-  /// Use the global ConnectivityService singleton
-  ConnectivityService get _connectivityService {
-    try {
-      return connectivityService;
-    } catch (_) {
-      return ConnectivityService();
-    }
-  }
+  /// Use the global ConnectivityService singleton — never create a new instance
+  ConnectivityService get _connectivityService => connectivityService;
   bool _isInitialized = false;
+
+  ClientService({SupabaseClient? client})
+      : _supabase = client ?? Supabase.instance.client;
 
   Future<void> _ensureInitialized() async {
     if (!_isInitialized) {
@@ -199,13 +196,14 @@ class ClientService {
 
     final invoices = invoicesResponse as List;
     
-    // Devis
-    final quotesResponse = await _supabase
+    // Devis — count only, no row data needed
+    final quotesResult = await _supabase
         .from('quotes')
         .select('id')
-        .eq('client_id', clientId);
+        .eq('client_id', clientId)
+        .count(CountOption.exact);
 
-    final quotes = quotesResponse as List;
+    final quotesCount = quotesResult.count;
 
     // Calculer les stats
     double totalRevenue = 0;
@@ -230,7 +228,7 @@ class ClientService {
 
     return ClientStats(
       totalInvoices: invoices.length,
-      totalQuotes: quotes.length,
+      totalQuotes: quotesCount,
       totalRevenue: totalRevenue,
       pendingAmount: pendingAmount,
       lastInvoiceDate: lastInvoiceDate,
@@ -248,7 +246,7 @@ class ClientService {
         'https://recherche-entreprises.api.gouv.fr/search?q=$cleanSiret&page=1&per_page=5'
       );
 
-      await Supabase.instance.client.functions.invoke(
+      await _supabase.functions.invoke(
         'proxy-insee',
         body: {'url': uri.toString()},
       );
@@ -269,17 +267,17 @@ class ClientService {
     final userId = _supabase.auth.currentUser?.id;
     if (userId == null) return {'total': 0, 'favorites': 0, 'companies': 0};
 
-    final response = await _supabase
-        .from('clients')
-        .select('id, is_favorite, is_company')
-        .eq('user_id', userId);
+    // Parallel server-side counts — no row data transferred
+    final results = await Future.wait([
+      _supabase.from('clients').select('id').eq('user_id', userId).count(CountOption.exact),
+      _supabase.from('clients').select('id').eq('user_id', userId).eq('is_favorite', true).count(CountOption.exact),
+      _supabase.from('clients').select('id').eq('user_id', userId).eq('is_company', true).count(CountOption.exact),
+    ]);
 
-    final clients = response as List;
-    
     return {
-      'total': clients.length,
-      'favorites': clients.where((c) => c['is_favorite'] == true).length,
-      'companies': clients.where((c) => c['is_company'] == true).length,
+      'total': results[0].count,
+      'favorites': results[1].count,
+      'companies': results[2].count,
     };
   }
 }

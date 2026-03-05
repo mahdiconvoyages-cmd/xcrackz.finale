@@ -14,6 +14,7 @@ import '../document_scanner/document_scanner_screen.dart';
 import '../../theme/premium_theme.dart';
 import 'widgets/inspection_shared_widgets.dart';
 import '../../services/notification_service.dart';
+import '../../services/inspection_submission_service.dart';
 import '../../widgets/vehicle_body_map_widget.dart';
 import '../../widgets/photo_damage_map_dialog.dart';
 
@@ -1010,222 +1011,115 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
       final userId = supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('Utilisateur non connecté');
 
+      final svc = InspectionSubmissionService();
+
       // 0. Capturer la position GPS
       debugPrint('📍 STEP 0: Capturing GPS position...');
-      double? gpsLat;
-      double? gpsLng;
-      try {
-        final perm = await Geolocator.checkPermission();
-        if (perm == LocationPermission.whileInUse || perm == LocationPermission.always) {
-          final pos = await Geolocator.getCurrentPosition(
-            desiredAccuracy: LocationAccuracy.high,
-          ).timeout(const Duration(seconds: 10));
-          gpsLat = pos.latitude;
-          gpsLng = pos.longitude;
-          debugPrint('✅ GPS: $gpsLat, $gpsLng');
-        }
-      } catch (e) {
-        debugPrint('⚠️ GPS capture failed (non-blocking): $e');
-      }
+      final gps = await svc.captureGpsPosition();
 
       // 1. Créer l'inspection d'arrivée
-      final now = DateTime.now().toUtc().toIso8601String();
-      final inspectionResponse = await supabase.from('vehicle_inspections').insert({
-        'mission_id': widget.missionId,
-        'inspector_id': userId,
-        'inspection_type': widget.isRestitution ? 'restitution_arrival' : 'arrival',
-        'status': 'completed',
-        'completed_at': now,
-        'mileage_km': int.tryParse(_kmController.text) ?? 0,
-        'fuel_level': _fuelLevel.round(),
-        'overall_condition': _vehicleCondition.toLowerCase(),
-        'internal_cleanliness': _internalCleanliness,
-        'external_cleanliness': _externalCleanliness,
-        'latitude': gpsLat,
-        'longitude': gpsLng,
-        'vehicle_info': {
+      debugPrint('📝 STEP 1: Creating vehicle_inspection...');
+      final inspectionId = await svc.createInspection(
+        missionId: widget.missionId,
+        inspectionType: widget.isRestitution ? 'restitution_arrival' : 'arrival',
+        mileageKm: int.tryParse(_kmController.text) ?? 0,
+        fuelLevel: _fuelLevel.round(),
+        overallCondition: _vehicleCondition.toLowerCase(),
+        internalCleanliness: _internalCleanliness,
+        externalCleanliness: _externalCleanliness,
+        vehicleInfo: {
           'keys_returned': _allKeysReturned,
           'documents_returned': _documentsReturned,
           'is_loaded': _isVehicleLoaded,
           'has_loaded_photo': _loadedVehiclePhoto != null,
         },
-        'notes': _observationsController.text.isNotEmpty ? _observationsController.text : null,
-        'inspector_signature': _driverSignature != null
-            ? 'data:image/png;base64,${base64Encode(_driverSignature!)}'
-            : null,
-        'driver_signature': _driverSignature != null
-            ? 'data:image/png;base64,${base64Encode(_driverSignature!)}'
-            : null,
-        'driver_name': _driverName,
-        'client_signature': _clientSignature != null
-            ? 'data:image/png;base64,${base64Encode(_clientSignature!)}'
-            : null,
-        'client_name': _clientNameController.text,
-        'created_at': now,
-      }).select().single();
+        notes: _observationsController.text.isNotEmpty ? _observationsController.text : null,
+        latitude: gps.lat,
+        longitude: gps.lng,
+        driverSignature: _driverSignature,
+        clientSignature: _clientSignature,
+        driverName: _driverName,
+        clientName: _clientNameController.text,
+      );
 
-      final inspectionId = inspectionResponse['id'];
-
-      // 2. Upload et sauvegarder toutes les photos (parallèle par batch de 3)
-      final allPhotos = <Map<String, dynamic>>[
+      // 2. Upload photos (batched by 3)
+      debugPrint('📸 STEP 2: Uploading photos...');
+      final allPhotos = <PhotoDescriptor>[
         if (_dashboardPhoto != null)
-          {'path': _dashboardPhoto!, 'type': 'dashboard_arrival', 'index': -1, 'damage': 'RAS', 'comment': '', 'lat': null, 'lng': null, 'takenAt': null},
+          PhotoDescriptor(localPath: _dashboardPhoto!, photoType: 'dashboard_arrival', index: -1),
         if (_loadedVehiclePhoto != null)
-          {'path': _loadedVehiclePhoto!, 'type': 'loaded_vehicle_arrival', 'index': -2, 'damage': 'RAS', 'comment': '', 'lat': null, 'lng': null, 'takenAt': null},
-        ..._photos.asMap().entries.where((e) => e.value != null).map((e) => {
-              'path': e.value!,
-              'type': '${_photoGuides[e.key].label}_arrival',
-              'index': e.key,
-              'damage': _photoDamages[e.key],
-              'comment': _photoComments[e.key],
-              'lat': _photoLatitudes[e.key],
-              'lng': _photoLongitudes[e.key],
-              'takenAt': _photoTimestamps[e.key]?.toIso8601String(),
-            }),
-        ..._optionalPhotos.asMap().entries.where((e) => e.value != null).map((e) => {
-              'path': e.value!,
-              'type': 'Photo optionnelle ${e.key + 1}_arrival',
-              'index': e.key + 8,
-              'damage': _optionalPhotoDamages[e.key],
-              'comment': _optionalPhotoComments[e.key],
-              'lat': _optionalPhotoLatitudes[e.key],
-              'lng': _optionalPhotoLongitudes[e.key],
-              'takenAt': _optionalPhotoTimestamps[e.key]?.toIso8601String(),
-            }),
+          PhotoDescriptor(localPath: _loadedVehiclePhoto!, photoType: 'loaded_vehicle_arrival', index: -2),
+        ..._photos.asMap().entries.where((e) => e.value != null).map((e) =>
+            PhotoDescriptor(
+              localPath: e.value!,
+              photoType: '${_photoGuides[e.key].label}_arrival',
+              index: e.key,
+              damageStatus: _photoDamages[e.key],
+              damageComment: _photoComments[e.key],
+              latitude: _photoLatitudes[e.key],
+              longitude: _photoLongitudes[e.key],
+              takenAt: _photoTimestamps[e.key],
+            )),
+        ..._optionalPhotos.asMap().entries.where((e) => e.value != null).map((e) =>
+            PhotoDescriptor(
+              localPath: e.value!,
+              photoType: 'Photo optionnelle ${e.key + 1}_arrival',
+              index: e.key + 8,
+              damageStatus: _optionalPhotoDamages[e.key],
+              damageComment: _optionalPhotoComments[e.key],
+              latitude: _optionalPhotoLatitudes[e.key],
+              longitude: _optionalPhotoLongitudes[e.key],
+              takenAt: _optionalPhotoTimestamps[e.key],
+            )),
       ];
+      await svc.uploadPhotos(
+        inspectionId: inspectionId,
+        photos: allPhotos,
+        fileNamePrefix: 'inspection_arrival',
+      );
 
-      // Upload par batch de 3 en parallèle
-      for (int i = 0; i < allPhotos.length; i += 3) {
-        final batch = allPhotos.skip(i).take(3);
-        await Future.wait(batch.map((photo) async {
-          final filePath = photo['path'] as String;
-          final file = File(filePath);
-          if (!file.existsSync()) {
-            debugPrint('⚠️ Photo file missing: $filePath');
-            return;
-          }
-          final bytes = await file.readAsBytes();
-          final photoType = (photo['type'] as String).replaceAll(' ', '_').replaceAll('é', 'e').replaceAll('è', 'e');
-          final fileName =
-              'inspection_arrival_${inspectionId}_${photoType}_${DateTime.now().millisecondsSinceEpoch}_${photo['index']}.jpg';
-          final storagePath = 'inspections/$userId/$fileName';
+      // 4. Upload documents
+      await svc.uploadDocuments(
+        inspectionId: inspectionId,
+        namedDocuments: _namedDocuments,
+        fileNamePrefix: 'arrival_doc',
+      );
 
-          await supabase.storage.from('inspection-photos').uploadBinary(
-                storagePath,
-                bytes,
-                fileOptions: const FileOptions(upsert: true),
-              );
+      // 4b. Save expenses
+      final normalizedExpenses = _expenses.map((expense) => <String, dynamic>{
+        'type': _normalizeExpenseType((expense['type'] as String?) ?? 'autre'),
+        'amount': expense['amount'],
+        'description': expense['description'],
+      }).toList();
+      await svc.saveExpenses(
+        inspectionId: inspectionId,
+        expenses: normalizedExpenses,
+      );
 
-          final publicUrl =
-              supabase.storage.from('inspection-photos').getPublicUrl(storagePath);
+      // 4c. Save damages
+      final allDamageEntries = _photoDamageEntries.values.expand((list) => list).toList();
+      await svc.saveDamages(
+        inspectionId: inspectionId,
+        damages: allDamageEntries.map((d) => DamageDescriptor(
+          type: d.type.name,
+          location: d.zone.key,
+          description: '${d.zone.label} — ${d.type.label}${d.comment.isNotEmpty ? ': ${d.comment}' : ''}',
+        )).toList(),
+      );
+      debugPrint('✅ STEP 4c OK: ${allDamageEntries.length} damages saved');
 
-          // 3. Enregistrer dans inspection_photos_v2
-          await supabase.from('inspection_photos_v2').insert({
-            'inspection_id': inspectionId,
-            'full_url': publicUrl,
-            'photo_type': photo['type'],
-            'damage_status': photo['damage'],
-            'damage_comment': (photo['damage'] != 'RAS' && (photo['comment'] as String).isNotEmpty) ? photo['comment'] : null,
-            'taken_at': photo['takenAt'] ?? DateTime.now().toUtc().toIso8601String(),
-            'latitude': photo['lat'],
-            'longitude': photo['lng'],
-          });
-        }));
-      }
+      // 5. Update mission status
+      await svc.updateMissionStatusAfterArrival(
+        missionId: widget.missionId,
+        isRestitution: widget.isRestitution,
+      );
 
-      // 4. Sauvegarder les documents scannés avec noms personnalisés
-      for (final doc in _namedDocuments) {
-        final docPath = doc['url'] ?? '';
-        final file = File(docPath);
-        if (!file.existsSync()) {
-          debugPrint('⚠️ Document file missing: $docPath');
-          continue;
-        }
-        final bytes = await file.readAsBytes();
-        final fileName =
-            'arrival_doc_${inspectionId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
-        final storagePath = 'inspection-documents/$userId/$fileName';
-
-        await supabase.storage.from('inspection-photos').uploadBinary(
-              storagePath,
-              bytes,
-              fileOptions: const FileOptions(upsert: true),
-            );
-
-        final publicUrl =
-            supabase.storage.from('inspection-photos').getPublicUrl(storagePath);
-
-        await supabase.from('inspection_documents').insert({
-          'inspection_id': inspectionId,
-          'document_url': publicUrl,
-          'document_type': 'custom',
-          'document_title': doc['title'] ?? 'Document',
-        });
-      }
-
-      // 4b. Sauvegarder les frais/dépenses
-      for (final expense in _expenses) {
-        // Normaliser le type pour correspondre à la contrainte DB
-        final rawType = (expense['type'] as String?) ?? 'autre';
-        final normalizedType = _normalizeExpenseType(rawType);
-        await supabase.from('inspection_expenses').insert({
-          'inspection_id': inspectionId,
-          'expense_type': normalizedType,
-          'amount': expense['amount'],
-          'description': expense['description'],
-        });
-      }
-
-      // 4c. Sauvegarder les dommages liés aux photos (body map intégré)
-      final allDamages = _photoDamageEntries.values.expand((list) => list).toList();
-      for (final damage in allDamages) {
-        await supabase.from('inspection_damages').insert({
-          'inspection_id': inspectionId,
-          'damage_type': damage.type.name,
-          'severity': 'moderate',
-          'location': damage.zone.key,
-          'description': '${damage.zone.label} — ${damage.type.label}${damage.comment.isNotEmpty ? ': ${damage.comment}' : ''}',
-          'detected_by': 'manual',
-        });
-      }
-      debugPrint('✅ STEP 4c OK: ${allDamages.length} damages saved');
-
-      // 5. Check if this is restitution arrival or regular arrival with restitution pending
-      if (widget.isRestitution) {
-        // Restitution arrival → mark mission as completed
-        await supabase.from('missions').update({
-          'status': 'completed',
-          'updated_at': DateTime.now().toUtc().toIso8601String(),
-        }).eq('id', widget.missionId);
-      } else {
-        // Regular arrival → check if mission has restitution
-        final missionData = await supabase
-            .from('missions')
-            .select('has_restitution')
-            .eq('id', widget.missionId)
-            .single();
-        final hasRestitution = missionData['has_restitution'] == true;
-
-        if (!hasRestitution) {
-          // No restitution → mark completed
-          await supabase.from('missions').update({
-            'status': 'completed',
-            'updated_at': DateTime.now().toUtc().toIso8601String(),
-          }).eq('id', widget.missionId);
-        }
-        // If has restitution, don't mark completed — user needs to do restitution inspections
-      }
-
-      // 6. Créer ou mettre à jour le token de partage dans inspection_report_shares
+      // 6. Create share token
       final reportType = widget.isRestitution ? 'restitution_complete' : 'complete';
-      final shareToken = '${DateTime.now().millisecondsSinceEpoch.toRadixString(36)}${userId.substring(0, 8)}';
-      await supabase.from('inspection_report_shares').upsert({
-        'mission_id': widget.missionId,
-        'share_token': shareToken,
-        'user_id': userId,
-        'report_type': reportType,
-        'is_active': true,
-      }, onConflict: 'mission_id,report_type');
+      final shareToken = await svc.createShareToken(
+        missionId: widget.missionId,
+        reportType: reportType,
+      );
 
       if (mounted) setState(() => _isSubmitting = false);
 
@@ -1258,7 +1152,6 @@ class _InspectionArrivalScreenState extends State<InspectionArrivalScreen>
               .eq('id', widget.missionId)
               .single();
           if (missionCheck['has_restitution'] == true && mounted) {
-            // Inform user that restitution inspections are needed next
             await showDialog(
               context: context,
               barrierDismissible: false,

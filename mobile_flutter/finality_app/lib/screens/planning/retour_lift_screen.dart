@@ -17,18 +17,19 @@ import 'package:http/http.dart' as http;
 import 'package:geolocator/geolocator.dart';
 import '../../widgets/city_search_field.dart';
 import '../../services/lift_notification_service.dart';
+import '../../theme/premium_theme.dart';
 
 // ── Couleurs ─────────────────────────────────────────────────────────────────
 
-const _kTeal   = Color(0xFF0D9488);
+const _kTeal   = PremiumTheme.teal600;
 const _kTealBg = Color(0xFFE6FFFA);
-const _kAmber  = Color(0xFFF59E0B);
-const _kGreen  = Color(0xFF10B981);
-const _kRed    = Color(0xFFEF4444);
-const _kDark   = Color(0xFF0F172A);
-const _kGray   = Color(0xFF64748B);
-const _kBorder = Color(0xFFE2E8F0);
-const _kCard   = Color(0xFFFFFFFF);
+const _kAmber  = PremiumTheme.accentAmber;
+const _kGreen  = PremiumTheme.accentGreen;
+const _kRed    = PremiumTheme.accentRed;
+const _kDark   = PremiumTheme.slate900;
+const _kGray   = PremiumTheme.slate500;
+const _kBorder = PremiumTheme.slate200;
+const _kCard   = PremiumTheme.cardBg;
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 

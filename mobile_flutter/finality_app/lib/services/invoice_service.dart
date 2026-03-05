@@ -3,7 +3,10 @@ import '../models/invoice.dart';
 import '../utils/logger.dart';
 
 class InvoiceService {
-  final _supabase = Supabase.instance.client;
+  final SupabaseClient _supabase;
+
+  InvoiceService({SupabaseClient? client})
+      : _supabase = client ?? Supabase.instance.client;
 
   // Créer une facture
   Future<Invoice> createInvoice(Invoice invoice) async {

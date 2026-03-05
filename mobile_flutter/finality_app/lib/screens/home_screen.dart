@@ -17,7 +17,6 @@ import '../utils/logger.dart';
 import '../theme/premium_theme.dart';
 import 'dashboard/dashboard_screen.dart';
 import 'missions/missions_screen.dart';
-import 'missions/mission_create_screen_new.dart';
 import 'scanned_documents/scanned_documents_screen_new.dart';
 
 class HomeScreen extends ConsumerStatefulWidget {
@@ -48,8 +47,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       const MissionsScreen(),
     ];
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      ref.read(creditsProvider.notifier).initialize();
-      ref.read(subscriptionProvider.notifier).initialize();
+      // Credits & Subscription auto-initialize via async build()
       _checkExpiredSubscription();
       _deepLinkService.initialize();
       _linkSubscription = _deepLinkService.linkStream.listen((uri) {
@@ -124,12 +122,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     ));
   }
 
-  void _openNewMission() {
-    Navigator.push(context, MaterialPageRoute(
-      builder: (_) => const MissionCreateScreenNew(),
-    ));
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context);
@@ -154,17 +146,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ],
       ),
-      // FAB : Nouvelle mission (visible onglet Missions)
-      floatingActionButton: _currentIndex == 1
-          ? FloatingActionButton.extended(
-              onPressed: _openNewMission,
-              icon: const Icon(Icons.add_road),
-              label: Text(l10n.newMission),
-              backgroundColor: PremiumTheme.brandViolet,
-              foregroundColor: Colors.white,
-              elevation: 4,
-            )
-          : null,
+      // FAB supprimé — bouton intégré dans l'AppBar de MissionsScreen
       // Bottom bar compacte iOS-friendly
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,

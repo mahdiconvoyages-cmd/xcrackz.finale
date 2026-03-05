@@ -48,8 +48,8 @@ class Client {
 
   factory Client.fromJson(Map<String, dynamic> json) {
     return Client(
-      id: json['id'] as String,
-      userId: json['user_id'] as String,
+      id: json['id']?.toString() ?? '',
+      userId: json['user_id']?.toString() ?? '',
       name: json['name'] as String? ?? '',
       email: json['email'] as String? ?? '',
       phone: json['phone'] as String?,
@@ -66,9 +66,9 @@ class Client {
       paymentTerms: json['payment_terms'] as int? ?? 30,
       isCompany: json['is_company'] as bool? ?? false,
       isFavorite: json['is_favorite'] as bool? ?? false,
-      createdAt: DateTime.parse(json['created_at'] as String),
+      createdAt: DateTime.parse(json['created_at']?.toString() ?? DateTime.now().toIso8601String()),
       updatedAt: json['updated_at'] != null 
-          ? DateTime.parse(json['updated_at'] as String)
+          ? DateTime.parse(json['updated_at'].toString())
           : null,
     );
   }
