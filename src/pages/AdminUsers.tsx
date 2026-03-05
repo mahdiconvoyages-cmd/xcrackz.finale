@@ -353,6 +353,21 @@ export default function AdminUsers() {
       });
     }
 
+    // ── Push notification: abonnement attribué ──
+    try {
+      await supabase.functions.invoke('send-notification', {
+        body: {
+          userId: subModal.id,
+          type: 'subscription',
+          title: '🎉 Abonnement activé !',
+          message: `Votre abonnement ${subPlan.toUpperCase()} a été activé pour ${days} jours. Vous avez reçu ${creditsToAdd} crédits.`,
+          data: { plan: subPlan, credits: String(creditsToAdd), type: 'subscription' },
+        },
+      });
+    } catch (pushErr) {
+      console.warn('Push abonnement échoué (non-bloquant):', pushErr);
+    }
+
     // ═══════════════════════════════════════════════════════
     // RÉCOMPENSE PARRAINAGE via RPC (SECURITY DEFINER = bypass RLS)
     // ═══════════════════════════════════════════════════════
@@ -371,6 +386,35 @@ export default function AdminUsers() {
         } else if (rewardResult?.success) {
           showToast('success', 'Parrainage récompensé',
             `+10 crédits pour ${rewardResult.referrer_name} (parrain) et ${rewardResult.filleul_name} (filleul)`);
+
+          // ── PUSH NOTIFICATIONS via Edge Function ──
+          try {
+            // Push au parrain
+            await supabase.functions.invoke('send-notification', {
+              body: {
+                userId: rewardResult.referrer_id,
+                type: 'referral_reward',
+                title: '🎉 +10 Crédits de parrainage !',
+                message: `Votre filleul ${rewardResult.filleul_name} a souscrit un abonnement. Vous recevez 10 crédits de récompense !`,
+                data: { credits: '10', type: 'referral_reward' },
+              },
+            });
+            console.log('[PARRAINAGE] Push envoyé au parrain');
+
+            // Push au filleul
+            await supabase.functions.invoke('send-notification', {
+              body: {
+                userId: subModal.id,
+                type: 'referral_bonus',
+                title: '🎁 +10 Crédits de bienvenue !',
+                message: `Merci d'avoir rejoint ChecksFleet via un parrainage ! Vous recevez 10 crédits bonus.`,
+                data: { credits: '10', type: 'referral_bonus' },
+              },
+            });
+            console.log('[PARRAINAGE] Push envoyé au filleul');
+          } catch (pushErr) {
+            console.warn('[PARRAINAGE] Push échoué (non-bloquant):', pushErr);
+          }
         } else if (rewardResult?.reason === 'no_referrer') {
           console.log('[PARRAINAGE] Pas de parrain (referred_by = null)');
         } else if (rewardResult?.reason === 'already_rewarded') {
