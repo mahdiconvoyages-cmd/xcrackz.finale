@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
 
-const WHATSAPP_NUMBER = '33683397461';
+const WHATSAPP_NUMBER = '33764401599';
 const WHATSAPP_URL = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent('Bonjour, je vous contacte depuis ChecksFleet.')}`;
 
 export default function WhatsAppButton() {
