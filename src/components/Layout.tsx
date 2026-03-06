@@ -1,7 +1,7 @@
 import { ReactNode } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import FloatingParticles from './FloatingParticles';
-import SupportChat from './SupportChat';
+import WhatsAppButton from './WhatsAppButton';
 import { LayoutDashboard, Users, Settings, LogOut, Menu, X, CircleUser as UserCircle, MapPin, ShoppingBag, Shield, Building2, MessageCircle, Smartphone, Camera, FileText } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import { useAdmin } from '../hooks/useAdmin';
@@ -404,8 +404,8 @@ export default function Layout({ children }: LayoutProps) {
         </main>
       </div>
 
-      {/* Support Chat - Contactez l'équipe */}
-      <SupportChat />
+      {/* WhatsApp - Contactez-nous */}
+      <WhatsAppButton />
     </div>
   );
 }
