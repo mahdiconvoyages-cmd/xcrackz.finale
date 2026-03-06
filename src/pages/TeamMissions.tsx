@@ -214,6 +214,15 @@ export default function TeamMissions() {
     } catch (e) { console.error(e); showToast('error', 'Erreur', 'Erreur lors de l\'ouverture du rapport'); }
   };
 
+  const handleDeleteReport = async (missionId: string) => {
+    if (!confirm('⚠️ Supprimer le rapport d\'inspection ?\n\nLe lien de partage ne sera plus accessible.\nLes données d\'inspection restent dans votre compte.\n\nCette action est irréversible.')) return;
+    try {
+      const { data, error } = await supabase.rpc('delete_inspection_report', { p_mission_id: missionId, p_user_id: user?.id });
+      if (error) throw error;
+      showToast('success', 'Rapport supprimé', 'Le rapport n\'est plus accessible publiquement');
+    } catch (e) { console.error(e); showToast('error', 'Erreur', 'Erreur lors de la suppression du rapport'); }
+  };
+
   const handleCopyShareCode = (code: string) => { navigator.clipboard.writeText(code); showToast('success', 'Code copié', 'Le code de partage a été copié'); };
 
   const getVehicleTypeLabel = (t?: string) => { switch (t) { case 'VL': return 'VL'; case 'VU': return 'VU'; case 'PL': return 'PL'; default: return t || 'VL'; } };
@@ -411,6 +420,19 @@ export default function TeamMissions() {
           </div>
         </div>
 
+        {/* ── Expiration Warning Banner ── */}
+        {activeTab === 'completed' && filteredMissions.length > 0 && (
+          <div className="rounded-2xl p-3 lg:p-4 flex items-start gap-3" style={{ backgroundColor: '#FFF7ED', border: '1px solid #FDBA7420' }}>
+            <div className="p-2 rounded-xl shrink-0" style={{ backgroundColor: '#FDBA7420' }}>
+              <Clock className="w-5 h-5" style={{ color: '#F59E0B' }} />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-semibold" style={{ color: '#92400E' }}>Conservation des rapports — 6 mois</p>
+              <p className="text-xs mt-0.5" style={{ color: '#B45309' }}>Les rapports d'inspection sont automatiquement supprimés 6 mois après la fin de la mission pour optimiser le stockage. Vous pouvez aussi supprimer un rapport manuellement à tout moment.</p>
+            </div>
+          </div>
+        )}
+
         {/* ── Mission Cards ── */}
         <div className={
           viewMode === 'grid'
@@ -506,6 +528,12 @@ export default function TeamMissions() {
                             <button onClick={() => handleCreateInvoice(m)} className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold text-white" style={{ backgroundColor: T.accentAmber }}>
                               <Receipt className="w-3 h-3" /> Facture
                             </button>
+                            {m.user_id === user?.id && (
+                              <button onClick={() => handleDeleteReport(m.id)}
+                                className="p-1.5 rounded-lg transition hover:scale-105" style={{ color: T.accentRed, backgroundColor: `${T.accentRed}10` }} title="Supprimer le rapport">
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            )}
                           </>
                         )}
                         <button onClick={async () => { try { await generateMissionPDF(m); } catch (e) { console.error(e); } }}
@@ -1164,17 +1192,26 @@ export default function TeamMissions() {
                   </div>
                 )}
                 {sm.status === 'completed' && (
-                  <div className="flex gap-3">
-                    <button onClick={() => { setShowDetailsModal(false); handleViewReport(sm.id); }}
-                      className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white transition hover:shadow-lg"
-                      style={{ background: `linear-gradient(135deg, ${T.primaryBlue}, #0052CC)` }}>
-                      Voir le rapport
-                    </button>
-                    <button onClick={() => { setShowDetailsModal(false); handleCreateInvoice(sm); }}
-                      className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white transition hover:shadow-lg"
-                      style={{ background: `linear-gradient(135deg, ${T.accentGreen}, #059669)` }}>
-                      Créer facture
-                    </button>
+                  <div className="space-y-2">
+                    <div className="flex gap-3">
+                      <button onClick={() => { setShowDetailsModal(false); handleViewReport(sm.id); }}
+                        className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white transition hover:shadow-lg"
+                        style={{ background: `linear-gradient(135deg, ${T.primaryBlue}, #0052CC)` }}>
+                        Voir le rapport
+                      </button>
+                      <button onClick={() => { setShowDetailsModal(false); handleCreateInvoice(sm); }}
+                        className="flex-1 py-3.5 rounded-xl text-sm font-bold text-white transition hover:shadow-lg"
+                        style={{ background: `linear-gradient(135deg, ${T.accentGreen}, #059669)` }}>
+                        Créer facture
+                      </button>
+                    </div>
+                    {sm.user_id === user?.id && (
+                      <button onClick={() => handleDeleteReport(sm.id)}
+                        className="w-full py-2.5 rounded-xl text-xs font-semibold transition flex items-center justify-center gap-2"
+                        style={{ color: T.accentRed, backgroundColor: `${T.accentRed}08`, border: `1px solid ${T.accentRed}20` }}>
+                        <Trash2 className="w-3.5 h-3.5" /> Supprimer le rapport public
+                      </button>
+                    )}
                   </div>
                 )}
               </div>

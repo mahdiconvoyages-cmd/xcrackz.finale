@@ -480,12 +480,26 @@ export default function PublicInspectionReportShared() {
   }
 
   if (error || !reportData) {
+    const isExpired = error?.includes('expiré') || error?.includes('invalide');
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-xl shadow-lg p-8 max-w-md text-center">
-          <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-gray-900 mb-2">Lien invalide</h1>
-          <p className="text-gray-600">{error || 'Ce rapport n\'existe pas ou a expiré'}</p>
+          {isExpired ? (
+            <>
+              <Clock className="w-16 h-16 text-amber-500 mx-auto mb-4" />
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Rapport expiré</h1>
+              <p className="text-gray-600 mb-4">Ce rapport d'inspection a été supprimé ou a expiré après 6 mois de conservation.</p>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 text-left">
+                <p className="text-xs text-amber-800">Les rapports d'inspection sont automatiquement supprimés 6 mois après la fin de la mission pour optimiser le stockage. Le propriétaire peut aussi avoir supprimé ce rapport manuellement.</p>
+              </div>
+            </>
+          ) : (
+            <>
+              <XCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">Lien invalide</h1>
+              <p className="text-gray-600">{error || 'Ce rapport n\'existe pas ou a expiré'}</p>
+            </>
+          )}
         </div>
       </div>
     );
