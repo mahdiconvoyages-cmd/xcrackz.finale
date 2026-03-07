@@ -42,7 +42,7 @@ export default function Legal() {
               <p><strong className="text-white">SIRET :</strong> 848 224 349 00017</p>
               <p><strong className="text-white">TVA :</strong> Non applicable — Art. 293 B du CGI</p>
               <p><strong className="text-white">Email :</strong> contact@checksfleet.com</p>
-              <p><strong className="text-white">Téléphone :</strong> +33 6 83 39 74 61</p>
+              <p><strong className="text-white">Téléphone :</strong> +33 7 64 40 15 99</p>
               <p><strong className="text-white">Sites web :</strong> www.checksfleet.com / www.xcrackz.com</p>
             </div>
             <p className="mt-4">
@@ -73,13 +73,13 @@ export default function Legal() {
           <section className="bg-white/5 backdrop-blur-xl border border-white/20 p-8 rounded-2xl">
             <h2 className="text-2xl font-bold text-white mb-4">3. Propriété intellectuelle</h2>
             <p className="mb-4">
-              L'ensemble du contenu de ce site (textes, images, vidéos, logos, icônes, sons, logiciels, etc.) est la propriété exclusive de CHECKSFLEET SAS ou de ses partenaires, sauf mention contraire.
+              L'ensemble du contenu de ce site (textes, images, vidéos, logos, icônes, sons, logiciels, etc.) est la propriété exclusive de ChecksFleet ou de ses partenaires, sauf mention contraire.
             </p>
             <p className="mb-4">
-              Toute reproduction, représentation, modification, publication, adaptation de tout ou partie des éléments du site, quel que soit le moyen ou le procédé utilisé, est interdite, sauf autorisation écrite préalable de CHECKSFLEET SAS.
+              Toute reproduction, représentation, modification, publication, adaptation de tout ou partie des éléments du site, quel que soit le moyen ou le procédé utilisé, est interdite, sauf autorisation écrite préalable de ChecksFleet.
             </p>
             <p>
-              La marque CHECKSFLEET, ainsi que tous les signes distinctifs reproduits sur le site, sont la propriété exclusive de CHECKSFLEET SAS. Toute reproduction totale ou partielle de ces marques sans autorisation est interdite.
+              La marque CHECKSFLEET, ainsi que tous les signes distinctifs reproduits sur le site, sont la propriété exclusive de ChecksFleet. Toute reproduction totale ou partielle de ces marques sans autorisation est interdite.
             </p>
           </section>
 
@@ -124,10 +124,10 @@ export default function Legal() {
               CHECKSFLEET SAS s'efforce de fournir des informations exactes et à jour sur son site. Toutefois, nous ne pouvons garantir l'exactitude, la précision ou l'exhaustivité des informations mises à disposition.
             </p>
             <p className="mb-4">
-              CHECKSFLEET SAS ne pourra être tenu responsable des dommages directs ou indirects résultant de l'utilisation du site ou de l'impossibilité d'y accéder.
+              ChecksFleet ne pourra être tenu responsable des dommages directs ou indirects résultant de l'utilisation du site ou de l'impossibilité d'y accéder.
             </p>
             <p>
-              Le site peut contenir des liens vers des sites externes. CHECKSFLEET SAS n'exerce aucun contrôle sur ces sites et décline toute responsabilité quant à leur contenu.
+              Le site peut contenir des liens vers des sites externes. ChecksFleet n'exerce aucun contrôle sur ces sites et décline toute responsabilité quant à leur contenu.
             </p>
           </section>
 
@@ -148,7 +148,7 @@ export default function Legal() {
             </p>
             <div className="pl-4 space-y-1">
               <p><strong className="text-white">Email :</strong> contact@checksfleet.com</p>
-              <p><strong className="text-white">Téléphone :</strong> +33 6 83 39 74 61</p>
+              <p><strong className="text-white">Téléphone :</strong> +33 7 64 40 15 99</p>
               <p><strong className="text-white">Adresse :</strong> 76 Résidence Mas de Pérols, 34470 Pérols, France</p>
             </div>
           </section>

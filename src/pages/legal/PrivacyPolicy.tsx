@@ -53,7 +53,8 @@ export default function PrivacyPolicy() {
                 SIRET : 848 224 349 00017<br />
                 Adresse : 76 Résidence Mas de Pérols, 34470 Pérols, France<br />
                 Email : contact@checksfleet.com<br />
-                Téléphone : +33 6 83 39 74 61
+                DPO (Délégué à la Protection des Données) : dpo@checksfleet.com<br />
+                Téléphone : +33 7 64 40 15 99
               </p>
             </div>
           </section>
@@ -101,6 +102,8 @@ export default function PrivacyPolicy() {
                 <h3 className="font-bold text-lg text-slate-900 mb-2">💻 Données techniques</h3>
                 <ul className="list-disc list-inside text-slate-700 space-y-1">
                   <li>Adresse IP</li>
+                  <li>Adresse IP d'inscription</li>
+                  <li>Empreinte numérique de l'appareil (device fingerprint)</li>
                   <li>Type de navigateur et système d'exploitation</li>
                   <li>Cookies et identifiants de session</li>
                   <li>Logs de connexion</li>
@@ -189,6 +192,15 @@ export default function PrivacyPolicy() {
                 <strong>⚠️ Attention :</strong> Nous ne vendons JAMAIS vos données à des tiers. Nous ne partageons
                 vos données qu'avec des prestataires conformes au RGPD.
               </p>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mt-3">
+                <p className="font-semibold text-yellow-900 mb-2">🌐 Transferts hors UE</p>
+                <p className="text-sm">
+                  Certaines données peuvent être transférées vers des prestataires situés en dehors
+                  de l'Union Européenne (Google Cloud pour l'IA Gemini, Stripe pour les paiements).
+                  Ces transferts sont encadrés par des <strong>Clauses Contractuelles Types (CCT)</strong> approuvées
+                  par la Commission Européenne, garantissant un niveau de protection conforme au RGPD.
+                </p>
+              </div>
             </div>
           </section>
 
@@ -366,21 +378,30 @@ export default function PrivacyPolicy() {
           <section>
             <div className="flex items-center gap-3 mb-4">
               <Eye className="w-6 h-6 text-blue-600" />
-              <h2 className="text-2xl font-bold text-slate-900">10. Traitement des données</h2>
+              <h2 className="text-2xl font-bold text-slate-900">10. Traitement des données par Intelligence Artificielle</h2>
             </div>
             <div className="text-slate-700 space-y-3">
               <p>
-                Notre plateforme traite vos données pour générer des rapports d'inspection
+                Notre plateforme utilise l'intelligence artificielle (Google Gemini) pour générer des rapports d'inspection
                 et analyser l'état des véhicules.
               </p>
               <div className="bg-purple-50 border-l-4 border-purple-500 p-4 rounded">
-                <p className="font-bold text-purple-900 mb-2">🔒 Traitement des données :</p>
+                <p className="font-bold text-purple-900 mb-2">🤖 Traitement IA :</p>
                 <ul className="text-sm list-disc list-inside space-y-1">
-                  <li>Les photos d'inspection sont traitées de manière sécurisée</li>
-                  <li>Vos images sont stockées uniquement sur nos serveurs sécurisés</li>
-                  <li>Vous pouvez saisir manuellement les descriptions</li>
-                  <li>Vos données ne sont pas partagées avec des tiers</li>
+                  <li>Les photos d'inspection sont analysées par IA pour détecter et décrire les dommages</li>
+                  <li>L'IA génère des descriptions à titre <strong>indicatif uniquement</strong> — elles doivent être vérifiées par l'utilisateur</li>
+                  <li>Vos images sont envoyées à Google Gemini pour analyse, puis les résultats sont stockés sur nos serveurs</li>
+                  <li>Google ne conserve pas vos images au-delà du traitement (API mode)</li>
+                  <li>Vous pouvez saisir manuellement les descriptions si vous ne souhaitez pas utiliser l'IA</li>
                 </ul>
+              </div>
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mt-3">
+                <p className="font-semibold text-blue-900">✅ Consentement explicite requis</p>
+                <p className="text-sm mt-1">
+                  L'utilisation de l'IA fait l'objet d'un consentement explicite : une modale de choix est
+                  affichée avant chaque utilisation. Vous pouvez refuser l'analyse IA et saisir les descriptions
+                  manuellement sans impact sur le service.
+                </p>
               </div>
               <p className="text-sm">
                 Base légale : <strong>Consentement explicite</strong> (affichage d'une modale de choix avant utilisation)
@@ -415,7 +436,7 @@ export default function PrivacyPolicy() {
             <div className="space-y-2">
               <p className="text-lg">Pour toute question concernant cette politique :</p>
               <p className="font-bold text-xl">📧 contact@checksfleet.com</p>
-              <p>📞 +33 6 83 39 74 61</p>
+              <p>📞 +33 7 64 40 15 99</p>
               <p>📍 76 Résidence Mas de Pérols, 34470 Pérols, France</p>
             </div>
           </section>

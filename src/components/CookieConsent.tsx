@@ -1,34 +1,45 @@
 import { useState, useEffect } from 'react';
 
+const COOKIE_CONSENT_KEY = 'cookie-consent';
+const THIRTEEN_MONTHS_MS = 13 * 30 * 24 * 60 * 60 * 1000; // ~13 mois (CNIL)
+
 export default function CookieConsent() {
   const [showBanner, setShowBanner] = useState(false);
 
   useEffect(() => {
-    const consent = localStorage.getItem('cookie-consent');
-    if (!consent) {
+    const raw = localStorage.getItem(COOKIE_CONSENT_KEY);
+    if (!raw) {
+      setShowBanner(true);
+      return;
+    }
+    try {
+      const consent = JSON.parse(raw);
+      // Vérifier l'expiration de 13 mois (CNIL)
+      if (consent.timestamp) {
+        const elapsed = Date.now() - new Date(consent.timestamp).getTime();
+        if (elapsed > THIRTEEN_MONTHS_MS) {
+          localStorage.removeItem(COOKIE_CONSENT_KEY);
+          setShowBanner(true);
+        }
+      }
+    } catch {
+      localStorage.removeItem(COOKIE_CONSENT_KEY);
       setShowBanner(true);
     }
   }, []);
 
-  const acceptAll = () => {
-    localStorage.setItem('cookie-consent', JSON.stringify({
+  const saveConsent = (analytics: boolean, functional: boolean) => {
+    localStorage.setItem(COOKIE_CONSENT_KEY, JSON.stringify({
       necessary: true,
-      analytics: true,
-      functional: true,
+      analytics,
+      functional,
       timestamp: new Date().toISOString()
     }));
     setShowBanner(false);
   };
 
-  const acceptNecessary = () => {
-    localStorage.setItem('cookie-consent', JSON.stringify({
-      necessary: true,
-      analytics: false,
-      functional: false,
-      timestamp: new Date().toISOString()
-    }));
-    setShowBanner(false);
-  };
+  const acceptAll = () => saveConsent(true, true);
+  const rejectAll = () => saveConsent(false, false);
 
   if (!showBanner) return null;
 
@@ -40,16 +51,16 @@ export default function CookieConsent() {
             <h3 className="text-white font-bold mb-2">Respect de votre vie privée</h3>
             <p className="text-slate-300 text-sm">
               Nous utilisons des cookies pour améliorer votre expérience, analyser le trafic et personnaliser le contenu.
-              Vous pouvez choisir d'accepter tous les cookies ou uniquement les cookies essentiels.
-              <a href="/legal" className="text-teal-400 hover:underline ml-1">En savoir plus</a>
+              Vous pouvez accepter, refuser ou gérer vos préférences.
+              <a href="/legal/cookie-policy" className="text-teal-400 hover:underline ml-1">Gérer mes préférences</a>
             </p>
           </div>
           <div className="flex gap-3 flex-shrink-0">
             <button
-              onClick={acceptNecessary}
+              onClick={rejectAll}
               className="px-6 py-2 rounded-lg bg-white/5 border border-white/20 text-white hover:bg-white/10 transition font-semibold"
             >
-              Nécessaires uniquement
+              Tout refuser
             </button>
             <button
               onClick={acceptAll}

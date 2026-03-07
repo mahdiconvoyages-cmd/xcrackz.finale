@@ -41,6 +41,38 @@ export const gdprService = {
 
       userData.inspections = inspections;
 
+      // GPS tracking data
+      const { data: gpsTracking } = await supabase
+        .from('gps_tracking')
+        .select('*')
+        .eq('user_id', userId);
+
+      userData.gps_tracking = gpsTracking;
+
+      // Credit transactions
+      const { data: creditTransactions } = await supabase
+        .from('credit_transactions')
+        .select('*')
+        .eq('user_id', userId);
+
+      userData.credit_transactions = creditTransactions;
+
+      // Support tickets
+      const { data: supportTickets } = await supabase
+        .from('support_tickets')
+        .select('*')
+        .eq('user_id', userId);
+
+      userData.support_tickets = supportTickets;
+
+      // Notifications
+      const { data: notifications } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', userId);
+
+      userData.notifications = notifications;
+
       const blob = new Blob([JSON.stringify(userData, null, 2)], {
         type: 'application/json',
       });

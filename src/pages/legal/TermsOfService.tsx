@@ -371,12 +371,55 @@ export default function TermsOfService() {
                 nonobstant pluralité de défendeurs ou appel en garantie.
               </p>
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                <p className="font-semibold text-blue-900">📧 Médiation</p>
+                <p className="font-semibold text-blue-900">📧 Médiation de la consommation</p>
                 <p className="text-sm mt-2">
-                  Conformément à l'article L.612-1 du Code de la consommation, vous pouvez recourir gratuitement
-                  à un médiateur de la consommation en cas de litige.
+                  Conformément aux articles L.611-1 et R.612-1 du Code de la consommation, vous pouvez recourir
+                  gratuitement au service de médiation suivant :
+                </p>
+                <p className="text-sm mt-2 font-semibold">CM2C — Centre de Médiation de la Consommation de Conciliateurs de Justice</p>
+                <ul className="text-sm mt-1 list-disc list-inside space-y-1">
+                  <li>Site web : <a href="https://www.cm2c.net" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">www.cm2c.net</a></li>
+                  <li>Adresse : 14 rue Saint-Jean, 75017 Paris</li>
+                </ul>
+                <p className="text-sm mt-2">
+                  Plateforme européenne de règlement en ligne des litiges :{' '}
+                  <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                    https://ec.europa.eu/consumers/odr
+                  </a>
                 </p>
               </div>
+            </div>
+          </section>
+
+          {/* Article 12 - Droit de rétractation */}
+          <section>
+            <div className="flex items-center gap-3 mb-4">
+              <Scale className="w-6 h-6 text-purple-600" />
+              <h2 className="text-2xl font-bold text-slate-900">Article 12 - Droit de Rétractation</h2>
+            </div>
+            <div className="text-slate-700 space-y-3">
+              <p>
+                Conformément aux articles L.221-18 et suivants du Code de la consommation, le consommateur
+                dispose d'un délai de <strong>14 jours calendaires</strong> à compter de la souscription pour exercer
+                son droit de rétractation, sans avoir à justifier de motifs ni à payer de pénalités.
+              </p>
+              <div className="bg-orange-50 border-l-4 border-orange-500 p-4 rounded">
+                <p className="font-semibold text-orange-900">⚠️ Exception pour contenu numérique (Art. L.221-28, 13° C. conso.)</p>
+                <p className="text-sm mt-2">
+                  Le droit de rétractation ne peut être exercé pour les fournitures de contenu numérique
+                  non fourni sur support matériel dont l'exécution a commencé avec votre accord exprès et
+                  après renonciation expresse à votre droit de rétractation.
+                </p>
+              </div>
+              <p>
+                Pour exercer votre droit de rétractation, contactez-nous par email à <strong>contact@checksfleet.com</strong> ou
+                par courrier à : ChecksFleet, 76 Résidence Mas de Pérols, 34470 Pérols, France.
+              </p>
+              <p className="text-sm">
+                Le remboursement sera effectué sous 14 jours par le même moyen de paiement.
+                Pour plus de détails, consultez nos{' '}
+                <Link to="/legal/cgv" className="text-blue-600 hover:underline font-semibold">CGV</Link>.
+              </p>
             </div>
           </section>
 
@@ -386,7 +429,7 @@ export default function TermsOfService() {
             <div className="space-y-2">
               <p className="text-lg">Pour toute question concernant ces CGU :</p>
               <p className="font-bold text-xl">📧 contact@checksfleet.com</p>
-              <p>📞 +33 6 83 39 74 61</p>
+              <p>📞 +33 7 64 40 15 99</p>
               <p>📍 76 Résidence Mas de Pérols, 34470 Pérols, France</p>
             </div>
           </section>

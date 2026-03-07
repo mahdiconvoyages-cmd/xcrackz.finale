@@ -79,6 +79,7 @@ const PublicInspectionReportShared = lazyRetry(() => import('./pages/PublicInspe
 const PrivacyPolicy = lazyRetry(() => import('./pages/legal/PrivacyPolicy'));
 const TermsOfService = lazyRetry(() => import('./pages/legal/TermsOfService'));
 const CookiePolicy = lazyRetry(() => import('./pages/legal/CookiePolicy'));
+const CGV = lazyRetry(() => import('./pages/legal/CGV'));
 const MobileDownload = lazyRetry(() => import('./pages/MobileDownload'));
 const MissionDetail = lazyRetry(() => import('./pages/MissionDetail'));
 const ScannerHomePage = lazyRetry(() => import('./pages/ScannerHomePage'));
@@ -100,6 +101,7 @@ function AppContent() {
         <Route path="/legal/privacy-policy" element={<PrivacyPolicy />} />
         <Route path="/legal/terms-of-service" element={<TermsOfService />} />
         <Route path="/legal/cookie-policy" element={<CookiePolicy />} />
+        <Route path="/legal/cgv" element={<CGV />} />
         <Route path="/login" element={<Login />} />
         <Route path="/auth/callback" element={<AuthCallback />} />
         <Route path="/register" element={<SignupWizard />} />

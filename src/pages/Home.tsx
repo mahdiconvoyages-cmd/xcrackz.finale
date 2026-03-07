@@ -1098,7 +1098,10 @@ const Footer: React.FC = () => (
         </p>
         <div className="flex gap-5 text-xs text-slate-500">
           <Link to="/legal" className="hover:text-slate-300 transition">Mentions légales</Link>
+          <Link to="/legal/terms-of-service" className="hover:text-slate-300 transition">CGU</Link>
+          <Link to="/legal/cgv" className="hover:text-slate-300 transition">CGV</Link>
           <Link to="/legal/privacy-policy" className="hover:text-slate-300 transition">Confidentialité</Link>
+          <Link to="/legal/cookie-policy" className="hover:text-slate-300 transition">Cookies</Link>
         </div>
       </div>
     </div>
