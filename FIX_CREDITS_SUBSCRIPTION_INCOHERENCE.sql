@@ -50,11 +50,13 @@ BEGIN
             s.current_period_end,
             CASE s.plan
                 WHEN 'free' THEN 0
-                WHEN 'starter' THEN 10
-                WHEN 'basic' THEN 25        -- 19.99€/mois
-                WHEN 'pro' THEN 100         -- 49.99€/mois
-                WHEN 'business' THEN 500    -- 79.99€/mois
-                WHEN 'enterprise' THEN 500  -- 79.99€/mois
+                WHEN 'starter' THEN 20
+                WHEN 'essentiel' THEN 20
+                WHEN 'basic' THEN 20
+                WHEN 'pro' THEN 20          -- 20€/mois (240€/an)
+                WHEN 'business' THEN 60     -- 50€/mois (600€/an)
+                WHEN 'premium' THEN 150     -- 79.99€/mois (959.88€/an)
+                WHEN 'enterprise' THEN 500  -- sur mesure
                 ELSE 0
             END as monthly_credits
         FROM subscriptions s
@@ -62,14 +64,14 @@ BEGIN
         AND (s.current_period_end IS NULL OR s.current_period_end > NOW())
         AND s.plan != 'free'
     LOOP
-        -- Ajouter les crédits mensuels dans profiles
+        -- Réinitialiser les crédits (non cumulables) dans profiles
         UPDATE profiles
-        SET credits = COALESCE(credits, 0) + v_sub.monthly_credits
+        SET credits = v_sub.monthly_credits
         WHERE id = v_sub.user_id;
         
-        -- Synchroniser user_credits
+        -- Réinitialiser user_credits (non cumulables)
         UPDATE user_credits
-        SET balance = COALESCE(balance, 0) + v_sub.monthly_credits
+        SET balance = v_sub.monthly_credits
         WHERE user_id = v_sub.user_id;
         
         -- Si user_credits n'existe pas, créer

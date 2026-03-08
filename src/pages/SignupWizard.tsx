@@ -805,8 +805,7 @@ export default function SignupWizard() {
                 <span className="font-bold text-blue-700">10 crédits de bienvenue</span>
               </div>
               <p className="text-sm text-blue-600">
-                Cliquez sur le lien dans l'email pour activer vos crédits gratuits ! 
-                Ils seront valables 30 jours.
+                Cliquez sur le lien dans l'email pour activer vos 10 crédits de bienvenue !
               </p>
             </div>
 

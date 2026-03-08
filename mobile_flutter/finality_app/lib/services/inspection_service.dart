@@ -95,7 +95,18 @@ class InspectionService {
 
   // Get inspection by ID
   Future<VehicleInspection> getInspectionById(String id) async {
+    await _ensureInitialized();
     try {
+      if (_connectivityService.isOffline) {
+        logger.w('InspectionService: Offline - returning cached inspection $id');
+        final cached = await _offlineService.getCachedInspections();
+        final match = cached.where((j) => j['id'] == id).toList();
+        if (match.isNotEmpty) {
+          return VehicleInspection.fromJson(match.first);
+        }
+        throw Exception('Inspection non trouvée en cache');
+      }
+
       final response = await _supabase
           .from('vehicle_inspections')
           .select()
@@ -104,28 +115,79 @@ class InspectionService {
 
       return VehicleInspection.fromJson(response);
     } catch (e) {
+      // Fallback cache
+      logger.e('InspectionService: Error, fallback cache for inspection $id: $e');
+      final cached = await _offlineService.getCachedInspections();
+      final match = cached.where((j) => j['id'] == id).toList();
+      if (match.isNotEmpty) {
+        return VehicleInspection.fromJson(match.first);
+      }
       throw Exception('Erreur lors du chargement de l\'inspection: $e');
     }
   }
 
   // Create inspection
   Future<VehicleInspection> createInspection(Map<String, dynamic> inspectionData) async {
+    await _ensureInitialized();
     try {
+      // Si offline, mettre en queue
+      if (_connectivityService.isOffline) {
+        logger.w('InspectionService: Offline - queueing create action');
+        final tempId = 'temp_insp_${DateTime.now().millisecondsSinceEpoch}';
+        inspectionData['id'] = tempId;
+        inspectionData['created_at'] ??= DateTime.now().toUtc().toIso8601String();
+        inspectionData['updated_at'] ??= DateTime.now().toUtc().toIso8601String();
+
+        await _offlineService.queueAction(OfflineAction(
+          type: ActionType.create,
+          tableName: 'vehicle_inspections',
+          itemId: tempId,
+          data: inspectionData,
+        ));
+
+        await _offlineService.cacheInspection(inspectionData);
+        return VehicleInspection.fromJson(inspectionData);
+      }
+
       final response = await _supabase
           .from('vehicle_inspections')
           .insert(inspectionData)
           .select()
           .single();
 
-      return VehicleInspection.fromJson(response);
+      final inspection = VehicleInspection.fromJson(response);
+      await _offlineService.cacheInspection(response);
+      return inspection;
     } catch (e) {
+      logger.e('InspectionService: Error creating inspection: $e');
       throw Exception('Erreur lors de la création de l\'inspection: $e');
     }
   }
 
   // Update inspection
   Future<VehicleInspection> updateInspection(String id, Map<String, dynamic> updates) async {
+    await _ensureInitialized();
     try {
+      if (_connectivityService.isOffline) {
+        logger.w('InspectionService: Offline - queueing update action');
+        await _offlineService.queueAction(OfflineAction(
+          type: ActionType.update,
+          tableName: 'vehicle_inspections',
+          itemId: id,
+          data: updates,
+        ));
+
+        // Mettre à jour le cache local
+        final cached = await _offlineService.getCachedInspections();
+        final match = cached.where((j) => j['id'] == id).toList();
+        if (match.isNotEmpty) {
+          final updatedJson = Map<String, dynamic>.from(match.first)..addAll(updates);
+          await _offlineService.cacheInspection(updatedJson);
+          return VehicleInspection.fromJson(updatedJson);
+        }
+        throw Exception('Inspection introuvable dans le cache');
+      }
+
       final response = await _supabase
           .from('vehicle_inspections')
           .update(updates)
@@ -133,15 +195,29 @@ class InspectionService {
           .select()
           .single();
 
+      await _offlineService.cacheInspection(response);
       return VehicleInspection.fromJson(response);
     } catch (e) {
+      logger.e('InspectionService: Error updating inspection: $e');
       throw Exception('Erreur lors de la mise à jour de l\'inspection: $e');
     }
   }
 
   // Delete inspection
   Future<void> deleteInspection(String id) async {
+    await _ensureInitialized();
     try {
+      if (_connectivityService.isOffline) {
+        logger.w('InspectionService: Offline - queueing delete action');
+        await _offlineService.queueAction(OfflineAction(
+          type: ActionType.delete,
+          tableName: 'vehicle_inspections',
+          itemId: id,
+          data: {'id': id},
+        ));
+        return;
+      }
+
       final userId = _supabase.auth.currentUser?.id;
       if (userId == null) throw Exception('Utilisateur non connecté');
       await _supabase.from('vehicle_inspections').delete().eq('id', id).eq('inspector_id', userId);

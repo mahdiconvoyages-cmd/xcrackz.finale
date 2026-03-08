@@ -50,7 +50,7 @@ class SubscriptionState {
 
   // Feature access getters
   int get creditsBalance => stats['creditsPerMonth'] as int? ?? 0;
-  int get missionsLimit => stats['missionsLimit'] as int? ?? 5;
+  int get missionsLimit => stats['missionsLimit'] as int? ?? 0;
   bool get hasUnlimitedMissions => missionsLimit == -1;
 
   SubscriptionState copyWith({
@@ -184,8 +184,8 @@ class Subscription extends _$Subscription {
   /// Obtenir tous les plans pour l'écran de comparaison
   List<Map<String, dynamic>> getAllPlans() {
     return [
-      _service.getPlanFeatures('free'),
-      _service.getPlanFeatures('basic'),
+      _service.getPlanFeatures('pro'),
+      _service.getPlanFeatures('business'),
       _service.getPlanFeatures('premium'),
       _service.getPlanFeatures('enterprise'),
     ];

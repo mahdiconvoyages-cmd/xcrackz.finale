@@ -115,26 +115,6 @@ class MissionService {
     }
   }
 
-  // Get missions for current user
-  Future<List<Mission>> getMyMissions() async {
-    try {
-      final userId = _supabase.auth.currentUser?.id;
-      if (userId == null) {
-        throw Exception('Utilisateur non connecté');
-      }
-
-      final response = await _supabase
-          .from('missions')
-          .select()
-          .eq('driver_id', userId)
-          .order('created_at', ascending: false);
-
-      return (response as List).map((json) => Mission.fromJson(json)).toList();
-    } catch (e) {
-      throw Exception('Erreur lors du chargement de vos missions: $e');
-    }
-  }
-
   // Create mission
   Future<Mission> createMission(Map<String, dynamic> missionData) async {
     await _ensureInitialized();
@@ -228,10 +208,33 @@ class MissionService {
 
   // Update mission status
   Future<void> updateMissionStatus(String id, String status) async {
+    await _ensureInitialized();
+    
     try {
+      final updates = {'status': status, 'updated_at': DateTime.now().toUtc().toIso8601String()};
+
+      // Si offline, mettre en queue
+      if (_connectivityService.isOffline) {
+        logger.w('MissionService: Offline - queueing status update');
+        await _offlineService.queueAction(OfflineAction(
+          type: ActionType.update,
+          tableName: 'missions',
+          itemId: id,
+          data: updates,
+        ));
+
+        // Mettre à jour le cache local
+        final cached = await _offlineService.getCachedMissionById(id);
+        if (cached != null) {
+          final updatedJson = cached.toJson()..addAll(updates);
+          await _offlineService.cacheMission(Mission.fromJson(updatedJson));
+        }
+        return;
+      }
+
       await _supabase
           .from('missions')
-          .update({'status': status, 'updated_at': DateTime.now().toUtc().toIso8601String()})
+          .update(updates)
           .eq('id', id);
       
       // Gérer automatiquement le tracking GPS

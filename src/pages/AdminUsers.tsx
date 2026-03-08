@@ -56,6 +56,7 @@ const PLAN_COLORS: Record<string, string> = {
   basic: 'bg-green-100 text-green-700',
   pro: 'bg-teal-100 text-teal-700',
   business: 'bg-blue-100 text-blue-700',
+  premium: 'bg-emerald-100 text-emerald-700',
   enterprise: 'bg-purple-100 text-purple-700',
 };
 const STATUS_COLORS: Record<string, string> = {
@@ -94,7 +95,7 @@ export default function AdminUsers() {
 
   // Subscription modal
   const [subModal, setSubModal] = useState<UserProfile | null>(null);
-  const [subPlan, setSubPlan] = useState('essentiel');
+  const [subPlan, setSubPlan] = useState('pro');
   const [subDuration, setSubDuration] = useState('30');
   const [subAutoRenew, setSubAutoRenew] = useState(true);
   const [subCustomCredits, setSubCustomCredits] = useState('');
@@ -123,9 +124,9 @@ export default function AdminUsers() {
     const { data } = await supabase.from('shop_items').select('name, credits_amount, price').eq('item_type', 'subscription').eq('is_active', true).order('display_order');
     if (data?.length) setShopPlans(data);
     else setShopPlans([
-      { name: 'essentiel', credits_amount: 10, price: 10 },
       { name: 'pro', credits_amount: 20, price: 20 },
-      { name: 'business', credits_amount: 100, price: 50 },
+      { name: 'business', credits_amount: 60, price: 50 },
+      { name: 'premium', credits_amount: 150, price: 79.99 },
       { name: 'enterprise', credits_amount: 0, price: 0 },
     ]);
   };
@@ -313,9 +314,6 @@ export default function AdminUsers() {
 
     const { data: existing } = await supabase.from('subscriptions').select('id, plan').eq('user_id', subModal.id).maybeSingle();
 
-    // Déterminer si c'est un upgrade (pour le parrainage)
-    const isUpgradeFromFree = existing?.plan === 'free' && subPlan !== 'free';
-
     if (existing) {
       const { error: updateErr } = await supabase.from('subscriptions').update({
         plan: subPlan,
@@ -340,16 +338,15 @@ export default function AdminUsers() {
       if (insertErr) console.error('Subscription insert error:', insertErr);
     }
 
-    // Add credits
+    // Réinitialiser les crédits (non cumulables)
     if (creditsToAdd > 0) {
-      const newBal = subModal.credits + creditsToAdd;
-      await supabase.from('profiles').update({ credits: newBal, updated_at: new Date().toISOString() }).eq('id', subModal.id);
+      await supabase.from('profiles').update({ credits: creditsToAdd, updated_at: new Date().toISOString() }).eq('id', subModal.id);
       await supabase.from('credit_transactions').insert({
         user_id: subModal.id,
         amount: creditsToAdd,
         transaction_type: 'addition',
-        description: `Abonnement ${subPlan.toUpperCase()} attribué — ${days}j`,
-        balance_after: newBal,
+        description: `Abonnement ${subPlan.toUpperCase()} attribué — ${days}j (crédits réinitialisés)`,
+        balance_after: creditsToAdd,
       });
     }
 
@@ -382,9 +379,10 @@ export default function AdminUsers() {
 
     // ═══════════════════════════════════════════════════════
     // RÉCOMPENSE PARRAINAGE via RPC (SECURITY DEFINER = bypass RLS)
+    // Crédits attribués au parrain à chaque souscription/renouvellement d'un filleul distinct
     // ═══════════════════════════════════════════════════════
-    if (isUpgradeFromFree || !existing) {
-      console.log('[PARRAINAGE] Upgrade détecté pour', subModal.email, '— appel RPC grant_referral_reward...');
+    if (subPlan !== 'free') {
+      console.log('[PARRAINAGE] Abonnement payant attribué à', subModal.email, '— appel RPC grant_referral_reward...');
       try {
         const { data: rewardResult, error: rewardErr } = await supabase.rpc('grant_referral_reward', {
           p_filleul_id: subModal.id,
@@ -441,7 +439,7 @@ export default function AdminUsers() {
 
     await loadUsers();
     setSubModal(null);
-    setSubPlan('essentiel');
+    setSubPlan('pro');
     setSubDuration('30');
     setSubAutoRenew(true);
     setSubCustomCredits('');
@@ -463,7 +461,7 @@ export default function AdminUsers() {
       await supabase.from('credit_transactions').insert({
         user_id: user.id,
         amount: -user.credits,
-        transaction_type: 'admin_expiration',
+        transaction_type: 'deduction',
         description: 'Abonnement expiré par admin — crédits remis à 0',
         balance_after: 0,
       });

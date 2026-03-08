@@ -12,34 +12,11 @@ import { toast } from '../utils/toast';
 // ===== PLANS =====
 const PLANS = [
   {
-    id: 'essentiel',
-    name: 'Essentiel',
-    icon: Shield,
-    monthlyPrice: 10,
-    annualPrice: 120,
-    setupFee: 50,
-    creditsPerMonth: 10,
-    color: 'from-blue-500 to-cyan-500',
-    colorLight: 'bg-blue-50 border-blue-200 text-blue-700',
-    popular: false,
-    features: [
-      'Accès complet à toute la plateforme',
-      '10 crédits / mois inclus',
-      'Missions, inspections, GPS, facturation',
-      'Rapports d\'inspection PDF',
-      'CRM & gestion clients',
-      'Scanner de documents',
-      'Support par email',
-      'Idéal pour démarrer',
-    ],
-  },
-  {
     id: 'pro',
     name: 'Pro',
     icon: Zap,
     monthlyPrice: 20,
     annualPrice: 240,
-    setupFee: 50,
     creditsPerMonth: 20,
     color: 'from-purple-500 to-indigo-600',
     colorLight: 'bg-purple-50 border-purple-200 text-purple-700',
@@ -47,11 +24,12 @@ const PLANS = [
     features: [
       'Accès complet à toute la plateforme',
       '20 crédits / mois inclus',
-      'Assistant & génération auto',
+      'Missions, inspections, GPS, facturation',
+      'Rapports d\'inspection PDF',
+      'CRM & gestion clients',
       'Scanner intelligent avancé',
-      'Optimisation de trajets',
-      'Rapports PDF enrichis',
       'Support prioritaire',
+      'Idéal pour démarrer',
     ],
   },
   {
@@ -60,19 +38,36 @@ const PLANS = [
     icon: Crown,
     monthlyPrice: 50,
     annualPrice: 600,
-    setupFee: 0,
-    creditsPerMonth: 100,
+    creditsPerMonth: 60,
     color: 'from-amber-500 to-orange-600',
     colorLight: 'bg-amber-50 border-amber-200 text-amber-700',
     popular: false,
     features: [
       'Accès complet à toute la plateforme',
-      '100 crédits / mois inclus',
-      'Frais de mise en place OFFERTS',
+      '60 crédits / mois inclus',
       'Volume idéal flottes & équipes',
       'Toutes les fonctionnalités avancées',
       'Export comptable avancé',
       'Support dédié téléphone',
+    ],
+  },
+  {
+    id: 'premium',
+    name: 'Premium',
+    icon: Shield,
+    monthlyPrice: 79.99,
+    annualPrice: 959.88,
+    creditsPerMonth: 150,
+    color: 'from-emerald-500 to-teal-600',
+    colorLight: 'bg-emerald-50 border-emerald-200 text-emerald-700',
+    popular: false,
+    features: [
+      'Accès complet à toute la plateforme',
+      '150 crédits / mois inclus',
+      'Volume important de missions',
+      'Toutes les fonctionnalités avancées',
+      'Export comptable avancé',
+      'Support dédié prioritaire',
     ],
   },
 ];
@@ -83,13 +78,11 @@ interface RdvForm {
   phone: string;
   company_name: string;
   selected_plan: string;
-  billing_period: 'monthly' | 'annual';
   message: string;
 }
 
 export default function ShopNew() {
   const { user } = useAuth();
-  const [billingPeriod, setBillingPeriod] = useState<'monthly' | 'annual'>('annual');
   const [showModal, setShowModal] = useState(false);
   const [showEnterpriseModal, setShowEnterpriseModal] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<typeof PLANS[0] | null>(null);
@@ -102,7 +95,6 @@ export default function ShopNew() {
     phone: '',
     company_name: '',
     selected_plan: '',
-    billing_period: 'annual',
     message: '',
   });
 
@@ -120,7 +112,6 @@ export default function ShopNew() {
     setForm(prev => ({
       ...prev,
       selected_plan: plan.id,
-      billing_period: billingPeriod,
       email: user?.email || prev.email,
     }));
     setSubmitted(false);
@@ -142,11 +133,10 @@ export default function ShopNew() {
           company_name: form.company_name || form.full_name,
           email: form.email,
           phone: form.phone,
-          expected_volume: `Plan: ${selectedPlan?.name} | ${form.billing_period === 'annual' ? 'Annuel' : 'Mensuel'} | ${selectedPlan?.creditsPerMonth || 0} crédits/mois`,
+          expected_volume: `Plan: ${selectedPlan?.name} | Annuel | ${selectedPlan?.creditsPerMonth || 0} crédits/mois`,
           message: `Demande d'abonnement ${selectedPlan?.name?.toUpperCase()}\n` +
-            `Facturation: ${form.billing_period === 'annual' ? 'Annuelle' : 'Mensuelle'}\n` +
-            `Prix: ${form.billing_period === 'annual' ? selectedPlan?.annualPrice + '€/an' : selectedPlan?.monthlyPrice + '€/mois'}\n` +
-            `Frais de mise en place: ${selectedPlan?.setupFee === 0 ? 'OFFERTS' : selectedPlan?.setupFee + '€'}\n` +
+            `Facturation: Annuelle\n` +
+            `Prix: ${selectedPlan?.annualPrice}€/an (${selectedPlan?.monthlyPrice}€/mois)\n` +
             `Crédits: ${selectedPlan?.creditsPerMonth || 'Accès plateforme uniquement'}/mois\n` +
             (form.message ? `\nMessage: ${form.message}` : ''),
           status: 'pending',
@@ -211,43 +201,25 @@ export default function ShopNew() {
           </h1>
           <p className="text-lg sm:text-xl text-white/80 max-w-2xl mx-auto">
             Des solutions adaptées à chaque professionnel du convoyage. 
-            Sélectionnez votre plan et demandez votre mise en place.
+            Tous les abonnements sont facturés annuellement.
           </p>
         </div>
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 -mt-8 pb-16">
 
-        {/* BILLING TOGGLE */}
+        {/* ANNUAL BILLING INFO */}
         <div className="flex justify-center mb-10">
-          <div className="bg-white rounded-2xl shadow-lg p-1.5 inline-flex items-center gap-1">
-            <button
-              onClick={() => setBillingPeriod('monthly')}
-              className={`px-6 py-3 rounded-xl text-sm font-bold transition-all ${
-                billingPeriod === 'monthly'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              Mensuel
-            </button>
-            <button
-              onClick={() => setBillingPeriod('annual')}
-              className={`px-6 py-3 rounded-xl text-sm font-bold transition-all ${
-                billingPeriod === 'annual'
-                  ? 'bg-indigo-600 text-white shadow-md'
-                  : 'text-slate-500 hover:text-slate-700'
-              }`}
-            >
-              Annuel
-            </button>
+          <div className="bg-white rounded-2xl shadow-lg p-4 inline-flex items-center gap-3">
+            <Calendar className="w-5 h-5 text-indigo-600" />
+            <span className="text-sm font-bold text-slate-700">Facturation annuelle uniquement</span>
+            <span className="text-xs text-slate-500">— Engagement 12 mois</span>
           </div>
         </div>
 
         {/* PLANS GRID */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 mb-16">
           {PLANS.map((plan) => {
-            const price = billingPeriod === 'annual' ? plan.annualPrice : plan.monthlyPrice;
             const PlanIcon = plan.icon;
             
             return (
@@ -283,25 +255,13 @@ export default function ShopNew() {
                   <div className="mb-6">
                     <div className="flex items-end gap-1">
                       <span className="text-4xl font-black text-slate-900">
-                        {billingPeriod === 'annual' ? plan.monthlyPrice : price}€
+                        {plan.monthlyPrice}€
                       </span>
                       <span className="text-slate-500 text-sm mb-1">/mois</span>
                     </div>
-                    {billingPeriod === 'annual' && (
-                      <p className="text-sm text-slate-500 mt-1">
-                        Soit <strong>{plan.annualPrice}€/an</strong> facturé annuellement
-                      </p>
-                    )}
-                    <div className={`mt-2 inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-full ${
-                      plan.setupFee === 0 
-                        ? 'bg-green-100 text-green-700' 
-                        : 'bg-slate-100 text-slate-600'
-                    }`}>
-                      <CreditCard className="w-3 h-3" />
-                      {plan.setupFee === 0 
-                        ? 'Frais de mise en place OFFERTS' 
-                        : `${plan.setupFee}€ de mise en place (1ère fois)`}
-                    </div>
+                    <p className="text-sm text-slate-500 mt-1">
+                      Soit <strong>{plan.annualPrice}€/an</strong> facturé annuellement
+                    </p>
                   </div>
 
                   {/* Features */}
@@ -389,7 +349,7 @@ export default function ShopNew() {
         {/* WHAT CREDITS ARE FOR */}
         <div className="bg-white rounded-2xl shadow-lg p-8 sm:p-10 mb-16">
           <h2 className="text-2xl font-bold text-slate-900 mb-6">Tous les abonnements incluent l'accès complet</h2>
-          <p className="text-slate-500 text-sm mb-6">Quel que soit votre plan, vous bénéficiez de toutes les fonctionnalités de la plateforme sans aucune restriction. La seule différence entre les plans est le nombre de crédits inclus chaque mois.</p>
+          <p className="text-slate-500 text-sm mb-6">Quel que soit votre plan, vous bénéficiez de toutes les fonctionnalités de la plateforme sans aucune restriction. La seule différence entre les plans est le nombre de crédits inclus chaque mois. Tous les abonnements sont facturés annuellement.</p>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
@@ -404,9 +364,30 @@ export default function ShopNew() {
                   'Rapports d\'inspection PDF',
                   'Facturation et devis',
                   'CRM & gestion des contacts / clients',
+                  'Toutes les fonctionnalités gratuites avec au moins 1 crédit',
                 ].map((item, i) => (
                   <li key={i} className="flex items-center gap-2">
                     <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+                    {item}
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <h4 className="font-bold text-slate-800 mb-3 flex items-center gap-2">
+                <CreditCard className="w-5 h-5 text-indigo-500" />
+                Comment fonctionnent les crédits
+              </h4>
+              <ul className="space-y-2 text-sm text-slate-600">
+                {[
+                  '1 mission = 1 crédit consommé',
+                  '1 mission + restitution = 2 crédits consommés',
+                  'Tous les autres services sont gratuits',
+                  'Crédits réinitialisés chaque mois (non cumulables)',
+                  'Besoin de plus ? Passez au plan supérieur, vous ne payez que la différence',
+                ].map((item, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-indigo-500" />
                     {item}
                   </li>
                 ))}
@@ -424,9 +405,10 @@ export default function ShopNew() {
             <div className="text-center md:text-left">
               <h3 className="text-2xl font-bold mb-2">Cadeau de bienvenue</h3>
               <p className="text-white/80 text-sm leading-relaxed max-w-xl">
-                Pour tout nouvel inscrit avec un numéro de téléphone vérifié, bénéficiez d'un 
-                <strong className="text-white"> abonnement Starter gratuit avec 10 crédits</strong> pour découvrir la plateforme. 
-                Offre non renouvelable, valable 30 jours.
+                Pour tout nouvel inscrit, bénéficiez de
+                <strong className="text-white"> 10 crédits de bienvenue offerts</strong> pour découvrir la plateforme. 
+                Offre unique, non renouvelable. Ensuite, souscrivez à un abonnement annuel pour continuer.
+                Parrainez de nouveaux utilisateurs et recevez des crédits à chaque fois qu'un filleul souscrit un abonnement !
               </p>
             </div>
           </div>
@@ -438,9 +420,12 @@ export default function ShopNew() {
           <div className="space-y-4">
             {[
               { q: 'Comment souscrire à un abonnement ?', a: 'Choisissez votre plan, remplissez le formulaire de demande avec vos coordonnées, et notre équipe vous contactera sous 24h pour finaliser la mise en place.' },
-              { q: 'Qu\'est-ce que les frais de mise en place ?', a: 'Les frais de mise en place couvrent la configuration initiale de votre espace, la formation à la plateforme et l\'accompagnement personnalisé. Offerts pour le plan Business.' },
+              { q: 'Pourquoi uniquement en facturation annuelle ?', a: 'Tous nos abonnements sont facturés annuellement pour vous garantir le meilleur tarif. Vous bénéficiez d\'un engagement stable et d\'un prix avantageux sur 12 mois.' },
+              { q: 'Que se passe-t-il si j\'épuise mes crédits avant la fin du mois ?', a: 'Vous pouvez passer à l\'abonnement supérieur à tout moment. Vous ne payerez que la différence au prorata de la période restante.' },
+              { q: 'Combien de crédits consomme une mission ?', a: '1 mission standard = 1 crédit. 1 mission avec restitution = 2 crédits. Toutes les autres fonctionnalités (inspections, GPS, facturation, CRM, etc.) sont gratuites tant que vous avez au moins 1 crédit sur votre compte.' },
               { q: 'Les crédits sont-ils reportés d\'un mois à l\'autre ?', a: 'Non, les crédits sont réinitialisés chaque mois selon votre plan. Les crédits non utilisés ne sont pas reportés au mois suivant.' },
-              { q: 'Puis-je changer de plan en cours d\'abonnement ?', a: 'Oui, contactez notre équipe pour un changement de plan. La différence sera calculée au prorata.' },
+              { q: 'Puis-je changer de plan en cours d\'abonnement ?', a: 'Oui, vous pouvez passer à un plan supérieur à tout moment. Vous ne payerez que la différence entre votre plan actuel et le nouveau plan, calculée au prorata.' },
+              { q: 'Comment fonctionne le parrainage ?', a: 'Chaque utilisateur dispose d\'un code parrainage unique. Quand un nouveau filleul s\'inscrit avec votre code et souscrit un abonnement, vous recevez des crédits bonus. Attention : les crédits ne sont attribués que pour de nouveaux filleuls distincts.' },
               { q: 'Que se passe-t-il à l\'expiration de mon abonnement ?', a: 'Vous conservez l\'accès en lecture à vos données, mais l\'accès à la plateforme sera désactivé jusqu\'au renouvellement. Contactez notre équipe pour renouveler.' },
             ].map((faq, i) => (
               <details key={i} className="group border border-slate-200 rounded-xl">
@@ -464,10 +449,9 @@ export default function ShopNew() {
                 <div>
                   <h3 className="text-xl font-bold">Demande d'abonnement {selectedPlan.name}</h3>
                   <p className="text-white/80 text-sm mt-1">
-                    {billingPeriod === 'annual' 
-                      ? `${selectedPlan.annualPrice}€/an (${selectedPlan.monthlyPrice}€/mois)` 
-                      : `${selectedPlan.monthlyPrice}€/mois`}
+                    {selectedPlan.annualPrice}€/an ({selectedPlan.monthlyPrice}€/mois)
                     {selectedPlan.creditsPerMonth > 0 && ` • ${selectedPlan.creditsPerMonth} crédits/mois`}
+                    {' • Facturation annuelle'}
                   </p>
                 </div>
                 <button onClick={() => setShowModal(false)} className="p-2 hover:bg-white/20 rounded-lg">
@@ -546,37 +530,6 @@ export default function ShopNew() {
                       className="w-full px-4 py-2.5 border border-slate-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
                       placeholder="Nom de votre société (optionnel)"
                     />
-                  </div>
-
-                  {/* Billing period selection */}
-                  <div>
-                    <label className="block text-sm font-semibold text-slate-700 mb-1.5">
-                      <Calendar className="w-3.5 h-3.5 inline mr-1" /> Facturation
-                    </label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button
-                        type="button"
-                        onClick={() => setForm(prev => ({ ...prev, billing_period: 'monthly' }))}
-                        className={`p-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                          form.billing_period === 'monthly'
-                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                            : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                        }`}
-                      >
-                        Mensuel — {selectedPlan.monthlyPrice}€/mois
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setForm(prev => ({ ...prev, billing_period: 'annual' }))}
-                        className={`p-3 rounded-xl border-2 text-sm font-semibold transition-all ${
-                          form.billing_period === 'annual'
-                            ? 'border-indigo-500 bg-indigo-50 text-indigo-700'
-                            : 'border-slate-200 text-slate-500 hover:border-slate-300'
-                        }`}
-                      >
-                        Annuel — {selectedPlan.annualPrice}€/an
-                      </button>
-                    </div>
                   </div>
 
                   <div>

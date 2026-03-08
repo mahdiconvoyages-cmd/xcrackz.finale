@@ -825,7 +825,7 @@ class _DashboardScreenState extends ConsumerState<DashboardScreen>
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Validez votre adresse email pour profiter de votre mois de bienvenue et de vos 10 crédits offerts !',
+                          'Validez votre adresse email pour profiter de vos 10 crédits de bienvenue offerts !',
                           style: PremiumTheme.bodySmall.copyWith(
                             color: Colors.white.withValues(alpha: 0.9),
                             fontSize: 12,

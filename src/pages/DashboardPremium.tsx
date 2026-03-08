@@ -521,7 +521,7 @@ export default function DashboardPremium() {
                   🎁 Confirmez votre email et recevez 10 crédits de bienvenue !
                 </h3>
                 <p className="text-xs sm:text-sm mt-1 text-blue-600">
-                  Un email de confirmation a été envoyé à <strong>{user.email}</strong>. Cliquez sur le lien pour activer vos crédits gratuits (valables 30 jours).
+                  Un email de confirmation a été envoyé à <strong>{user.email}</strong>. Cliquez sur le lien pour activer vos 10 crédits de bienvenue.
                 </p>
               </div>
               <button

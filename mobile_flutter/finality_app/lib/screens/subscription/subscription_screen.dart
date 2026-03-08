@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import 'package:intl/intl.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../services/subscription_service.dart';
 import '../../providers/subscription_provider.dart';
 import '../../models/user_subscription.dart';
@@ -18,72 +19,6 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
   UserSubscription? _currentSubscription;
   bool _isLoading = true;
   String? _error;
-
-  final List<Map<String, dynamic>> _plans = [
-    {
-      'id': 'free',
-      'name': 'Gratuit',
-      'price': 0.0,
-      'period': 'month',
-      'features': [
-        '5 missions par mois',
-        '2 inspections par mois',
-        'Support par email',
-        'Accès basique au scanner',
-      ],
-      'color': Colors.grey,
-      'icon': Icons.card_giftcard,
-    },
-    {
-      'id': 'essentiel',
-      'name': 'Essentiel',
-      'price': 10.0,
-      'period': 'month',
-      'features': [
-        '10 crédits par mois',
-        'Plateforme complète',
-        'Rapports PDF',
-        'CRM intégré',
-        'Scanner professionnel',
-        'Support par email',
-      ],
-      'color': Colors.blue,
-      'icon': Icons.stars,
-    },
-    {
-      'id': 'pro',
-      'name': 'Pro',
-      'price': 20.0,
-      'period': 'month',
-      'features': [
-        '20 crédits par mois',
-        'Assistant IA inclus',
-        'Scanner avancé OCR',
-        'Optimisation des trajets',
-        'Rapports avancés',
-        'Support prioritaire',
-      ],
-      'color': Colors.purple,
-      'icon': Icons.workspace_premium,
-      'popular': true,
-    },
-    {
-      'id': 'business',
-      'name': 'Business',
-      'price': 50.0,
-      'period': 'month',
-      'features': [
-        '100 crédits par mois',
-        'Frais de mise en service offerts',
-        'Gestion de flotte / équipes',
-        'Volume important',
-        'Support téléphonique',
-        'Toutes les fonctionnalités Pro',
-      ],
-      'color': Colors.amber,
-      'icon': Icons.business,
-    },
-  ];
 
   @override
   void initState() {
@@ -115,11 +50,18 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     }
   }
 
+  Future<void> _openSubscriptionPage() async {
+    final uri = Uri.parse('https://www.checksfleet.com/shop');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Abonnements'),
+        title: const Text('Abonnement'),
         centerTitle: true,
       ),
       body: _isLoading
@@ -141,13 +83,16 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
                   ),
                 )
               : SingleChildScrollView(
+                  padding: const EdgeInsets.all(16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       if (_currentSubscription != null)
                         _buildCurrentSubscription(),
                       const SizedBox(height: 24),
-                      _buildPlansSection(),
+                      _buildCreditRules(),
+                      const SizedBox(height: 24),
+                      _buildManageOnlineCard(),
                     ],
                   ),
                 ),
@@ -160,7 +105,6 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     final endDate = subscription.endDate;
 
     return Container(
-      margin: const EdgeInsets.all(16),
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         gradient: LinearGradient(
@@ -274,59 +218,13 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     );
   }
 
-  Widget _buildPlansSection() {
-    return Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Plans disponibles',
-            style: TextStyle(
-              fontSize: 24,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-          const SizedBox(height: 8),
-          const Text(
-            'Choisissez le plan qui correspond à vos besoins',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey,
-            ),
-          ),
-          const SizedBox(height: 24),
-          ListView.builder(
-            shrinkWrap: true,
-            physics: const NeverScrollableScrollPhysics(),
-            itemCount: _plans.length,
-            itemBuilder: (context, index) {
-              return _buildPlanCard(_plans[index]);
-            },
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildPlanCard(Map<String, dynamic> plan) {
-    final isCurrentPlan = _currentSubscription?.planName?.toLowerCase() == 
-                          plan['name'].toString().toLowerCase();
-    final isPopular = plan['popular'] == true;
-
+  Widget _buildCreditRules() {
     return Container(
-      margin: const EdgeInsets.only(bottom: 16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        border: Border.all(
-          color: isCurrentPlan 
-              ? Colors.green 
-              : isPopular 
-                  ? plan['color'] 
-                  : Colors.grey.shade300,
-          width: isCurrentPlan || isPopular ? 2 : 1,
-        ),
-        borderRadius: BorderRadius.circular(16),
         color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: Colors.grey.shade200),
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.05),
@@ -336,159 +234,102 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
         ],
       ),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (isPopular)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8),
-              decoration: BoxDecoration(
-                color: plan['color'],
-                borderRadius: const BorderRadius.only(
-                  topLeft: Radius.circular(16),
-                  topRight: Radius.circular(16),
-                ),
-              ),
-              child: const Text(
-                '⭐ POPULAIRE',
-                textAlign: TextAlign.center,
+          const Row(
+            children: [
+              Icon(Icons.info_outline, color: Colors.indigo, size: 24),
+              SizedBox(width: 12),
+              Text(
+                'Utilisation des crédits',
                 style: TextStyle(
-                  color: Colors.white,
+                  fontSize: 18,
                   fontWeight: FontWeight.bold,
-                  fontSize: 12,
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _buildCreditRule(Icons.local_shipping, '1 mission', '1 crédit'),
+          _buildCreditRule(Icons.swap_horiz, '1 mission + restitution', '2 crédits'),
+          const Divider(height: 24),
+          const Row(
+            children: [
+              Icon(Icons.refresh, color: Colors.orange, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Crédits réinitialisés chaque mois (non cumulables, les crédits restants ne sont pas reportés).',
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Row(
+            children: [
+              Icon(Icons.check_circle, color: Colors.green, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Toutes les autres fonctionnalités sont gratuites tant que vous avez au moins 1 crédit.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Row(
+            children: [
+              Icon(Icons.card_giftcard, color: Colors.teal, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '10 crédits de bienvenue offerts à l\'inscription (une seule fois).',
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          const Row(
+            children: [
+              Icon(Icons.people, color: Colors.purple, size: 20),
+              SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  'Parrainez de nouveaux utilisateurs et recevez des crédits à chaque abonnement souscrit par un filleul.',
+                  style: TextStyle(fontSize: 13, color: Colors.grey),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCreditRule(IconData icon, String label, String credits) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Row(
+        children: [
+          Icon(icon, color: Colors.indigo, size: 20),
+          const SizedBox(width: 12),
+          Expanded(child: Text(label, style: const TextStyle(fontSize: 14))),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.indigo.shade50,
+              borderRadius: BorderRadius.circular(8),
             ),
-          Padding(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Container(
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: plan['color'].withValues(alpha: 0.1),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Icon(
-                        plan['icon'],
-                        color: plan['color'],
-                        size: 32,
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Text(
-                                plan['name'],
-                                style: const TextStyle(
-                                  fontSize: 22,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              if (isCurrentPlan) ...[
-                                const SizedBox(width: 8),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 8,
-                                    vertical: 4,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.green,
-                                    borderRadius: BorderRadius.circular(4),
-                                  ),
-                                  child: const Text(
-                                    'ACTUEL',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ],
-                          ),
-                          const SizedBox(height: 4),
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.end,
-                            children: [
-                              Text(
-                                '${plan['price'].toStringAsFixed(2)}€',
-                                style: TextStyle(
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.bold,
-                                  color: plan['color'],
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                              Text(
-                                '/${plan['period'] == 'month' ? 'mois' : 'an'}',
-                                style: const TextStyle(
-                                  fontSize: 14,
-                                  color: Colors.grey,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 20),
-                ...plan['features'].map<Widget>((feature) {
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 12),
-                    child: Row(
-                      children: [
-                        Icon(
-                          Icons.check_circle,
-                          color: plan['color'],
-                          size: 20,
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: Text(
-                            feature,
-                            style: const TextStyle(fontSize: 14),
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                }).toList(),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: isCurrentPlan
-                        ? null
-                        : () => _handleSubscribe(plan['id']),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isCurrentPlan ? Colors.grey : plan['color'],
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      elevation: isCurrentPlan ? 0 : 2,
-                    ),
-                    child: Text(
-                      isCurrentPlan ? 'Plan actuel' : 'Choisir ce plan',
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+            child: Text(
+              credits,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: Colors.indigo.shade700,
+              ),
             ),
           ),
         ],
@@ -496,22 +337,66 @@ class _SubscriptionScreenState extends ConsumerState<SubscriptionScreen> {
     );
   }
 
-  Future<void> _handleSubscribe(String planId) async {
-    // Afficher un dialogue informatif
-    await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Abonnement'),
-        content: const Text(
-          'Le système de paiement en ligne sera disponible prochainement.\n\n'
-          'Pour souscrire à un abonnement dès maintenant, contactez-nous :\n'
-          '• Email : contact@checksfleet.com\n'
-          '• Tél : +33 6 83 39 74 61',
+  Widget _buildManageOnlineCard() {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          colors: [Color(0xFF4F46E5), Color(0xFF7C3AED)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text('Fermer'),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.indigo.withValues(alpha: 0.3),
+            blurRadius: 15,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        children: [
+          const Icon(Icons.language, color: Colors.white, size: 48),
+          const SizedBox(height: 16),
+          const Text(
+            'Gérez votre abonnement en ligne',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 20,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: 8),
+          const Text(
+            'Consultez nos offres, souscrivez ou modifiez votre abonnement directement sur notre site web.',
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              color: Colors.white70,
+              fontSize: 14,
+            ),
+          ),
+          const SizedBox(height: 20),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton.icon(
+              onPressed: _openSubscriptionPage,
+              icon: const Icon(Icons.open_in_new),
+              label: const Text(
+                'Voir les abonnements sur checksfleet.com',
+                style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+              ),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.white,
+                foregroundColor: const Color(0xFF4F46E5),
+                padding: const EdgeInsets.symmetric(vertical: 16),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                elevation: 0,
+              ),
+            ),
           ),
         ],
       ),

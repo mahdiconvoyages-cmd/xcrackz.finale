@@ -190,30 +190,18 @@ class SubscriptionService {
         return {
           'name': 'Gratuit',
           'price': 0,
-          'missions_limit': 5,
+          'missions_limit': 0,
           'credits_per_month': 0,
-          'gps_tracking': false,
-          'invoice_generation': false,
-          'quote_generation': false,
-          'priority_support': false,
-          'advanced_reports': false,
-        };
-      case 'essentiel':
-      case 'basic': // legacy alias
-      case 'starter': // legacy alias
-        return {
-          'name': 'Essentiel',
-          'price': 10,
-          'missions_limit': 50,
-          'credits_per_month': 10,
           'gps_tracking': true,
           'invoice_generation': true,
           'quote_generation': true,
           'priority_support': false,
           'advanced_reports': false,
         };
+      case 'essentiel':
+      case 'basic': // legacy alias
+      case 'starter': // legacy alias
       case 'pro':
-      case 'premium': // legacy alias
         return {
           'name': 'Pro',
           'price': 20,
@@ -230,7 +218,20 @@ class SubscriptionService {
           'name': 'Business',
           'price': 50,
           'missions_limit': -1, // unlimited
-          'credits_per_month': 100,
+          'credits_per_month': 60,
+          'gps_tracking': true,
+          'invoice_generation': true,
+          'quote_generation': true,
+          'priority_support': true,
+          'advanced_reports': true,
+        };
+      case 'premium':
+      case 'premium_150': // legacy alias
+        return {
+          'name': 'Premium',
+          'price': 79.99,
+          'missions_limit': -1, // unlimited
+          'credits_per_month': 150,
           'gps_tracking': true,
           'invoice_generation': true,
           'quote_generation': true,

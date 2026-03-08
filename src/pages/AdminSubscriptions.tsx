@@ -50,6 +50,7 @@ const PLAN_COLORS: Record<string, { bg: string; text: string; border: string }> 
   basic: { bg: 'bg-green-100', text: 'text-green-700', border: 'border-green-200' },
   pro: { bg: 'bg-teal-100', text: 'text-teal-700', border: 'border-teal-200' },
   business: { bg: 'bg-blue-100', text: 'text-blue-700', border: 'border-blue-200' },
+  premium: { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-200' },
   enterprise: { bg: 'bg-purple-100', text: 'text-purple-700', border: 'border-purple-200' },
 };
 
@@ -405,9 +406,9 @@ export default function AdminSubscriptions() {
               <select value={planFilter} onChange={e => setPlanFilter(e.target.value)} className="px-3 py-2.5 border border-slate-200 rounded-xl bg-white font-medium text-sm">
                 <option value="all">Tous plans</option>
                 <option value="free">FREE</option>
-                <option value="essentiel">ESSENTIEL</option>
                 <option value="pro">PRO</option>
                 <option value="business">BUSINESS</option>
+                <option value="premium">PREMIUM</option>
                 <option value="enterprise">ENTERPRISE</option>
               </select>
               <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="px-3 py-2.5 border border-slate-200 rounded-xl bg-white font-medium text-sm">

@@ -29,24 +29,27 @@ class _OfflineSyncManagerState extends State<OfflineSyncManager> {
   @override
   void initState() {
     super.initState();
-    _listenToConnectivity();
+    _showOfflineBanner = widget.connectivityService.isOffline;
+    widget.connectivityService.addListener(_onConnectivityChanged);
   }
 
-  void _listenToConnectivity() {
-    widget.connectivityService.addListener(() {
-      final isOnline = widget.connectivityService.isOnline;
-      
-      setState(() {
-        _showOfflineBanner = !isOnline;
-      });
+  @override
+  void dispose() {
+    widget.connectivityService.removeListener(_onConnectivityChanged);
+    super.dispose();
+  }
 
-      if (isOnline && !_isSyncing) {
-        _syncPendingActions();
-      }
+  void _onConnectivityChanged() {
+    if (!mounted) return;
+    final isOnline = widget.connectivityService.isOnline;
+
+    setState(() {
+      _showOfflineBanner = !isOnline;
     });
 
-    // État initial
-    _showOfflineBanner = widget.connectivityService.isOffline;
+    if (isOnline && !_isSyncing) {
+      _syncPendingActions();
+    }
   }
 
   Future<void> _syncPendingActions() async {
@@ -66,7 +69,13 @@ class _OfflineSyncManagerState extends State<OfflineSyncManager> {
         
         switch (action.type) {
           case ActionType.create:
-            await supabase.from(action.tableName).insert(action.data);
+            // Strip temp IDs so Supabase generates real ones
+            final data = Map<String, dynamic>.from(action.data);
+            final oldId = data['id'];
+            if (oldId is String && oldId.startsWith('temp_')) {
+              data.remove('id');
+            }
+            await supabase.from(action.tableName).insert(data);
             break;
           case ActionType.update:
             await supabase.from(action.tableName).update(action.data).eq('id', action.itemId);

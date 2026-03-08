@@ -913,7 +913,7 @@ const ReferralSection: React.FC = () => {
             <span className="bg-gradient-to-r from-teal-600 to-emerald-500 bg-clip-text text-transparent">gagnez des crédits</span>
           </motion.h2>
           <motion.p variants={fadeUp} custom={2} className="mt-4 text-lg text-slate-500 max-w-2xl mx-auto">
-            Invitez d'autres professionnels du convoyage à rejoindre ChecksFleet. À chaque parrainage réussi, vous recevez <strong className="text-slate-700">10 crédits gratuits</strong> — et votre filleul aussi.
+            Invitez d'autres professionnels du convoyage à rejoindre ChecksFleet. À chaque fois qu'un nouveau filleul souscrit ou renouvelle un abonnement, vous recevez <strong className="text-slate-700">10 crédits gratuits</strong>. Les crédits sont attribués uniquement pour des filleuls distincts.
           </motion.p>
         </motion.div>
 

@@ -20,69 +20,47 @@
 INSERT INTO shop_items (name, description, item_type, credits_amount, price, currency, is_active, features, display_order)
 VALUES
   (
-    'free',
-    'Plan gratuit pour découvrir FleetCheck',
+    'pro',
+    'Plan Pro — 20 crédits/mois, accès complet',
     'subscription',
-    10,
-    0.00,
+    20,
+    20.00,
     'EUR',
     true,
-    '{"features": ["10 crédits mensuels", "Accès de base", "Support email"]}',
+    '{"features": ["20 crédits/mois", "Accès complet plateforme", "Missions, inspections, GPS", "Support prioritaire", "Facturation annuelle 240€/an"]}',
     1
   ),
   (
-    'basic',
-    'Plan basique pour petites équipes',
+    'business',
+    'Plan Business — 60 crédits/mois, idéal flottes',
     'subscription',
-    50,
-    9.99,
+    60,
+    50.00,
     'EUR',
     true,
-    '{"features": ["50 crédits mensuels", "Accès complet", "Support prioritaire", "Export PDF"]}',
+    '{"features": ["60 crédits/mois", "Accès complet plateforme", "Volume idéal flottes & équipes", "Support dédié téléphone", "Facturation annuelle 600€/an"]}',
     2
   ),
   (
-    'pro',
-    'Plan professionnel pour équipes moyennes',
+    'premium',
+    'Plan Premium — 150 crédits/mois, volume important',
     'subscription',
-    100,
-    19.99,
+    150,
+    79.99,
     'EUR',
     true,
-    '{"features": ["100 crédits mensuels", "Accès illimité", "Support 24/7", "API Access", "Export avancé"]}',
+    '{"features": ["150 crédits/mois", "Accès complet plateforme", "Volume important de missions", "Support dédié prioritaire", "Facturation annuelle 959.88€/an"]}',
     3
   ),
   (
-    'premium',
-    'Plan premium pour grandes équipes',
-    'subscription',
-    250,
-    49.99,
-    'EUR',
-    true,
-    '{"features": ["250 crédits mensuels", "Tous les avantages Pro", "Manager dédié", "Formation personnalisée"]}',
-    4
-  ),
-  (
     'enterprise',
-    'Plan entreprise pour organisations',
+    'Plan sur-mesure pour entreprises',
     'subscription',
     500,
-    99.99,
+    0.00,
     'EUR',
     true,
-    '{"features": ["500 crédits mensuels", "Tous les avantages Premium", "SLA garanti", "Infrastructure dédiée"]}',
-    5
-  ),
-  (
-    'business',
-    'Plan business pour grands comptes',
-    'subscription',
-    1000,
-    199.99,
-    'EUR',
-    true,
-    '{"features": ["1000 crédits mensuels", "Solution sur mesure", "Support VIP", "Intégration personnalisée"]}',
-    6
+    '{"features": ["Crédits sur mesure", "Tarification personnalisée", "Accompagnement dédié", "Formation équipes", "Sur devis"]}',
+    4
   )
 ON CONFLICT DO NOTHING;

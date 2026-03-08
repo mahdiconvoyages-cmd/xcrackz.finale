@@ -30,13 +30,15 @@ BEGIN
   IF NEW.status = 'active' THEN
     -- Determine credit amount based on plan
     CASE NEW.plan
-      WHEN 'free' THEN credit_amount := 10;
-      WHEN 'basic' THEN credit_amount := 50;
-      WHEN 'pro' THEN credit_amount := 100;
-      WHEN 'premium' THEN credit_amount := 250;
+      WHEN 'free' THEN credit_amount := 0;
+      WHEN 'essentiel' THEN credit_amount := 20;
+      WHEN 'basic' THEN credit_amount := 20;
+      WHEN 'starter' THEN credit_amount := 20;
+      WHEN 'pro' THEN credit_amount := 20;
+      WHEN 'business' THEN credit_amount := 60;
+      WHEN 'premium' THEN credit_amount := 150;
       WHEN 'enterprise' THEN credit_amount := 500;
-      WHEN 'business' THEN credit_amount := 1000;
-      ELSE credit_amount := 10; -- Default to free plan credits
+      ELSE credit_amount := 0; -- Default no credits
     END CASE;
 
     -- Insert or update user credits
