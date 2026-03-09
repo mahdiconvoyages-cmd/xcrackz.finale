@@ -93,58 +93,46 @@ export function useSubscriptionActions(loadUsers: () => Promise<void>) {
     const targetUserId = user.id;
     const targetEmail = user.email;
 
-    // 1. Set credits FIRST (before subscription upsert to avoid realtime race condition)
-    if (creditsToGrant > 0) {
-      const { error: credErr } = await supabase.from('profiles').update({ credits: creditsToGrant, updated_at: new Date().toISOString() }).eq('id', targetUserId);
-      if (credErr) console.error('Erreur MAJ profil crédits:', credErr.message);
+    // 1. Upsert subscription WITH credits_per_period
+    //    The DB trigger assign_credits_for_plan() (SECURITY DEFINER) will handle
+    //    setting profiles.credits + user_credits.balance automatically
+    const subData = {
+      plan,
+      status: 'active',
+      current_period_start: new Date().toISOString(),
+      current_period_end: endDate.toISOString(),
+      payment_method: 'admin_manual',
+      auto_renew: autoRenew,
+      credits_per_period: creditsToGrant,
+      credits_renewed_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
 
-      const { data: uc } = await supabase.from('user_credits').select('balance').eq('user_id', targetUserId).maybeSingle();
-      if (uc) {
-        await supabase.from('user_credits').update({ balance: creditsToGrant }).eq('user_id', targetUserId);
-      } else {
-        await supabase.from('user_credits').insert({ user_id: targetUserId, balance: creditsToGrant });
-      }
-
-      await supabase.from('credit_transactions').insert({
-        user_id: targetUserId,
-        amount: creditsToGrant,
-        transaction_type: 'addition',
-        description: `Abonnement ${plan.toUpperCase()} attribué par admin — ${days}j`,
-        balance_after: creditsToGrant,
-      });
-    }
-
-    // 2. Upsert subscription (triggers realtime → loadUser which now reads correct credits)
     const { data: existing } = await supabase.from('subscriptions').select('id, plan').eq('user_id', targetUserId).maybeSingle();
 
     if (existing) {
-      const { error: updateErr } = await supabase.from('subscriptions').update({
-        plan,
-        status: 'active',
-        current_period_start: new Date().toISOString(),
-        current_period_end: endDate.toISOString(),
-        payment_method: 'admin_manual',
-        auto_renew: autoRenew,
-        updated_at: new Date().toISOString(),
-      }).eq('user_id', targetUserId);
+      const { error: updateErr } = await supabase.from('subscriptions').update(subData).eq('user_id', targetUserId);
       if (updateErr) {
         showToast('error', 'Erreur abonnement', updateErr.message);
         return false;
       }
     } else {
-      const { error: insertErr } = await supabase.from('subscriptions').insert({
-        user_id: targetUserId,
-        plan,
-        status: 'active',
-        current_period_start: new Date().toISOString(),
-        current_period_end: endDate.toISOString(),
-        payment_method: 'admin_manual',
-        auto_renew: autoRenew,
-      });
+      const { error: insertErr } = await supabase.from('subscriptions').insert({ user_id: targetUserId, ...subData });
       if (insertErr) {
         showToast('error', 'Erreur abonnement', insertErr.message);
         return false;
       }
+    }
+
+    // 2. Log credit transaction (trigger handles the actual credit sync)
+    if (creditsToGrant > 0) {
+      await supabase.from('credit_transactions').insert({
+        user_id: targetUserId,
+        amount: creditsToGrant,
+        transaction_type: 'addition',
+        description: `Abonnement ${plan.toUpperCase()} attribué par admin — ${days}j — ${creditsToGrant} crédits/mois`,
+        balance_after: creditsToGrant,
+      });
     }
 
     // 3. Push notification to target user ONLY

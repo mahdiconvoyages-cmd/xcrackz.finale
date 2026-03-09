@@ -58,6 +58,14 @@ export default function UserSubscriptionTab({ user, shopPlans, onGrant, onCancel
               <p className="text-sm font-black text-slate-900">{formatDate(user.subscription.current_period_end)}</p>
             </div>
             <div className="bg-white/60 rounded-xl p-3">
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-0.5">Crédits/mois</p>
+              <p className="text-sm font-black text-amber-600">{user.subscription.credits_per_period || 0} crédits</p>
+            </div>
+            <div className="bg-white/60 rounded-xl p-3">
+              <p className="text-[10px] font-bold text-slate-400 uppercase mb-0.5">Dernier renouvellement</p>
+              <p className="text-sm font-semibold text-slate-900">{formatDate(user.subscription.credits_renewed_at)}</p>
+            </div>
+            <div className="bg-white/60 rounded-xl p-3">
               <p className="text-[10px] font-bold text-slate-400 uppercase mb-0.5">Paiement</p>
               <p className="text-sm font-semibold text-slate-900">{user.subscription.payment_method || '—'}</p>
             </div>

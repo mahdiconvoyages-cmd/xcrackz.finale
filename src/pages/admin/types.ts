@@ -35,6 +35,8 @@ export interface SubscriptionInfo {
   auto_renew: boolean;
   payment_method?: string;
   notes?: string;
+  credits_per_period?: number;
+  credits_renewed_at?: string;
 }
 
 export interface ShopPlan {

@@ -47,7 +47,7 @@ export default function AdminUserDetail() {
       }
 
       const [{ data: sub }, { data: ucData }] = await Promise.all([
-        supabase.from('subscriptions').select('id, plan, status, current_period_start, current_period_end, auto_renew, payment_method, notes').eq('user_id', userId).maybeSingle(),
+        supabase.from('subscriptions').select('id, plan, status, current_period_start, current_period_end, auto_renew, payment_method, notes, credits_per_period, credits_renewed_at').eq('user_id', userId).maybeSingle(),
         supabase.from('user_credits').select('balance').eq('user_id', userId).maybeSingle(),
       ]);
 
