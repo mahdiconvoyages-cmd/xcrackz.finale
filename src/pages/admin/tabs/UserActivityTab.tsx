@@ -20,7 +20,7 @@ interface Mission {
 interface Invoice {
   id: string;
   invoice_number: string;
-  total_amount: number;
+  total: number;
   status: string;
   created_at: string;
 }
@@ -37,8 +37,8 @@ export default function UserActivityTab({ user }: Props) {
 
   const loadActivity = async () => {
     const [missionsRes, invoicesRes] = await Promise.all([
-      supabase.from('missions').select('id, title, status, created_at, pickup_city, delivery_city').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30),
-      supabase.from('invoices').select('id, invoice_number, total_amount, status, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30),
+      supabase.from('missions').select('id, reference, title, status, created_at, pickup_city, delivery_city, vehicle_brand, vehicle_model').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30),
+      supabase.from('invoices').select('id, invoice_number, total, status, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30),
     ]);
     setMissions(missionsRes.data || []);
     setInvoices(invoicesRes.data || []);
@@ -129,7 +129,7 @@ export default function UserActivityTab({ user }: Props) {
                 <p className="text-xs text-slate-500">{new Date(inv.created_at).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', year: 'numeric' })}</p>
               </div>
               <div className="text-right">
-                <p className="text-lg font-black text-slate-900">{Number(inv.total_amount || 0).toFixed(2)}€</p>
+                <p className="text-lg font-black text-slate-900">{Number(inv.total || 0).toFixed(2)}€</p>
                 <span className={`px-2 py-0.5 text-[10px] font-bold rounded-full ${
                   inv.status === 'paid' ? 'bg-green-100 text-green-700' :
                   inv.status === 'pending' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100 text-slate-600'

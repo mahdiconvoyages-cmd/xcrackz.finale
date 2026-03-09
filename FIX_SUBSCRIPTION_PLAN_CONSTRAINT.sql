@@ -1,15 +1,15 @@
 -- ============================================================
 -- FIX: Subscription plan CHECK constraint + auto_renew column
--- Problem: 'essentiel' plan used in app but NOT in DB constraint
--- This causes silent INSERT/UPDATE failures when granting subscriptions
+-- Problem: 'premium' plan added but NOT in DB constraint
+-- This causes 400 errors when granting/modifying subscriptions
 -- ============================================================
 
 -- 1) Drop the old CHECK constraint on plan column
 ALTER TABLE public.subscriptions DROP CONSTRAINT IF EXISTS subscriptions_plan_check;
 
--- 2) Add the new CHECK constraint including 'essentiel'
+-- 2) Add the new CHECK constraint including 'premium'
 ALTER TABLE public.subscriptions ADD CONSTRAINT subscriptions_plan_check 
-  CHECK (plan IN ('free', 'starter', 'essentiel', 'basic', 'pro', 'business', 'enterprise'));
+  CHECK (plan IN ('free', 'starter', 'essentiel', 'basic', 'pro', 'business', 'premium', 'enterprise'));
 
 -- 3) Add auto_renew column if it doesn't exist
 ALTER TABLE public.subscriptions ADD COLUMN IF NOT EXISTS auto_renew boolean DEFAULT true;
