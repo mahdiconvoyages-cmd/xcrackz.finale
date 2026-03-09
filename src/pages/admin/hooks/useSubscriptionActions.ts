@@ -93,7 +93,28 @@ export function useSubscriptionActions(loadUsers: () => Promise<void>) {
     const targetUserId = user.id;
     const targetEmail = user.email;
 
-    // 1. Upsert subscription
+    // 1. Set credits FIRST (before subscription upsert to avoid realtime race condition)
+    if (creditsToGrant > 0) {
+      const { error: credErr } = await supabase.from('profiles').update({ credits: creditsToGrant, updated_at: new Date().toISOString() }).eq('id', targetUserId);
+      if (credErr) console.error('Erreur MAJ profil crédits:', credErr.message);
+
+      const { data: uc } = await supabase.from('user_credits').select('balance').eq('user_id', targetUserId).maybeSingle();
+      if (uc) {
+        await supabase.from('user_credits').update({ balance: creditsToGrant }).eq('user_id', targetUserId);
+      } else {
+        await supabase.from('user_credits').insert({ user_id: targetUserId, balance: creditsToGrant });
+      }
+
+      await supabase.from('credit_transactions').insert({
+        user_id: targetUserId,
+        amount: creditsToGrant,
+        transaction_type: 'addition',
+        description: `Abonnement ${plan.toUpperCase()} attribué par admin — ${days}j`,
+        balance_after: creditsToGrant,
+      });
+    }
+
+    // 2. Upsert subscription (triggers realtime → loadUser which now reads correct credits)
     const { data: existing } = await supabase.from('subscriptions').select('id, plan').eq('user_id', targetUserId).maybeSingle();
 
     if (existing) {
@@ -124,26 +145,6 @@ export function useSubscriptionActions(loadUsers: () => Promise<void>) {
         showToast('error', 'Erreur abonnement', insertErr.message);
         return false;
       }
-    }
-
-    // 2. Sync credits (non-cumulative reset)
-    if (creditsToGrant > 0) {
-      await supabase.from('profiles').update({ credits: creditsToGrant, updated_at: new Date().toISOString() }).eq('id', targetUserId);
-
-      const { data: uc } = await supabase.from('user_credits').select('balance').eq('user_id', targetUserId).maybeSingle();
-      if (uc) {
-        await supabase.from('user_credits').update({ balance: creditsToGrant }).eq('user_id', targetUserId);
-      } else {
-        await supabase.from('user_credits').insert({ user_id: targetUserId, balance: creditsToGrant });
-      }
-
-      await supabase.from('credit_transactions').insert({
-        user_id: targetUserId,
-        amount: creditsToGrant,
-        transaction_type: 'addition',
-        description: `Abonnement ${plan.toUpperCase()} attribué par admin — ${days}j`,
-        balance_after: creditsToGrant,
-      });
     }
 
     // 3. Push notification to target user ONLY
