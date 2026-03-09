@@ -124,7 +124,7 @@ export default function UserSubscriptionTab({ user, shopPlans, onGrant, onCancel
                   }`}
                 >
                   <p className="text-sm font-black text-slate-900 uppercase">{p.name}</p>
-                  <p className="text-xs text-slate-500">{p.credits_amount} cr · {p.price}€</p>
+                  <p className="text-xs text-slate-500">{p.name === 'enterprise' ? 'Sur devis' : `${p.credits_amount} cr · ${p.price}€`}</p>
                 </button>
               ))}
             </div>
@@ -132,9 +132,11 @@ export default function UserSubscriptionTab({ user, shopPlans, onGrant, onCancel
 
           {/* Enterprise custom credits */}
           {subPlan === 'enterprise' && (
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1">Crédits sur mesure</label>
-              <input type="number" value={subCustomCredits} onChange={e => setSubCustomCredits(e.target.value)} min="0" placeholder="200" className="w-full px-4 py-2.5 border border-slate-200 rounded-xl font-medium" />
+            <div className="bg-purple-50 rounded-xl p-4 border border-purple-200 space-y-2">
+              <label className="block text-sm font-bold text-purple-700">🏢 Crédits sur mesure (obligatoire)</label>
+              <input type="number" value={subCustomCredits} onChange={e => setSubCustomCredits(e.target.value)} min="1" placeholder="Ex: 200, 500, 1000..." autoFocus
+                className="w-full px-4 py-2.5 border border-purple-300 rounded-xl font-bold text-lg focus:ring-2 focus:ring-purple-300 focus:border-purple-500" />
+              <p className="text-xs text-purple-500">Définissez le nombre de crédits personnalisé pour ce client Enterprise.</p>
             </div>
           )}
 

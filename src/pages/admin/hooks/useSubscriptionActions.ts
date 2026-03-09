@@ -85,6 +85,11 @@ export function useSubscriptionActions(loadUsers: () => Promise<void>) {
       ? (parseInt(customCredits) || 0)
       : (planInfo?.credits_amount || 0);
 
+    if (plan === 'enterprise' && creditsToGrant <= 0) {
+      showToast('warning', 'Crédits requis', 'Veuillez saisir le nombre de crédits sur mesure pour le plan Enterprise.');
+      return false;
+    }
+
     const targetUserId = user.id;
     const targetEmail = user.email;
 

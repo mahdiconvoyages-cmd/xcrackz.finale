@@ -79,7 +79,12 @@ export default function AdminUserDetail() {
 
   const loadShopPlans = async () => {
     const { data } = await supabase.from('shop_items').select('name, credits_amount, price').eq('item_type', 'subscription').eq('is_active', true).order('display_order');
-    setShopPlans(data?.length ? data : DEFAULT_SHOP_PLANS);
+    const plans = data?.length ? data : DEFAULT_SHOP_PLANS;
+    // Always include enterprise even if absent from shop_items
+    if (!plans.find(p => p.name === 'enterprise')) {
+      plans.push({ name: 'enterprise', credits_amount: 0, price: 0 });
+    }
+    setShopPlans(plans);
   };
 
   useEffect(() => {
