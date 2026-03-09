@@ -46,11 +46,10 @@ export default function AdminUserDetail() {
         return;
       }
 
-      const { data: sub } = await supabase
-        .from('subscriptions')
-        .select('id, plan, status, current_period_start, current_period_end, auto_renew, payment_method, notes')
-        .eq('user_id', userId)
-        .maybeSingle();
+      const [{ data: sub }, { data: ucData }] = await Promise.all([
+        supabase.from('subscriptions').select('id, plan, status, current_period_start, current_period_end, auto_renew, payment_method, notes').eq('user_id', userId).maybeSingle(),
+        supabase.from('user_credits').select('balance').eq('user_id', userId).maybeSingle(),
+      ]);
 
       const { data: referralStats } = await supabase
         .from('referrals')
@@ -63,9 +62,10 @@ export default function AdminUserDetail() {
         if (referrer) referred_by_name = referrer.full_name || referrer.email;
       }
 
+      const freshCredits = Math.max(profile.credits || 0, ucData?.balance || 0);
       setUser({
         ...profile,
-        credits: profile.credits || 0,
+        credits: freshCredits,
         subscription: sub || null,
         referred_by_name,
         referral_count: referralStats?.length || 0,

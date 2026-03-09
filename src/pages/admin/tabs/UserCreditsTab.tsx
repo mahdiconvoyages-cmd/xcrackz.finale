@@ -27,7 +27,7 @@ export default function UserCreditsTab({ user, onCreditAction }: Props) {
 
   useEffect(() => {
     loadTransactions();
-  }, [user.id]);
+  }, [user.id, user.credits]);
 
   const loadTransactions = async () => {
     const { data } = await supabase

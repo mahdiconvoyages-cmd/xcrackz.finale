@@ -33,16 +33,23 @@ export default function UserActivityTab({ user }: Props) {
 
   useEffect(() => {
     loadActivity();
-  }, [user.id]);
+  }, [user.id, user.credits]);
 
   const loadActivity = async () => {
-    const [missionsRes, invoicesRes] = await Promise.all([
-      supabase.from('missions').select('id, reference, title, status, created_at, pickup_city, delivery_city, vehicle_brand, vehicle_model').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30),
-      supabase.from('invoices').select('id, invoice_number, total, status, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30),
-    ]);
-    setMissions(missionsRes.data || []);
-    setInvoices(invoicesRes.data || []);
-    setLoading(false);
+    try {
+      const [missionsRes, invoicesRes] = await Promise.all([
+        supabase.from('missions').select('id, reference, title, status, created_at, pickup_city, delivery_city, vehicle_brand, vehicle_model').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30),
+        supabase.from('invoices').select('id, invoice_number, total, status, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30),
+      ]);
+      if (missionsRes.error) console.warn('Missions query error:', missionsRes.error.message);
+      if (invoicesRes.error) console.warn('Invoices query error:', invoicesRes.error.message);
+      setMissions(missionsRes.data || []);
+      setInvoices(invoicesRes.data || []);
+    } catch (err) {
+      console.error('Activity load error:', err);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const statusIcon = (s: string) => {
