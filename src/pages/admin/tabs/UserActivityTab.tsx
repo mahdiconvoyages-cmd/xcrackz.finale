@@ -10,11 +10,13 @@ interface Props {
 
 interface Mission {
   id: string;
-  title: string;
+  reference: string;
   status: string;
   created_at: string;
   pickup_city?: string;
   delivery_city?: string;
+  vehicle_brand?: string;
+  vehicle_model?: string;
 }
 
 interface Invoice {
@@ -38,7 +40,7 @@ export default function UserActivityTab({ user }: Props) {
   const loadActivity = async () => {
     try {
       const [missionsRes, invoicesRes] = await Promise.all([
-        supabase.from('missions').select('id, reference, title, status, created_at, pickup_city, delivery_city, vehicle_brand, vehicle_model').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30),
+        supabase.from('missions').select('id, reference, status, created_at, pickup_city, delivery_city, vehicle_brand, vehicle_model').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30),
         supabase.from('invoices').select('id, invoice_number, total, status, created_at').eq('user_id', user.id).order('created_at', { ascending: false }).limit(30),
       ]);
       if (missionsRes.error) console.warn('Missions query error:', missionsRes.error.message);
@@ -108,9 +110,10 @@ export default function UserActivityTab({ user }: Props) {
               <div className="flex items-center gap-3">
                 {statusIcon(m.status)}
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">{m.title || 'Mission sans titre'}</p>
+                  <p className="text-sm font-semibold text-slate-900">{m.reference || 'Mission sans réf.'}</p>
                   <p className="text-xs text-slate-500">
-                    {[m.pickup_city, m.delivery_city].filter(Boolean).join(' → ') || '—'}
+                    {[m.vehicle_brand, m.vehicle_model].filter(Boolean).join(' ') || ''}
+                    {m.pickup_city || m.delivery_city ? ` · ${[m.pickup_city, m.delivery_city].filter(Boolean).join(' → ')}` : ''}
                   </p>
                 </div>
               </div>
