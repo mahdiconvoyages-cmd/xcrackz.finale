@@ -96,7 +96,7 @@ export default function AdminUsers() {
   // Subscription modal
   const [subModal, setSubModal] = useState<UserProfile | null>(null);
   const [subPlan, setSubPlan] = useState('pro');
-  const [subDuration, setSubDuration] = useState('30');
+  const [subDuration, setSubDuration] = useState('365');
   const [subAutoRenew, setSubAutoRenew] = useState(true);
   const [subCustomCredits, setSubCustomCredits] = useState('');
 
@@ -289,7 +289,7 @@ export default function AdminUsers() {
     });
 
     // Sync user_credits table
-    const { data: uc } = await supabase.from('user_credits').select('balance').eq('user_id', user.id).single();
+    const { data: uc } = await supabase.from('user_credits').select('balance').eq('user_id', user.id).maybeSingle();
     if (uc) await supabase.from('user_credits').update({ balance: newBalance }).eq('user_id', user.id);
     else await supabase.from('user_credits').insert({ user_id: user.id, balance: newBalance });
 
@@ -302,17 +302,23 @@ export default function AdminUsers() {
   const handleGrantSubscription = async () => {
     if (!subModal) return;
     const days = parseInt(subDuration);
-    if (isNaN(days) || days <= 0) return alert('Durée invalide');
+    if (isNaN(days) || days <= 0) return showToast('warning', 'Durée invalide', 'Veuillez saisir un nombre de jours valide.');
 
     const endDate = new Date();
     endDate.setDate(endDate.getDate() + days);
 
     const planInfo = shopPlans.find(p => p.name === subPlan);
-    const creditsToAdd = subPlan === 'enterprise'
+    const creditsToGrant = subPlan === 'enterprise'
       ? (parseInt(subCustomCredits) || 0)
       : (planInfo?.credits_amount || 0);
 
-    const { data: existing } = await supabase.from('subscriptions').select('id, plan').eq('user_id', subModal.id).maybeSingle();
+    const targetUserId = subModal.id;
+    const targetEmail = subModal.email;
+
+    // 1. Upsert subscription
+    // Note: DB trigger assign_credits_for_plan() fires and sets credits from shop_items.
+    // We override after for enterprise/custom and to ensure profiles + user_credits stay in sync.
+    const { data: existing } = await supabase.from('subscriptions').select('id, plan').eq('user_id', targetUserId).maybeSingle();
 
     if (existing) {
       const { error: updateErr } = await supabase.from('subscriptions').update({
@@ -323,11 +329,14 @@ export default function AdminUsers() {
         payment_method: 'admin_manual',
         auto_renew: subAutoRenew,
         updated_at: new Date().toISOString(),
-      }).eq('user_id', subModal.id);
-      if (updateErr) console.error('Subscription update error:', updateErr);
+      }).eq('user_id', targetUserId);
+      if (updateErr) {
+        showToast('error', 'Erreur abonnement', updateErr.message);
+        return;
+      }
     } else {
       const { error: insertErr } = await supabase.from('subscriptions').insert({
-        user_id: subModal.id,
+        user_id: targetUserId,
         plan: subPlan,
         status: 'active',
         current_period_start: new Date().toISOString(),
@@ -335,61 +344,68 @@ export default function AdminUsers() {
         payment_method: 'admin_manual',
         auto_renew: subAutoRenew,
       });
-      if (insertErr) console.error('Subscription insert error:', insertErr);
+      if (insertErr) {
+        showToast('error', 'Erreur abonnement', insertErr.message);
+        return;
+      }
     }
 
-    // Réinitialiser les crédits (non cumulables)
-    if (creditsToAdd > 0) {
-      await supabase.from('profiles').update({ credits: creditsToAdd, updated_at: new Date().toISOString() }).eq('id', subModal.id);
+    // 2. Sync credits across profiles AND user_credits (non-cumulative reset)
+    // The DB trigger already set credits from shop_items, but we ensure consistency
+    // and handle enterprise custom credits which differ from shop_items.
+    if (creditsToGrant > 0) {
+      await supabase.from('profiles').update({ credits: creditsToGrant, updated_at: new Date().toISOString() }).eq('id', targetUserId);
+
+      // Sync user_credits table (trigger sets it too, but we ensure custom amounts match)
+      const { data: uc } = await supabase.from('user_credits').select('balance').eq('user_id', targetUserId).maybeSingle();
+      if (uc) {
+        await supabase.from('user_credits').update({ balance: creditsToGrant }).eq('user_id', targetUserId);
+      } else {
+        await supabase.from('user_credits').insert({ user_id: targetUserId, balance: creditsToGrant });
+      }
+
       await supabase.from('credit_transactions').insert({
-        user_id: subModal.id,
-        amount: creditsToAdd,
+        user_id: targetUserId,
+        amount: creditsToGrant,
         transaction_type: 'addition',
-        description: `Abonnement ${subPlan.toUpperCase()} attribué — ${days}j (crédits réinitialisés)`,
-        balance_after: creditsToAdd,
+        description: `Abonnement ${subPlan.toUpperCase()} attribué par admin — ${days}j`,
+        balance_after: creditsToGrant,
       });
     }
 
-    // ── Push notification: abonnement attribué ──
+    // 3. Push notification to the target user ONLY
     try {
       await supabase.functions.invoke('send-notification', {
         body: {
-          userId: subModal.id,
-          type: 'subscription',
+          userId: targetUserId,
           title: '🎉 Abonnement activé !',
-          message: `Votre abonnement ${subPlan.toUpperCase()} a été activé pour ${days} jours. Vous avez reçu ${creditsToAdd} crédits.`,
-          data: { plan: subPlan, credits: String(creditsToAdd), type: 'subscription' },
+          message: `Votre abonnement ${subPlan.toUpperCase()} a été activé pour ${days} jours.${creditsToGrant > 0 ? ` ${creditsToGrant} crédits disponibles.` : ''}`,
+          data: { plan: subPlan, credits: String(creditsToGrant), type: 'subscription' },
         },
       });
     } catch (pushErr) {
       console.warn('Push abonnement échoué (non-bloquant):', pushErr);
     }
 
-    // ── Insertion notification persistante dans la table notifications ──
+    // 4. Persistent notification in DB (user sees it in notification history)
     try {
       await supabase.from('notifications').insert({
-        user_id: subModal.id,
+        user_id: targetUserId,
         notification_type: 'system',
         title: '🎉 Abonnement activé !',
-        message: `Votre abonnement ${subPlan.toUpperCase()} a été activé pour ${days} jours. Vous avez reçu ${creditsToAdd} crédits.`,
+        message: `Votre abonnement ${subPlan.toUpperCase()} a été activé pour ${days} jours.${creditsToGrant > 0 ? ` ${creditsToGrant} crédits disponibles.` : ''}`,
       });
     } catch (notifErr) {
-      console.warn('Notification persistante échouée (non-bloquant):', notifErr);
+      console.warn('Notification persistante échouée:', notifErr);
     }
 
-    // ═══════════════════════════════════════════════════════
-    // RÉCOMPENSE PARRAINAGE via RPC (SECURITY DEFINER = bypass RLS)
-    // Crédits attribués au parrain à chaque souscription/renouvellement d'un filleul distinct
-    // ═══════════════════════════════════════════════════════
+    // 5. Referral reward (paid plans only, UNIQUE constraint prevents duplicates)
     if (subPlan !== 'free') {
-      console.log('[PARRAINAGE] Abonnement payant attribué à', subModal.email, '— appel RPC grant_referral_reward...');
       try {
         const { data: rewardResult, error: rewardErr } = await supabase.rpc('grant_referral_reward', {
-          p_filleul_id: subModal.id,
+          p_filleul_id: targetUserId,
           p_reward_amount: 10,
         });
-
-        console.log('[PARRAINAGE] Résultat RPC:', rewardResult, rewardErr ? `ERREUR: ${rewardErr.message}` : '');
 
         if (rewardErr) {
           console.error('[PARRAINAGE] RPC échoué:', rewardErr.message);
@@ -397,50 +413,30 @@ export default function AdminUsers() {
           showToast('success', 'Parrainage récompensé',
             `+10 crédits pour ${rewardResult.referrer_name} (parrain) et ${rewardResult.filleul_name} (filleul)`);
 
-          // ── PUSH NOTIFICATIONS via Edge Function ──
+          // Push au parrain uniquement (filleul reçoit déjà la notif abonnement)
           try {
-            // Push au parrain
             await supabase.functions.invoke('send-notification', {
               body: {
                 userId: rewardResult.referrer_id,
-                type: 'referral_reward',
                 title: '🎉 +10 Crédits de parrainage !',
-                message: `Votre filleul ${rewardResult.filleul_name} a souscrit un abonnement. Vous recevez 10 crédits de récompense !`,
+                message: `Votre filleul ${rewardResult.filleul_name} a souscrit un abonnement. +10 crédits de récompense !`,
                 data: { credits: '10', type: 'referral_reward' },
               },
             });
-            console.log('[PARRAINAGE] Push envoyé au parrain');
-
-            // Push au filleul
-            await supabase.functions.invoke('send-notification', {
-              body: {
-                userId: subModal.id,
-                type: 'referral_bonus',
-                title: '🎁 +10 Crédits de bienvenue !',
-                message: `Merci d'avoir rejoint ChecksFleet via un parrainage ! Vous recevez 10 crédits bonus.`,
-                data: { credits: '10', type: 'referral_bonus' },
-              },
-            });
-            console.log('[PARRAINAGE] Push envoyé au filleul');
           } catch (pushErr) {
-            console.warn('[PARRAINAGE] Push échoué (non-bloquant):', pushErr);
+            console.warn('[PARRAINAGE] Push parrain échoué:', pushErr);
           }
-        } else if (rewardResult?.reason === 'no_referrer') {
-          console.log('[PARRAINAGE] Pas de parrain (referred_by = null)');
-        } else if (rewardResult?.reason === 'already_rewarded') {
-          console.log('[PARRAINAGE] Déjà récompensé, skip');
         }
       } catch (refErr) {
-        console.error('[PARRAINAGE] ERREUR CRITIQUE:', refErr);
+        console.error('[PARRAINAGE] ERREUR:', refErr);
       }
-    } else {
-      console.log('[PARRAINAGE] Pas un upgrade (plan actuel:', existing?.plan, ')');
     }
 
     await loadUsers();
+    showToast('success', 'Abonnement attribué', `${subPlan.toUpperCase()} activé pour ${targetEmail} — ${days}j`);
     setSubModal(null);
     setSubPlan('pro');
-    setSubDuration('30');
+    setSubDuration('365');
     setSubAutoRenew(true);
     setSubCustomCredits('');
   };
@@ -1095,7 +1091,7 @@ export default function AdminUsers() {
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1">Durée</label>
                 <div className="flex gap-2">
-                  {[{ d: 7, l: '7j' }, { d: 30, l: '1m' }, { d: 90, l: '3m' }, { d: 180, l: '6m' }, { d: 365, l: '1an' }].map(({ d, l }) => (
+                  {[{ d: 30, l: '1m' }, { d: 90, l: '3m' }, { d: 180, l: '6m' }, { d: 365, l: '1 an' }, { d: 730, l: '2 ans' }].map(({ d, l }) => (
                     <button
                       key={d}
                       onClick={() => setSubDuration(String(d))}
@@ -1136,7 +1132,7 @@ export default function AdminUsers() {
                   })()}
                   {subAutoRenew ? ' · Auto-renew' : ''}
                 </p>
-                <p className="text-xs text-slate-500">Expire le {new Date(Date.now() + parseInt(subDuration || '30') * 86400000).toLocaleDateString('fr-FR')}</p>
+                <p className="text-xs text-slate-500">Expire le {new Date(Date.now() + parseInt(subDuration || '365') * 86400000).toLocaleDateString('fr-FR')}</p>
               </div>
             </div>
 

@@ -207,7 +207,7 @@ export default function AdminDashboard() {
                   <p className="text-xs text-red-500">Actifs mais date d'expiration passée — action requise</p>
                 </div>
               </div>
-              <Link to="/admin/subscriptions" className="flex items-center gap-1 text-sm font-bold text-red-600 hover:text-red-800 bg-white px-4 py-2 rounded-xl border border-red-200 hover:shadow transition-all">
+              <Link to="/admin/users" className="flex items-center gap-1 text-sm font-bold text-red-600 hover:text-red-800 bg-white px-4 py-2 rounded-xl border border-red-200 hover:shadow transition-all">
                 Gérer <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
@@ -221,7 +221,7 @@ export default function AdminDashboard() {
                   <p className="text-xs text-amber-500">Abonnements actifs proches de l'expiration</p>
                 </div>
               </div>
-              <Link to="/admin/subscriptions?tab=analytics" className="flex items-center gap-1 text-sm font-bold text-amber-600 hover:text-amber-800 bg-white px-4 py-2 rounded-xl border border-amber-200 hover:shadow transition-all">
+              <Link to="/admin/users" className="flex items-center gap-1 text-sm font-bold text-amber-600 hover:text-amber-800 bg-white px-4 py-2 rounded-xl border border-amber-200 hover:shadow transition-all">
                 Voir détails <ArrowRight className="w-4 h-4" />
               </Link>
             </div>
@@ -233,7 +233,7 @@ export default function AdminDashboard() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         {[
           { label: 'Gestion utilisateurs', desc: `${statistics?.total_users || 0} utilisateurs`, icon: Users, to: '/admin/users', gradient: 'from-blue-500 to-indigo-500' },
-          { label: 'Abonnements', desc: `${subAlerts.totalActive} actifs`, icon: Package, to: '/admin/subscriptions', gradient: 'from-purple-500 to-pink-500' },
+          { label: 'Abonnements', desc: `${subAlerts.totalActive} actifs`, icon: Package, to: '/admin/users', gradient: 'from-purple-500 to-pink-500' },
           { label: 'Missions GPS', desc: `${statistics?.missions_in_progress || 0} en cours`, icon: Truck, to: '/admin/tracking', gradient: 'from-teal-500 to-green-500' },
           { label: 'Support', desc: 'Conversations', icon: Activity, to: '/admin/support', gradient: 'from-orange-500 to-red-500' },
         ].map(link => (
@@ -271,7 +271,7 @@ export default function AdminDashboard() {
               <Package className="w-5 h-5 text-purple-500" />
               Abonnements actifs
             </h2>
-            <Link to="/admin/subscriptions" className="flex items-center gap-1 text-sm font-bold text-purple-600 hover:text-purple-700 transition">
+            <Link to="/admin/users" className="flex items-center gap-1 text-sm font-bold text-purple-600 hover:text-purple-700 transition">
               Gérer <ArrowRight className="w-4 h-4" />
             </Link>
           </div>

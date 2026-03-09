@@ -60,7 +60,8 @@ const MissionTracking = lazyRetry(() => import('./pages/MissionTracking'));
 const Shop = lazyRetry(() => import('./pages/Shop'));
 const Support = lazyRetry(() => import('./pages/Support'));
 const Admin = lazyRetry(() => import('./pages/AdminDashboard'));
-const AdminUsers = lazyRetry(() => import('./pages/AdminUsers'));
+const AdminUsers = lazyRetry(() => import('./pages/admin/AdminUserList'));
+const AdminUserDetail = lazyRetry(() => import('./pages/admin/AdminUserDetail'));
 const AdminSubscriptions = lazyRetry(() => import('./pages/AdminSubscriptions'));
 const AdminTracking = lazyRetry(() => import('./pages/AdminTracking'));
 const AdminApk = lazyRetry(() => import('./pages/AdminApk'));
@@ -378,6 +379,17 @@ function AppContent() {
               <AdminRoute>
                 <AdminLayout>
                   <AdminUsers />
+                </AdminLayout>
+              </AdminRoute>
+            }
+          />
+
+          <Route
+            path="/admin/users/:userId"
+            element={
+              <AdminRoute>
+                <AdminLayout>
+                  <AdminUserDetail />
                 </AdminLayout>
               </AdminRoute>
             }
